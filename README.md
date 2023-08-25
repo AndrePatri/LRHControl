@@ -3,6 +3,7 @@
 |Isaac simulation|debugging GUI|   
 |:----------------------------------------------------------------------------:|:----------------------------------------------------------------------------------------------------------------:|
 |  <img src="aliengo_example/docs/images/example.png" alt="drawing" width="400"/> | <img src="aliengo_example/docs/images/gui_day.png" alt="drawing" width="500"/>
+
 Example scripts and implementations using the following two packages:
  
 - [ControlClusterUtils](https://github.com/AndPatr/ControlClusterUtils): utilities to create a CPU-based controllers cluster to be interfaced with GPU-based simulators 

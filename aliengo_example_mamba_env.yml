@@ -29,8 +29,8 @@ dependencies:
   - perf_sleep
   - pyqt
   - pyqtgraph
-  - control_cluster_utils
-  - omni_custom_gym
+  # - control_cluster_utils
+  # - omni_custom_gym
   - pip:
     - nvidia-cublas-cu11==11.11.3.6
     - gym==0.26.2
