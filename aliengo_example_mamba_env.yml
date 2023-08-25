@@ -1,0 +1,49 @@
+name: kyonrlstepping
+channels: 
+  - defaults
+  - pytorch
+  - nvidia
+  - conda-forge
+  - omnia
+  - francesco_ruscelli
+  - AndrePatri
+dependencies: 
+  - python=3.7
+  - pip
+  - pytorch==1.12.0
+  - torchvision 
+  - torchaudio 
+  - cuda-toolkit=11.7
+  - casadi_kin_dyn
+  - compilers 
+  - cmake
+  - make
+  - quaternion
+  - anaconda-client
+  - yaml-cpp
+  - pybind11
+  - gtest
+  - eigen3
+  - posix_ipc=1.0.4
+  - rospkg=1.5.0
+  - empy 
+  - python-devtools
+  - perf_sleep
+  - pyqt
+  - pyqtgraph
+  - pyin
+  # - control_cluster_utils
+  # - omni_custom_gym
+  - pip:
+    - nvidia-cublas-cu11==11.11.3.6
+    - gym==0.26.2
+    - gymnasium==0.28.1
+    - stable_baselines3[extra]==2.0.0a10
+    - box2d-py
+    - tensorboard
+    - tensorboard-plugin-wit
+    - protobuf
+    - matplotlib
+    - scipy
+    - urdf-parser-py
+    - multiprocess
