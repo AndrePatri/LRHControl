@@ -61,11 +61,16 @@ class AliengoEnv(RobotVecEnv):
                 "cluster client solve time -> " + \
                 str(self.cluster_client.solution_time))
 
-        if self.cluster_client.cluster_ready():
+        if self.cluster_client.cluster_ready() and \
+            self.cluster_client.controllers_active:
             
             self.task.pre_physics_step(self.cluster_client.controllers_cmds, 
                         is_first_control_step = self.cluster_client.is_first_control_step())
+            
+        else:
 
+            self.task.pre_physics_step(None, 
+                        is_first_control_step = False)
 
         self._world.step(render=self._render)
         
