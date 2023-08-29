@@ -17,6 +17,8 @@ class AliengoExampleTask(CustomTask):
                 replicate_physics: bool = True,
                 offset=None, 
                 env_spacing = 5.0, 
+                default_jnt_stiffness = 300.0,
+                default_jnt_damping = 20.0,
                 dtype = torch.float64) -> None:
 
         # trigger __init__ of parent class
@@ -29,6 +31,8 @@ class AliengoExampleTask(CustomTask):
                     replicate_physics = replicate_physics,
                     offset = offset, 
                     env_spacing = env_spacing, 
+                    default_jnt_stiffness = default_jnt_stiffness,
+                    default_jnt_damping = default_jnt_damping,
                     dtype = dtype)
         
         self.cluster_dt = cluster_dt
