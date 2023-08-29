@@ -50,8 +50,7 @@ class AliengoRHC(RHController):
 
     def _init_rhc_task_cmds(self) -> AliengoRhcTaskRef:
 
-        return AliengoRhcTaskRef(cluster_size=self.cluster_size, 
-                        n_contacts=self.n_contacts, 
+        return AliengoRhcTaskRef(n_contacts=self.n_contacts, 
                         index=self.controller_index, 
                         q_remapping=self._quat_remap, 
                         dtype=self.array_dtype, 
