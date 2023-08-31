@@ -1,5 +1,5 @@
 [build-system]
-requires = ["flit_core >=3.2,<4"]
+requires = ["flit_core >=2,<4"]
 build-backend = "flit_core.buildapi"
 
 [project]
@@ -10,7 +10,3 @@ authors = [{name = "AndrePatri", email = "andreapatrizi1b6e6@gmail.com"}]
 readme = "README.md"
 license = {file = "LICENSE"}
 classifiers = ["License :: OSI Approved :: MIT License"]
-dynamic = ["version", "description"]
-
-[tool.flit.metadata]
-python = "3.7"
