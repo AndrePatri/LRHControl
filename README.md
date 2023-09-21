@@ -1,8 +1,8 @@
 ### AliengoExample package
 
-|Isaac simulation|debugging GUI|   
+|Isaac simulation|Debugging GUI|   
 |:----------------------------------------------------------------------------:|:----------------------------------------------------------------------------------------------------------------:|
-|  <img src="aliengo_example/docs/images/example.png" alt="drawing" width="400"/> | <img src="aliengo_example/docs/images/gui_day.png" alt="drawing" width="500"/>
+|  <img src="aliengo_example/docs/images/isaac_sim.png" alt="drawing" width="600"/> | <img src="aliengo_example/docs/images/gui_example.png" alt="drawing" width="500"/>
 
 Example scripts and implementations using the following two packages:
  
