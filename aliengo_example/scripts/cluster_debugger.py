@@ -1,4 +1,4 @@
-from control_cluster_utils.utilities.cluster_debugger import RtClusterDebugger
+from control_cluster_utils.utilities.debugger_gui.cluster_debugger import RtClusterDebugger
 
 if __name__ == "__main__":  
 
