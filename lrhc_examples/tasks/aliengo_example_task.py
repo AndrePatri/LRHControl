@@ -5,7 +5,7 @@ from control_cluster_utils.utilities.control_cluster_defs import RobotClusterCmd
 import numpy as np
 import torch
 
-from aliengo_example.utils.xrdf_gen import get_xrdf_cmds_isaac
+from lrhc_examples.utils.xrdf_gen import get_xrdf_cmds_isaac
 
 class AliengoExampleTask(CustomTask):
     def __init__(self, 

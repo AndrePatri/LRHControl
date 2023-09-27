@@ -1,8 +1,8 @@
 from control_cluster_utils.controllers.rhc import RHController
 
-from aliengo_example.utils.homing import RobotHomer
+from lrhc_examples.utils.homing import RobotHomer
 
-from aliengo_example.controllers.aliengo_rhc.aliengorhc_taskref import AliengoRhcTaskRef
+from lrhc_examples.controllers.aliengo_rhc.aliengorhc_taskref import AliengoRhcTaskRef
 
 import numpy as np
 

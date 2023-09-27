@@ -1,8 +1,8 @@
 import os
 script_name = os.path.splitext(os.path.basename(os.path.abspath(__file__)))[0]
 
-from aliengo_example.controllers.aliengo_rhc.aliengorhc import AliengoRHC
-from aliengo_example.controllers.aliengo_rhc.aliengorhc_cluster_srvr import AliengoRHClusterSrvr
+from lrhc_examples.controllers.aliengo_rhc.aliengorhc import AliengoRHC
+from lrhc_examples.controllers.aliengo_rhc.aliengorhc_cluster_srvr import AliengoRHClusterSrvr
 
 import torch
 

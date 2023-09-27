@@ -5,7 +5,7 @@ import numpy as np
 import torch
 
 #from stable_baselines3 import PPO
-from aliengo_example.envs.aliengoenv import AliengoEnv 
+from lrhc_examples.envs.aliengoenv import AliengoEnv 
 
 env = AliengoEnv(headless=False, 
             enable_livestream=False, 
@@ -13,7 +13,7 @@ env = AliengoEnv(headless=False,
 
 # now we can import the task (not before, since Omni plugins are loaded 
 # upon environment initialization)
-from aliengo_example.tasks.aliengo_example_task import AliengoExampleTask
+from lrhc_examples.tasks.aliengo_example_task import AliengoExampleTask
 
 num_envs = 9 # 9, 3, 5
 sim_params = {}

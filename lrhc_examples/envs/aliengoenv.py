@@ -1,6 +1,6 @@
 from omni_custom_gym.gym.omni_vect_env.vec_envs import RobotVecEnv
 
-from aliengo_example.controllers.aliengo_rhc.aliengorhc_cluster_client import AliengoRHClusterClient
+from lrhc_examples.controllers.aliengo_rhc.aliengorhc_cluster_client import AliengoRHClusterClient
 
 import torch 
 import numpy as np
