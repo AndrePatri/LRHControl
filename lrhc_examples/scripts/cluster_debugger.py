@@ -12,6 +12,7 @@ if __name__ == "__main__":
                             plot_update_dt=plot_update_dt,
                             window_length=window_length, 
                             window_buffer_factor=window_buffer_factor, 
-                            verbose=True)
+                            verbose=True, 
+                            namespace="aliengo")
 
     main_window.run()

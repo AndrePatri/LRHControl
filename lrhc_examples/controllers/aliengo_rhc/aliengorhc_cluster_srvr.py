@@ -5,11 +5,11 @@ class AliengoRHClusterSrvr(ControlClusterSrvr):
     def __init__(self):
 
         self._temp_path = "/tmp/" + f"{self.__class__.__name__}"
-                
-        super().__init__()
         
         self.robot_name = "aliengo"
 
+        super().__init__(namespace=self.robot_name)
+        
         self._generate_srdf()
         
     def _generate_srdf(self):

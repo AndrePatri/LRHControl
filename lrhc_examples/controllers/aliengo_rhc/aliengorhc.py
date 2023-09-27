@@ -20,9 +20,12 @@ class AliengoRHC(RHController):
 
         self._homer: RobotHomer = None
         
+        self.robot_name = "aliengo"
+
         super().__init__(controller_index = controller_index, 
                         cluster_size = cluster_size,
                         srdf_path = srdf_path,
+                        namespace = self.robot_name,
                         verbose = verbose, 
                         debug = debug,
                         array_dtype = array_dtype)
