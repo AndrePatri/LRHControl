@@ -3,7 +3,7 @@ requires = ["flit_core >=2,<4"]
 build-backend = "flit_core.buildapi"
 
 [project]
-name = "aliengo_example"
+name = "lrhc_examples"
 version = "0.1.0"
 description = ""
 authors = [{name = "AndrePatri", email = "andreapatrizi1b6e6@gmail.com"}]
