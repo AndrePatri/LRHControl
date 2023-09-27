@@ -2,7 +2,10 @@
 
 |Isaac simulation|Debugging GUI|   
 |:----------------------------------------------------------------------------:|:----------------------------------------------------------------------------------------------------------------:|
-|  <img src="lrhc_examples/docs/images/isaac_sim.png" alt="drawing" width="600"/> | <img src="lrhc_examples/docs/images/gui_example.png" alt="drawing" width="500"/>
+|  <img src="lrhc_examples/docs/images/isaac_sim.png" alt="drawing" width="600"/> | <img src="lrhc_examples/docs/images/gui_light.png#gh-dark-mode-onlylrhc_examples/docs/images/gui_light.png#gh-light-mode-only" alt="drawing" width="500"/>
+
+![](lrhc_examples/docs/images/gui_dark.png#gh-dark-mode-only)
+![](lrhc_examples/docs/images/gui_light.png#gh-light-mode-only)
 
 Learning-based Receding Horizon Control examples on [Omniverse Isaac Sim](https://docs.omniverse.nvidia.com/app_isaacsim/app_isaacsim.html), built exploiting the following two packages:
  

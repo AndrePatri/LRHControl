@@ -54,7 +54,7 @@ task = AliengoExampleTask(cluster_dt = control_clust_dt,
                         cloning_offset = np.array([0.0, 0.0, 1.0]), 
                         device = device, 
                         dtype=dtype_torch, 
-                        use_flat_ground = False, 
+                        use_flat_ground = True, 
                         default_jnt_stiffness=100.0, 
                         default_jnt_damping=10.0) # create task
 
