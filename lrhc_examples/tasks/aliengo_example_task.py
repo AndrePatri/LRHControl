@@ -8,6 +8,7 @@ import torch
 from lrhc_examples.utils.xrdf_gen import get_xrdf_cmds_isaac
 
 class AliengoExampleTask(CustomTask):
+
     def __init__(self, 
                 cluster_dt: float, 
                 integration_dt: float,
@@ -17,19 +18,23 @@ class AliengoExampleTask(CustomTask):
                 replicate_physics: bool = True,
                 offset=None, 
                 env_spacing = 5.0, 
+                spawning_radius = 1.0,
                 use_flat_ground = True,
                 default_jnt_stiffness = 300.0,
                 default_jnt_damping = 20.0,
+                robot_names = ["aliengo"],
+                robot_pkg_names = ["aliengo"],
                 dtype = torch.float64) -> None:
 
         # trigger __init__ of parent class
         CustomTask.__init__(self,
                     name = self.__class__.__name__, 
-                    robot_names = ["aliengo0"],
-                    robot_pkg_names = ["aliengo"],
+                    robot_names = robot_names,
+                    robot_pkg_names = robot_pkg_names,
                     num_envs = num_envs,
                     device = device, 
                     cloning_offset = cloning_offset,
+                    spawning_radius = spawning_radius,
                     replicate_physics = replicate_physics,
                     offset = offset, 
                     env_spacing = env_spacing, 

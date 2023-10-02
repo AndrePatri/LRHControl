@@ -15,7 +15,7 @@ env = AliengoEnv(headless=False,
 # upon environment initialization)
 from lrhc_examples.tasks.aliengo_example_task import AliengoExampleTask
 
-num_envs = 9 # 9, 3, 5
+num_envs = 3 # 9, 3, 5
 sim_params = {}
 sim_params["use_gpu_pipeline"] = True
 sim_params["integration_dt"] = 1.0/100.0
@@ -36,7 +36,6 @@ device = sim_params["device"]
 control_clust_dt = sim_params["integration_dt"] * 2
 integration_dt = sim_params["integration_dt"]
 
-
 dtype = "float32" # Isaac requires data to be float32, so this should not be touched
 if dtype == "float64":
     dtype_np = np.float64 
@@ -44,19 +43,23 @@ if dtype == "float64":
 if dtype == "float32":
     dtype_np = np.float32
     dtype_torch = torch.float32
-
 # this has to be the same wrt the cluster server, otherwise
 # messages are not read/written properly
 
+# create task
 task = AliengoExampleTask(cluster_dt = control_clust_dt, 
-                        integration_dt = integration_dt,
-                        num_envs = num_envs, 
-                        cloning_offset = np.array([0.0, 0.0, 1.0]), 
-                        device = device, 
-                        dtype=dtype_torch, 
-                        use_flat_ground = True, 
-                        default_jnt_stiffness=100.0, 
-                        default_jnt_damping=10.0) # create task
+                    integration_dt = integration_dt,
+                    num_envs = num_envs, 
+                    cloning_offset = np.array([0.0, 0.0, 0.7]), 
+                    env_spacing=5.0,
+                    spawning_radius=2.0,
+                    device = device, 
+                    dtype=dtype_torch, 
+                    use_flat_ground = True, 
+                    default_jnt_stiffness=100.0, 
+                    default_jnt_damping=10.0, 
+                    robot_names = ["aliengo0", "aliengo1", "aliengo2"],
+                    robot_pkg_names = ["aliengo", "aliengo", "aliengo"]) 
 
 env.set_task(task, 
         backend="torch", 
