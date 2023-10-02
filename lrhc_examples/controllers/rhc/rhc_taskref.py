@@ -1,6 +1,6 @@
 from control_cluster_utils.utilities.rhc_defs import RhcTaskRefs
 
-class AliengoRhcTaskRef(RhcTaskRefs):
+class RhcTaskRef(RhcTaskRefs):
 
     def __init__(self,
                 n_contacts, 

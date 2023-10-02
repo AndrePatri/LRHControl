@@ -1,6 +1,6 @@
 from control_cluster_utils.cluster_server.control_cluster_srvr import ControlClusterSrvr
 
-class AliengoRHClusterSrvr(ControlClusterSrvr):
+class RHClusterSrvr(ControlClusterSrvr):
     
     def __init__(self, 
             robot_name: str):

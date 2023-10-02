@@ -7,7 +7,7 @@ import torch
 
 from lrhc_examples.utils.xrdf_gen import get_xrdf_cmds_isaac
 
-class AliengoExampleTask(CustomTask):
+class ExampleTask(CustomTask):
 
     def __init__(self, 
                 cluster_dt: float, 

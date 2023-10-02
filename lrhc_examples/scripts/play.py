@@ -5,17 +5,17 @@ import numpy as np
 import torch
 
 #from stable_baselines3 import PPO
-from lrhc_examples.envs.aliengoenv import AliengoEnv 
+from lrhc_examples.envs.lrhcenv import DummyEnv 
 
-env = AliengoEnv(headless=False, 
+env = DummyEnv(headless=False, 
             enable_livestream=False, 
             enable_viewport=False) # create environment
 
 # now we can import the task (not before, since Omni plugins are loaded 
 # upon environment initialization)
-from lrhc_examples.tasks.aliengo_example_task import AliengoExampleTask
+from lrhc_examples.tasks.dummy_task import ExampleTask
 
-num_envs = 3 # 9, 3, 5
+num_envs = 2 # 9, 3, 5
 sim_params = {}
 sim_params["use_gpu_pipeline"] = True
 sim_params["integration_dt"] = 1.0/100.0
@@ -47,19 +47,19 @@ if dtype == "float32":
 # messages are not read/written properly
 
 # create task
-task = AliengoExampleTask(cluster_dt = control_clust_dt, 
-                    integration_dt = integration_dt,
-                    num_envs = num_envs, 
-                    cloning_offset = np.array([0.0, 0.0, 0.7]), 
-                    env_spacing=5.0,
-                    spawning_radius=2.0,
-                    device = device, 
-                    dtype=dtype_torch, 
-                    use_flat_ground = True, 
-                    default_jnt_stiffness=100.0, 
-                    default_jnt_damping=10.0, 
-                    robot_names = ["aliengo0", "aliengo1", "aliengo2"],
-                    robot_pkg_names = ["aliengo", "aliengo", "aliengo"]) 
+task = ExampleTask(cluster_dt = control_clust_dt, 
+            integration_dt = integration_dt,
+            num_envs = num_envs, 
+            cloning_offset = np.array([0.0, 0.0, 0.7]), 
+            env_spacing=7.0,
+            spawning_radius=2.0,
+            device = device, 
+            dtype=dtype_torch, 
+            use_flat_ground = True, 
+            default_jnt_stiffness=300.0, 
+            default_jnt_damping=10.0, 
+            robot_names = ["aliengo0", "centauro0", "aliengo1", "centauro1"],
+            robot_pkg_names = ["aliengo", "centauro", "aliengo", "centauro",]) 
 
 env.set_task(task, 
         backend="torch", 
@@ -115,5 +115,7 @@ while env._simulation_app.is_running():
     print(f"[{script_name}]" + "[info]: real_time-> " + str(real_time))
     print(f"[{script_name}]" + "[info]: sim_time-> " + str(sim_time))
     print(f"[{script_name}]" + "[info]: loop execution time-> " + str(now - start_time_loop))
+
+print("[main][info]: closing environment and simulation")
 
 env.close()

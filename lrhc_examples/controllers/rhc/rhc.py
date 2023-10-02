@@ -2,13 +2,13 @@ from control_cluster_utils.controllers.rhc import RHController
 
 from lrhc_examples.utils.homing import RobotHomer
 
-from lrhc_examples.controllers.aliengo_rhc.aliengorhc_taskref import AliengoRhcTaskRef
+from lrhc_examples.controllers.rhc.rhc_taskref import RhcTaskRef
 
 import numpy as np
 
 import torch
 
-class AliengoRHC(RHController):
+class RHC(RHController):
 
     def __init__(self, 
             controller_index: int,

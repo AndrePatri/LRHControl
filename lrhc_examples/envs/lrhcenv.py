@@ -1,11 +1,11 @@
 from omni_custom_gym.gym.omni_vect_env.vec_envs import RobotVecEnv
 
-from lrhc_examples.controllers.aliengo_rhc.aliengorhc_cluster_client import AliengoRHClusterClient
+from lrhc_examples.controllers.rhc.rhc_cluster_client import RHClusterClient
 
 import torch 
 import numpy as np
 
-class AliengoEnv(RobotVecEnv):
+class DummyEnv(RobotVecEnv):
 
     def set_task(self, 
                 task, 
@@ -29,7 +29,7 @@ class AliengoEnv(RobotVecEnv):
         # -> we have the data to initialize the cluster client
         for i in range(len(self.robot_names)):
 
-            self.cluster_clients[self.robot_names[i]] = AliengoRHClusterClient(
+            self.cluster_clients[self.robot_names[i]] = RHClusterClient(
                         cluster_size=self.task.num_envs, 
                         device=self.task.torch_device, 
                         cluster_dt=self.task.cluster_dt, 
@@ -57,6 +57,9 @@ class AliengoEnv(RobotVecEnv):
                 self.task.init_root_abs_offsets(self.robot_names[i]) # we get the current absolute positions and use them as 
                 # references
 
+                self.task.synch_default_root_states() # we update the default root state now, so that we
+                # can use it at the next call to reset
+
             if self.cluster_clients[self.robot_names[i]].is_cluster_instant(index):
                 
                 # assign last robot state observation to the cluster client
@@ -71,28 +74,28 @@ class AliengoEnv(RobotVecEnv):
                     "cluster client n." + str(i) + " solve time -> " + \
                     str(self.cluster_clients[self.robot_names[i]].solution_time))
 
-        if self.cluster_clients[self.robot_names[i]].cluster_ready() and \
-            self.cluster_clients[self.robot_names[i]].controllers_active:
-            
-            if self.cluster_clients[self.robot_names[i]].is_first_control_step():
+            if self.cluster_clients[self.robot_names[i]].cluster_ready() and \
+                self.cluster_clients[self.robot_names[i]].controllers_active:
+                
+                if self.cluster_clients[self.robot_names[i]].is_first_control_step():
 
-                no_gains_pos = torch.full((self.num_envs, self.robot_n_dofs[self.robot_names[i]]), 
-                            100.0, 
-                            device = self.torch_device, 
-                            dtype=self.torch_dtype)
-                no_gains_vel = torch.full((self.num_envs, self.robot_n_dofs[self.robot_names[i]]), 
-                            10, 
-                            device = self.torch_device, 
-                            dtype=self.torch_dtype)
-            
-                self.task.jnt_imp_controllers[self.robot_names[i]].set_gains(pos_gains = no_gains_pos,
-                                    vel_gains = no_gains_vel)
+                    gains_pos = torch.full((self.num_envs, self.robot_n_dofs[self.robot_names[i]]), 
+                                100.0, 
+                                device = self.torch_device, 
+                                dtype=self.torch_dtype)
+                    gains_vel = torch.full((self.num_envs, self.robot_n_dofs[self.robot_names[i]]), 
+                                10, 
+                                device = self.torch_device, 
+                                dtype=self.torch_dtype)
+                
+                    self.task.jnt_imp_controllers[self.robot_names[i]].set_gains(pos_gains = gains_pos,
+                                        vel_gains = gains_vel)
 
-            self.task.pre_physics_step(self.cluster_clients[self.robot_names[i]].controllers_cmds)
+                self.task.pre_physics_step(self.cluster_clients[self.robot_names[i]].controllers_cmds)
             
-        else:
+            else:
 
-            self.task.pre_physics_step(None)
+                self.task.pre_physics_step(None)
 
         self._world.step(render=self._render)
         
@@ -140,7 +143,7 @@ class AliengoEnv(RobotVecEnv):
             
             robot_name = self.robot_names[i]
 
-            self.task.jnt_imp_controllers[robot_name].set_refs(pos_ref = self.task._homers[robot_name].get_homing())
+            self.task.jnt_imp_controllers[robot_name].set_refs(pos_ref = self.task.homers[robot_name].get_homing())
             self.task.jnt_imp_controllers[robot_name].apply_refs()
 
     def close(self):
