@@ -21,18 +21,26 @@ class AliengoEnv(RobotVecEnv):
                 sim_params=sim_params, 
                 init_sim=init_sim)
         
+        self.robot_names = self.task.robot_names
+        self.robot_pkg_names = self.task.robot_pkg_names
+        self.cluster_clients = {}
+
         # now the task and the simulation is guaranteed to be initialized
         # -> we have the data to initialize the cluster client
-        self.cluster_client = AliengoRHClusterClient(cluster_size=task.num_envs, 
-                        device=task.torch_device, 
-                        cluster_dt=task.cluster_dt, 
-                        control_dt=task.integration_dt, 
-                        jnt_names = task.robot_dof_names, 
+        for i in range(len(self.robot_names)):
+
+            self.cluster_clients[self.robot_names[i]] = AliengoRHClusterClient(
+                        cluster_size=self.task.num_envs, 
+                        device=self.task.torch_device, 
+                        cluster_dt=self.task.cluster_dt, 
+                        control_dt=self.task.integration_dt, 
+                        jnt_names = self.task.robot_dof_names[self.robot_names[i]], 
                         np_array_dtype = np_array_dtype, 
                         verbose = verbose, 
-                        debug = debug)
+                        debug = debug, 
+                        robot_name=self.robot_names[i])
         
-        self.init_cluster_cmd_to_safe_vals()
+        self.init_jnt_cmd_to_safe_vals()
 
         self._is_cluster_ready = False
         
@@ -40,37 +48,51 @@ class AliengoEnv(RobotVecEnv):
         index: int, 
         actions = None):
         
-        if self.cluster_client.is_first_control_step():
+        for i in range(len(self.robot_names)):
+
+            if self.cluster_clients[self.robot_names[i]].is_first_control_step():
+                
+                # first time the cluster is ready (i.e. the controllers are ready and connected)
+
+                self.task.init_root_abs_offsets(self.robot_names[i]) # we get the current absolute positions and use them as 
+                # references
+
+            if self.cluster_clients[self.robot_names[i]].is_cluster_instant(index):
+                
+                # assign last robot state observation to the cluster client
+                self.update_cluster_state(self.robot_names[i])
+
+                # the control cluster may run at a different rate wrt the simulation
+
+                self.cluster_clients[self.robot_names[i]].solve() # we solve all the underlying TOs in the cluster
+                # (the solve will do nothing unless the cluster is ready)
+
+                print(f"[{self.__class__.__name__}]" + f"[{self.journal.info}]: " + \
+                    "cluster client n." + str(i) + " solve time -> " + \
+                    str(self.cluster_clients[self.robot_names[i]].solution_time))
+
+        if self.cluster_clients[self.robot_names[i]].cluster_ready() and \
+            self.cluster_clients[self.robot_names[i]].controllers_active:
             
-            # first time the cluster is ready (i.e. the controllers are ready and connected)
+            if self.cluster_clients[self.robot_names[i]].is_first_control_step():
 
-            self.task.init_root_abs_offsets() # we get the current absolute positions and use them as 
-            # references
-
-        if self.cluster_client.is_cluster_instant(index):
+                no_gains_pos = torch.full((self.num_envs, self.robot_n_dofs[self.robot_names[i]]), 
+                            100.0, 
+                            device = self.torch_device, 
+                            dtype=self.torch_dtype)
+                no_gains_vel = torch.full((self.num_envs, self.robot_n_dofs[self.robot_names[i]]), 
+                            10, 
+                            device = self.torch_device, 
+                            dtype=self.torch_dtype)
             
-            # assign last robot state observation to the cluster client
-            self.update_cluster_state()
+                self.task.jnt_imp_controllers[self.robot_names[i]].set_gains(pos_gains = no_gains_pos,
+                                    vel_gains = no_gains_vel)
 
-            # the control cluster may run at a different rate wrt the simulation
-
-            self.cluster_client.solve() # we solve all the underlying TOs in the cluster
-            # (the solve will do nothing unless the cluster is ready)
-
-            print(f"[{self.__class__.__name__}]" + f"[{self.journal.info}]: " + \
-                "cluster client solve time -> " + \
-                str(self.cluster_client.solution_time))
-
-        if self.cluster_client.cluster_ready() and \
-            self.cluster_client.controllers_active:
-            
-            self.task.pre_physics_step(self.cluster_client.controllers_cmds, 
-                        is_first_control_step = self.cluster_client.is_first_control_step())
+            self.task.pre_physics_step(self.cluster_clients[self.robot_names[i]].controllers_cmds)
             
         else:
 
-            self.task.pre_physics_step(None, 
-                        is_first_control_step = False)
+            self.task.pre_physics_step(None)
 
         self._world.step(render=self._render)
         
@@ -79,7 +101,9 @@ class AliengoEnv(RobotVecEnv):
         observations = self.task.get_observations()
 
         rewards = self.task.calculate_metrics()
+
         dones = self.task.is_done()
+        
         info = {}
 
         return observations, rewards, dones, info
@@ -94,29 +118,36 @@ class AliengoEnv(RobotVecEnv):
 
         observations = self.task.get_observations()
 
-        self.init_cluster_cmd_to_safe_vals()
+        self.init_jnt_cmd_to_safe_vals()
 
         return observations
     
-    def update_cluster_state(self):
-
-        self.cluster_client.robot_states.root_state.p[:, :] = torch.sub(self.task.root_p, 
-                                                                self.task.root_abs_offsets) # we only get the relative position
-        # w.r.t. the initial spawning pose
-        self.cluster_client.robot_states.root_state.q[:, :] = self.task.root_q
-        self.cluster_client.robot_states.root_state.v[:, :] = self.task.root_v
-        self.cluster_client.robot_states.root_state.omega[:, :] = self.task.root_omega
-        self.cluster_client.robot_states.jnt_state.q[:, :] = self.task.jnts_q
-        self.cluster_client.robot_states.jnt_state.v[:, :] = self.task.jnts_v
-
-    def init_cluster_cmd_to_safe_vals(self):
+    def update_cluster_state(self, 
+                        robot_name: str):
         
-        self.task._jnt_imp_controller.set_refs(pos_ref = self.task._homer.get_homing())
-        self.task._jnt_imp_controller.apply_refs()
+        self.cluster_clients[robot_name].robot_states.root_state.p[:, :] = torch.sub(self.task.root_p[robot_name], 
+                                                                self.task.root_abs_offsets[robot_name]) # we only get the relative position
+        # w.r.t. the initial spawning pose
+        self.cluster_clients[robot_name].robot_states.root_state.q[:, :] = self.task.root_q[robot_name]
+        self.cluster_clients[robot_name].robot_states.root_state.v[:, :] = self.task.root_v[robot_name]
+        self.cluster_clients[robot_name].robot_states.root_state.omega[:, :] = self.task.root_omega[robot_name]
+        self.cluster_clients[robot_name].robot_states.jnt_state.q[:, :] = self.task.jnts_q[robot_name]
+        self.cluster_clients[robot_name].robot_states.jnt_state.v[:, :] = self.task.jnts_v[robot_name]
+
+    def init_jnt_cmd_to_safe_vals(self):
+        
+        for i in range(len(self.robot_names)):
+            
+            robot_name = self.robot_names[i]
+
+            self.task.jnt_imp_controllers[robot_name].set_refs(pos_ref = self.task._homers[robot_name].get_homing())
+            self.task.jnt_imp_controllers[robot_name].apply_refs()
 
     def close(self):
 
-        self.cluster_client.close()
+        for i in range(len(self.robot_names)):
+
+            self.cluster_clients[self.robot_names[i]].close()
         
         super().close() # this has to be called last 
         # so that isaac's simulation is close properly

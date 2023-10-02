@@ -14,13 +14,14 @@ class AliengoRHC(RHController):
             controller_index: int,
             cluster_size: int, # needed by shared mem manager
             srdf_path: str,
+            robot_name: str = "aliengo",
             verbose = False, 
             debug = False, 
             array_dtype = torch.float32):
 
         self._homer: RobotHomer = None
         
-        self.robot_name = "aliengo"
+        self.robot_name = robot_name
 
         super().__init__(controller_index = controller_index, 
                         cluster_size = cluster_size,
@@ -57,7 +58,8 @@ class AliengoRHC(RHController):
                         index=self.controller_index, 
                         q_remapping=self._quat_remap, 
                         dtype=self.array_dtype, 
-                        verbose=self._verbose)
+                        verbose=self._verbose, 
+                        namespace=self.robot_name)
     
     def _get_robot_jnt_names(self):
 

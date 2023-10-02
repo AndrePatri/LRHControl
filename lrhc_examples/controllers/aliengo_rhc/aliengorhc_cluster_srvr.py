@@ -2,13 +2,16 @@ from control_cluster_utils.cluster_server.control_cluster_srvr import ControlClu
 
 class AliengoRHClusterSrvr(ControlClusterSrvr):
     
-    def __init__(self):
+    def __init__(self, 
+            robot_name: str):
 
         self._temp_path = "/tmp/" + f"{self.__class__.__name__}"
         
-        self.robot_name = "aliengo"
+        self.namespace = robot_name
 
-        super().__init__(namespace=self.robot_name)
+        self.robot_pkg_name = "aliengo"
+
+        super().__init__(namespace=self.namespace)
         
         self._generate_srdf()
         
@@ -19,9 +22,9 @@ class AliengoRHClusterSrvr(ControlClusterSrvr):
         # we generate the URDF where the Kyon description package is located
         import rospkg
         rospackage = rospkg.RosPack()
-        xacro_name = self.robot_name
+        xacro_name = self.robot_pkg_name
         self._srdf_path = self._temp_path + "/" + xacro_name + ".srdf"
-        xacro_path = rospackage.get_path(self.robot_name + "_srdf") + "/srdf/" + xacro_name + ".srdf.xacro"
+        xacro_path = rospackage.get_path(self.robot_pkg_name + "_srdf") + "/srdf/" + xacro_name + ".srdf.xacro"
         
         import subprocess
         try:

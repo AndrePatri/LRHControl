@@ -10,9 +10,10 @@ class AliengoRHClusterClient(ControlClusterClient):
             device, 
             np_array_dtype, 
             verbose, 
-            debug):
+            debug,
+            robot_name = "aliengo"):
 
-        self.robot_name = "aliengo"
+        self.robot_name = robot_name
                 
         super().__init__(cluster_size= cluster_size, 
                         control_dt=control_dt, 

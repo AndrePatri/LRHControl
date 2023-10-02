@@ -7,13 +7,12 @@ class AliengoRhcTaskRef(RhcTaskRefs):
                 index, 
                 q_remapping, 
                 dtype, 
-                verbose):
-
-        self.robot_name = "aliengo"
+                verbose, 
+                namespace = "aliengo"):
                 
         super().__init__(n_contacts=n_contacts, 
                 index=index, 
                 q_remapping=q_remapping, 
                 dtype=dtype, 
                 verbose=verbose, 
-                namespace=self.robot_name)
+                namespace=namespace)

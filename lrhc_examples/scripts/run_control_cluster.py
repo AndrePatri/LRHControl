@@ -8,7 +8,7 @@ import torch
 
 from perf_sleep.pyperfsleep import PerfSleep
 
-def generate_controllers():
+def generate_controllers(robot_name: str):
 
     # create controllers
     cluster_controllers = []
@@ -18,6 +18,7 @@ def generate_controllers():
                                     controller_index = i,
                                     cluster_size=control_cluster_srvr.cluster_size,
                                     srdf_path=control_cluster_srvr._srdf_path,
+                                    robot_name=robot_name,
                                     verbose = verbose, 
                                     debug = debug,
                                     array_dtype = dtype))
@@ -32,8 +33,9 @@ perf_timer = PerfSleep()
 dtype = torch.float32 # this has to be the same wrt the cluster client, otherwise
 # messages are not read properly
 
-control_cluster_srvr = AliengoRHClusterSrvr() # this blocks until connection with the client is established
-controllers = generate_controllers()
+robot_name = "aliengo0"
+control_cluster_srvr = AliengoRHClusterSrvr(robot_name) # this blocks until connection with the client is established
+controllers = generate_controllers(robot_name)
 
 for i in range(0, control_cluster_srvr.cluster_size):
     

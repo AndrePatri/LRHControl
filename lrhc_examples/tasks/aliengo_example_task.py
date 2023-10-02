@@ -25,7 +25,8 @@ class AliengoExampleTask(CustomTask):
         # trigger __init__ of parent class
         CustomTask.__init__(self,
                     name = self.__class__.__name__, 
-                    robot_name = "aliengo",
+                    robot_names = ["aliengo0"],
+                    robot_pkg_names = ["aliengo"],
                     num_envs = num_envs,
                     device = device, 
                     cloning_offset = cloning_offset,
@@ -60,34 +61,16 @@ class AliengoExampleTask(CustomTask):
         super().reset()
 
     def pre_physics_step(self, 
-            actions: RobotClusterCmd = None, 
-            is_first_control_step = False) -> None:
-        
-        if is_first_control_step:
-
-            no_gains_pos = torch.full((self.num_envs, self.robot_n_dofs), 
-                        100.0, 
-                        device = self.torch_device, 
-                        dtype=self.torch_dtype)
-            no_gains_vel = torch.full((self.num_envs, self.robot_n_dofs), 
-                        10, 
-                        device = self.torch_device, 
-                        dtype=self.torch_dtype)
-            self._jnt_imp_controller.set_gains(pos_gains = no_gains_pos,
-                                vel_gains = no_gains_vel)
+            robot_name: str,
+            actions: RobotClusterCmd = None) -> None:
         
         if actions is not None:
             
-            self._jnt_imp_controller.set_refs(pos_ref = actions.jnt_cmd.q, 
+            self._jnt_imp_controllers[robot_name].set_refs(pos_ref = actions.jnt_cmd.q, 
                                             vel_ref = actions.jnt_cmd.v, 
                                             eff_ref = actions.jnt_cmd.eff)
                     
-            self._jnt_imp_controller.apply_refs()
-
-        # print("cmd debug" + "\n" + 
-        #         "q_cmd: " + str(actions.jnt_cmd.q) + "\n" + 
-        #         "v_cmd: " + str(actions.jnt_cmd.v) + "\n" + 
-        #         "eff_cmd: " + str(actions.jnt_cmd.eff))
+            self._jnt_imp_controllers[robot_name].apply_refs()
 
     def get_observations(self):
         
