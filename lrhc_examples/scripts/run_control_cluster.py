@@ -1,8 +1,8 @@
 import os
 script_name = os.path.splitext(os.path.basename(os.path.abspath(__file__)))[0]
 
-from lrhc_examples.controllers.aliengo_rhc.rhc import AliengoRHC
-from lrhc_examples.controllers.aliengo_rhc.rhc_cluster_srvr import AliengoRHClusterSrvr
+from lrhc_examples.controllers.rhc.rhc import RHC
+from lrhc_examples.controllers.rhc.rhc_cluster_srvr import RHClusterSrvr
 
 import torch
 
@@ -14,7 +14,7 @@ def generate_controllers(robot_name: str):
     cluster_controllers = []
     for i in range(0, control_cluster_srvr.cluster_size):
 
-        cluster_controllers.append(AliengoRHC(
+        cluster_controllers.append(RHC(
                                     controller_index = i,
                                     cluster_size=control_cluster_srvr.cluster_size,
                                     srdf_path=control_cluster_srvr._srdf_path,
@@ -34,7 +34,7 @@ dtype = torch.float32 # this has to be the same wrt the cluster client, otherwis
 # messages are not read properly
 
 robot_name = "aliengo0"
-control_cluster_srvr = AliengoRHClusterSrvr(robot_name) # this blocks until connection with the client is established
+control_cluster_srvr = RHClusterSrvr(robot_name) # this blocks until connection with the client is established
 controllers = generate_controllers(robot_name)
 
 for i in range(0, control_cluster_srvr.cluster_size):

@@ -52,14 +52,14 @@ class RHC(RHController):
 
         print(f"[{self.__class__.__name__}" + str(self.controller_index) + "]" +  f"[{self.journal.status}]" + "controller initialized.")
 
-    def _init_rhc_task_cmds(self) -> AliengoRhcTaskRef:
+    def _init_rhc_task_cmds(self) -> RhcTaskRef:
 
-        return AliengoRhcTaskRef(n_contacts=self.n_contacts, 
-                        index=self.controller_index, 
-                        q_remapping=self._quat_remap, 
-                        dtype=self.array_dtype, 
-                        verbose=self._verbose, 
-                        namespace=self.robot_name)
+        return RhcTaskRef(n_contacts=self.n_contacts, 
+                    index=self.controller_index, 
+                    q_remapping=self._quat_remap, 
+                    dtype=self.array_dtype, 
+                    verbose=self._verbose, 
+                    namespace=self.robot_name)
     
     def _get_robot_jnt_names(self):
 
