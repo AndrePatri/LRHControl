@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with LRhcExamples.  If not, see <http://www.gnu.org/licenses/>.
 # 
-from control_cluster_utils.utilities.debugger_gui.cluster_debugger import RtClusterDebugger
+from control_cluster_bridge.utilities.debugger_gui.cluster_debugger import RtClusterDebugger
 
 if __name__ == "__main__":  
 

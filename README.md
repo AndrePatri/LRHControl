@@ -7,12 +7,12 @@
 
 Learning-based Receding Horizon Control examples on [Omniverse Isaac Sim](https://docs.omniverse.nvidia.com/app_isaacsim/app_isaacsim.html), built exploiting the following two packages:
  
-- [ControlClusterUtils](https://github.com/AndPatr/ControlClusterUtils): utilities to create an interface between a CPU-based control cluster and GPU-based simulators (also available through Anaconda [here](https://anaconda.org/AndrePatri/control_cluster_utils)).
-- [OmniCustomGym](https://github.com/AndPatr/OmniCustomGym): custom implementations of Tasks and Gyms for Robotics exploiting [Omniverse Isaac Sim](https://docs.omniverse.nvidia.com/app_isaacsim/app_isaacsim.html) and [Gymnasium](https://gymnasium.farama.org/). Easy URDF and SRDF importing/cloning, multi-robot support and simulation setup built on top of Isaac's Python API. Also available through Anaconda [here](https://anaconda.org/AndrePatri/omni_custom_gym).
+- [CoClusterBridge](https://github.com/AndPatr/CoClusterBridge): utilities to create an interface between a CPU-based control cluster and GPU-based simulators (also available through Anaconda [here](https://anaconda.org/AndrePatri/control_cluster_bridge)).
+- [OmniRoboGym](https://github.com/AndPatr/OmniRoboGym): custom implementations of Tasks and Gyms for Robotics exploiting [Omniverse Isaac Sim](https://docs.omniverse.nvidia.com/app_isaacsim/app_isaacsim.html) and [Gymnasium](https://gymnasium.farama.org/). Easy URDF and SRDF importing/cloning, multi-robot support and simulation setup built on top of Isaac's Python API. Also available through Anaconda [here](https://anaconda.org/AndrePatri/omni_robo_gym).
 
 Installation instructions:
 
-- The preferred way of using LRhcExamples package is to employ the provided environment at [OmniCustomGym](https://github.com/AndPatr/OmniCustomGym). Follow the installation instruction to setup the environment and install Omniverse Isaac Sim.
+- The preferred way of using LRhcExamples package is to employ the provided environment at [OmniRoboGym](https://github.com/AndPatr/OmniRoboGym). Follow the installation instruction to setup the environment and install Omniverse Isaac Sim.
 
 - From the root folder install the package in editable mode with ```pip install --no-deps -e .```
 

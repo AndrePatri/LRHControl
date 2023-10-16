@@ -13,7 +13,7 @@ requirements:
     - python=3.7
 
 about:
-  home: https://github.com/AndrePatri/ControlClusterUtils
+  home: https://github.com/AndrePatri/CoClusterBridge
   license: MIT
   summary: Utilities to create a CPU-based control cluster to be interfaced with GPU-based simulators using shared memory for minimum latency.
 

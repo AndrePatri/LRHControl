@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with LRhcExamples.  If not, see <http://www.gnu.org/licenses/>.
 # 
-from control_cluster_utils.cluster_client.control_cluster_client import ControlClusterClient
+from control_cluster_bridge.cluster_client.control_cluster_client import ControlClusterClient
 
 class RHClusterClient(ControlClusterClient):
 

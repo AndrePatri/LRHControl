@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with LRhcExamples.  If not, see <http://www.gnu.org/licenses/>.
 # 
-from omni_custom_gym.gym.omni_vect_env.vec_envs import RobotVecEnv
+from omni_robo_gym.gym.omni_vect_env.vec_envs import RobotVecEnv
 
 from lrhc_examples.controllers.rhc.rhc_cluster_client import RHClusterClient
 

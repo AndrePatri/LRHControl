@@ -21,7 +21,7 @@ import xml.etree.ElementTree as ET
 
 from typing import List
 
-from control_cluster_utils.utilities.defs import Journal
+from control_cluster_bridge.utilities.defs import Journal
 
 class RobotHomer:
 

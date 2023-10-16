@@ -15,9 +15,9 @@
 # You should have received a copy of the GNU General Public License
 # along with LRhcExamples.  If not, see <http://www.gnu.org/licenses/>.
 # 
-from omni_custom_gym.tasks.custom_task import CustomTask
+from omni_robo_gym.tasks.custom_task import CustomTask
 
-from control_cluster_utils.utilities.control_cluster_defs import RobotClusterCmd
+from control_cluster_bridge.utilities.control_cluster_defs import RobotClusterCmd
 
 import numpy as np
 import torch
@@ -58,7 +58,9 @@ class ExampleTask(CustomTask):
                     use_flat_ground = use_flat_ground,
                     default_jnt_stiffness = default_jnt_stiffness,
                     default_jnt_damping = default_jnt_damping,
-                    dtype = dtype)
+                    dtype = dtype, 
+                    self_collide = False, 
+                    fix_base = False)
         
         self.cluster_dt = cluster_dt
         self.integration_dt = integration_dt

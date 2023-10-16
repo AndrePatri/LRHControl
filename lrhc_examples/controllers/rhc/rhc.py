@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with LRhcExamples.  If not, see <http://www.gnu.org/licenses/>.
 # 
-from control_cluster_utils.controllers.rhc import RHController
+from control_cluster_bridge.controllers.rhc import RHController
 
 from lrhc_examples.utils.homing import RobotHomer
 

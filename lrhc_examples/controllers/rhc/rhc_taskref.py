@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with LRhcExamples.  If not, see <http://www.gnu.org/licenses/>.
 # 
-from control_cluster_utils.utilities.rhc_defs import RhcTaskRefs
+from control_cluster_bridge.utilities.rhc_defs import RhcTaskRefs
 
 class RhcTaskRef(RhcTaskRefs):
 
