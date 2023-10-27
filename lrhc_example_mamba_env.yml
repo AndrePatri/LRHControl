@@ -1,4 +1,4 @@
-name: aliengo_example
+name: lrhc_examples_isaac2023.1.0
 channels: 
   - defaults
   - pytorch
@@ -7,9 +7,9 @@ channels:
   - omnia
   - AndrePatri
 dependencies: 
-  - python=3.7
+  - python=3.10
   - pip
-  - pytorch==1.12.0
+  - pytorch
   - torchvision 
   - torchaudio 
   - cuda-toolkit=11.7
@@ -34,9 +34,9 @@ dependencies:
   - pip:
     - flit
     - nvidia-cublas-cu11==11.11.3.6
-    - gym==0.26.2
-    - gymnasium==0.28.1
-    - stable_baselines3[extra]==2.0.0a10
+    - gym
+    - gymnasium
+    - stable_baselines3[extra]
     - box2d-py
     - tensorboard
     - tensorboard-plugin-wit

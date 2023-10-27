@@ -7,10 +7,10 @@ source:
 
 requirements:
   build:
-    - python=3.7
+    - python=3.10
     - flit
   run:
-    - python=3.7
+    - python=3.10
 
 about:
   home: https://github.com/AndrePatri/CoClusterBridge
