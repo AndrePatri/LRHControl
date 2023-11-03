@@ -93,8 +93,9 @@ class ExampleTask(CustomTask):
             
             if (robot_pkg_names[i] == "aliengo"):
                 
-                merge_fixed[i] = False # we want the foot tip link
-        
+                # merge_fixed[i] = False # we want the foot tip link
+                merge_fixed[i] = True 
+
         return merge_fixed
 
     def _xrdf_cmds(self):

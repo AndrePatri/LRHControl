@@ -69,8 +69,8 @@ if dtype == "float32":
 robot_names = ["aliengo0", "centauro0", "aliengo1", "centauro1"] # robot names
 robot_pkg_names = ["aliengo", "centauro", "aliengo", "centauro"] # robot type
 contact_prims = {} # contact sensor to be added
-contact_prims["aliengo0"] = ["FL_foot", "FR_foot",
-                            "RR_foot", "RL_foot"] # foot contact sensors
+contact_prims["aliengo0"] = ["FL_calf", "FR_calf",
+                            "RR_calf", "RL_calf"] # foot contact sensors
 contact_prims["centauro0"] = []
 contact_prims["aliengo1"] =  []
 contact_prims["centauro1"] = []
