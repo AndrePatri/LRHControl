@@ -170,6 +170,6 @@ class DummyEnv(RobotVecEnv):
             self.cluster_clients[self.robot_names[i]].close()
         
         super().close() # this has to be called last 
-        # so that isaac's simulation is close properly
+        # so that isaac's simulation is closed properly
 
         

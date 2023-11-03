@@ -53,6 +53,8 @@ class ExampleTask(CustomTask):
                 
                 contact_prims[robot_names[i]] = [] # no contact sensors
 
+        merge_fixed = self.set_merge_fixed(robot_names, 
+                                        robot_pkg_names)
         # trigger __init__ of parent class
         CustomTask.__init__(self,
                     name = self.__class__.__name__, 
@@ -71,11 +73,30 @@ class ExampleTask(CustomTask):
                     default_jnt_damping = default_jnt_damping,
                     dtype = dtype, 
                     self_collide = [False] * len(robot_names), 
-                    fix_base = [False] * len(robot_names))
+                    fix_base = [False] * len(robot_names),
+                    merge_fixed = merge_fixed)
         
         self.cluster_dt = cluster_dt
         self.integration_dt = integration_dt
+    
+    def set_merge_fixed(self, 
+                    robot_names, 
+                    robot_pkg_names):
         
+        merge_fixed = [False] * len(robot_names)
+
+        for i in range(0, len(robot_names)):
+
+            if (robot_pkg_names[i] == "centauro"):
+                
+                merge_fixed[i] = True
+            
+            if (robot_pkg_names[i] == "aliengo"):
+                
+                merge_fixed[i] = False # we want the foot tip link
+        
+        return merge_fixed
+
     def _xrdf_cmds(self):
         
         cmds = {}   
