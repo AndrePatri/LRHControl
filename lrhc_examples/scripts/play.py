@@ -32,9 +32,9 @@ env = DummyEnv(headless=False,
 # upon environment initialization)
 from lrhc_examples.tasks.dummy_task import ExampleTask
 
-num_envs = 2 # 9, 3, 5
+num_envs = 1 # 9, 3, 5
 sim_params = {}
-sim_params["use_gpu_pipeline"] = True
+sim_params["use_gpu_pipeline"] = False
 sim_params["integration_dt"] = 1.0/100.0
 sim_params["rendering_dt"] = 1.0/50.0
 sim_params["substeps"] = 1

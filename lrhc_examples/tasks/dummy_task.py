@@ -59,8 +59,8 @@ class ExampleTask(CustomTask):
                     default_jnt_stiffness = default_jnt_stiffness,
                     default_jnt_damping = default_jnt_damping,
                     dtype = dtype, 
-                    self_collide = [False], 
-                    fix_base = [False])
+                    self_collide = [False] * len(robot_names), 
+                    fix_base = [False] * len(robot_names))
         
         self.cluster_dt = cluster_dt
         self.integration_dt = integration_dt
