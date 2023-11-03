@@ -66,6 +66,15 @@ if dtype == "float32":
 # messages are not read/written properly
 
 # create task
+robot_names = ["aliengo0", "centauro0", "aliengo1", "centauro1"] # robot names
+robot_pkg_names = ["aliengo", "centauro", "aliengo", "centauro"] # robot type
+contact_prims = {} # contact sensor to be added
+contact_prims["aliengo0"] = ["FL_foot", "FR_foot",
+                            "RR_foot", "RL_foot"] # foot contact sensors
+contact_prims["centauro0"] = []
+contact_prims["aliengo1"] =  []
+contact_prims["centauro1"] = []
+
 task = ExampleTask(cluster_dt = control_clust_dt, 
             integration_dt = integration_dt,
             num_envs = num_envs, 
@@ -77,8 +86,9 @@ task = ExampleTask(cluster_dt = control_clust_dt,
             use_flat_ground = True, 
             default_jnt_stiffness=300.0, 
             default_jnt_damping=10.0, 
-            robot_names = ["aliengo0", "centauro0", "aliengo1", "centauro1"],
-            robot_pkg_names = ["aliengo", "centauro", "aliengo", "centauro",]) 
+            robot_names = robot_names,
+            robot_pkg_names = robot_pkg_names,
+            contact_prims = contact_prims) 
 
 env.set_task(task, 
         backend="torch", 
@@ -134,6 +144,11 @@ while env._simulation_app.is_running():
     print(f"[{script_name}]" + "[info]: real_time-> " + str(real_time))
     print(f"[{script_name}]" + "[info]: sim_time-> " + str(sim_time))
     print(f"[{script_name}]" + "[info]: loop execution time-> " + str(now - start_time_loop))
+
+    contact_report = task.contact_sensors["aliengo0"][0][0].get_current_frame() # LF foot
+
+    print("#############")
+    print(contact_report)
 
 print("[main][info]: closing environment and simulation")
 

@@ -22,7 +22,8 @@ from control_cluster_bridge.utilities.control_cluster_defs import RobotClusterCm
 import numpy as np
 import torch
 
-from lrhc_examples.utils.xrdf_gen import get_xrdf_cmds_isaac
+from lrhc_examples.utils.xrdf_gen import get_xrdf_cmds_isaac_centauro
+from lrhc_examples.utils.xrdf_gen import get_xrdf_cmds_isaac_aliengo
 
 class ExampleTask(CustomTask):
 
@@ -41,7 +42,16 @@ class ExampleTask(CustomTask):
                 default_jnt_damping = 20.0,
                 robot_names = ["aliengo"],
                 robot_pkg_names = ["aliengo"],
+                contact_prims = None,
                 dtype = torch.float64) -> None:
+
+        if contact_prims is None:
+
+            contact_prims = {}
+
+            for i in range(len(robot_names)):
+                
+                contact_prims[robot_names[i]] = [] # no contact sensors
 
         # trigger __init__ of parent class
         CustomTask.__init__(self,
@@ -49,6 +59,7 @@ class ExampleTask(CustomTask):
                     robot_names = robot_names,
                     robot_pkg_names = robot_pkg_names,
                     num_envs = num_envs,
+                    contact_prims = contact_prims,
                     device = device, 
                     cloning_offset = cloning_offset,
                     spawning_radius = spawning_radius,
@@ -66,8 +77,18 @@ class ExampleTask(CustomTask):
         self.integration_dt = integration_dt
         
     def _xrdf_cmds(self):
+        
+        cmds = {}   
 
-        cmds = get_xrdf_cmds_isaac()
+        for i in range(0, len(self.robot_names)):
+
+            if (self.robot_pkg_names[i] == "centauro"):
+                
+                cmds.update(get_xrdf_cmds_isaac_centauro(self.robot_names[i]))
+            
+            if (self.robot_pkg_names[i] == "aliengo"):
+                
+                cmds.update(get_xrdf_cmds_isaac_aliengo(self.robot_names[i]))
 
         return cmds
       
