@@ -145,10 +145,10 @@ while env._simulation_app.is_running():
     print(f"[{script_name}]" + "[info]: sim_time-> " + str(sim_time))
     print(f"[{script_name}]" + "[info]: loop execution time-> " + str(now - start_time_loop))
 
-    contact_report = task.contact_sensors["aliengo0"][0][0].get_current_frame() # LF foot
+    # contact_report = task.contact_sensors["aliengo0"][0][0].get_current_frame() # LF foot
 
-    print("#############")
-    print(contact_report)
+    # print("#############")
+    # print(task.contact_sensors)
 
 print("[main][info]: closing environment and simulation")
 
