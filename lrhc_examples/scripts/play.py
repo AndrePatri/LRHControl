@@ -34,7 +34,9 @@ from lrhc_examples.tasks.dummy_task import ExampleTask
 
 num_envs = 1 # 9, 3, 5
 sim_params = {}
-sim_params["use_gpu_pipeline"] = False
+sim_params["use_gpu_pipeline"] = False # if True, data will not be exported back to the CPU RAM 
+# any attempt at reading / printing this data for code that is executed in the CPU will return wrong values.
+# -> more performant version of the simulation
 sim_params["integration_dt"] = 1.0/100.0
 sim_params["rendering_dt"] = 1.0/50.0
 sim_params["substeps"] = 1
@@ -67,7 +69,7 @@ if dtype == "float32":
 task = ExampleTask(cluster_dt = control_clust_dt, 
             integration_dt = integration_dt,
             num_envs = num_envs, 
-            cloning_offset = np.array([0.0, 0.0, 0.7]), 
+            cloning_offset = np.array([0.0, 0.0, 1.2]), 
             env_spacing=7.0,
             spawning_radius=2.0,
             device = device, 
