@@ -124,3 +124,5 @@ class RHC(RHController):
         # # initial conditions using robot measurements
         
         self.perf_timer.clock_sleep(int(0.02 * 1e9)) # nanoseconds, simulated processing time
+
+        return True
