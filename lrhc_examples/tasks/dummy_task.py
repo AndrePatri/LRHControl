@@ -32,7 +32,7 @@ class ExampleTask(CustomTask):
                 integration_dt: float,
                 num_envs = 1,
                 device = "cuda", 
-                cloning_offset: np.array = np.array([0.0, 0.0, 0.0]),
+                cloning_offset: np.array = None,
                 replicate_physics: bool = True,
                 offset=None, 
                 env_spacing = 5.0, 
@@ -44,6 +44,10 @@ class ExampleTask(CustomTask):
                 robot_pkg_names = ["aliengo"],
                 contact_prims = None,
                 dtype = torch.float64) -> None:
+
+        if cloning_offset is None:
+        
+            cloning_offset = np.array([[0.0, 0.0, 0.0]] * num_envs)
 
         if contact_prims is None:
 
