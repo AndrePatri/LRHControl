@@ -32,6 +32,10 @@ env = DummyEnv(headless=False,
 # upon environment initialization)
 from lrhc_examples.tasks.dummy_task import ExampleTask
 
+from omni_robo_gym.utils.shared_sim_info import SharedSimInfo
+
+print_sim_info = False
+
 num_envs = 1 # 9, 3, 5
 sim_params = {}
 sim_params["use_gpu_pipeline"] = False # if True, data will not be exported back to the CPU RAM 
@@ -78,7 +82,7 @@ contact_prims["centauro1"] = []
 task = ExampleTask(cluster_dt = control_clust_dt, 
             integration_dt = integration_dt,
             num_envs = num_envs, 
-            cloning_offset = np.array([0.0, 0.0, 1.2]), 
+            cloning_offset = np.array([0.0, 0.0, 1.2] * num_envs), 
             env_spacing=7.0,
             spawning_radius=2.0,
             device = device, 
@@ -115,9 +119,13 @@ start_time_loop = 0
 rt_factor_reset_n = 100 
 rt_factor_counter = 0
 
-while env._simulation_app.is_running():
+shared_sim_info = SharedSimInfo() # sim. info to be broadcasted
+shared_sim_info.start(gpu_pipeline_active=sim_params["use_gpu_pipeline"], 
+                    integration_dt=integration_dt,
+                    rendering_dt=sim_params["rendering_dt"], 
+                    cluster_dt=control_clust_dt)
 
-    start_time_loop = time.perf_counter()
+while env._simulation_app.is_running():
     
     if ((i + 1) % rt_factor_reset_n) == 0:
 
@@ -126,24 +134,31 @@ while env._simulation_app.is_running():
         start_time = time.perf_counter()
 
         sim_time = 0
-
-    # action, _states = model.predict(obs)
     
+    start_time_step = time.perf_counter()
+
     obs, rewards, dones, info = env.step(index=i) 
     
     now = time.perf_counter()
+
     real_time = now - start_time
     sim_time += sim_params["integration_dt"]
     rt_factor = sim_time / real_time
     
+    shared_sim_info.update(sim_rt_factor=rt_factor, 
+                        cumulative_rt_factor=rt_factor * num_envs, 
+                        time_for_sim_stepping=now - start_time_step)
+    
     i+=1 # updating simulation iteration number
     rt_factor_counter = rt_factor_counter + 1
 
-    print(f"[{script_name}]" + "[info]: current RT factor-> " + str(rt_factor))
-    print(f"[{script_name}]" + "[info]: current training RT factor-> " + str(rt_factor * num_envs))
-    print(f"[{script_name}]" + "[info]: real_time-> " + str(real_time))
-    print(f"[{script_name}]" + "[info]: sim_time-> " + str(sim_time))
-    print(f"[{script_name}]" + "[info]: loop execution time-> " + str(now - start_time_loop))
+    if print_sim_info:
+
+        print(f"[{script_name}]" + "[info]: current RT factor-> " + str(rt_factor))
+        print(f"[{script_name}]" + "[info]: current training RT factor-> " + str(rt_factor * num_envs))
+        print(f"[{script_name}]" + "[info]: real_time-> " + str(real_time))
+        print(f"[{script_name}]" + "[info]: sim_time-> " + str(sim_time))
+        print(f"[{script_name}]" + "[info]: loop execution time-> " + str(now - start_time_step))
 
     # contact_report = task.contact_sensors["aliengo0"][0][0].get_current_frame() # LF foot
 
