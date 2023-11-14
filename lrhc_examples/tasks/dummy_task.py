@@ -44,6 +44,7 @@ class ExampleTask(CustomTask):
                 robot_pkg_names = ["aliengo"],
                 contact_prims = None,
                 contact_offsets = None,
+                sensor_radius = None,
                 dtype = torch.float64) -> None:
 
         if cloning_offset is None:
@@ -68,6 +69,7 @@ class ExampleTask(CustomTask):
                     num_envs = num_envs,
                     contact_prims = contact_prims,
                     contact_offsets = contact_offsets,
+                    sensor_radius = sensor_radius,
                     device = device, 
                     cloning_offset = cloning_offset,
                     spawning_radius = spawning_radius,

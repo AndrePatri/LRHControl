@@ -83,15 +83,23 @@ contact_prims["aliengo1"] =  []
 contact_prims["centauro1"] = []
 
 contact_offsets = {}
-contact_offsets["aliengo0"] = {}
 contact_offsets["centauro0"] = {}
 for i in range(0, len(contact_prims["centauro0"])):
     
     contact_offsets["centauro0"][contact_prims["centauro0"][i]] = \
-        np.array([0, -0.1, 0])
+        np.array([0.0, 0.0, 0.0])
 
 contact_offsets["aliengo1"] = {}
 contact_offsets["centauro1"] = {}
+
+sensor_radius = {}
+sensor_radius["centauro0"] = {}
+sensor_radius["centauro1"] = {}
+sensor_radius["aliengo0"] = {}
+sensor_radius["aliengo1"] = {}
+for i in range(0, len(contact_prims["centauro0"])):
+    
+    sensor_radius["centauro0"][contact_prims["centauro0"][i]] = 0.3
 
 task = ExampleTask(cluster_dt = control_clust_dt, 
             integration_dt = integration_dt,
@@ -107,7 +115,8 @@ task = ExampleTask(cluster_dt = control_clust_dt,
             robot_names = robot_names,
             robot_pkg_names = robot_pkg_names,
             contact_prims = contact_prims, 
-            contact_offsets = contact_offsets) 
+            contact_offsets = contact_offsets,
+            sensor_radius = sensor_radius) 
 
 env.set_task(task, 
         backend="torch", 
