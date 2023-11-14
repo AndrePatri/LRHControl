@@ -126,3 +126,7 @@ class RHC(RHController):
         self.perf_timer.clock_sleep(int(0.02 * 1e9)) # nanoseconds, simulated processing time
 
         return True
+    
+    def reset(self):
+
+        a = 3

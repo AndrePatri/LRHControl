@@ -42,7 +42,7 @@ sim_params["use_gpu_pipeline"] = False # if True, data will not be exported back
 # any attempt at reading / printing this data for code that is executed in the CPU will return wrong values.
 # -> more performant version of the simulation
 sim_params["integration_dt"] = 1.0/100.0
-sim_params["rendering_dt"] = 1.0/50.0
+sim_params["rendering_dt"] = 1.0/25.0
 sim_params["substeps"] = 1
 sim_params["gravity"] = np.array([0.0, 0.0, -9.81])
 sim_params["enable_scene_query_support"] = True
@@ -72,17 +72,31 @@ if dtype == "float32":
 # create task
 robot_names = ["aliengo0", "centauro0", "aliengo1", "centauro1"] # robot names
 robot_pkg_names = ["aliengo", "centauro", "aliengo", "centauro"] # robot type
-contact_prims = {} # contact sensor to be added
-contact_prims["aliengo0"] = ["FL_calf", "FR_calf",
-                            "RR_calf", "RL_calf"] # foot contact sensors
-contact_prims["centauro0"] = []
+
+# robot_names = ["centauro0"] # robot names
+# robot_pkg_names = ["centauro"] # robot type
+
+contact_prims = {} # contact sensors to be added
+contact_prims["aliengo0"] = [] # foot contact sensors
+contact_prims["centauro0"] = ["wheel_1", "wheel_2", "wheel_3", "wheel_4"]
 contact_prims["aliengo1"] =  []
 contact_prims["centauro1"] = []
+
+contact_offsets = {}
+contact_offsets["aliengo0"] = {}
+contact_offsets["centauro0"] = {}
+for i in range(0, len(contact_prims["centauro0"])):
+    
+    contact_offsets["centauro0"][contact_prims["centauro0"][i]] = \
+        np.array([0, -0.1, 0])
+
+contact_offsets["aliengo1"] = {}
+contact_offsets["centauro1"] = {}
 
 task = ExampleTask(cluster_dt = control_clust_dt, 
             integration_dt = integration_dt,
             num_envs = num_envs, 
-            cloning_offset = np.array([0.0, 0.0, 1.2] * num_envs), 
+            cloning_offset = np.array([[0.0, 0.0, 0.4]] * num_envs), 
             env_spacing=7.0,
             spawning_radius=2.0,
             device = device, 
@@ -92,7 +106,8 @@ task = ExampleTask(cluster_dt = control_clust_dt,
             default_jnt_damping=10.0, 
             robot_names = robot_names,
             robot_pkg_names = robot_pkg_names,
-            contact_prims = contact_prims) 
+            contact_prims = contact_prims, 
+            contact_offsets = contact_offsets) 
 
 env.set_task(task, 
         backend="torch", 
@@ -160,10 +175,10 @@ while env._simulation_app.is_running():
         print(f"[{script_name}]" + "[info]: sim_time-> " + str(sim_time))
         print(f"[{script_name}]" + "[info]: loop execution time-> " + str(now - start_time_step))
 
-    # contact_report = task.contact_sensors["aliengo0"][0][0].get_current_frame() # LF foot
+    contact_report = task.contact_sensors["centauro0"][0][0].get_current_frame() # LF foot
 
-    # print("#############")
-    # print(task.contact_sensors)
+    print("#############")
+    print(contact_report)
 
 print("[main][info]: closing environment and simulation")
 
