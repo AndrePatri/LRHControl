@@ -47,8 +47,9 @@ sim_params["substeps"] = 1
 sim_params["gravity"] = np.array([0.0, 0.0, -9.81])
 sim_params["enable_scene_query_support"] = True
 sim_params["replicate_physics"] = True
-sim_params["use_flatcache"] = True
-sim_params["disable_contact_processing"] = False
+sim_params["enable_stabilization"] = True
+sim_params["use_fabric"] = True
+sim_params["disable_contact_processing"] = True
 if sim_params["use_gpu_pipeline"]:
     sim_params["device"] = "cuda"
 else:
@@ -77,10 +78,10 @@ robot_pkg_names = ["aliengo", "centauro", "aliengo", "centauro"] # robot type
 # robot_pkg_names = ["centauro"] # robot type
 
 contact_prims = {} # contact sensors to be added
-contact_prims["aliengo0"] = [] # foot contact sensors
 contact_prims["centauro0"] = ["wheel_1", "wheel_2", "wheel_3", "wheel_4"]
-contact_prims["aliengo1"] =  []
-contact_prims["centauro1"] = []
+contact_prims["centauro1"] = ["wheel_1", "wheel_2", "wheel_3", "wheel_4"]
+contact_prims["aliengo0"] = ["FR_calf", "RR_calf", "RL_calf", "FL_calf"]
+contact_prims["aliengo1"] = ["FR_calf", "RR_calf", "RL_calf", "FL_calf"]
 
 contact_offsets = {}
 contact_offsets["centauro0"] = {}
@@ -88,18 +89,45 @@ for i in range(0, len(contact_prims["centauro0"])):
     
     contact_offsets["centauro0"][contact_prims["centauro0"][i]] = \
         np.array([0.0, 0.0, 0.0])
-
-contact_offsets["aliengo1"] = {}
+    
 contact_offsets["centauro1"] = {}
-
-sensor_radius = {}
-sensor_radius["centauro0"] = {}
-sensor_radius["centauro1"] = {}
-sensor_radius["aliengo0"] = {}
-sensor_radius["aliengo1"] = {}
+for i in range(0, len(contact_prims["centauro1"])):
+    
+    contact_offsets["centauro1"][contact_prims["centauro1"][i]] = \
+        np.array([0.0, 0.0, 0.0])
+    
+contact_offsets["aliengo0"] = {}
+for i in range(0, len(contact_prims["aliengo0"])):
+    
+    contact_offsets["aliengo0"][contact_prims["aliengo0"][i]] = \
+        np.array([0.0, 0.0, 0.0])
+    
+contact_offsets["aliengo1"] = {}
+for i in range(0, len(contact_prims["aliengo1"])):
+    
+    contact_offsets["aliengo1"][contact_prims["aliengo1"][i]] = \
+        np.array([0.0, 0.0, 0.0])
+    
+sensor_radii = {}
+sensor_radii["centauro0"] = {}
 for i in range(0, len(contact_prims["centauro0"])):
     
-    sensor_radius["centauro0"][contact_prims["centauro0"][i]] = 0.3
+    sensor_radii["centauro0"][contact_prims["centauro0"][i]] = 0.124
+    
+sensor_radii["centauro1"] = {}
+for i in range(0, len(contact_prims["centauro1"])):
+    
+    sensor_radii["centauro1"][contact_prims["centauro1"][i]] = 0.124
+
+sensor_radii["aliengo0"] = {}
+for i in range(0, len(contact_prims["aliengo0"])):
+    
+    sensor_radii["aliengo0"][contact_prims["aliengo0"][i]] = 0.124
+    
+sensor_radii["aliengo1"] = {}
+for i in range(0, len(contact_prims["aliengo1"])):
+    
+    sensor_radii["aliengo1"][contact_prims["aliengo1"][i]] = 0.124
 
 task = ExampleTask(cluster_dt = control_clust_dt, 
             integration_dt = integration_dt,
@@ -116,7 +144,7 @@ task = ExampleTask(cluster_dt = control_clust_dt,
             robot_pkg_names = robot_pkg_names,
             contact_prims = contact_prims, 
             contact_offsets = contact_offsets,
-            sensor_radius = sensor_radius) 
+            sensor_radii = sensor_radii) 
 
 env.set_task(task, 
         backend="torch", 
@@ -183,11 +211,6 @@ while env._simulation_app.is_running():
         print(f"[{script_name}]" + "[info]: real_time-> " + str(real_time))
         print(f"[{script_name}]" + "[info]: sim_time-> " + str(sim_time))
         print(f"[{script_name}]" + "[info]: loop execution time-> " + str(now - start_time_step))
-
-    contact_report = task.contact_sensors["centauro0"][0][0].get_current_frame() # LF foot
-
-    print("#############")
-    print(contact_report)
 
 print("[main][info]: closing environment and simulation")
 

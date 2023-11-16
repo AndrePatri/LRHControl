@@ -42,9 +42,9 @@ class ExampleTask(CustomTask):
                 default_jnt_damping = 20.0,
                 robot_names = ["aliengo"],
                 robot_pkg_names = ["aliengo"],
-                contact_prims = contact_prims, 
-                contact_offsets = contact_offsets,
-                sensor_radius = sensor_radius
+                contact_prims = None, 
+                contact_offsets = None,
+                sensor_radii = None,
                 dtype = torch.float64) -> None:
 
         if cloning_offset is None:
@@ -68,7 +68,7 @@ class ExampleTask(CustomTask):
                     robot_pkg_names = robot_pkg_names,
                     contact_prims = contact_prims, 
                     contact_offsets = contact_offsets,
-                    sensor_radius = sensor_radius,
+                    sensor_radii = sensor_radii,
                     num_envs = num_envs,
                     device = device, 
                     cloning_offset = cloning_offset,

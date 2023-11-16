@@ -16,6 +16,7 @@
 # along with LRhcExamples.  If not, see <http://www.gnu.org/licenses/>.
 # 
 from control_cluster_bridge.cluster_client.control_cluster_client import ControlClusterClient
+from typing import List
 
 class RHClusterClient(ControlClusterClient):
 
@@ -28,6 +29,8 @@ class RHClusterClient(ControlClusterClient):
             np_array_dtype, 
             verbose, 
             debug,
+            n_contact_sensors: int = -1,
+            contact_linknames: List[str] = None, 
             robot_name = "aliengo"):
 
         self.robot_name = robot_name
@@ -35,7 +38,9 @@ class RHClusterClient(ControlClusterClient):
         super().__init__(cluster_size= cluster_size, 
                         control_dt=control_dt, 
                         cluster_dt=cluster_dt, 
-                        jnt_names=jnt_names, 
+                        jnt_names=jnt_names,
+                        n_contact_sensors = n_contact_sensors,
+                        contact_linknames = contact_linknames,
                         device=device, 
                         np_array_dtype=np_array_dtype, 
                         verbose=verbose, 
