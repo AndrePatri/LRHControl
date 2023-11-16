@@ -64,6 +64,7 @@ class ExampleTask(CustomTask):
         # trigger __init__ of parent class
         CustomTask.__init__(self,
                     name = self.__class__.__name__, 
+                    integration_dt = integration_dt,
                     robot_names = robot_names,
                     robot_pkg_names = robot_pkg_names,
                     contact_prims = contact_prims, 
@@ -149,7 +150,7 @@ class ExampleTask(CustomTask):
 
     def get_observations(self):
         
-        self._get_robots_state() # updates robot states
+        self._get_robots_state(self.integration_dt) # updates robot states
 
         return self.obs
 
