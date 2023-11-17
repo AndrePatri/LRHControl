@@ -42,7 +42,7 @@ sim_params["use_gpu_pipeline"] = False # if True, data will not be exported back
 # any attempt at reading / printing this data for code that is executed in the CPU will return wrong values.
 # -> more performant version of the simulation
 sim_params["integration_dt"] = 1.0/100.0
-sim_params["rendering_dt"] = 1.0/25.0
+sim_params["rendering_dt"] = sim_params["integration_dt"]
 sim_params["substeps"] = 1
 sim_params["gravity"] = np.array([0.0, 0.0, -9.81])
 sim_params["enable_scene_query_support"] = True
