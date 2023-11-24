@@ -9,4 +9,3 @@ description = ""
 authors = [{name = "AndrePatri", email = "andreapatrizi1b6e6@gmail.com"}]
 readme = "README.md"
 license = {file = "LICENSE"}
-classifiers = ["License :: OSI Approved :: MIT License"]

@@ -45,6 +45,7 @@ class ExampleTask(CustomTask):
                 contact_prims = None, 
                 contact_offsets = None,
                 sensor_radii = None,
+                use_diff_velocities = True,
                 dtype = torch.float64) -> None:
 
         if cloning_offset is None:
@@ -86,7 +87,7 @@ class ExampleTask(CustomTask):
                     merge_fixed = merge_fixed)
         
         self.cluster_dt = cluster_dt
-        self.integration_dt = integration_dt
+        self.use_diff_velocities = use_diff_velocities
     
     def set_merge_fixed(self, 
                     robot_names, 
@@ -115,11 +116,13 @@ class ExampleTask(CustomTask):
 
             if (self.robot_pkg_names[i] == "centauro"):
                 
-                cmds.update(get_xrdf_cmds_isaac_centauro(self.robot_names[i]))
+                cmds.update(get_xrdf_cmds_isaac_centauro(name = self.robot_names[i], 
+                                                    robot_pkg_name="centauro"))
             
             if (self.robot_pkg_names[i] == "aliengo"):
                 
-                cmds.update(get_xrdf_cmds_isaac_aliengo(self.robot_names[i]))
+                cmds.update(get_xrdf_cmds_isaac_aliengo(name = self.robot_names[i], 
+                                                    robot_pkg_name="aliengo"))
 
         return cmds
       
@@ -150,7 +153,15 @@ class ExampleTask(CustomTask):
 
     def get_observations(self):
         
-        self._get_robots_state(self.integration_dt) # updates robot states
+        if self.use_diff_velocities:
+
+            self._get_robots_state(self.integration_dt) # updates robot states
+            # but velocities are obtained via num. differentiation
+        
+        else:
+
+            self._get_robots_state() # velocities directly from simulator (can 
+            # introduce relevant artifacts, making them unrealistic)
 
         return self.obs
 

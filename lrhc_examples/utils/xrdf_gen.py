@@ -16,7 +16,8 @@
 # along with LRhcExamples.  If not, see <http://www.gnu.org/licenses/>.
 # 
 
-def get_xrdf_cmds_isaac_centauro(name = "centauro"):
+def get_xrdf_cmds_isaac_centauro(robot_pkg_name: str,
+                name = "centauro"):
         
         cmds = {}
         cmds_aux = []
@@ -36,16 +37,30 @@ def get_xrdf_cmds_isaac_centauro(name = "centauro"):
         cmds_aux.append("velodyne:=" + velodyne)
         cmds_aux.append("realsense:=" + realsense)
         cmds_aux.append("floating_joint:=" + floating_joint)
-        
+        cmds_aux.append("use_abs_mesh_paths:=true") # use absolute paths for meshes
+
+        import rospkg
+        rospackage = rospkg.RosPack()
+        package_root_path = rospackage.get_path(robot_pkg_name + "_urdf")
+        cmds_aux.append("centauro_root:=" + package_root_path)
+
         cmds[name] = cmds_aux
 
         return cmds
 
-def get_xrdf_cmds_isaac_aliengo(name = "aliengo"):
+def get_xrdf_cmds_isaac_aliengo(robot_pkg_name: str,
+                        name = "aliengo"):
         
         cmds = {}
+        cmds_aux = []
+
+        import rospkg
+        rospackage = rospkg.RosPack()
+        package_root_path = rospackage.get_path(robot_pkg_name + "_urdf")
+        cmds_aux.append("aliengo_root:=" + package_root_path)
+        cmds_aux.append("use_abs_mesh_paths:=true") # use absolute paths for meshes
         
-        cmds[name] = None
+        cmds[name] = cmds_aux
 
         return cmds
 
