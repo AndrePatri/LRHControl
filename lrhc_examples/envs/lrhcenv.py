@@ -199,7 +199,7 @@ class DummyEnv(RobotVecEnv):
             robot_name = self.robot_names[i]
 
             self.task.jnt_imp_controllers[robot_name].set_refs(pos_ref = self.task.homers[robot_name].get_homing())
-            self.task.jnt_imp_controllers[robot_name].apply_refs()
+            self.task.jnt_imp_controllers[robot_name].apply_cmds()
 
     def close(self):
 

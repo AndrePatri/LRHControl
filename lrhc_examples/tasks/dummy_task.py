@@ -149,7 +149,7 @@ class ExampleTask(CustomTask):
                                             vel_ref = actions.jnt_cmd.v, 
                                             eff_ref = actions.jnt_cmd.eff)
                     
-            self._jnt_imp_controllers[robot_name].apply_refs()
+            self._jnt_imp_controllers[robot_name].apply_cmds()
 
     def get_observations(self):
         
