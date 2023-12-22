@@ -1,4 +1,4 @@
-name: lrhc_examples_isaac2023.1.0
+name: lrhc_examples_isaac2023.1.1
 channels: 
   - defaults
   - pytorch

@@ -3,7 +3,7 @@
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # should match env name from YAML
-ENV_NAME=lrhc_examples_isaac2023.1.0
+ENV_NAME=lrhc_examples_isaac2023.1.1
 
 pushd "${ROOT_DIR}/"
 
