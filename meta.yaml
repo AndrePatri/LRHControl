@@ -1,5 +1,5 @@
 package:
-  name: aliengo_example 
+  name: lrhc_control 
   version: 0.1.0  
 
 source:
@@ -13,9 +13,9 @@ requirements:
     - python=3.10
 
 about:
-  home: https://github.com/AndrePatri/CoClusterBridge
+  home: https://github.com/AndrePatri/LRHControl
   license: MIT
-  summary: Utilities to create a CPU-based control cluster to be interfaced with GPU-based simulators using shared memory for minimum latency.
+  summary: Learning-based Receding Horizon Control
 
 extra:
   recipe-maintainers:  

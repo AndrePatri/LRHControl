@@ -1,4 +1,5 @@
-name: lrhc_examples_isaac2023.1.1
+name: LRHControlEnv
+
 channels: 
   - defaults
   - pytorch
@@ -6,6 +7,7 @@ channels:
   - conda-forge
   - omnia
   - robostack-staging
+  - francesco_ruscelli
   - AndrePatri
 
 dependencies: 
@@ -15,6 +17,8 @@ dependencies:
   - torchvision 
   - torchaudio 
   - cuda-toolkit=11.7
+  - casadi_kin_dyn
+  # - pinocchio=2.6.20
   - compilers 
   - cmake
   - make
@@ -32,6 +36,7 @@ dependencies:
   - perf_sleep
   - pyqt
   - pyqtgraph
+  - poetry
   # - control_cluster_bridge
   # - omni_robo_gym
   - pip:
@@ -49,4 +54,8 @@ dependencies:
     - urdf-parser-py
     - multiprocess
     - pynput==1.6.6
+    - urdf_parser_py
+    - psutil
+    - multiprocess
+    - matplotlib
 
