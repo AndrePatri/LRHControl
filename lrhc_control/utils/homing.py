@@ -1,39 +1,30 @@
-# Copyright (C) 2023  Andrea Patrizi (AndrePatri, andreapatrizi1b6e6@gmail.com)
-# 
-# This file is part of LRhcExamples and distributed under the General Public License version 2 license.
-# 
-# LRhcExamples is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 2 of the License, or
-# (at your option) any later version.
-# 
-# LRhcExamples is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-# 
-# You should have received a copy of the GNU General Public License
-# along with LRhcExamples.  If not, see <http://www.gnu.org/licenses/>.
-# 
 import numpy as np
 
 import xml.etree.ElementTree as ET
 
 from typing import List
 
-from control_cluster_bridge.utilities.defs import Journal
+from SharsorIPCpp.PySharsorIPC import Journal, LogType
 
 class RobotHomer:
 
     def __init__(self, 
             srdf_path: str, 
-            jnt_names_prb: List[str] = None):
-
-        self.journal = Journal()
+            jnt_names_prb: List[str]):
 
         self.srdf_path = srdf_path
 
-        self.jnt_names_prb = jnt_names_prb
+        self.jnt_names_prb = self._filter_jnt_names(jnt_names_prb)
+        self.n_dofs = len(self.jnt_names_prb)
+
+        self.joint_idx_map = {}
+        for joint in range(0, self.n_dofs):
+
+            self.joint_idx_map[self.jnt_names_prb[joint]] = joint 
+
+        self._homing = np.full((1, self.n_dofs), 
+                        0.0, 
+                        dtype=np.float32) # homing configuration
         
         # open srdf and parse the homing field
         
@@ -43,10 +34,29 @@ class RobotHomer:
 
         try:
             self._srdf_root = ET.fromstring(self._srdf_content)
+            # Now 'root' holds the root element of the XML tree.
+            # You can navigate through the XML tree to extract the tags and their values.
+            # Example: To find all elements with a specific tag, you can use:
+            # elements = root.findall('.//your_tag_name')
+
+            # Example: If you know the specific structure of your .SRDF file, you can extract
+            # the data accordingly, for instance:
+            # for child in root:
+            #     if child.tag == 'some_tag_name':
+            #         tag_value = child.text
+            #         # Do something with the tag value.
+            #     elif child.tag == 'another_tag_name':
+            #         # Handle another tag.
 
         except ET.ParseError as e:
-        
-            print(f"[{self.__class__.__name__}]" + f"[{self.journal.exception}]" + ": could not read SRDF properly!!")
+            
+            exception = "Could not read SRDF properly!!"
+
+            Journal.log(self.__class__.__name__,
+                "__init__",
+                exception,
+                LogType.EXCEP,
+                throw_when_excep = True)
 
         # Find all the 'joint' elements within 'group_state' with the name attribute and their values
         joints = self._srdf_root.findall(".//group_state[@name='home']/joint")
@@ -62,24 +72,6 @@ class RobotHomer:
             self.homing_srdf.append(joint_value)
 
             self._homing_map[joint_name] =  float(joint_value)
-
-        if self.jnt_names_prb is None:
-            
-            # we use the same joints in the SRDF
-
-            self.jnt_names_prb = self.jnt_names_srdf
-
-        self.jnt_names_prb = self._filter_jnt_names(self.jnt_names_prb)
-        self.n_dofs = len(self.jnt_names_prb)
-
-        self.joint_idx_map = {}
-        for joint in range(0, self.n_dofs):
-
-            self.joint_idx_map[self.jnt_names_prb[joint]] = joint 
-
-        self._homing = np.full((1, self.n_dofs), 
-                        0.0, 
-                        dtype=np.float32) # homing configuration
         
         self._assign2homing()
 

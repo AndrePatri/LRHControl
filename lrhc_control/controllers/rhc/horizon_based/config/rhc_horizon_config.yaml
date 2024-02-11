@@ -1,0 +1,200 @@
+# A dummy example of a rhc controller configuration built on top of horizon
+# and iLQR
+
+solver:
+  type: ilqr
+  ilqr.tol: 0.01
+  ilqr.constr_viol_tol: 0.01
+  ilqr.suppress_all_output: 'yes'
+  ilqr.codegen_enabled: true
+  ilqr.codegen_workdir: /tmp/tyhio
+  ilqr.enable_gn: true
+  ilqr.hxx_reg_base: 0.0
+  ilqr.n_threads: 0
+  print_time: 0
+
+constraints:
+  - ball_1_contact
+  - ball_2_contact
+  - ball_3_contact
+  - ball_4_contact
+  - z_ball_1
+  - z_ball_2
+  - z_ball_3
+  - z_ball_4
+
+costs:
+  - joint_regularization
+  - joint_posture
+  - base_position
+  - base_orientation
+
+.define:
+    - &w_base_pos 10
+    - &w_base_ori 1
+    - &w_ball_z 1
+    # - &w_postural 0.0001
+    - &w_jnt_v_reg 0.01
+    - &w_jnt_a_reg 0.001
+    - &w_jnt_f_reg 0.0001
+    - &wheel_radius 0.124
+
+base_position: 
+  type: Cartesian
+  distal_link: base_link
+  indices: [0, 1, 2]
+  nodes: ${N}
+  weight: *w_base_pos
+
+base_orientation:
+  type: Cartesian
+  distal_link: base_link
+  indices: [3, 4, 5]
+  nodes: ${N}
+  weight: *w_base_ori
+
+# ===============================
+
+rolling_contact_1:
+  type: Rolling
+  frame: wheel_1
+  radius: *wheel_radius
+
+rolling_contact_2:
+  type: Rolling
+  frame: wheel_2
+  radius: *wheel_radius
+
+rolling_contact_3:
+  type: Rolling
+  frame: wheel_3
+  radius: *wheel_radius
+
+rolling_contact_4:
+  type: Rolling
+  frame: wheel_4
+  radius: *wheel_radius
+
+# contact_1:
+#   type: Cartesian
+#   distal_link: ball_1
+#   indices: [0, 1, 2]
+#   cartesian_type: velocity
+
+# contact_2:
+#   type: Cartesian
+#   distal_link: ball_2
+#   indices: [0, 1, 2]
+#   cartesian_type: velocity
+
+# contact_3:
+#   type: Cartesian
+#   distal_link: ball_3
+#   indices: [0, 1, 2]
+#   cartesian_type: velocity
+
+# contact_4:
+#   type: Cartesian
+#   distal_link: ball_4
+#   indices: [0, 1, 2]
+#   cartesian_type: velocity
+
+# ==================================
+
+interaction_wheel_1:
+  type: VertexForce
+  frame: ball_1
+  fn_min: 10.0
+  enable_fc: true
+  friction_coeff: 0.5
+  vertex_frames:
+    - wheel_1
+
+interaction_wheel_2:
+  type: VertexForce
+  frame: ball_2
+  fn_min: 10.0
+  enable_fc: true
+  friction_coeff: 0.5
+  vertex_frames:
+    - wheel_2
+
+interaction_wheel_3:
+  type: VertexForce
+  frame: ball_3
+  fn_min: 10.0
+  enable_fc: true
+  friction_coeff: 0.5
+  vertex_frames:
+    - wheel_3
+
+interaction_wheel_4:
+  type: VertexForce
+  frame: ball_4
+  fn_min: 10.0
+  enable_fc: true
+  friction_coeff: 0.5
+  vertex_frames:
+    - wheel_4
+
+ball_1_contact:
+  type: Contact
+  subtask: [interaction_wheel_1, rolling_contact_1]
+
+ball_2_contact:
+  type: Contact
+  subtask: [interaction_wheel_2, rolling_contact_2]
+
+ball_3_contact:
+  type: Contact
+  subtask: [interaction_wheel_3, rolling_contact_3]
+
+ball_4_contact:
+  type: Contact
+  subtask: [interaction_wheel_4, rolling_contact_4]
+
+# joint_posture:
+#   type: Postural
+#   weight: *w_postural
+#   indices: [0, 1, 2,
+#             4, 5, 6,
+#             8, 9, 10,
+#             12, 13, 14]
+#   nodes: ${range(N-8, N)}
+
+# todo: wrong, as the order COUNTS. If I add the contacts after the joint regularization, they wont get considered.
+joint_regularization:
+  type: Regularization
+  nodes: all # maybe not on first nodes??
+  weight:
+    velocity: *w_jnt_v_reg
+    acceleration: *w_jnt_a_reg 
+    force: *w_jnt_f_reg
+
+z_ball_1:
+  type: Cartesian
+  distal_link: ball_1
+  indices: [2]
+  cartesian_type: position
+  weight: *w_ball_z
+
+z_ball_2:
+  type: Cartesian
+  distal_link: ball_2
+  indices: [2]
+  cartesian_type: position
+  weight: *w_ball_z
+
+z_ball_3:
+  type: Cartesian
+  distal_link: ball_3
+  indices: [2]
+  cartesian_type: position
+  weight: *w_ball_z
+
+z_ball_4:
+  type: Cartesian
+  distal_link: ball_4
+  indices: [2]
+  cartesian_type: position
+  weight: *w_ball_z
