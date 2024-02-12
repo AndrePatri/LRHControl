@@ -1,6 +1,7 @@
 from omni_robo_gym.envs.isaac_env import IsaacSimEnv
 
 from lrhc_control.controllers.rhc.lrhc_cluster_server import LRhcClusterServer
+from lrhc_control.envs.training_env_server import TrainingEnvServer
 
 from SharsorIPCpp.PySharsorIPC import VLevel, Journal, LogType
 
@@ -33,6 +34,9 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
         self.debug_data["cluster_sol_time"] = {}
         self.debug_data["cluster_state_update_dt"] = {}
 
+        self._is_training = [] # whether the i-th task is a training task or simply a simulation
+        self._training_servers = {} # object in charge of handling connection with training env
+
         self.cluster_timers = {}
         self.env_timer = time.perf_counter()
 
@@ -40,14 +44,14 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
         self.cluster_servers = {}
         self._trigger_cluster = {}
         self._cluster_dt = {}
-
+                
     def set_task(self, 
                 task, 
                 cluster_dt: List[float], 
+                is_training: List[bool],
                 backend="torch", 
                 sim_params=None, 
                 init_sim=True, 
-                np_array_dtype = np.float32, 
                 cluster_client_verbose = False, 
                 cluster_client_debug = False) -> None:
 
@@ -58,7 +62,8 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
         
         self.robot_names = self.task.robot_names
         self.robot_pkg_names = self.task.robot_pkg_names
-        
+        self._is_training = is_training
+
         if not isinstance(cluster_dt, List):
             
             exception = "cluster_dt must be a list!"
@@ -78,7 +83,17 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                 exception,
                 LogType.EXCEP,
                 throw_when_excep = True)
-        
+
+        if not (len(is_training) == len(self.robot_names)):
+
+            exception = f"is_training length{len(is_training)} does not match robot number {len(self.robot_names)}!"
+
+            Journal.log(self.__class__.__name__,
+                "set_task",
+                exception,
+                LogType.EXCEP,
+                throw_when_excep = True)
+
         # now the task and the simulation is guaranteed to be initialized
         # -> we have the data to initialize the cluster client
         for i in range(len(self.robot_names)):
@@ -117,7 +132,8 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                         contact_linknames = contact_names, 
                         verbose = cluster_client_verbose, 
                         debug = cluster_client_debug, 
-                        robot_name=robot_name)
+                        robot_name=robot_name,
+                        use_gpu = task.using_gpu)
             
             self.debug_data["cluster_sol_time"][robot_name] = np.nan
             self.debug_data["cluster_state_update_dt"][robot_name] = np.nan
@@ -125,7 +141,22 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
             if self.debug:
 
                 self.cluster_timers[robot_name] = time.perf_counter()
-                        
+            
+            if self._is_training[i]:
+                
+                self._training_servers[robot_name] = TrainingEnvServer(namespace = robot_name,
+                                            is_server = True, 
+                                            verbose = True,
+                                            vlevel = VLevel.V2,
+                                            force_reconnection = False,
+                                            safe = True)
+                
+                self._training_servers[robot_name].run()
+        
+            else:
+                
+                self._training_servers[robot_name] = None
+        
         self.using_gpu = task.using_gpu
     
     def close(self):
@@ -138,7 +169,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
 
         super().close() # this has to be called last 
         # so that isaac's simulation is close properly
-
+    
     def step(self, 
         actions = None):
         
@@ -174,7 +205,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
 
             # 1) this runs at a dt = cluster_clients[robot_name] dt (sol. triggering) 
             if control_cluster.is_cluster_instant(self.step_counter):
-                
+
                 if self._trigger_cluster[robot_name]:
                     
                     control_cluster.pre_trigger_steps() # performs pre-trigger steps, like retrieving
@@ -191,7 +222,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                     if failed is not None:
 
                         self.reset(env_indxs=failed,
-                                robot_names=[robot_name], 
+                                robot_names=[robot_name],
                                 reset_world=False,
                                 reset_cluster=True)
 
@@ -228,6 +259,10 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                         
                         self.task.reset_jnt_imp_control(robot_name=robot_name,
                                 env_indxs=just_deactivated)
+
+                    if self._training_servers[robot_name] is not None:
+
+                        self._training_servers[robot_name].wait_for_step_request() # blocking
 
                     # every control_cluster_dt, trigger the solution of the active controllers in the cluster
                     # with the latest available state
@@ -267,12 +302,16 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                     # 4) update cluster state
                     if self.debug:
 
-                        self.cluster_timers[robot_name]  = time.perf_counter()
+                        self.cluster_timers[robot_name] = time.perf_counter()
 
                     # update cluster state 
                     self._update_cluster_state(robot_name = robot_name, 
                                     env_indxs = active)
-                        
+                    
+                    if self._training_servers[robot_name] is not None:
+            
+                        self._training_servers[robot_name].stepped() # signal stepping is finished
+                            
                     if self.debug:
 
                         self.debug_data["cluster_state_update_dt"][robot_name] = \
@@ -415,11 +454,14 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                 if ((self.step_counter + 1) % 10000) == 0:
                     
                     # sporadic warning
-                    warning = f"[{self.__class__.__name__}]" + f"[{self.journal.warning}]: " + \
-                        f"Contact state from link {contact_link} cannot be retrieved in IsaacSim if using use_gpu_pipeline is set to True!"
+                    warning = f"Contact state from link {contact_link} cannot be retrieved in IsaacSim if using use_gpu_pipeline is set to True!"
 
-                    print(warning)
-
+                    Journal.log(self.__class__.__name__,
+                        "_update_contact_state",
+                        warning,
+                        LogType.WARN,
+                        throw_when_excep = True)
+            
     def _update_cluster_state(self, 
                     robot_name: str, 
                     env_indxs: torch.Tensor = None):

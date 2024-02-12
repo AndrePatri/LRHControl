@@ -253,3 +253,7 @@ class LRHcIsaacTask(IsaacTask):
 
             # closing shared memory
             self.jnt_imp_cntrl_shared_data[robot_name].close()
+
+# class LRhcTraingTaks():
+
+    
