@@ -8,8 +8,32 @@ from SharsorIPCpp.PySharsorIPC import Journal
 from SharsorIPCpp.PySharsorIPC import dtype
 from SharsorIPCpp.PySharsorIPC import StringTensorServer, StringTensorClient
 
-class TrainingEnvServer:
+class RemoteEnvStepper:
 
+    class SimEnvReady(SharedDataView):
+
+        def __init__(self,
+                namespace = "",
+                is_server = False, 
+                verbose: bool = False, 
+                vlevel: VLevel = VLevel.V0,
+                force_reconnection: bool = False,
+                safe: bool = True):
+            
+            basename = "SimEnvReadyFlag"
+
+            super().__init__(namespace = namespace,
+                basename = basename,
+                is_server = is_server, 
+                n_rows = 1, 
+                n_cols = 1, 
+                verbose = verbose, 
+                vlevel = vlevel,
+                safe = safe, # boolean operations are atomdic on 64 bit systems
+                dtype=dtype.Bool,
+                force_reconnection=force_reconnection,
+                fill_value = False)
+    
     def __init__(self, 
                 namespace = "",
                 is_server = False, 
@@ -33,6 +57,13 @@ class TrainingEnvServer:
                             vlevel=vlevel,
                             force_reconnection=force_reconnection,
                             safe=safe)
+        
+        self._sim_env_ready = self.SimEnvReady(namespace=namespace,
+                            is_server=is_server,
+                            verbose=verbose,
+                            vlevel=vlevel,
+                            force_reconnection=force_reconnection,
+                            safe=safe)
 
     def is_running(self):
 
@@ -41,7 +72,25 @@ class TrainingEnvServer:
     def run(self):
 
         self._stepper.run()
+
+        self._sim_env_ready.run()
     
+    def is_sim_env_ready(self):
+
+        return self._sim_env_ready.read_wait(row_index=0, col_index=0)[0]
+    
+    def sim_env_ready(self):
+
+        self._sim_env_ready.write_wait(True, 
+                row_index=0,
+                col_index=0)
+    
+    def sim_env_not_ready(self):
+
+        self._sim_env_ready.write_wait(False, 
+                row_index=0,
+                col_index=0)
+            
     def wait_for_step_request(self):
 
         if not self._is_server:
@@ -101,3 +150,4 @@ class TrainingEnvServer:
     def close(self):
 
         self._stepper.close()
+        self._sim_env_ready.close()

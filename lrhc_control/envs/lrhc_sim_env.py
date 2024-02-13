@@ -1,7 +1,7 @@
 from omni_robo_gym.envs.isaac_env import IsaacSimEnv
 
 from lrhc_control.controllers.rhc.lrhc_cluster_server import LRhcClusterServer
-from lrhc_control.envs.training_env_server import TrainingEnvServer
+from lrhc_control.utils.shared_data.remote_env_stepper import RemoteEnvStepper
 
 from SharsorIPCpp.PySharsorIPC import VLevel, Journal, LogType
 
@@ -36,6 +36,9 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
 
         self._is_training = [] # whether the i-th task is a training task or simply a simulation
         self._training_servers = {} # object in charge of handling connection with training env
+        self._n_pre_training_steps = 0
+        self._pre_training_step_counter = 0
+        self._start_training = False
 
         self.cluster_timers = {}
         self.env_timer = time.perf_counter()
@@ -49,6 +52,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                 task, 
                 cluster_dt: List[float], 
                 is_training: List[bool],
+                n_pre_training_steps = 0,
                 backend="torch", 
                 sim_params=None, 
                 init_sim=True, 
@@ -63,7 +67,8 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
         self.robot_names = self.task.robot_names
         self.robot_pkg_names = self.task.robot_pkg_names
         self._is_training = is_training
-
+        self._n_pre_training_steps = n_pre_training_steps
+        
         if not isinstance(cluster_dt, List):
             
             exception = "cluster_dt must be a list!"
@@ -144,7 +149,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
             
             if self._is_training[i]:
                 
-                self._training_servers[robot_name] = TrainingEnvServer(namespace = robot_name,
+                self._training_servers[robot_name] = RemoteEnvStepper(namespace = robot_name,
                                             is_server = True, 
                                             verbose = True,
                                             vlevel = VLevel.V2,
@@ -164,6 +169,10 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
         for i in range(len(self.robot_names)):
 
             self.cluster_servers[self.robot_names[i]].close()
+            
+            self._training_servers[self.robot_names[i]].sim_env_not_ready() # signal for client
+
+            self._training_servers[self.robot_names[i]].close()
         
         self.task.close() # performs closing steps for task
 
@@ -206,6 +215,11 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
             # 1) this runs at a dt = cluster_clients[robot_name] dt (sol. triggering) 
             if control_cluster.is_cluster_instant(self.step_counter):
 
+                if self._training_servers[robot_name] is not None and \
+                    self._start_training:
+
+                        self._training_servers[robot_name].wait_for_step_request() # blocking
+                    
                 if self._trigger_cluster[robot_name]:
                     
                     control_cluster.pre_trigger_steps() # performs pre-trigger steps, like retrieving
@@ -215,7 +229,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
 
                     just_activated = control_cluster.get_just_activated() # retrieves just 
                     # activated controllers
-                    
+           
                     just_deactivated = control_cluster.get_just_deactivated() # retrieves just 
                     # deactivated controllers
 
@@ -259,10 +273,6 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                         
                         self.task.reset_jnt_imp_control(robot_name=robot_name,
                                 env_indxs=just_deactivated)
-
-                    if self._training_servers[robot_name] is not None:
-
-                        self._training_servers[robot_name].wait_for_step_request() # blocking
 
                     # every control_cluster_dt, trigger the solution of the active controllers in the cluster
                     # with the latest available state
@@ -309,9 +319,25 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                                     env_indxs = active)
                     
                     if self._training_servers[robot_name] is not None:
-            
-                        self._training_servers[robot_name].stepped() # signal stepping is finished
+
+                        if self._start_training:
+                        
+                            self._training_servers[robot_name].stepped() # signal stepping is finished
                             
+                        if self._pre_training_step_counter < self._n_pre_training_steps and \
+                                not self._start_training:
+                    
+                            self._pre_training_step_counter += 1
+                    
+                        if self._pre_training_step_counter >= self._n_pre_training_steps and \
+                                not self._start_training:
+                            
+                            self._start_training = True # next cluster step we wait for connection to training client
+
+                            self._training_servers[robot_name].sim_env_ready() # signal training client sim is ready
+
+                            print("AAAAAAAAAAAAAA")
+                        
                     if self.debug:
 
                         self.debug_data["cluster_state_update_dt"][robot_name] = \
