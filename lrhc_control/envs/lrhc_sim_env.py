@@ -155,9 +155,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                                             vlevel = VLevel.V2,
                                             force_reconnection = False,
                                             safe = True)
-                
-                self._training_servers[robot_name].run()
-        
+                        
             else:
                 
                 self._training_servers[robot_name] = None
@@ -212,16 +210,20 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
 
                 self._init_safe_cluster_actions(robot_name=robot_name)
 
+                if self._training_servers[robot_name] is not None:
+
+                    self._training_servers[robot_name].run()
+
             # 1) this runs at a dt = cluster_clients[robot_name] dt (sol. triggering) 
             if control_cluster.is_cluster_instant(self.step_counter):
-
-                if self._training_servers[robot_name] is not None and \
-                    self._start_training:
-
-                        self._training_servers[robot_name].wait_for_step_request() # blocking
                     
                 if self._trigger_cluster[robot_name]:
                     
+                    if self._training_servers[robot_name] is not None and \
+                        self._start_training:
+
+                            self._training_servers[robot_name].wait() # blocking
+
                     control_cluster.pre_trigger_steps() # performs pre-trigger steps, like retrieving
                     # values of some activation flags
 
@@ -322,7 +324,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
 
                         if self._start_training:
                         
-                            self._training_servers[robot_name].stepped() # signal stepping is finished
+                            self._training_servers[robot_name].step() # signal stepping is finished
                             
                         if self._pre_training_step_counter < self._n_pre_training_steps and \
                                 not self._start_training:
@@ -335,8 +337,6 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                             self._start_training = True # next cluster step we wait for connection to training client
 
                             self._training_servers[robot_name].sim_env_ready() # signal training client sim is ready
-
-                            print("AAAAAAAAAAAAAA")
                         
                     if self.debug:
 

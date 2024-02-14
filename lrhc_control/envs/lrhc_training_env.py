@@ -87,18 +87,10 @@ class LRhcTrainingVecEnv(gym.Env):
                                 verbose=self._verbose,
                                 vlevel=self._vlevel)
         
-        self._remote_stepper = RemoteEnvStepper(namespace=self._namespace,
-                                    is_server=False,
-                                    verbose=self._verbose,
-                                    vlevel=self._vlevel,
-                                    safe=self._safe_shared_mem)
-        
         self._robot_state.run()
         self._rhc_refs.run()
         self._rhc_status.run()
 
-        self._remote_stepper.run()
-        
         self._n_envs = self._robot_state.n_robots()
 
         # run server for agent commands
@@ -116,6 +108,14 @@ class LRhcTrainingVecEnv(gym.Env):
                                 vlevel=self._vlevel,
                                 fill_value=0)
         self._agent_refs.run()
+
+        self._remote_stepper = RemoteEnvStepper(namespace=self._namespace,
+                            is_server=False,
+                            verbose=self._verbose,
+                            vlevel=self._vlevel,
+                            safe=self._safe_shared_mem)
+        self._remote_stepper.run()
+        self._remote_stepper.training_env_ready()
 
     def _activate_rhc_controllers(self):
 
@@ -188,9 +188,7 @@ class LRhcTrainingVecEnv(gym.Env):
         # is fully updated
 
     def _get_observations(self):
-        
-        return None
-        
+                
         self._synch_data()
 
         if self._use_gpu:
@@ -233,13 +231,21 @@ class LRhcTrainingVecEnv(gym.Env):
             warning = f"Waiting for sim env to be ready..."
 
             Journal.log(self.__class__.__name__,
-                "step",
+                "_wait_for_sim_env",
                 warning,
                 LogType.WARN,
                 throw_when_excep = True)
             
-            self._perf_timer.clock_sleep(1000000) # nanoseconds 
+            self._perf_timer.clock_sleep(1000000000) # nanoseconds 
         
+        info = f"Sim. env ready."
+
+        Journal.log(self.__class__.__name__,
+            "_wait_for_sim_env",
+            info,
+            LogType.INFO,
+            throw_when_excep = True)
+    
     def step(self, action):
         
         if self._is_first_step:
@@ -250,17 +256,17 @@ class LRhcTrainingVecEnv(gym.Env):
 
         # self._apply_rhc_actions(agent_action = action) # first apply actions to rhc controller
 
-        self._remote_stepper.step_env() # trigger simulation stepping
+        self._remote_stepper.step() # trigger simulation stepping
 
-        self._remote_stepper.wait_for_step_done() # blocking
-
-        # self._step_counter +=1
+        self._remote_stepper.wait() # blocking
 
         # observations = self._get_observations()
         # rewards = self._compute_reward()
 
         # truncated = None
         # info = {}
+
+        self._step_counter +=1
 
         # return observations, rewards, self._check_termination(), truncated, info
     
