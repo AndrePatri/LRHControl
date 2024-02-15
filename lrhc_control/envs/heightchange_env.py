@@ -11,17 +11,22 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
             namespace: str,
             verbose: bool = False,
             vlevel: VLevel = VLevel.V1,
-            use_gpu: bool = True):
+            use_gpu: bool = True,
+            dtype: torch.dtype = torch.float32):
 
         obs_dim = 4
         actions_dim = 1
 
+        env_name = "LRhcHeightChange"
+
         super().__init__(namespace=namespace,
                     obs_dim=obs_dim,
                     actions_dim=actions_dim,
+                    env_name=env_name,
                     verbose=verbose,
                     vlevel=vlevel,
-                    use_gpu=use_gpu)
+                    use_gpu=use_gpu,
+                    dtype=dtype)
     
     def _apply_rhc_actions(self,
                 agent_action):

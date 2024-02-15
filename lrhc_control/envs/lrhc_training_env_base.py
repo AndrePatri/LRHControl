@@ -1,6 +1,5 @@
 from gymnasium import spaces
 
-import numpy as np
 import torch
 
 from control_cluster_bridge.utilities.shared_data.rhc_data import RobotState
@@ -17,7 +16,7 @@ from SharsorIPCpp.PySharsorIPC import Journal
 from perf_sleep.pyperfsleep import PerfSleep
 
 from abc import abstractmethod
-
+    
 class LRhcTrainingEnvBase():
 
     """Base class for a remote training environment tailored to Learning-based Receding Horizon Control"""
@@ -26,9 +25,12 @@ class LRhcTrainingEnvBase():
             namespace: str,
             obs_dim: int,
             actions_dim: int,
+            env_name: str = "",
+            n_preinit_steps: int = 1;
             verbose: bool = False,
             vlevel: VLevel = VLevel.V1,
-            use_gpu: bool = True):
+            use_gpu: bool = True,
+            dtype: torch.dtype = torch.float32):
         
         self._env_index = 0
 
@@ -38,8 +40,12 @@ class LRhcTrainingEnvBase():
 
         self._use_gpu = use_gpu
 
+        self._dtype = dtype
+
         self._verbose = verbose
         self._vlevel = vlevel
+
+        self._env_name = env_name
 
         self._robot_state = None
         self._rhc_refs = None
@@ -53,12 +59,21 @@ class LRhcTrainingEnvBase():
 
         self._n_envs = 0
 
+        self._n_preinit_steps = n_preinit_steps
+        
         self._is_first_step = True
 
         self._perf_timer = PerfSleep()
 
-        self._torch_obs = None
-        self._torch_actions = None
+        self._obs = None
+        self._actions = None
+        self._rewards = None
+        self._terminations = None
+        self._truncations = None
+
+        self._base_info = {}
+        self._base_info["final_info"] = None
+        self._infos = []
         
         self._attach_to_shared_mem()
 
@@ -67,20 +82,40 @@ class LRhcTrainingEnvBase():
         
         self._wait_for_sim_env()
 
-        self.observation_space = spaces.Box(low=-float('inf'), high=float('inf'), shape=(1, obs_dim), dtype=np.float32)
+        self.observation_space = spaces.Box(low=-float('inf'), high=float('inf'), shape=(1, obs_dim), dtype=torch.float32)
     
-        self.action_space = spaces.Box(low=-float('inf'), high=float('inf'), shape=(1, actions_dim), dtype=np.float32)
+        self.action_space = spaces.Box(low=-float('inf'), high=float('inf'), shape=(1, actions_dim), dtype=torch.float32)
+        
+        self._init_step()
+            
+    def _first_step(self):
+
+        self._activate_rhc_controllers()
+
+        self._is_first_step = False
+    
+    def _init_step(self):
+        
+        for i in range(self._n_preinit_steps): # perform some
+            # dummy remote env stepping to make sure to have meaningful 
+            # initializations (doesn't increment step counter)
+        
+            self._check_controllers_registered()
+
+            if self._is_first_step:
+
+                self._first_step()
+            
+            self._remote_stepper.step() 
+
+            self._remote_stepper.wait()
+        
+        self._obs[:, :] = self._get_observations() # initializes observations
     
     def step(self, action):
         
         self._check_controllers_registered() # does not make sense to run training
         # if we lost some controllers
-
-        if self._is_first_step:
-
-            self._activate_rhc_controllers()
-
-            self._is_first_step = False
 
         # self._apply_rhc_actions(agent_action = action) # first apply actions to rhc controller
 
@@ -95,11 +130,7 @@ class LRhcTrainingEnvBase():
         # info = {}
 
         self._step_counter +=1
-
-        # return observations, rewards, self._check_termination(), truncated, info
     
-        return None, None, None, None, None
-
     def reset(self, seed=None, options=None):
         
         self._step_counter = 0
@@ -122,19 +153,55 @@ class LRhcTrainingEnvBase():
 
         self._remote_stepper.close()
 
+    def get_last_obs(self):
+    
+        return self._obs
+
+    def get_last_actions(self):
+    
+        return self._actions
+    
+    def get_last_rewards(self):
+
+        return self._rewards
+
+    def get_last_terminations(self):
+        
+        return self._terminations
+
+    def get_last_truncations(self):
+                                 
+        return self._truncations
+                            
     def obs_dim(self):
 
-        return self._torch_obs.shape[1]
+        return self._obs.shape[1]
     
     def actions_dim(self):
 
-        return self._torch_actions.shape[1]
- 
+        return self._actions.shape[1]
+    
+    def using_gpu(self):
+
+        return self._use_gpu
+
+    def name(self):
+
+        return self._env_name
+
+    def n_envs(self):
+
+        return self._n_envs
+
+    def dtype(self):
+                                    
+        return self._dtype 
+    
     def _init_obs(self, obs_dim: int):
         
         device = "cuda" if self._use_gpu else "cpu"
 
-        self._torch_obs = torch.full(size=(self._n_envs, obs_dim), 
+        self._obs = torch.full(size=(self._n_envs, obs_dim), 
                                     fill_value=0,
                                     dtype=torch.float32,
                                     device=device)
@@ -143,11 +210,57 @@ class LRhcTrainingEnvBase():
         
         device = "cuda" if self._use_gpu else "cpu"
 
-        self._torch_actions = torch.full(size=(self._n_envs, actions_dim), 
+        self._actions = torch.full(size=(self._n_envs, actions_dim), 
                                     fill_value=0,
                                     dtype=torch.float32,
                                     device=device)
 
+    def _init_rewards(self):
+        
+        device = "cuda" if self._use_gpu else "cpu"
+
+        self._rewards = torch.full(size=(self._n_envs, 1), 
+                                    fill_value=0,
+                                    dtype=torch.float32,
+                                    device=device)
+    
+    def _init_terminations(self):
+
+        # Boolean array indicating whether each environment episode has terminated after 
+        # the current step. An episode termination could occur based on predefined conditions
+        # in the environment, such as reaching a goal or exceeding a time limit.
+
+        device = "cuda" if self._use_gpu else "cpu"
+
+        self._terminations = torch.full(size=(self._n_envs, 1), 
+                                    fill_value=False,
+                                    dtype=torch.bool_,
+                                    device=device)
+    
+    def _init_truncations(self):
+
+        # Boolean array indicating whether each environment episode has been truncated 
+        # after the current step. Truncation usually means that the episode has been 
+        # forcibly ended before reaching a natural termination point.
+
+        device = "cuda" if self._use_gpu else "cpu"
+
+        self._truncations = torch.full(size=(self._n_envs, 1), 
+                                    fill_value=False,
+                                    dtype=torch.bool_,
+                                    device=device)
+    
+    def _init_infos(self):
+        
+        # Additional information about the environment's response. It can include various 
+        # details such as diagnostics, statistics, or any custom information provided by the 
+        # environment
+
+        device = "cuda" if self._use_gpu else "cpu"
+
+        for i in range(self._n_envs):
+            self.info.append(self._base_info)
+        
     def _attach_to_shared_mem(self):
 
         # runs shared mem clients for getting observation and setting RHC commands
@@ -296,11 +409,3 @@ class LRhcTrainingEnvBase():
     def _randomize_agent_refs(self):
         
         pass
-
-if __name__ == '__main__':
-
-    from stable_baselines3.common.env_checker import check_env
-
-    env = LRhcTrainingVecEnv()
-
-    check_env(env) # checks custom environment and output additional warnings if needed
