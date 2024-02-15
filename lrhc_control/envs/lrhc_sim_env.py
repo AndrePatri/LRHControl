@@ -225,6 +225,9 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                         self._start_training:
 
                             self._training_servers[robot_name].wait() # blocking
+                            
+                            # when training controllers have to be kept always active
+                            control_cluster.activate_controllers(idxs=control_cluster.get_inactive_controllers())
 
                     control_cluster.pre_trigger_steps() # performs pre-trigger steps, like retrieving
                     # values of some activation flags
@@ -357,7 +360,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
             
             self.env_timer = time.perf_counter()
 
-        self.task.get_states()
+        self.task.get_states() # gets data from simulation (jnt imp control always needs updated state)
 
         if self.debug:
                         
@@ -403,7 +406,11 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
             robot_names = robot_names)
         
         # perform a simulation step
+        
         self._world.step(render=self._render)
+
+        self.task.get_states(env_indxs=env_indxs,
+                        robot_names=robot_names) # updates states from sim 
 
         rob_names = robot_names
         
