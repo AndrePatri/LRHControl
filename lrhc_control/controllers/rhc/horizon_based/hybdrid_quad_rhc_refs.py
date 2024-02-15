@@ -111,8 +111,7 @@ class HybridQuadRhcRefs(RhcRefs):
                 
                 else:
                     
-                    if self._verbose and \
-                        (self._step_idx+1) % self._print_frequency == 0: 
+                    if (self._step_idx+1) % self._print_frequency == 0: 
 
                         # sporadic log
                         

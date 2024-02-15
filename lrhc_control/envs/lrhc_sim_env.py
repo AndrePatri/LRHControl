@@ -168,10 +168,12 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
 
             self.cluster_servers[self.robot_names[i]].close()
             
-            self._training_servers[self.robot_names[i]].sim_env_not_ready() # signal for client
+            if self._training_servers[self.robot_names[i]] is not None:
+            
+                self._training_servers[self.robot_names[i]].sim_env_not_ready() # signal for client
 
-            self._training_servers[self.robot_names[i]].close()
-        
+                self._training_servers[self.robot_names[i]].close()
+            
         self.task.close() # performs closing steps for task
 
         super().close() # this has to be called last 
@@ -323,7 +325,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                     if self._training_servers[robot_name] is not None:
 
                         if self._start_training:
-                        
+                            
                             self._training_servers[robot_name].step() # signal stepping is finished
                             
                         if self._pre_training_step_counter < self._n_pre_training_steps and \

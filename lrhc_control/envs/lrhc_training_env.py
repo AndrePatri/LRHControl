@@ -236,7 +236,7 @@ class LRhcTrainingVecEnv(gym.Env):
                 LogType.WARN,
                 throw_when_excep = True)
             
-            self._perf_timer.clock_sleep(1000000000) # nanoseconds 
+            self._perf_timer.clock_sleep(2000000000) # nanoseconds 
         
         info = f"Sim. env ready."
 
@@ -246,8 +246,32 @@ class LRhcTrainingVecEnv(gym.Env):
             LogType.INFO,
             throw_when_excep = True)
     
+    def _check_controllers_registered(self):
+
+        self._rhc_status.controllers_counter.synch_all(read=True, wait=True)
+
+        n_connected_controllers = self._rhc_status.controllers_counter.torch_view[0, 0].item()
+
+        if not n_connected_controllers == self._n_envs:
+
+            exception = f"Expected {self._n_envs} controllers to be active during training, " + \
+                f"but got {n_connected_controllers}"
+
+            Journal.log(self.__class__.__name__,
+                "_check_controllers_registered",
+                exception,
+                LogType.EXCEP,
+                throw_when_excep = False)
+            
+            self.close()
+
+            exit()
+
     def step(self, action):
         
+        self._check_controllers_registered() # does not make sense to run training
+        # if we lost some controllers
+
         if self._is_first_step:
 
             self._activate_rhc_controllers()
@@ -278,7 +302,9 @@ class LRhcTrainingVecEnv(gym.Env):
 
         self._randomize_agent_refs()
 
-        observation = self._get_observations()
+        # observation = self._get_observations()
+        observation = None
+
         info = {}
         
         return observation, info

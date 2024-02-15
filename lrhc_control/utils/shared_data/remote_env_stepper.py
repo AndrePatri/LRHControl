@@ -1,4 +1,4 @@
-from lrhc_control.utils.shared_data.remote_stepping import RemoteStepper
+from lrhc_control.utils.shared_data.remote_stepping import RemoteStepper, RemoteStepperPolling
 
 from SharsorIPCpp.PySharsor.wrappers.shared_data_view import SharedDataView
 from SharsorIPCpp.PySharsor.wrappers.shared_tensor_dict import SharedTensorDict
@@ -79,7 +79,14 @@ class RemoteEnvStepper:
 
         self._perf_timer = PerfSleep()
 
-        self._stepper = RemoteStepper(namespace=namespace,
+        # self._stepper = RemoteStepper(namespace=namespace,
+        #                     is_server=is_server,
+        #                     verbose=verbose,
+        #                     vlevel=vlevel,
+        #                     force_reconnection=force_reconnection,
+        #                     safe=safe)
+        
+        self._stepper = RemoteStepperPolling(namespace=namespace,
                             is_server=is_server,
                             verbose=verbose,
                             vlevel=vlevel,
