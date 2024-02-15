@@ -1,4 +1,3 @@
-import gymnasium as gym
 from gymnasium import spaces
 
 import numpy as np
@@ -17,12 +16,16 @@ from SharsorIPCpp.PySharsorIPC import Journal
 
 from perf_sleep.pyperfsleep import PerfSleep
 
-class LRhcTrainingVecEnv(gym.Env):
+from abc import abstractmethod
 
-    """Remote training environment for Learning-based Receding Horizon Control"""
+class LRhcTrainingEnvBase():
+
+    """Base class for a remote training environment tailored to Learning-based Receding Horizon Control"""
 
     def __init__(self,
             namespace: str,
+            obs_dim: int,
+            actions_dim: int,
             verbose: bool = False,
             vlevel: VLevel = VLevel.V1,
             use_gpu: bool = True):
@@ -54,16 +57,97 @@ class LRhcTrainingVecEnv(gym.Env):
 
         self._perf_timer = PerfSleep()
 
+        self._torch_obs = None
+        self._torch_actions = None
+        
         self._attach_to_shared_mem()
+
+        self._init_obs(obs_dim)
+        self._init_actions(actions_dim)
         
         self._wait_for_sim_env()
 
-        self.observation_space = spaces.Box(low=-float('inf'), high=float('inf'), shape=(1, 4), dtype=np.float32)
+        self.observation_space = spaces.Box(low=-float('inf'), high=float('inf'), shape=(1, obs_dim), dtype=np.float32)
     
-        self.action_space = spaces.Box(low=-float('inf'), high=float('inf'), shape=(1, 1), dtype=np.float32)
+        self.action_space = spaces.Box(low=-float('inf'), high=float('inf'), shape=(1, actions_dim), dtype=np.float32)
+    
+    def step(self, action):
+        
+        self._check_controllers_registered() # does not make sense to run training
+        # if we lost some controllers
 
-        super().__init__()
+        if self._is_first_step:
+
+            self._activate_rhc_controllers()
+
+            self._is_first_step = False
+
+        # self._apply_rhc_actions(agent_action = action) # first apply actions to rhc controller
+
+        self._remote_stepper.step() # trigger simulation stepping
+
+        self._remote_stepper.wait() # blocking
+
+        # observations = self._get_observations()
+        # rewards = self._compute_reward()
+
+        # truncated = None
+        # info = {}
+
+        self._step_counter +=1
+
+        # return observations, rewards, self._check_termination(), truncated, info
     
+        return None, None, None, None, None
+
+    def reset(self, seed=None, options=None):
+        
+        self._step_counter = 0
+
+        self._randomize_agent_refs()
+
+        # observation = self._get_observations()
+        observation = None
+
+        info = {}
+        
+        return observation, info
+
+    def close(self):
+        
+        # close all shared mem. clients
+        self._robot_state.close()
+        self._rhc_refs.close()
+        self._rhc_status.close()
+
+        self._remote_stepper.close()
+
+    def obs_dim(self):
+
+        return self._torch_obs.shape[1]
+    
+    def actions_dim(self):
+
+        return self._torch_actions.shape[1]
+ 
+    def _init_obs(self, obs_dim: int):
+        
+        device = "cuda" if self._use_gpu else "cpu"
+
+        self._torch_obs = torch.full(size=(self._n_envs, obs_dim), 
+                                    fill_value=0,
+                                    dtype=torch.float32,
+                                    device=device)
+        
+    def _init_actions(self, actions_dim: int):
+        
+        device = "cuda" if self._use_gpu else "cpu"
+
+        self._torch_actions = torch.full(size=(self._n_envs, actions_dim), 
+                                    fill_value=0,
+                                    dtype=torch.float32,
+                                    device=device)
+
     def _attach_to_shared_mem(self):
 
         # runs shared mem clients for getting observation and setting RHC commands
@@ -122,49 +206,7 @@ class LRhcTrainingVecEnv(gym.Env):
         self._rhc_status.activation_state.torch_view[:, :] = True
 
         self._rhc_status.activation_state.synch_all(read=False, wait=True) # activates all controllers
-
-    def _apply_rhc_actions(self,
-                agent_action):
-
-        # agent_action = torch.tensor(agent_action)
-
-        # rhc_current_ref = self._rhc_refs.rob_refs.root_state.get_p(gpu=True)
-        # rhc_current_ref[:, 2:3] = agent_action[0] # overwrite z ref
-
-        # if self._use_gpu:
-
-        #     self._rhc_refs.rob_refs.root_state.set_p(p=rhc_current_ref,
-        #                                     gpu=True) # write ref on gpu
-        #     self._rhc_refs.rob_refs.root_state.synch_mirror(from_gpu=True) # write from gpu to cpu mirror
-        #     self._rhc_refs.rob_refs.root_state.synch_all(read=False, wait=True) # write mirror to shared mem
-            
-        # else:
-
-        #     self._rhc_refs.rob_refs.root_state.set_p(p=rhc_current_ref,
-        #                                     gpu=False) # write ref on cpu mirror
-        #     self._rhc_refs.rob_refs.root_state.synch_all(read=False, wait=True) # write mirror to shared mem
-
-        a = None
-
-    def _compute_reward(self):
-        
-        return None
-        
-        self._synch_data()
-
-        rhc_h_ref = self._rhc_refs.rob_refs.root_state.get_p(gpu=True)[:, 2:3] # getting z ref
-        robot_h = self._robot_state.root_state.get_p(gpu=True)[:, 2:3]
-
-        h_error = (rhc_h_ref - robot_h)
-
-        # rhc_cost = self._rhc_status.rhc_cost.get_torch_view(gpu=True)
-        # rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_view(gpu=True)
-        
-        # reward = torch.norm(h_error, p=2) + rhc_cost + rhc_const_viol
-        reward = torch.norm(h_error, p=2)
-
-        return reward.item()
-
+    
     def _synch_data(self):
 
         # root link state
@@ -186,39 +228,6 @@ class LRhcTrainingVecEnv(gym.Env):
 
         torch.cuda.synchronize() # this way we ensure that after this the state on GPU
         # is fully updated
-
-    def _get_observations(self):
-                
-        self._synch_data()
-
-        if self._use_gpu:
-            
-            agent_h_ref = self._agent_refs.rob_refs.root_state.get_p(gpu=True)[:, 2:3] # getting z ref
-            robot_h = self._robot_state.root_state.get_p(gpu=True)[:, 2:3]
-            rhc_cost = self._rhc_status.rhc_cost.get_torch_view(gpu=True)
-            rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_view(gpu=True)
-
-            return torch.cat((robot_h, rhc_cost, rhc_const_viol, 
-                                agent_h_ref),dim=1)
-        
-        else:
-
-            agent_h_ref = self._agent_refs.rob_refs.root_state.get_p(gpu=False)[:, 2:3] # getting z ref
-            robot_h = self._robot_state.root_state.get_p(gpu=False)[:, 2:3]
-            rhc_cost = self._rhc_status.rhc_cost.get_torch_view(gpu=False)
-            rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_view(gpu=False)
-
-            return torch.cat((robot_h, rhc_cost, rhc_const_viol, 
-                                agent_h_ref),dim=1)
-    
-    def _randomize_agent_refs(self):
-        
-        agent_p_ref_current = self._agent_refs.rob_refs.root_state.get_p(gpu=True)
-
-        agent_p_ref_current[:, 2:3] = (1.0 - 0.2) * torch.rand_like(agent_p_ref_current[:, 2:3]) + 0.2 # randomize h ref
-
-        self._agent_refs.rob_refs.root_state.set_p(p=agent_p_ref_current,
-                                        gpu=True)
 
     def _check_termination(self):
 
@@ -266,61 +275,27 @@ class LRhcTrainingVecEnv(gym.Env):
             self.close()
 
             exit()
+   
+    @abstractmethod
+    def _apply_rhc_actions(self,
+                agent_action):
 
-    def step(self, action):
+        pass
+
+    @abstractmethod
+    def _compute_reward(self):
         
-        self._check_controllers_registered() # does not make sense to run training
-        # if we lost some controllers
+        pass
 
-        if self._is_first_step:
-
-            self._activate_rhc_controllers()
-
-            self._is_first_step = False
-
-        # self._apply_rhc_actions(agent_action = action) # first apply actions to rhc controller
-
-        self._remote_stepper.step() # trigger simulation stepping
-
-        self._remote_stepper.wait() # blocking
-
-        # observations = self._get_observations()
-        # rewards = self._compute_reward()
-
-        # truncated = None
-        # info = {}
-
-        self._step_counter +=1
-
-        # return observations, rewards, self._check_termination(), truncated, info
+    @abstractmethod
+    def _get_observations(self):
+                
+        pass
     
-        return None, None, None, None, None
-
-    def reset(self, seed=None, options=None):
+    @abstractmethod
+    def _randomize_agent_refs(self):
         
-        self._step_counter = 0
-
-        self._randomize_agent_refs()
-
-        # observation = self._get_observations()
-        observation = None
-
-        info = {}
-        
-        return observation, info
-
-    def render(self):
-        
-        pass # no need for rendering
-
-    def close(self):
-        
-        # close all shared mem. clients
-        self._robot_state.close()
-        self._rhc_refs.close()
-        self._rhc_status.close()
-
-        self._remote_stepper.close()
+        pass
 
 if __name__ == '__main__':
 
