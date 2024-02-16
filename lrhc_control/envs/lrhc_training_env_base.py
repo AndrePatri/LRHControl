@@ -133,12 +133,11 @@ class LRhcTrainingEnvBase():
 
         self._randomize_agent_refs()
 
-        # observation = self._get_observations()
-        observation = None
+        self._actions.zero_()
+        self._rewards.zero_()
+        self._obs.zero_()
 
-        info = {}
-        
-        return observation, info
+        self._get_observations()
 
     def close(self):
         

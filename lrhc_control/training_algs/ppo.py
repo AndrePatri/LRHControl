@@ -2,6 +2,8 @@ from lrhc_control.agents.ppo_agent import Agent
 
 import torch 
 import torch.optim as optim
+import torch.nn as nn
+
 from torch.utils.tensorboard import SummaryWriter
 
 import random
@@ -17,12 +19,14 @@ class CleanPPO():
 
         self._agent = Agent(obs_dim=self._env.obs_dim(),
                         actions_dim=self._env.actions_dim())
-
+        
         self._optimizer = None
 
         self._writer = None
         
-        self._run_name = ""
+        self._run_name = None
+        self._drop_dir = None
+        self._model_path = None
 
         self._custom_args = {}
         
@@ -35,6 +39,9 @@ class CleanPPO():
         self._run_name = run_name
         self._custom_args = custom_args
         
+        self._drop_dir = "/tmp/" + f"{self.__class__.__name__}/" + self._run_name
+        self._model_path = self._drop_dir + "model"
+
         # seeding
         random.seed(self._seed)
         torch.manual_seed(self._seed)
@@ -135,6 +142,47 @@ class CleanPPO():
                 logratio = newlogprob - batched_logprobs[minibatch_inds]
                 ratio = logratio.exp()
 
+                with torch.no_grad():
+                    # calculate approx_kl http://joschu.net/blog/kl-approx.html
+                    old_approx_kl = (-logratio).mean()
+                    approx_kl = ((ratio - 1) - logratio).mean()
+                    clipfracs += [((ratio - 1.0).abs() > self._clip_coef).float().mean().item()]
+
+                minibatch_advantages = batched_advantages[minibatch_inds]
+                if self._norm_adv:
+                    minibatch_advantages = (minibatch_advantages - minibatch_advantages.mean()) / (minibatch_advantages.std() + 1e-8)
+
+                # Policy loss
+                pg_loss1 = -minibatch_advantages * ratio
+                pg_loss2 = -minibatch_advantages * torch.clamp(ratio, 1 - self._clip_coef, 1 + self._clip_coef)
+                pg_loss = torch.max(pg_loss1, pg_loss2).mean()
+
+                # Value loss
+                newvalue = newvalue.view(-1)
+                if self._clip_vloss:
+                    v_loss_unclipped = (newvalue - batched_returns[minibatch_inds]) ** 2
+                    v_clipped = batched_values[minibatch_inds] + torch.clamp(
+                        newvalue - batched_values[minibatch_inds],
+                        -self._clip_coef,
+                        self._clip_coef,
+                    )
+                    v_loss_clipped = (v_clipped - batched_returns[minibatch_inds]) ** 2
+                    v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
+                    v_loss = 0.5 * v_loss_max.mean()
+                else:
+                    v_loss = 0.5 * ((newvalue - batched_returns[minibatch_inds]) ** 2).mean()
+
+                entropy_loss = entropy.mean()
+                loss = pg_loss - self._entropy_coeff * entropy_loss + v_loss * self._val_f_coeff
+
+                self._optimizer.zero_grad()
+                loss.backward()
+                nn.utils.clip_grad_norm_(self._agent.parameters(), self._max_grad_norm)
+                self._optimizer.step()
+            
+            if self._target_kl is not None and approx_kl > self._target_kl:
+
+                break
 
         self._post_step()
 
@@ -150,7 +198,37 @@ class CleanPPO():
  
     def _done(self):
 
-        a = 2
+        if self._save_model:
+
+            torch.save(self._agent.state_dict(), self._model_path)
+
+    # def _evaluate(self,
+    #         eval_episodes: int,
+    #         run_name: str,
+    #         device: torch.device = torch.device("cpu"),
+    #         capture_video: bool = True,
+    #         gamma: float = 0.99,
+    #     ):
+
+    #     self._agent.load_state_dict(torch.load(self._model_path, map_location=self._torch_device))
+
+    #     self._agent.eval()
+
+    #     self._env.reset()
+
+    #     episodic_returns = []
+    #     while len(episodic_returns) < eval_episodes:
+    #         actions, _, _, _ = agent.get_action_and_value(torch.Tensor(obs).to(device))
+    #         next_obs, _, _, _, infos = envs.step(actions.cpu().numpy())
+    #         if "final_info" in infos:
+    #             for info in infos["final_info"]:
+    #                 if "episode" not in info:
+    #                     continue
+    #                 print(f"eval_episode={len(episodic_returns)}, episodic_return={info['episode']['r']}")
+    #                 episodic_returns += [info["episode"]["r"]]
+    #         obs = next_obs
+
+    #     return episodic_returns
 
     def _init_params(self):
 
