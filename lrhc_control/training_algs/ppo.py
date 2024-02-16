@@ -66,7 +66,7 @@ class CleanPPO():
         self._setup_done = True
        
     def step(self):
-        
+
         if not self._setup_done:
         
             self._should_have_called_setup()
@@ -84,19 +84,20 @@ class CleanPPO():
             # sample actions from agent
             with torch.no_grad(): # no need for gradients computation
                 action, logprob, _, value = self._agent.get_action_and_value(self._env.get_last_obs())
-                self._values[step] = value.flatten()
-                self._actions[step] = action
-                self._logprobs[step] = logprob
+                self._values[step] = value.reshape(-1, 1)
+                self._actions[step] = action.reshape(-1, 1)
+                self._logprobs[step] = logprob.reshape(-1, 1)
             
             # step vectorized env
             self._env.step(action) 
 
             # retrieve termination states and rewards
+
             self._obs[step] = self._env.get_last_obs()
             self._rewards[step] = self._env.get_last_rewards()
             self._dones[step] = torch.logical_or(self._env.get_last_terminations(),
                                             self._env.get_last_truncations()) # either terminated or truncated
-            
+
         # bootstrap value if not done
         with torch.no_grad():
 
@@ -272,7 +273,7 @@ class CleanPPO():
         self._obs_dim = self._env.obs_dim()
         self._actions_dim = self._env.actions_dim()
 
-        self._num_steps = 2048
+        self._num_steps = 100
         self._anneal_lr = True
         self._discount_factor = 0.99
         self._gae_lambda = 0.95
@@ -302,27 +303,27 @@ class CleanPPO():
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device)
-        self._logprobs = torch.full(size=(self._num_steps, self._num_envs),
+        self._logprobs = torch.full(size=(self._num_steps, self._num_envs, 1),
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device)
-        self._rewards = torch.full(size=(self._num_steps, self._num_envs),
+        self._rewards = torch.full(size=(self._num_steps, self._num_envs, 1),
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device)
-        self._dones = torch.full(size=(self._num_steps, self._num_envs),
+        self._dones = torch.full(size=(self._num_steps, self._num_envs, 1),
                         fill_value=False,
                         dtype=torch.bool,
                         device=self._torch_device)
-        self._values = torch.full(size=(self._num_steps, self._num_envs),
+        self._values = torch.full(size=(self._num_steps, self._num_envs, 1),
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device)
-        self._advantages = torch.full(size=(self._num_steps, self._num_envs),
+        self._advantages = torch.full(size=(self._num_steps, self._num_envs, 1),
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device)
-        self._returns = torch.full(size=(self._num_steps, self._num_envs),
+        self._returns = torch.full(size=(self._num_steps, self._num_envs, 1),
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device)
