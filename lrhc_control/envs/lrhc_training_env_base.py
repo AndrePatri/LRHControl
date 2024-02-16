@@ -123,8 +123,8 @@ class LRhcTrainingEnvBase():
 
         self._remote_stepper.wait() # blocking
 
-        # observations = self._get_observations()
-        # rewards = self._compute_reward()
+        self._get_observations()
+        self._compute_rewards()
 
         # truncated = None
         # info = {}
@@ -395,7 +395,7 @@ class LRhcTrainingEnvBase():
         pass
 
     @abstractmethod
-    def _compute_reward(self):
+    def _compute_rewards(self):
         
         pass
 

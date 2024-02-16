@@ -47,24 +47,17 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
                                             gpu=False) # write ref on cpu mirror
             self._rhc_refs.rob_refs.root_state.synch_all(read=False, wait=True) # write mirror to shared mem
 
-    def _compute_reward(self):
-        
-        return None
-        
-        self._synch_data()
-
+    def _compute_rewards(self):
+                
         rhc_h_ref = self._rhc_refs.rob_refs.root_state.get_p(gpu=True)[:, 2:3] # getting z ref
         robot_h = self._robot_state.root_state.get_p(gpu=True)[:, 2:3]
 
-        h_error = (rhc_h_ref - robot_h)
+        h_error = torch.norm((rhc_h_ref - robot_h))
 
-        # rhc_cost = self._rhc_status.rhc_cost.get_torch_view(gpu=True)
-        # rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_view(gpu=True)
+        rhc_cost = self._rhc_status.rhc_cost.get_torch_view(gpu=True)
+        rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_view(gpu=True)
         
-        # reward = torch.norm(h_error, p=2) + rhc_cost + rhc_const_viol
-        reward = torch.norm(h_error, p=2)
-
-        return reward.item()
+        self._rewards[:, :] = h_error + rhc_cost + rhc_const_viol
 
     def _get_observations(self):
                 
