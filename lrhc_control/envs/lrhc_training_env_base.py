@@ -110,10 +110,15 @@ class LRhcTrainingEnvBase():
 
             self._remote_stepper.wait()
         
-        self._get_observations() # initializes observations
+        self.reset()
     
-    def step(self, action):
+    def step(self, action, 
+            reset: bool = False):
         
+        if reset:
+
+            self.reset()
+
         self._check_controllers_registered() # does not make sense to run training
         # if we lost some controllers
 
@@ -135,7 +140,7 @@ class LRhcTrainingEnvBase():
         
         self._step_counter = 0
 
-        self._randomize_agent_refs()
+        self._randomize_refs()
 
         self._actions.zero_()
         self._rewards.zero_()
@@ -319,27 +324,41 @@ class LRhcTrainingEnvBase():
 
         self._rhc_status.activation_state.synch_all(read=False, wait=True) # activates all controllers
     
-    def _synch_data(self):
+    def _synch_obs(self,
+            gpu=True):
 
+        # read from shared memory on CPU
         # root link state
         self._robot_state.root_state.synch_all(read = True, wait = True)
-        self._robot_state.root_state.synch_mirror(from_gpu=False) # copies shared data on GPU
         # refs for root link
         self._rhc_refs.rob_refs.root_state.synch_all(read = True, wait = True)
-        self._rhc_refs.rob_refs.root_state.synch_mirror(from_gpu=False)
         # rhc cost
         self._rhc_status.rhc_cost.synch_all(read = True, wait = True)
-        self._rhc_status.rhc_cost.synch_mirror(from_gpu=False)
         # rhc constr. violations
         self._rhc_status.rhc_constr_viol.synch_all(read = True, wait = True)
-        self._rhc_status.rhc_constr_viol.synch_mirror(from_gpu=False)
-        
-        # copies latest agent refs to shared mem on CPU (for debugging)
-        self._agent_refs.rob_refs.root_state.synch_mirror(from_gpu=True) 
-        self._agent_refs.rob_refs.root_state.synch_all(read=False, wait = True)
+        # failure states
+        self._rhc_status.fails.synch_all(read = True, wait = True)
 
-        torch.cuda.synchronize() # this way we ensure that after this the state on GPU
-        # is fully updated
+        if gpu:
+
+            # copies data to "mirror" on GPU
+            self._robot_state.root_state.synch_mirror(from_gpu=False) # copies shared data on GPU
+            self._rhc_refs.rob_refs.root_state.synch_mirror(from_gpu=False)
+            self._rhc_status.rhc_cost.synch_mirror(from_gpu=False)
+            self._rhc_status.rhc_constr_viol.synch_mirror(from_gpu=False)
+            self._rhc_status.fails.synch_mirror(from_gpu=False)
+
+            torch.cuda.synchronize() # this way we ensure that after this the state on GPU
+            # is fully updated
+
+    def _synch_refs(self,
+            gpu=True):
+
+        if gpu:
+            # copies latest refs from GPU to CPU shared mem for debugging
+            self._agent_refs.rob_refs.root_state.synch_mirror(from_gpu=True) 
+
+        self._agent_refs.rob_refs.root_state.synch_all(read=False, wait = True) # write on shared mem
 
     def _check_termination(self):
 
@@ -405,6 +424,6 @@ class LRhcTrainingEnvBase():
         pass
     
     @abstractmethod
-    def _randomize_agent_refs(self):
+    def _randomize_refs(self):
         
         pass
