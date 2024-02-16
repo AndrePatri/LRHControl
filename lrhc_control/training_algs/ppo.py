@@ -10,6 +10,10 @@ import random
 
 from typing import Dict
 
+from SharsorIPCpp.PySharsorIPC import VLevel
+from SharsorIPCpp.PySharsorIPC import LogType
+from SharsorIPCpp.PySharsorIPC import Journal
+        
 class CleanPPO():
 
     def __init__(self,
@@ -32,6 +36,8 @@ class CleanPPO():
         
         self._init_params()
 
+        self._setup_done = False
+              
     def setup(self,
             run_name: str,
             custom_args: Dict = {}):
@@ -56,8 +62,14 @@ class CleanPPO():
                                 eps=1e-5 # small constant added to the optimization
                                 )
         self._init_buffers()
+
+        self._setup_done = True
        
     def step(self):
+        
+        if not self._setup_done:
+        
+            self._should_have_called_setup()
 
         # annealing the rate if enabled
         if self._anneal_lr:
@@ -230,6 +242,16 @@ class CleanPPO():
 
     #     return episodic_returns
 
+    def _should_have_called_setup(self):
+
+        exception = f"setup() was not called!"
+
+        Journal.log(self.__class__.__name__,
+            "_should_have_called_setup",
+            exception,
+            LogType.EXCEP,
+            throw_when_excep = True)
+        
     def _init_params(self):
 
         self._dtype = self._env.dtype()
@@ -290,8 +312,8 @@ class CleanPPO():
                         device=self._torch_device)
         self._dones = torch.full(size=(self._num_steps, self._num_envs),
                         fill_value=False,
-                        dtype=self._dtype,
-                        device=torch.bool_)
+                        dtype=torch.bool,
+                        device=self._torch_device)
         self._values = torch.full(size=(self._num_steps, self._num_envs),
                         fill_value=0,
                         dtype=self._dtype,

@@ -229,7 +229,7 @@ class LRhcTrainingEnvBase():
 
         self._terminations = torch.full(size=(self._n_envs, 1), 
                                     fill_value=False,
-                                    dtype=torch.bool_,
+                                    dtype=torch.bool,
                                     device=device)
     
     def _init_truncations(self):
@@ -242,7 +242,7 @@ class LRhcTrainingEnvBase():
 
         self._truncations = torch.full(size=(self._n_envs, 1), 
                                     fill_value=False,
-                                    dtype=torch.bool_,
+                                    dtype=torch.bool,
                                     device=device)
     
     def _init_infos(self):
