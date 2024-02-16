@@ -56,7 +56,7 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         # controllers failure penalty
         rhc_fail_penalty = self._rhc_status.fails.get_torch_view(gpu=self._use_gpu)
 
-        self._rewards[:, :] = h_error + rhc_cost + rhc_const_viol + rhc_fail_penalty
+        self._rewards[:, :] = torch.reciprocal(h_error + rhc_cost + rhc_const_viol + rhc_fail_penalty)
 
     def _get_observations(self):
                 

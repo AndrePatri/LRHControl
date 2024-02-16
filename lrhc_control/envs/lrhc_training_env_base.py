@@ -66,6 +66,7 @@ class LRhcTrainingEnvBase():
         self._perf_timer = PerfSleep()
 
         self._obs = None
+        self._obs_threshold = 1e6
         self._actions = None
         self._rewards = None
         self._terminations = None
@@ -122,13 +123,16 @@ class LRhcTrainingEnvBase():
         self._check_controllers_registered() # does not make sense to run training
         # if we lost some controllers
 
-        self._apply_rhc_actions(agent_action = action) # first apply actions to rhc controller
+        self._actions[:, :] = action
+        self._apply_rhc_actions(agent_action = self._actions) # first apply actions to rhc controller
 
         self._remote_stepper.step() # trigger simulation stepping
 
         self._remote_stepper.wait() # blocking
 
         self._get_observations()
+        self._clamp_obs() # to avoid bad things
+
         self._compute_rewards()
 
         # truncated = None
@@ -147,6 +151,7 @@ class LRhcTrainingEnvBase():
         self._obs.zero_()
 
         self._get_observations()
+        self._clamp_obs() # to avoid bad things
 
     def close(self):
         
@@ -359,6 +364,10 @@ class LRhcTrainingEnvBase():
             self._agent_refs.rob_refs.root_state.synch_mirror(from_gpu=True) 
 
         self._agent_refs.rob_refs.root_state.synch_all(read=False, wait = True) # write on shared mem
+
+    def _clamp_obs(self):
+
+        self._obs.clamp_(-self._obs_threshold, self._obs_threshold)
 
     def _check_termination(self):
 
