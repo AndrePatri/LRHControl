@@ -234,19 +234,19 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
 
                     failed = control_cluster.get_failed_controllers() # retrieve failed controllers, if any
 
+                    if failed is not None:
+     
+                        self.reset(env_indxs=failed,
+                                robot_names=[robot_name],
+                                reset_world=False,
+                                reset_cluster=True)
+                        
                     just_activated = control_cluster.get_just_activated() # retrieves just 
                     # activated controllers
            
                     just_deactivated = control_cluster.get_just_deactivated() # retrieves just 
                     # deactivated controllers
-
-                    if failed is not None:
-
-                        self.reset(env_indxs=failed,
-                                robot_names=[robot_name],
-                                reset_world=False,
-                                reset_cluster=True)
-
+                        
                     if just_activated is not None:
                         
                         # transition of some controllers to being triggered after being just activated
@@ -313,7 +313,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
 
                     # 3) wait for solution (will also read latest computed cmds)
                     control_cluster.wait_for_solution() # this is blocking
-                    
+                        
                     self._trigger_cluster[robot_name] = True # this allows for the next trigger 
 
                     # 4) update cluster state

@@ -81,10 +81,10 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
             rhc_cost = self._rhc_status.rhc_cost.get_torch_view(gpu=True)
             rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_view(gpu=True)
 
-            self._torch_obs[:, 0] = robot_h
-            self._torch_obs[:, 1] = rhc_cost
-            self._torch_obs[:, 2] = rhc_const_viol
-            self._torch_obs[: ,3] = agent_h_ref
+            self._obs[:, 0:1] = robot_h
+            self._obs[:, 1:2] = rhc_cost
+            self._obs[:, 2:3] = rhc_const_viol
+            self._obs[: ,3:4] = agent_h_ref
         
         else:
 
@@ -93,10 +93,10 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
             rhc_cost = self._rhc_status.rhc_cost.get_torch_view(gpu=False)
             rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_view(gpu=False)
 
-            self._torch_obs[:, 0] = robot_h
-            self._torch_obs[:, 1] = rhc_cost
-            self._torch_obs[:, 2] = rhc_const_viol
-            self._torch_obs[: ,3] = agent_h_ref
+            self._obs[:, 0:1] = robot_h
+            self._obs[:, 1:2] = rhc_cost
+            self._obs[:, 2:3] = rhc_const_viol
+            self._obs[: ,3:4] = agent_h_ref
     
     def _randomize_agent_refs(self):
         

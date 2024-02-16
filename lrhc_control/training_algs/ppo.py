@@ -2,8 +2,11 @@ from lrhc_control.agents.ppo_agent import Agent
 
 import torch 
 import torch.optim as optim
+from torch.utils.tensorboard import SummaryWriter
 
 import random
+
+from typing import Dict
 
 class CleanPPO():
 
@@ -17,35 +20,20 @@ class CleanPPO():
 
         self._optimizer = None
 
-        self._init_params()
-    
-    def step(self):
-
-        # Annealing the rate if instructed to do so.
-        if self._anneal_lr:
-
-            frac = 1.0 - (self._it_counter - 1.0) / self._iterations_n
-            lrnow = frac * self._learning_rate
-            self._optimizer.param_groups[0]["lr"] = lrnow
-
-        for step in range(0, self._num_steps):
-
-            global_step += self._num_envs
-            
-
-        self._post_step()
-
-    def _post_step(self):
-
-        self._it_counter +=1 
+        self._writer = None
         
-        if self._it_counter == self._iterations_n:
+        self._run_name = ""
 
-            self._done()
+        self._custom_args = {}
+        
+        self._init_params()
 
-            exit()
-
-    def setup(self):
+    def setup(self,
+            run_name: str,
+            custom_args: Dict = {}):
+        
+        self._run_name = run_name
+        self._custom_args = custom_args
         
         # seeding
         random.seed(self._seed)
@@ -61,7 +49,89 @@ class CleanPPO():
                                 eps=1e-5 # small constant added to the optimization
                                 )
         self._init_buffers()
+       
+    def step(self):
+
+        # annealing the rate if enabled
+        if self._anneal_lr:
+
+            frac = 1.0 - (self._it_counter - 1.0) / self._iterations_n
+            lrnow = frac * self._learning_rate
+            self._optimizer.param_groups[0]["lr"] = lrnow
+
+        # collect data from current policy
+        for step in range(self._num_steps):
+
+            # sample actions from agent
+            with torch.no_grad(): # no need for gradients computation
+                action, logprob, _, value = self._agent.get_action_and_value(self._env.get_last_obs())
+                self._values[step] = value.flatten()
+                self._actions[step] = action
+                self._logprobs[step] = logprob
+            
+            # step vectorized env
+            self._env.step(action) 
+
+            # retrieve termination states and rewards
+            self._dones[step] = torch.logical_or(self._env.get_last_terminations(),
+                                            self._env.get_last_truncations())
+            self._obs[step] = self._env.get_last_obs()
+            self._rewards[step] = self._env.get_last_rewards()
+
+        # bootstrap value if not done
+        with torch.no_grad():
+
+            next_value = self._agent.get_value(self._env.get_last_obs()).reshape(1, -1)
+            self._advantages.zero_() # reset advantages
+            lastgaelam = 0
+
+            for t in reversed(range(self._num_steps)):
+
+                if t == self._num_steps - 1: # last step
+
+                    nextnonterminal = 1.0 - self._dones[t]
+
+                    nextvalues = next_value
+
+                else:
+
+                    nextnonterminal = 1.0 - self._dones[t + 1]
+
+                    nextvalues = self._values[t + 1]
+
+                delta = self._rewards[t] + self._discount_factor * nextvalues * nextnonterminal - self._values[t]
+
+                self._advantages[t] = lastgaelam = delta + self._discount_factor * self._gae_lambda * nextnonterminal * lastgaelam
+
+            self._returns[:, :] = self._advantages + self._values
+
+        # flatten batch
+        batched_obs = self._obs.reshape((-1, self._env.obs_dim()))
+        batched_logprobs = self._logprobs.reshape(-1)
+        batched_actions = self._actions.reshape((-1, self._env.actions_dim()))
+        batched_advantages = self._advantages.reshape(-1)
+        batched_returns = self._returns.reshape(-1)
+        batched_values = self._values.reshape(-1)
+
+        # optimize policy and value network
+        batch_indxs = torch.arange(self._batch_size)
+        clipfracs = []
+
+        for epoch in range(self._update_epochs):
+            torch.random.shuff
+
+        self._post_step()
+
+    def _post_step(self):
+
+        self._it_counter +=1 
         
+        if self._it_counter == self._iterations_n:
+
+            self._done()
+
+            exit()
+ 
     def _done(self):
 
         a = 2
@@ -141,63 +211,10 @@ class CleanPPO():
                         dtype=self._dtype,
                         device=self._torch_device)
         
-        # collect data for policy update
-        for step in range(self._num_steps):
+    def _init_writer(self):
 
-            global_step += self._num_envs
-            self._obs[step] = self._env.get_last_obs()
-
-            # sample actions from agent
-            with torch.no_grad(): # no need for gradients computation
-                action, logprob, _, value = self._agent.get_action_and_value(self._obs[step])
-                self._values[step] = value.flatten()
-                self._actions[step] = action
-                self._logprobs[step] = logprob
-            
-            # step env
-            self._env.step(action)
-            self._dones[step] = torch.logical_or(self._env.get_last_terminations(),
-                                            self._env.get_last_truncations())
-            self._rewards[step] = self._env.get_last_rewards()
-
-        # bootstrap value if not done
-        with torch.no_grad():
-
-            next_value = self._agent.get_value(self._env.get_last_obs()).reshape(1, -1)
-            self._advantages.zero_() # reset advantages
-            lastgaelam = 0
-
-            for t in reversed(range(self._num_steps)):
-
-                if t == self._num_steps - 1: # last step
-
-                    nextnonterminal = 1.0 - self._dones[t]
-
-                    nextvalues = next_value
-
-                else:
-
-                    nextnonterminal = 1.0 - self._dones[t + 1]
-
-                    nextvalues = self._values[t + 1]
-
-                delta = self._rewards[t] + self._discount_factor * nextvalues * nextnonterminal - self._values[t]
-
-                self._advantages[t] = lastgaelam = delta + self._discount_factor * self._gae_lambda * nextnonterminal * lastgaelam
-
-            self._returns[:, :] = self._advantages + self._values
-
-        # flatten batch
-        batched_obs = self._obs.reshape((-1, self._env.obs_dim()))
-        batched_logprobs = self._logprobs.reshape(-1)
-        batched_actions = self._actions.reshape((-1, self._env.actions_dim()))
-        batched_advantages = self._advantages.reshape(-1)
-        batched_returns = self._returns.reshape(-1)
-        batched_values = self._values.reshape(-1)
-
-        # optimize policy and value network
-        batch_indxs = torch.arange(self._batch_size)
-        clipfracs = []
-
-        for epoch in range(self._update_epochs):
-            torch.random.shuff
+        self._writer = SummaryWriter(f"runs/{self._run_name}")
+        self._writer.add_text(
+            "hyperparameters",
+            "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(self._custom_args).items()])),
+        )

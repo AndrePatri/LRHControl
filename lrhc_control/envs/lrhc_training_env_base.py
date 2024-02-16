@@ -26,7 +26,7 @@ class LRhcTrainingEnvBase():
             obs_dim: int,
             actions_dim: int,
             env_name: str = "",
-            n_preinit_steps: int = 1;
+            n_preinit_steps: int = 1,
             verbose: bool = False,
             vlevel: VLevel = VLevel.V1,
             use_gpu: bool = True,
@@ -82,10 +82,6 @@ class LRhcTrainingEnvBase():
         
         self._wait_for_sim_env()
 
-        self.observation_space = spaces.Box(low=-float('inf'), high=float('inf'), shape=(1, obs_dim), dtype=torch.float32)
-    
-        self.action_space = spaces.Box(low=-float('inf'), high=float('inf'), shape=(1, actions_dim), dtype=torch.float32)
-        
         self._init_step()
             
     def _first_step(self):
@@ -110,7 +106,7 @@ class LRhcTrainingEnvBase():
 
             self._remote_stepper.wait()
         
-        self._obs[:, :] = self._get_observations() # initializes observations
+        self._get_observations() # initializes observations
     
     def step(self, action):
         
