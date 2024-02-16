@@ -5,33 +5,26 @@ from torch.distributions.normal import Normal
 
 class Agent(nn.Module):
 
-    def __init__(self,
-            obs_dim: int, 
-            actions_dim: int):
+    def __init__(self, envs):
 
         super().__init__()
-        
-        self._obs_dim = obs_dim
-        self._actiosn_dim = actions_dim
-
         self.critic = nn.Sequential(
-            self.layer_init(nn.Linear(self._obs_dim, 64)),
+            self._layer_init(nn.Linear(torch.tensor(envs.single_observation_space.shape).prod(), 64)),
             nn.Tanh(),
-            self.layer_init(nn.Linear(64, 64)),
+            self._layer_init(nn.Linear(64, 64)),
             nn.Tanh(),
-            self.layer_init(nn.Linear(64, 1), std=1.0),
+            self._layer_init(nn.Linear(64, 1), std=1.0),
         )
         self.actor_mean = nn.Sequential(
-            self.layer_init(nn.Linear(self._obs_dim, 64)),
+            self._layer_init(nn.Linear(torch.tensor(envs.single_observation_space.shape).prod(), 64)),
             nn.Tanh(),
-            self.layer_init(nn.Linear(64, 64)),
+            self._layer_init(nn.Linear(64, 64)),
             nn.Tanh(),
-            self.layer_init(nn.Linear(64, self._actiosn_dim), std=0.01),
+            self._layer_init(nn.Linear(64, torch.prod(torch.tensor(envs.single_action_space.shape))), std=0.01),
         )
-        self.actor_logstd = nn.Parameter(torch.zeros(1, self._actiosn_dim))
+        self.actor_logstd = nn.Parameter(torch.zeros(1, torch.prod(torch.tensor(envs.single_action_space.shape))))
 
     def get_value(self, x):
-
         return self.critic(x)
 
     def get_action_and_value(self, x, action=None):
@@ -43,7 +36,7 @@ class Agent(nn.Module):
             action = probs.sample()
         return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(x)
     
-    def _layer_init(layer, std=torch.sqrt(2), bias_const=0.0):
+    def _layer_init(self, layer, std=torch.sqrt(torch.tensor(2)), bias_const=0.0):
 
         torch.nn.init.orthogonal_(layer.weight, std)
         torch.nn.init.constant_(layer.bias, bias_const)

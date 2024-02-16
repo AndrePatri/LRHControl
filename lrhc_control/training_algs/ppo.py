@@ -73,25 +73,24 @@ class CleanPPO():
             self._env.step(action) 
 
             # retrieve termination states and rewards
-            self._dones[step] = torch.logical_or(self._env.get_last_terminations(),
-                                            self._env.get_last_truncations())
             self._obs[step] = self._env.get_last_obs()
             self._rewards[step] = self._env.get_last_rewards()
-
+            self._dones[step] = torch.logical_or(self._env.get_last_terminations(),
+                                            self._env.get_last_truncations()) # either terminated or truncated
+            
         # bootstrap value if not done
         with torch.no_grad():
 
-            next_value = self._agent.get_value(self._env.get_last_obs()).reshape(1, -1)
             self._advantages.zero_() # reset advantages
-            lastgaelam = 0
 
+            lastgaelam = 0
             for t in reversed(range(self._num_steps)):
 
                 if t == self._num_steps - 1: # last step
 
                     nextnonterminal = 1.0 - self._dones[t]
 
-                    nextvalues = next_value
+                    nextvalues = self._values[t]
 
                 else:
 
@@ -99,13 +98,17 @@ class CleanPPO():
 
                     nextvalues = self._values[t + 1]
 
-                delta = self._rewards[t] + self._discount_factor * nextvalues * nextnonterminal - self._values[t]
+                # temporal difference error computation
+                actual_reward_discounted = self._rewards[t] + self._discount_factor * nextvalues * nextnonterminal
+                td_error = actual_reward_discounted - self._values[t] # meas. - est. reward
 
-                self._advantages[t] = lastgaelam = delta + self._discount_factor * self._gae_lambda * nextnonterminal * lastgaelam
+                # compute advantages using the Generalized Advantage Estimation (GAE) 
+                self._advantages[t] = lastgaelam = td_error + self._discount_factor * self._gae_lambda * nextnonterminal * lastgaelam
 
+            # estimated cumulative rewards from each time step to the end of the episode
             self._returns[:, :] = self._advantages + self._values
 
-        # flatten batch
+        # flatten batches
         batched_obs = self._obs.reshape((-1, self._env.obs_dim()))
         batched_logprobs = self._logprobs.reshape(-1)
         batched_actions = self._actions.reshape((-1, self._env.actions_dim()))
@@ -114,11 +117,24 @@ class CleanPPO():
         batched_values = self._values.reshape(-1)
 
         # optimize policy and value network
-        batch_indxs = torch.arange(self._batch_size)
         clipfracs = []
 
         for epoch in range(self._update_epochs):
-            torch.random.shuff
+
+            shuffled_batch_indxs = torch.randperm(self._batch_size) # randomizing 
+            # indexes for removing correlations
+
+            for start in range(0, self._batch_size, self._minibatch_size):
+                
+                end = start + self._minibatch_size
+                minibatch_inds = shuffled_batch_indxs[start:end]
+
+                _, newlogprob, entropy, newvalue = self._agent.get_action_and_value(
+                                                                    batched_obs[minibatch_inds], 
+                                                                    batched_actions[minibatch_inds])
+                logratio = newlogprob - batched_logprobs[minibatch_inds]
+                ratio = logratio.exp()
+
 
         self._post_step()
 
