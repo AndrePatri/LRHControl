@@ -31,25 +31,21 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
     def _apply_rhc_actions(self,
                 agent_action):
 
-        # agent_action = torch.tensor(agent_action)
+        rhc_current_ref = self._rhc_refs.rob_refs.root_state.get_p(gpu=True)
+        rhc_current_ref[:, 2:3] = agent_action # overwrite z ref
 
-        # rhc_current_ref = self._rhc_refs.rob_refs.root_state.get_p(gpu=True)
-        # rhc_current_ref[:, 2:3] = agent_action[0] # overwrite z ref
+        if self._use_gpu:
 
-        # if self._use_gpu:
-
-        #     self._rhc_refs.rob_refs.root_state.set_p(p=rhc_current_ref,
-        #                                     gpu=True) # write ref on gpu
-        #     self._rhc_refs.rob_refs.root_state.synch_mirror(from_gpu=True) # write from gpu to cpu mirror
-        #     self._rhc_refs.rob_refs.root_state.synch_all(read=False, wait=True) # write mirror to shared mem
+            self._rhc_refs.rob_refs.root_state.set_p(p=rhc_current_ref,
+                                            gpu=True) # write ref on gpu
+            self._rhc_refs.rob_refs.root_state.synch_mirror(from_gpu=True) # write from gpu to cpu mirror
+            self._rhc_refs.rob_refs.root_state.synch_all(read=False, wait=True) # write mirror to shared mem
             
-        # else:
+        else:
 
-        #     self._rhc_refs.rob_refs.root_state.set_p(p=rhc_current_ref,
-        #                                     gpu=False) # write ref on cpu mirror
-        #     self._rhc_refs.rob_refs.root_state.synch_all(read=False, wait=True) # write mirror to shared mem
-
-        a = None
+            self._rhc_refs.rob_refs.root_state.set_p(p=rhc_current_ref,
+                                            gpu=False) # write ref on cpu mirror
+            self._rhc_refs.rob_refs.root_state.synch_all(read=False, wait=True) # write mirror to shared mem
 
     def _compute_reward(self):
         

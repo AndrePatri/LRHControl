@@ -79,6 +79,10 @@ class LRhcTrainingEnvBase():
 
         self._init_obs(obs_dim)
         self._init_actions(actions_dim)
+        self._init_rewards()
+        self._init_infos()
+        self._init_terminations()
+        self._init_truncations()
         
         self._wait_for_sim_env()
 
@@ -113,7 +117,7 @@ class LRhcTrainingEnvBase():
         self._check_controllers_registered() # does not make sense to run training
         # if we lost some controllers
 
-        # self._apply_rhc_actions(agent_action = action) # first apply actions to rhc controller
+        self._apply_rhc_actions(agent_action = action) # first apply actions to rhc controller
 
         self._remote_stepper.step() # trigger simulation stepping
 
@@ -254,7 +258,7 @@ class LRhcTrainingEnvBase():
         device = "cuda" if self._use_gpu else "cpu"
 
         for i in range(self._n_envs):
-            self.info.append(self._base_info)
+            self._infos.append(self._base_info)
         
     def _attach_to_shared_mem(self):
 
