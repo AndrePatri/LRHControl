@@ -37,14 +37,19 @@ class CleanPPO():
         self._init_params()
 
         self._setup_done = False
+
+        self._verbose = False
               
     def setup(self,
             run_name: str,
-            custom_args: Dict = {}):
+            custom_args: Dict = {},
+            verbose: bool = False):
         
         self._run_name = run_name
         self._custom_args = custom_args
         
+        self._verbose = verbose
+
         self._drop_dir = "/tmp/" + f"{self.__class__.__name__}/" + self._run_name
         self._model_path = self._drop_dir + "model"
 
@@ -203,6 +208,16 @@ class CleanPPO():
 
         self._it_counter +=1 
         
+        if self._verbose:
+
+            info = f"Current step n.{self._it_counter + 1}/{self._num_steps}"
+
+            Journal.log(self.__class__.__name__,
+                "_post_step",
+                info,
+                LogType.INFO,
+                throw_when_excep = True)
+
         if self._it_counter == self._iterations_n:
 
             self._done()
