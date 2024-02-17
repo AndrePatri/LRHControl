@@ -55,4 +55,3 @@ class Agent(nn.Module):
         torch.nn.init.constant_(layer.bias, bias_const)
         
         return layer
-

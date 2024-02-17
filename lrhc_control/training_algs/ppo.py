@@ -1,4 +1,4 @@
-from lrhc_control.agents.ppo_agent import Agent
+from lrhc_control.agents.ppo_agent import Agent, AgentSimple
 
 import torch 
 import torch.optim as optim
@@ -66,7 +66,7 @@ class CleanPPO():
         self._setup_done = True
        
     def step(self):
-
+        
         if not self._setup_done:
         
             self._should_have_called_setup()
@@ -273,7 +273,7 @@ class CleanPPO():
         self._obs_dim = self._env.obs_dim()
         self._actions_dim = self._env.actions_dim()
 
-        self._num_steps = 100
+        self._num_steps = 2048
         self._anneal_lr = True
         self._discount_factor = 0.99
         self._gae_lambda = 0.95

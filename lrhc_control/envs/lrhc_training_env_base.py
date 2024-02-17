@@ -8,6 +8,7 @@ from control_cluster_bridge.utilities.shared_data.rhc_data import RhcStatus
 
 from lrhc_control.utils.shared_data.remote_env_stepper import RemoteEnvStepper
 from lrhc_control.utils.shared_data.agent_refs import AgentRefs
+from lrhc_control.utils.shared_data.training_env import SharedTrainingEnvInfo
 
 from SharsorIPCpp.PySharsorIPC import VLevel
 from SharsorIPCpp.PySharsorIPC import LogType
@@ -29,6 +30,7 @@ class LRhcTrainingEnvBase():
             n_preinit_steps: int = 1,
             verbose: bool = False,
             vlevel: VLevel = VLevel.V1,
+            debug: bool = True,
             use_gpu: bool = True,
             dtype: torch.dtype = torch.float32):
         
@@ -44,6 +46,8 @@ class LRhcTrainingEnvBase():
 
         self._verbose = verbose
         self._vlevel = vlevel
+
+        self._is_debug = debug
 
         self._env_name = env_name
 
@@ -113,6 +117,10 @@ class LRhcTrainingEnvBase():
         
         self.reset()
     
+    def _debug(self):
+        
+        a = 1
+
     def step(self, action, 
             reset: bool = False):
         
@@ -139,6 +147,10 @@ class LRhcTrainingEnvBase():
         # info = {}
 
         self._step_counter +=1
+
+        if self._is_debug:
+        
+            self._debug()
     
     def reset(self, seed=None, options=None):
         
@@ -149,6 +161,8 @@ class LRhcTrainingEnvBase():
         self._actions.zero_()
         self._rewards.zero_()
         self._obs.zero_()
+        self._terminations.zero_()
+        self._truncations.zero_()
 
         self._get_observations()
         self._clamp_obs() # to avoid bad things
@@ -314,7 +328,8 @@ class LRhcTrainingEnvBase():
                                 vlevel=self._vlevel,
                                 fill_value=0)
         self._agent_refs.run()
-
+        
+        # remote stepper for coordination with sim environment
         self._remote_stepper = RemoteEnvStepper(namespace=self._namespace,
                             is_server=False,
                             verbose=self._verbose,
@@ -322,7 +337,23 @@ class LRhcTrainingEnvBase():
                             safe=self._safe_shared_mem)
         self._remote_stepper.run()
         self._remote_stepper.training_env_ready()
-
+    
+        # debug data servers
+        traing_env_param_dict = {}
+        traing_env_param_dict["use_gpu"] = self._use_gpu
+        traing_env_param_dict["debug"] = self._is_debug
+        traing_env_param_dict["n_preinit_steps"] = self._n_preinit_steps
+        traing_env_param_dict["n_preinit_steps"] = self._n_envs
+        
+        self._training_sim_info = SharedTrainingEnvInfo(namespace=self._namespace,
+                is_server=True, 
+                training_env_params_dict=traing_env_param_dict,
+                safe=False,
+                force_reconnection=False,
+                verbose=self._verbose,
+                vlevel=self._vlevel)
+        self._training_sim_info.run()
+        
     def _activate_rhc_controllers(self):
 
         self._rhc_status.activation_state.torch_view[:, :] = True
