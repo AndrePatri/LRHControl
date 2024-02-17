@@ -67,10 +67,11 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         rhc_cost = self._rhc_status.rhc_cost.get_torch_view(gpu=self._use_gpu)
         rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_view(gpu=self._use_gpu)
 
-        self._obs[:, 0:1] = robot_h
-        self._obs[:, 1:2] = rhc_cost
-        self._obs[:, 2:3] = rhc_const_viol
-        self._obs[: ,3:4] = agent_h_ref
+        obs = self._obs.get_torch_view(gpu=self._use_gpu)
+        obs[:, 0:1] = robot_h
+        obs[:, 1:2] = rhc_cost
+        obs[:, 2:3] = rhc_const_viol
+        obs[: ,3:4] = agent_h_ref
     
     def _randomize_refs(self):
         
@@ -84,3 +85,33 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
                                             gpu=self._use_gpu)
                     
         self._synch_refs(gpu=self._use_gpu)
+    
+    def _get_obs_names(self):
+
+        obs_names = [""] * self.obs_dim()
+
+        obs_names[0] = "robot_h"
+        obs_names[1] = "rhc_cost"
+        obs_names[2] = "rhc_const_viol"
+        obs_names[3] = "agent_h_ref"
+
+        return obs_names
+
+    def _get_action_names(self):
+
+        action_names = [""] * self.actions_dim()
+
+        action_names[0] = "rhc_cmd_h"
+
+        return action_names
+
+    def _get_rewards_names(self):
+
+        reward_names = [""] * 4
+
+        reward_names[0] = "h_error"
+        reward_names[1] = "rhc_cost"
+        reward_names[2] = "rhc_const_viol"
+        reward_names[3] = "rhc_fail_penalty"
+
+        return reward_names

@@ -10,6 +10,13 @@ from lrhc_control.utils.shared_data.remote_env_stepper import RemoteEnvStepper
 from lrhc_control.utils.shared_data.agent_refs import AgentRefs
 from lrhc_control.utils.shared_data.training_env import SharedTrainingEnvInfo
 
+from lrhc_control.utils.shared_data.training_env import Observations
+from lrhc_control.utils.shared_data.training_env import TotRewards
+from lrhc_control.utils.shared_data.training_env import Rewards
+from lrhc_control.utils.shared_data.training_env import Actions
+from lrhc_control.utils.shared_data.training_env import Terminations
+from lrhc_control.utils.shared_data.training_env import Truncations
+
 from SharsorIPCpp.PySharsorIPC import VLevel
 from SharsorIPCpp.PySharsorIPC import LogType
 from SharsorIPCpp.PySharsorIPC import Journal
@@ -39,6 +46,9 @@ class LRhcTrainingEnvBase():
         self._namespace = namespace
         self._with_gpu_mirror = True
         self._safe_shared_mem = False
+
+        self._obs_dim = obs_dim
+        self._actions_dim = actions_dim
 
         self._use_gpu = use_gpu
 
@@ -70,11 +80,12 @@ class LRhcTrainingEnvBase():
         self._perf_timer = PerfSleep()
 
         self._obs = None
-        self._obs_threshold = 1e6
         self._actions = None
         self._rewards = None
         self._terminations = None
         self._truncations = None
+
+        self._obs_threshold = 1e6 # used for clipping observations
 
         self._base_info = {}
         self._base_info["final_info"] = None
@@ -82,7 +93,7 @@ class LRhcTrainingEnvBase():
         
         self._attach_to_shared_mem()
 
-        self._init_obs(obs_dim)
+        self._init_obs()
         self._init_actions(actions_dim)
         self._init_rewards()
         self._init_infos()
@@ -119,7 +130,17 @@ class LRhcTrainingEnvBase():
     
     def _debug(self):
         
-        a = 1
+        # print(self._obs.get_torch_view(gpu=True))
+
+        if self._use_gpu:
+
+            self._obs.synch_mirror(from_gpu=True) # copy data from gpu to cpu view
+
+        # print(self._obs.get_torch_view())
+
+        self._obs.synch_all(read=False, wait=True) # copies data on CPU shared mem
+
+        # print(self._obs.get_torch_view())
 
     def step(self, action, 
             reset: bool = False):
@@ -148,9 +169,7 @@ class LRhcTrainingEnvBase():
 
         self._step_counter +=1
 
-        if self._is_debug:
-        
-            self._debug()
+        self._post_step() # post step operations
     
     def reset(self, seed=None, options=None):
         
@@ -160,7 +179,9 @@ class LRhcTrainingEnvBase():
 
         self._actions.zero_()
         self._rewards.zero_()
-        self._obs.zero_()
+        
+        self._obs.reset()
+
         self._terminations.zero_()
         self._truncations.zero_()
 
@@ -173,12 +194,15 @@ class LRhcTrainingEnvBase():
         self._robot_state.close()
         self._rhc_refs.close()
         self._rhc_status.close()
-
+        
         self._remote_stepper.close()
+
+        # closing env.-specific shared data
+        self._obs.close()
 
     def get_last_obs(self):
     
-        return self._obs
+        return self._obs.get_torch_view(gpu=self._use_gpu)
 
     def get_last_actions(self):
     
@@ -198,7 +222,7 @@ class LRhcTrainingEnvBase():
                             
     def obs_dim(self):
 
-        return self._obs.shape[1]
+        return self._obs_dim
     
     def actions_dim(self):
 
@@ -220,14 +244,41 @@ class LRhcTrainingEnvBase():
                                     
         return self._dtype 
     
-    def _init_obs(self, obs_dim: int):
+    def _get_obs_names(self):
+
+        # to be overridden by child class
+
+        return None
+    
+    def _get_action_names(self):
+
+        # to be overridden by child class
+
+        return None
+    
+    def _get_rewards_names(self):
+
+        # to be overridden by child class
+
+        return None
+    
+    def _init_obs(self):
         
         device = "cuda" if self._use_gpu else "cpu"
 
-        self._obs = torch.full(size=(self._n_envs, obs_dim), 
-                                    fill_value=0,
-                                    dtype=torch.float32,
-                                    device=device)
+        self._obs = Observations(namespace=self._namespace,
+                            n_envs=self._n_envs,
+                            obs_dim=self._obs_dim,
+                            obs_names=self._get_obs_names(),
+                            env_names=None,
+                            is_server=True,
+                            verbose=self._verbose,
+                            vlevel=self._vlevel,
+                            safe=True,
+                            force_reconnection=False,
+                            with_gpu_mirror=self._use_gpu,
+                            fill_value=0.0)
+        self._obs.run()
         
     def _init_actions(self, actions_dim: int):
         
@@ -398,8 +449,8 @@ class LRhcTrainingEnvBase():
 
     def _clamp_obs(self):
 
-        self._obs.clamp_(-self._obs_threshold, self._obs_threshold)
-
+        self._obs.get_torch_view(gpu=self._use_gpu).clamp_(-self._obs_threshold, self._obs_threshold)
+    
     def _check_termination(self):
 
         return None
@@ -446,7 +497,13 @@ class LRhcTrainingEnvBase():
             self.close()
 
             exit()
-   
+    
+    def _post_step(self):
+
+        if self._is_debug:
+            
+            self._debug()
+
     @abstractmethod
     def _apply_rhc_actions(self,
                 agent_action):

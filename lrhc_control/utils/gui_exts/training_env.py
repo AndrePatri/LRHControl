@@ -8,8 +8,8 @@ from SharsorIPCpp.PySharsorIPC import VLevel
 
 from lrhc_control.utils.shared_data.training_env import SharedTrainingEnvInfo
 from control_cluster_bridge.utilities.shared_data.rhc_data import RobotState
-from control_cluster_bridge.utilities.shared_data.rhc_data import RhcRefs
 from lrhc_control.utils.shared_data.agent_refs import AgentRefs
+from lrhc_control.utils.shared_data.training_env import Observations
 
 import numpy as np
 
@@ -66,6 +66,13 @@ class TrainingEnvData(SharedDataWindow):
                                 verbose=True,
                                 vlevel=VLevel.V2))
         
+        self.shared_data_clients.append(Observations(namespace=self.namespace,
+                                            is_server=False,
+                                            verbose=True,
+                                            vlevel=VLevel.V2,
+                                            safe=False,
+                                            with_gpu_mirror=False))
+        
         for client in self.shared_data_clients:
 
             client.run()
@@ -103,15 +110,15 @@ class TrainingEnvData(SharedDataWindow):
                                     legend_list=self.shared_data_clients[0].param_keys, 
                                     ylabel=""))
         
-        self.rt_plotters.append(RtPlotWindow(data_dim=len(obs_legend),
-                                    n_data = cluster_size,
+        self.rt_plotters.append(RtPlotWindow(data_dim=self.shared_data_clients[3].n_cols,
+                                    n_data = self.shared_data_clients[3].n_rows,
                                     update_data_dt=self.update_data_dt, 
                                     update_plot_dt=self.update_plot_dt,
                                     window_duration=self.window_duration, 
                                     parent=None, 
                                     base_name=f"Observations", 
                                     window_buffer_factor=self.window_buffer_factor, 
-                                    legend_list=obs_legend, 
+                                    legend_list=self.shared_data_clients[3].col_names(), 
                                     ylabel="[float]"))
         
         self.rt_plotters.append(RtPlotWindow(data_dim=len(reward_legend),
@@ -208,4 +215,7 @@ class TrainingEnvData(SharedDataWindow):
             # read data on shared memory
             data = self.shared_data_clients[0].get().flatten()
 
+            self.shared_data_clients[3].synch_all(read=True, wait=True) # observations
+            
             self.rt_plotters[0].rt_plot_widget.update(data)
+            self.rt_plotters[1].rt_plot_widget.update(np.transpose(self.shared_data_clients[3].get_numpy_view()))

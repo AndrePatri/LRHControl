@@ -26,20 +26,20 @@ class NamedSharedDataView(SharedDataView):
                 safe: bool = True,
                 force_reconnection: bool = False,
                 with_gpu_mirror: bool = False,
-                fill_value = np.nan):
+                fill_value = 0.0):
             
             self._col_names = col_names
             self._row_names = row_names                   
-                
+            
             if is_server:
 
-                self._col_names_shared = StringTensorServer(length = self.n_jnts, 
+                self._col_names_shared = StringTensorServer(length = n_cols, 
                                             basename = basename + "ColNames", 
                                             name_space = namespace,
                                             verbose = verbose, 
                                             vlevel = vlevel)
                 
-                self._row_names_shared = StringTensorServer(length = self.n_jnts, 
+                self._row_names_shared = StringTensorServer(length = n_rows, 
                                             basename = basename + "RowNames", 
                                             name_space = namespace,
                                             verbose = verbose, 
@@ -79,6 +79,8 @@ class NamedSharedDataView(SharedDataView):
 
         self._col_names_shared.run()
         self._row_names_shared.run()
+
+        self._write_or_retrieve_names()
     
     def col_names(self):
 
@@ -88,6 +90,10 @@ class NamedSharedDataView(SharedDataView):
 
         return self._row_names
     
+    def reset(self):
+
+        self.to_zero()
+
     def _write_or_retrieve_names(self):
          
         if self.is_server:

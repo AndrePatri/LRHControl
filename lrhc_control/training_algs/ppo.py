@@ -1,4 +1,4 @@
-from lrhc_control.agents.ppo_agent import Agent, AgentSimple
+from lrhc_control.agents.ppo_agent import Agent
 
 import torch 
 import torch.optim as optim
@@ -288,7 +288,7 @@ class CleanPPO():
         self._obs_dim = self._env.obs_dim()
         self._actions_dim = self._env.actions_dim()
 
-        self._num_steps = 2048
+        self._num_steps = 4096
         self._anneal_lr = True
         self._discount_factor = 0.99
         self._gae_lambda = 0.95

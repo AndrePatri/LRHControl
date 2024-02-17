@@ -281,10 +281,8 @@ class Rewards(NamedSharedDataView):
 
     def __init__(self,
             namespace: str,
-            basename: str,
-            n_envs: int, 
-            n_rewards: int, 
-            dtype: sharsor_dtype.Float,
+            n_envs: int = None, 
+            n_rewards: int = None, 
             reward_names: List[str] = None,
             env_names: List[str] = None,
             is_server = False, 
@@ -301,7 +299,7 @@ class Rewards(NamedSharedDataView):
                     basename=basename,
                     n_rows=n_envs,
                     n_cols=n_rewards,
-                    dtype=dtype,
+                    dtype=sharsor_dtype.Float,
                     col_names=reward_names,
                     row_names=env_names,
                     is_server=is_server,
@@ -316,9 +314,7 @@ class TotRewards(NamedSharedDataView):
 
     def __init__(self,
             namespace: str,
-            basename: str,
-            n_envs: int, 
-            dtype: sharsor_dtype.Float,
+            n_envs: int = None, 
             reward_names: List[str] = None,
             env_names: List[str] = None,
             is_server = False, 
@@ -335,7 +331,7 @@ class TotRewards(NamedSharedDataView):
                     basename=basename,
                     n_rows=n_envs,
                     n_cols=1,
-                    dtype=dtype,
+                    dtype=sharsor_dtype.Float,
                     col_names=reward_names,
                     row_names=env_names,
                     is_server=is_server,
@@ -350,10 +346,8 @@ class Observations(NamedSharedDataView):
 
     def __init__(self,
             namespace: str,
-            basename: str,
-            n_envs: int, 
-            obs_dim: int,
-            dtype: sharsor_dtype.Float,
+            n_envs: int = None, 
+            obs_dim: int = None,
             obs_names: List[str] = None,
             env_names: List[str] = None,
             is_server = False, 
@@ -370,7 +364,7 @@ class Observations(NamedSharedDataView):
                     basename=basename,
                     n_rows=n_envs,
                     n_cols=obs_dim,
-                    dtype=dtype,
+                    dtype=sharsor_dtype.Float,
                     col_names=obs_names,
                     row_names=env_names,
                     is_server=is_server,
@@ -385,10 +379,8 @@ class Actions(NamedSharedDataView):
 
     def __init__(self,
             namespace: str,
-            basename: str,
-            n_envs: int, 
-            action_dim: int,
-            dtype: sharsor_dtype.Float,
+            n_envs: int = None, 
+            action_dim: int = None,
             action_names: List[str] = None,
             env_names: List[str] = None,
             is_server = False, 
@@ -405,7 +397,7 @@ class Actions(NamedSharedDataView):
                     basename=basename,
                     n_rows=n_envs,
                     n_cols=action_dim,
-                    dtype=dtype,
+                    dtype=sharsor_dtype.Float,
                     col_names=action_names,
                     row_names=env_names,
                     is_server=is_server,
@@ -415,3 +407,59 @@ class Actions(NamedSharedDataView):
                     force_reconnection=force_reconnection,
                     with_gpu_mirror=with_gpu_mirror,
                     fill_value=fill_value)
+        
+class Terminations(SharedDataView):
+
+    def __init__(self,
+            namespace: str,
+            n_rows: int = None, 
+            is_server = False, 
+            verbose: bool = False, 
+            vlevel: VLevel = VLevel.V0,
+            safe: bool = True,
+            force_reconnection: bool = False,
+            with_gpu_mirror: bool = False,
+            fill_value = 0):
+            
+            basename = "Terminations"
+    
+            super().__init__(namespace = namespace,
+                basename = basename,
+                is_server = is_server, 
+                n_rows = n_rows, 
+                n_cols = 1, 
+                verbose = verbose, 
+                vlevel = vlevel,
+                safe = safe, # boolean operations are atomic on 64 bit systems
+                dtype=sharsor_dtype.Bool,
+                force_reconnection=force_reconnection,
+                with_gpu_mirror=with_gpu_mirror,
+                fill_value = fill_value)
+
+class Truncations(SharedDataView):
+
+    def __init__(self,
+            namespace: str,
+            n_rows: int = None, 
+            is_server = False, 
+            verbose: bool = False, 
+            vlevel: VLevel = VLevel.V0,
+            safe: bool = True,
+            force_reconnection: bool = False,
+            with_gpu_mirror: bool = False,
+            fill_value = 0):
+            
+            basename = "Truncations"
+    
+            super().__init__(namespace = namespace,
+                basename = basename,
+                is_server = is_server, 
+                n_rows = n_rows, 
+                n_cols = 1, 
+                verbose = verbose, 
+                vlevel = vlevel,
+                safe = safe, # boolean operations are atomic on 64 bit systems
+                dtype=sharsor_dtype.Bool,
+                force_reconnection=force_reconnection,
+                with_gpu_mirror=with_gpu_mirror,
+                fill_value = fill_value)
