@@ -81,6 +81,7 @@ class LRhcTrainingEnvBase():
 
         self._obs = None
         self._actions = None
+        self._tot_rewards = None
         self._rewards = None
         self._terminations = None
         self._truncations = None
@@ -134,9 +135,13 @@ class LRhcTrainingEnvBase():
 
             self._obs.synch_mirror(from_gpu=True) # copy data from gpu to cpu view
             self._actions.synch_mirror(from_gpu=True)
+            self._tot_rewards.synch_mirror(from_gpu=True)
+            self._rewards.synch_mirror(from_gpu=True)
 
         self._obs.synch_all(read=False, wait=True) # copies data on CPU shared mem
         self._actions.synch_all(read=False, wait=True) 
+        self._tot_rewards.synch_all(read=False, wait=True)
+        self._rewards.synch_all(read=False, wait=True)
 
     def step(self, action, 
             reset: bool = False):
@@ -175,10 +180,10 @@ class LRhcTrainingEnvBase():
 
         self._randomize_refs()
 
-        self._rewards.zero_()
-        
-        self._obs.reset()
         self._actions.reset()
+        self._obs.reset()
+        self._rewards.reset()
+        self._tot_rewards.reset()
 
         self._terminations.zero_()
         self._truncations.zero_()
@@ -198,6 +203,8 @@ class LRhcTrainingEnvBase():
         # closing env.-specific shared data
         self._obs.close()
         self._actions.close()
+        self._rewards.close()
+        self._tot_rewards.close()
 
     def get_last_obs(self):
     
@@ -209,7 +216,7 @@ class LRhcTrainingEnvBase():
     
     def get_last_rewards(self):
 
-        return self._rewards
+        return self._tot_rewards.get_torch_view(gpu=self._use_gpu)
 
     def get_last_terminations(self):
         
@@ -296,12 +303,33 @@ class LRhcTrainingEnvBase():
 
     def _init_rewards(self):
         
-        device = "cuda" if self._use_gpu else "cpu"
-
-        self._rewards = torch.full(size=(self._n_envs, 1), 
-                                    fill_value=0,
-                                    dtype=torch.float32,
-                                    device=device)
+        self._rewards = Rewards(namespace=self._namespace,
+                            n_envs=self._n_envs,
+                            n_rewards=len(self._get_rewards_names()),
+                            reward_names=self._get_rewards_names(),
+                            env_names=None,
+                            is_server=True,
+                            verbose=self._verbose,
+                            vlevel=self._vlevel,
+                            safe=True,
+                            force_reconnection=False,
+                            with_gpu_mirror=self._use_gpu,
+                            fill_value=0.0)
+        
+        self._tot_rewards = TotRewards(namespace=self._namespace,
+                            n_envs=self._n_envs,
+                            reward_names=["total_reward"],
+                            env_names=None,
+                            is_server=True,
+                            verbose=self._verbose,
+                            vlevel=self._vlevel,
+                            safe=True,
+                            force_reconnection=False,
+                            with_gpu_mirror=self._use_gpu,
+                            fill_value=0.0)
+        
+        self._rewards.run()
+        self._tot_rewards.run()
     
     def _init_terminations(self):
 

@@ -45,19 +45,25 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         self._rhc_refs.rob_refs.root_state.synch_all(read=False, wait=True) # write mirror to shared mem
 
     def _compute_rewards(self):
-                
+        
+        # task error
         rhc_h_ref = self._rhc_refs.rob_refs.root_state.get_p(gpu=self._use_gpu)[:, 2:3] # getting z ref
         robot_h = self._robot_state.root_state.get_p(gpu=self._use_gpu)[:, 2:3]
-
         h_error = torch.norm((rhc_h_ref - robot_h))
 
+        # rhc penalties
         rhc_cost = self._rhc_status.rhc_cost.get_torch_view(gpu=self._use_gpu)
         rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_view(gpu=self._use_gpu)
-        
-        # controllers failure penalty
         rhc_fail_penalty = self._rhc_status.fails.get_torch_view(gpu=self._use_gpu)
 
-        self._rewards[:, :] = torch.reciprocal(h_error + rhc_cost + rhc_const_viol + rhc_fail_penalty)
+        rewards = self._rewards.get_torch_view(gpu=self._use_gpu)
+        rewards[:, 0] = h_error
+        rewards[:, 1] = rhc_cost
+        rewards[:, 2] = rhc_const_viol
+        rewards[:, 3] = rhc_fail_penalty
+        
+        tot_rewards = self._tot_rewards.get_torch_view(gpu=self._use_gpu)
+        tot_rewards[:, :] = torch.reciprocal(torch.sum(rewards, dim=1, keepdim=True))
 
     def _get_observations(self):
                 
