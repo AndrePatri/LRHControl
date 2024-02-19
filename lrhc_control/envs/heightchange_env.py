@@ -28,8 +28,9 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
                     use_gpu=use_gpu,
                     dtype=dtype)
     
-    def _apply_rhc_actions(self,
-                agent_action):
+    def _apply_actions_to_rhc(self):
+        
+        agent_action = self.get_last_actions()
 
         rhc_current_ref = self._rhc_refs.rob_refs.root_state.get_p(gpu=self._use_gpu)
         rhc_current_ref[:, 2:3] = agent_action # overwrite z ref

@@ -130,17 +130,13 @@ class LRhcTrainingEnvBase():
     
     def _debug(self):
         
-        # print(self._obs.get_torch_view(gpu=True))
-
         if self._use_gpu:
 
             self._obs.synch_mirror(from_gpu=True) # copy data from gpu to cpu view
-
-        # print(self._obs.get_torch_view())
+            self._actions.synch_mirror(from_gpu=True)
 
         self._obs.synch_all(read=False, wait=True) # copies data on CPU shared mem
-
-        # print(self._obs.get_torch_view())
+        self._actions.synch_all(read=False, wait=True) 
 
     def step(self, action, 
             reset: bool = False):
@@ -152,8 +148,10 @@ class LRhcTrainingEnvBase():
         self._check_controllers_registered() # does not make sense to run training
         # if we lost some controllers
 
-        self._actions[:, :] = action
-        self._apply_rhc_actions(agent_action = self._actions) # first apply actions to rhc controller
+        actions = self._actions.get_torch_view(gpu=self._use_gpu)
+        actions[:, :] = action # writes actions
+        
+        self._apply_actions_to_rhc() # apply agent actions to rhc controller
 
         self._remote_stepper.step() # trigger simulation stepping
 
@@ -177,10 +175,10 @@ class LRhcTrainingEnvBase():
 
         self._randomize_refs()
 
-        self._actions.zero_()
         self._rewards.zero_()
         
         self._obs.reset()
+        self._actions.reset()
 
         self._terminations.zero_()
         self._truncations.zero_()
@@ -199,6 +197,7 @@ class LRhcTrainingEnvBase():
 
         # closing env.-specific shared data
         self._obs.close()
+        self._actions.close()
 
     def get_last_obs(self):
     
@@ -206,7 +205,7 @@ class LRhcTrainingEnvBase():
 
     def get_last_actions(self):
     
-        return self._actions
+        return self._actions.get_torch_view(gpu=self._use_gpu)
     
     def get_last_rewards(self):
 
@@ -226,7 +225,7 @@ class LRhcTrainingEnvBase():
     
     def actions_dim(self):
 
-        return self._actions.shape[1]
+        return self._actions_dim
     
     def using_gpu(self):
 
@@ -264,8 +263,6 @@ class LRhcTrainingEnvBase():
     
     def _init_obs(self):
         
-        device = "cuda" if self._use_gpu else "cpu"
-
         self._obs = Observations(namespace=self._namespace,
                             n_envs=self._n_envs,
                             obs_dim=self._obs_dim,
@@ -282,12 +279,20 @@ class LRhcTrainingEnvBase():
         
     def _init_actions(self, actions_dim: int):
         
-        device = "cuda" if self._use_gpu else "cpu"
+        self._actions = Actions(namespace=self._namespace,
+                            n_envs=self._n_envs,
+                            action_dim=self._actions_dim,
+                            action_names=self._get_action_names(),
+                            env_names=None,
+                            is_server=True,
+                            verbose=self._verbose,
+                            vlevel=self._vlevel,
+                            safe=True,
+                            force_reconnection=False,
+                            with_gpu_mirror=self._use_gpu,
+                            fill_value=0.0)
 
-        self._actions = torch.full(size=(self._n_envs, actions_dim), 
-                                    fill_value=0,
-                                    dtype=torch.float32,
-                                    device=device)
+        self._actions.run()
 
     def _init_rewards(self):
         
@@ -505,8 +510,7 @@ class LRhcTrainingEnvBase():
             self._debug()
 
     @abstractmethod
-    def _apply_rhc_actions(self,
-                agent_action):
+    def _apply_actions_to_rhc(self):
 
         pass
 
