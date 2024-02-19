@@ -83,8 +83,8 @@ class CleanPPO():
             lrnow = frac * self._learning_rate
             self._optimizer.param_groups[0]["lr"] = lrnow
 
-        # collect data from current policy
-        for step in range(self._num_steps):
+        # collect data from current policy during an episode
+        for step in range(self._episode_n_steps):
 
             # sample actions from agent
             with torch.no_grad(): # no need for gradients computation
@@ -109,9 +109,9 @@ class CleanPPO():
             self._advantages.zero_() # reset advantages
 
             lastgaelam = 0
-            for t in reversed(range(self._num_steps)):
+            for t in reversed(range(self._episode_n_steps)):
 
-                if t == self._num_steps - 1: # last step
+                if t == self._episode_n_steps - 1: # last step
 
                     nextnonterminal = 1.0 - self._dones[t]
 
@@ -210,7 +210,7 @@ class CleanPPO():
         
         if self._verbose:
 
-            info = f"Current step n.{self._it_counter + 1}/{self._num_steps}"
+            info = f"Current step n.{self._it_counter + 1}/{self._episode_n_steps}"
 
             Journal.log(self.__class__.__name__,
                 "_post_step",
@@ -288,7 +288,7 @@ class CleanPPO():
         self._obs_dim = self._env.obs_dim()
         self._actions_dim = self._env.actions_dim()
 
-        self._num_steps = 4096
+        self._episode_n_steps = 4096
         self._anneal_lr = True
         self._discount_factor = 0.99
         self._gae_lambda = 0.95
@@ -302,7 +302,7 @@ class CleanPPO():
         self._max_grad_norm = 0.5
         self._target_kl = None
 
-        self._batch_size =int(self._num_envs * self._num_steps)
+        self._batch_size =int(self._num_envs * self._episode_n_steps)
         self._minibatch_size = int(self._batch_size // self._num_minibatches)
         self._iterations_n = self._total_timesteps // self._batch_size
 
@@ -310,35 +310,35 @@ class CleanPPO():
     
     def _init_buffers(self):
 
-        self._obs = torch.full(size=(self._num_steps, self._num_envs, self._obs_dim),
+        self._obs = torch.full(size=(self._episode_n_steps, self._num_envs, self._obs_dim),
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device)
-        self._actions = torch.full(size=(self._num_steps, self._num_envs, self._actions_dim),
+        self._actions = torch.full(size=(self._episode_n_steps, self._num_envs, self._actions_dim),
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device)
-        self._logprobs = torch.full(size=(self._num_steps, self._num_envs, 1),
+        self._logprobs = torch.full(size=(self._episode_n_steps, self._num_envs, 1),
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device)
-        self._rewards = torch.full(size=(self._num_steps, self._num_envs, 1),
+        self._rewards = torch.full(size=(self._episode_n_steps, self._num_envs, 1),
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device)
-        self._dones = torch.full(size=(self._num_steps, self._num_envs, 1),
+        self._dones = torch.full(size=(self._episode_n_steps, self._num_envs, 1),
                         fill_value=False,
                         dtype=self._dtype,
                         device=self._torch_device)
-        self._values = torch.full(size=(self._num_steps, self._num_envs, 1),
+        self._values = torch.full(size=(self._episode_n_steps, self._num_envs, 1),
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device)
-        self._advantages = torch.full(size=(self._num_steps, self._num_envs, 1),
+        self._advantages = torch.full(size=(self._episode_n_steps, self._num_envs, 1),
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device)
-        self._returns = torch.full(size=(self._num_steps, self._num_envs, 1),
+        self._returns = torch.full(size=(self._episode_n_steps, self._num_envs, 1),
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device)
