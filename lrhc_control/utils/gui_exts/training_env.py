@@ -251,6 +251,8 @@ class TrainingEnvData(SharedDataWindow):
             # read data on shared memory
             data = self.shared_data_clients[0].get().flatten()
 
+            self.shared_data_clients[1].synch_from_shared_mem()
+            self.shared_data_clients[2].rob_refs.root_state.synch_all(read=True, wait=True)
             self.shared_data_clients[3].synch_all(read=True, wait=True) # observations
             self.shared_data_clients[4].synch_all(read=True, wait=True)
             self.shared_data_clients[5].synch_all(read=True, wait=True)
@@ -261,4 +263,82 @@ class TrainingEnvData(SharedDataWindow):
             self.rt_plotters[2].rt_plot_widget.update(np.transpose(self.shared_data_clients[4].get_numpy_view()))
             self.rt_plotters[3].rt_plot_widget.update(np.transpose(self.shared_data_clients[5].get_numpy_view()))
             self.rt_plotters[4].rt_plot_widget.update(np.transpose(self.shared_data_clients[6].get_numpy_view()))
+
+class AgentPerformanceWindow(SharedDataWindow):
+
+    def __init__(self, 
+            update_data_dt: int,
+            update_plot_dt: int,
+            window_duration: int,
+            window_buffer_factor: int = 2,
+            namespace = "",
+            name="",
+            parent: QWidget = None, 
+            verbose = False):
+        
+        super().__init__(update_data_dt = update_data_dt,
+            update_plot_dt = update_plot_dt,
+            window_duration = window_duration,
+            grid_n_rows = 5,
+            grid_n_cols = 2,
+            window_buffer_factor = window_buffer_factor,
+            namespace = namespace,
+            name = name,
+            parent = parent, 
+            verbose = verbose)
+
+    def _initialize(self):
+
+        self.rt_plotters.append(RtPlotWindow(data_dim=2 * self.shared_data_clients[0].root_state.get_p().shape[1],
+                    n_data = 1,
+                    update_data_dt=self.update_data_dt, 
+                    update_plot_dt=self.update_plot_dt,
+                    window_duration=self.window_duration, 
+                    parent=None, 
+                    base_name="Root position ref VS mes.", 
+                    window_buffer_factor=self.window_buffer_factor, 
+                    legend_list=["p_x", "p_y", "p_z", "p_x_ref", "p_y_ref", "p_z_ref"], 
+                    ylabel="[m]"))
+        
+        # root state
+        self.grid.addFrame(self.rt_plotters[0].base_frame, 0, 0)
+
+    def _init_shared_data(self):
+        
+        self.shared_data_clients.append(RobotState(namespace=self.namespace,
+                                    is_server=False, 
+                                    with_gpu_mirror=False,
+                                    safe=False,
+                                    verbose=True,
+                                    vlevel=VLevel.V2))
+        
+        self.shared_data_clients.append(AgentRefs(namespace=self.namespace,
+                                is_server=False,
+                                with_gpu_mirror=False,
+                                safe=False,
+                                verbose=True,
+                                vlevel=VLevel.V2))
+        
+        for client in self.shared_data_clients:
+
+            client.run()
+            
+    def _post_shared_init(self):
+        
+        pass
+
+    def update(self,
+            index: int):
+
+        if not self._terminated:
+            
+            # update from shared mem
+            self.shared_data_clients[0].synch_from_shared_mem()
+            self.shared_data_clients[1].rob_refs.synch_all(read=True, wait=True)
+        
+            error = np.concatenate((self.shared_data_clients[0].root_state.get_numpy_view(),
+                            self.shared_data_clients[1].rob_refs.root_state.get_numpy_view()),
+                            axis=0)
+            
+            self.rt_plotters[0].rt_plot_widget.update(error)
 
