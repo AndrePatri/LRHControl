@@ -52,7 +52,7 @@ class CleanPPO():
         
         self._verbose = verbose
 
-        self._drop_dir = "/Desktop/" + f"{self.__class__.__name__}/" + self._run_name
+        self._drop_dir = "./" + f"{self.__class__.__name__}/" + self._run_name
         self._model_path = self._drop_dir + "model"
         model_directory = os.path.dirname(self._model_path)
         if not os.path.exists(model_directory):
