@@ -32,7 +32,7 @@ class CleanPPO():
         self._drop_dir = None
         self._model_path = None
 
-        self._custom_args = {}
+        self._hyperparameters = {}
         
         self._init_params()
 
@@ -46,7 +46,7 @@ class CleanPPO():
             verbose: bool = False):
         
         self._run_name = run_name
-        self._custom_args = custom_args
+        self._hyperparameters = custom_args
         
         self._verbose = verbose
 
@@ -348,5 +348,5 @@ class CleanPPO():
         self._writer = SummaryWriter(f"runs/{self._run_name}")
         self._writer.add_text(
             "hyperparameters",
-            "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(self._custom_args).items()])),
+            "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(self._hyperparameters).items()])),
         )
