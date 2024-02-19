@@ -19,6 +19,8 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
 
         env_name = "LRhcHeightChange"
 
+        self._small_epsi = 1
+
         super().__init__(namespace=namespace,
                     obs_dim=obs_dim,
                     actions_dim=actions_dim,
@@ -47,9 +49,9 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
     def _compute_rewards(self):
         
         # task error
-        rhc_h_ref = self._rhc_refs.rob_refs.root_state.get_p(gpu=self._use_gpu)[:, 2:3] # getting z ref
+        h_ref = self._agent_refs.rob_refs.root_state.get_p(gpu=self._use_gpu)[:, 2:3] # getting target z ref
         robot_h = self._robot_state.root_state.get_p(gpu=self._use_gpu)[:, 2:3]
-        h_error = torch.norm((rhc_h_ref - robot_h))
+        h_error = torch.norm((h_ref - robot_h))
 
         # rhc penalties
         rhc_cost = self._rhc_status.rhc_cost.get_torch_view(gpu=self._use_gpu)
@@ -57,13 +59,13 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         rhc_fail_penalty = self._rhc_status.fails.get_torch_view(gpu=self._use_gpu)
 
         rewards = self._rewards.get_torch_view(gpu=self._use_gpu)
-        rewards[:, 0] = h_error
-        rewards[:, 1] = rhc_cost
-        rewards[:, 2] = rhc_const_viol
-        rewards[:, 3] = rhc_fail_penalty
+        rewards[:, 0:1] = torch.reciprocal(h_error + self._small_epsi)
+        rewards[:, 1:2] = torch.reciprocal(rhc_cost + self._small_epsi)
+        rewards[:, 2:3] = torch.reciprocal(rhc_const_viol + self._small_epsi)
+        rewards[:, 3:4] = torch.reciprocal(rhc_fail_penalty + self._small_epsi)
         
         tot_rewards = self._tot_rewards.get_torch_view(gpu=self._use_gpu)
-        tot_rewards[:, :] = torch.reciprocal(torch.sum(rewards, dim=1, keepdim=True))
+        tot_rewards[:, :] = torch.sum(rewards, dim=1, keepdim=True)
 
     def _get_observations(self):
                 

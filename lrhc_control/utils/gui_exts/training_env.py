@@ -11,6 +11,8 @@ from control_cluster_bridge.utilities.shared_data.rhc_data import RobotState
 from lrhc_control.utils.shared_data.agent_refs import AgentRefs
 from lrhc_control.utils.shared_data.training_env import Observations
 from lrhc_control.utils.shared_data.training_env import Actions
+from lrhc_control.utils.shared_data.training_env import Rewards
+from lrhc_control.utils.shared_data.training_env import TotRewards
 
 import numpy as np
 
@@ -80,7 +82,21 @@ class TrainingEnvData(SharedDataWindow):
                                             vlevel=VLevel.V2,
                                             safe=False,
                                             with_gpu_mirror=False))
+
+        self.shared_data_clients.append(Rewards(namespace=self.namespace,
+                                            is_server=False,
+                                            verbose=True,
+                                            vlevel=VLevel.V2,
+                                            safe=False,
+                                            with_gpu_mirror=False))
         
+        self.shared_data_clients.append(TotRewards(namespace=self.namespace,
+                                            is_server=False,
+                                            verbose=True,
+                                            vlevel=VLevel.V2,
+                                            safe=False,
+                                            with_gpu_mirror=False))
+
         for client in self.shared_data_clients:
 
             client.run()
@@ -140,7 +156,7 @@ class TrainingEnvData(SharedDataWindow):
                                     legend_list=self.shared_data_clients[4].col_names(), 
                                     ylabel="[float]"))
         
-        self.rt_plotters.append(RtPlotWindow(data_dim=len(reward_legend),
+        self.rt_plotters.append(RtPlotWindow(data_dim=len(self.shared_data_clients[5].col_names()),
                                     n_data = cluster_size,
                                     update_data_dt=self.update_data_dt, 
                                     update_plot_dt=self.update_plot_dt,
@@ -148,10 +164,10 @@ class TrainingEnvData(SharedDataWindow):
                                     parent=None, 
                                     base_name=f"Rewards - detailed", 
                                     window_buffer_factor=self.window_buffer_factor, 
-                                    legend_list=reward_legend, 
+                                    legend_list=self.shared_data_clients[5].col_names(), 
                                     ylabel="[float]"))
 
-        self.rt_plotters.append(RtPlotWindow(data_dim=1,
+        self.rt_plotters.append(RtPlotWindow(data_dim=len(self.shared_data_clients[6].col_names()),
                                     n_data = cluster_size,
                                     update_data_dt=self.update_data_dt, 
                                     update_plot_dt=self.update_plot_dt,
@@ -159,7 +175,7 @@ class TrainingEnvData(SharedDataWindow):
                                     parent=None, 
                                     base_name=f"Rewards", 
                                     window_buffer_factor=self.window_buffer_factor, 
-                                    legend_list=["0"], 
+                                    legend_list=self.shared_data_clients[6].col_names(), 
                                     ylabel="[float]"))
         
         self.rt_plotters.append(RtPlotWindow(data_dim=1,
@@ -237,8 +253,12 @@ class TrainingEnvData(SharedDataWindow):
 
             self.shared_data_clients[3].synch_all(read=True, wait=True) # observations
             self.shared_data_clients[4].synch_all(read=True, wait=True)
+            self.shared_data_clients[5].synch_all(read=True, wait=True)
+            self.shared_data_clients[6].synch_all(read=True, wait=True)
 
             self.rt_plotters[0].rt_plot_widget.update(data)
             self.rt_plotters[1].rt_plot_widget.update(np.transpose(self.shared_data_clients[3].get_numpy_view()))
             self.rt_plotters[2].rt_plot_widget.update(np.transpose(self.shared_data_clients[4].get_numpy_view()))
+            self.rt_plotters[3].rt_plot_widget.update(np.transpose(self.shared_data_clients[5].get_numpy_view()))
+            self.rt_plotters[4].rt_plot_widget.update(np.transpose(self.shared_data_clients[6].get_numpy_view()))
 
