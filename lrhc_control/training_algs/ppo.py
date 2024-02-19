@@ -310,10 +310,7 @@ class CleanPPO():
         self._batch_size =int(self._num_envs * self._episode_n_steps)
         self._minibatch_size = int(self._batch_size // self._num_minibatches)
         self._iterations_n = self._total_timesteps // self._batch_size
-
-        print("AAAAAAAA")
-        print(self._iterations_n)
-        exit()
+        
         self._it_counter = 0
     
     def _init_buffers(self):
