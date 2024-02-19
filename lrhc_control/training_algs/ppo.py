@@ -10,6 +10,8 @@ import random
 
 from typing import Dict
 
+import os
+
 from SharsorIPCpp.PySharsorIPC import VLevel
 from SharsorIPCpp.PySharsorIPC import LogType
 from SharsorIPCpp.PySharsorIPC import Journal
@@ -50,8 +52,11 @@ class CleanPPO():
         
         self._verbose = verbose
 
-        self._drop_dir = "/tmp/" + f"{self.__class__.__name__}/" + self._run_name
+        self._drop_dir = "/Desktop/" + f"{self.__class__.__name__}/" + self._run_name
         self._model_path = self._drop_dir + "model"
+        model_directory = os.path.dirname(self._model_path)
+        if not os.path.exists(model_directory):
+            os.makedirs(model_directory)
 
         # seeding
         random.seed(self._seed)
@@ -306,6 +311,9 @@ class CleanPPO():
         self._minibatch_size = int(self._batch_size // self._num_minibatches)
         self._iterations_n = self._total_timesteps // self._batch_size
 
+        print("AAAAAAAA")
+        print(self._iterations_n)
+        exit()
         self._it_counter = 0
     
     def _init_buffers(self):
