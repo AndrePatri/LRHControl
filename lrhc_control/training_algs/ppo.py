@@ -286,7 +286,7 @@ class CleanPPO():
         self._save_model = True
         self._env_name = self._env.name()
 
-        self._total_timesteps = 10000000
+        self._total_timesteps = 5000000
         self._learning_rate = 3e-4
 
         self._num_envs = self._env.n_envs()
@@ -310,6 +310,21 @@ class CleanPPO():
         self._batch_size =int(self._num_envs * self._episode_n_steps)
         self._minibatch_size = int(self._batch_size // self._num_minibatches)
         self._iterations_n = self._total_timesteps // self._batch_size
+        
+        info = f"\nUsing \n" + \
+            f"total_timesteps {self._total_timesteps}\n" + \
+            f"batch_size {self._batch_size}\n" + \
+            f"num_minibatches {self._num_minibatches}\n" + \
+            f"iterations_n {self._iterations_n}\n" + \
+            f"update_epochs {self._update_epochs}\n" + \
+            f"total policy updates {self._update_epochs * self._num_minibatches * self._iterations_n}\n" + \
+            f"episode_n_steps {self._episode_n_steps}"
+            
+        Journal.log(self.__class__.__name__,
+            "_init_params",
+            info,
+            LogType.INFO,
+            throw_when_excep = True)
         
         self._it_counter = 0
     
