@@ -1,9 +1,9 @@
 from control_cluster_bridge.controllers.rhc import RHController
 
-from kyonrlstepping.controllers.kyon_rhc.horizon_imports import * 
+from lrhc_control.controllers.rhc.horizon_based.horizon_imports import * 
 
-from kyonrlstepping.controllers.kyon_rhc.kyonrhc_taskref import KyonRhcRefs
-from kyonrlstepping.controllers.kyon_rhc.gait_manager import GaitManager
+from lrhc_control.controllers.rhc.horizon_based.hybrid_quad_rhc_refs import HybridQuadRhcRefs
+from lrhc_control.controllers.rhc.horizon_based.gait_manager import GaitManager
 
 from SharsorIPCpp.PySharsorIPC import VLevel
 from SharsorIPCpp.PySharsorIPC import Journal, LogType
@@ -11,6 +11,8 @@ from SharsorIPCpp.PySharsorIPC import Journal, LogType
 import numpy as np
 
 import torch
+
+import os
 
 import time
 
@@ -22,6 +24,7 @@ class HybridQuadRhc(RHController):
             config_path: str,
             cluster_size: int, # needed by shared mem manager
             robot_name: str, # used for shared memory namespaces
+            codegen_dir: str, 
             n_nodes:float = 25,
             dt: float = 0.02,
             max_solver_iter = 1, # defaults to rt-iteration
@@ -35,6 +38,10 @@ class HybridQuadRhc(RHController):
             debug_sol = True, # whether to publish rhc rebug data,
             solver_deb_prints = False
             ):
+
+        self._codegen_dir = codegen_dir
+        if not os.path.exists(self._codegen_dir):
+            os.makedirs(self._codegen_dir)
 
         self.step_counter = 0
         self.sol_counter = 0
@@ -120,7 +127,9 @@ class HybridQuadRhc(RHController):
                             model=self._model, 
                             max_solver_iter=self.max_solver_iter,
                             debug = self._solver_deb_prints, 
-                            verbose = self._verbose)
+                            verbose = self._verbose,
+                            codegen_verbose = False,
+                            codegen_workdir = self._codegen_dir)
         
         self._ti.setTaskFromYaml(self.config_path)
 
@@ -236,7 +245,7 @@ class HybridQuadRhc(RHController):
 
     def _init_rhc_task_cmds(self):
         
-        rhc_refs = KyonRhcRefs(gait_manager=self._gm,
+        rhc_refs = HybridQuadRhcRefs(gait_manager=self._gm,
                     robot_index=self.controller_index,
                     namespace=self.namespace,
                     safe=False, 

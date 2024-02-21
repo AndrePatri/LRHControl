@@ -4,6 +4,8 @@ from SharsorIPCpp.PySharsorIPC import Journal, LogType
 
 from typing import List
 
+import os 
+
 from abc import abstractmethod
 
 class LRhcClusterClient(ControlClusterClient):
@@ -15,10 +17,19 @@ class LRhcClusterClient(ControlClusterClient):
             isolated_cores_only: bool = False,
             use_only_physical_cores: bool = False,
             core_ids_override_list: List[int] = None,
-            verbose: bool = False):
+            verbose: bool = False,
+            codegen_base_dirname: str = "CodeGen"):
 
         self._temp_path = "/tmp/" + f"{self.__class__.__name__}" + f"_{robot_pkg_name}"
         
+        self._codegen_base_dirname = codegen_base_dirname
+        self._codegen_basedir = self._temp_path + "/" + self._codegen_base_dirname
+
+        if not os.path.exists(self._temp_path):
+            os.makedirs(self._temp_path)
+        if not os.path.exists(self._codegen_basedir):
+            os.makedirs(self._codegen_basedir)
+
         self.robot_pkg_name = robot_pkg_name
 
         self._generate_srdf()
@@ -31,6 +42,10 @@ class LRhcClusterClient(ControlClusterClient):
                         use_only_physical_cores = use_only_physical_cores,
                         core_ids_override_list = core_ids_override_list,
                         verbose = verbose)
+    
+    def codegen_dir(self):
+
+        return self._codegen_basedir
     
     def _generate_srdf(self):
         
