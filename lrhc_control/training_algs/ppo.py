@@ -19,7 +19,8 @@ from SharsorIPCpp.PySharsorIPC import Journal
 class CleanPPO():
 
     def __init__(self,
-            env):
+            env,
+            verbose: bool = False):
 
         self._env = env 
 
@@ -40,7 +41,7 @@ class CleanPPO():
 
         self._setup_done = False
 
-        self._verbose = False
+        self._verbose = verbose
               
     def setup(self,
             run_name: str,
@@ -215,7 +216,7 @@ class CleanPPO():
         
         if self._verbose:
 
-            info = f"Current step n.{self._it_counter + 1}/{self._episode_n_steps}"
+            info = f"Current iteration {self._it_counter + 1}/{self._iterations_n}"
 
             Journal.log(self.__class__.__name__,
                 "_post_step",
