@@ -293,7 +293,7 @@ class CleanPPO():
         self._obs_dim = self._env.obs_dim()
         self._actions_dim = self._env.actions_dim()
 
-        self._episode_n_steps = 4096
+        self._episode_n_steps = 512
         self._anneal_lr = True
         self._discount_factor = 0.99
         self._gae_lambda = 0.95
