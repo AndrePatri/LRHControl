@@ -19,8 +19,7 @@ from SharsorIPCpp.PySharsorIPC import Journal
 class CleanPPO():
 
     def __init__(self,
-            env,
-            verbose: bool = False):
+            env):
 
         self._env = env 
 
@@ -41,7 +40,7 @@ class CleanPPO():
 
         self._setup_done = False
 
-        self._verbose = verbose
+        self._verbose = False
               
     def setup(self,
             run_name: str,
