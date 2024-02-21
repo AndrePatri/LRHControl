@@ -42,6 +42,10 @@ class HybridQuadRhc(RHController):
         self._codegen_dir = codegen_dir
         if not os.path.exists(self._codegen_dir):
             os.makedirs(self._codegen_dir)
+        else:
+            # Directory already exists, remove it if empty and recreate
+            os.rmdir(self._codegen_dir)
+            os.makedirs(self._codegen_dir)
 
         self.step_counter = 0
         self.sol_counter = 0
