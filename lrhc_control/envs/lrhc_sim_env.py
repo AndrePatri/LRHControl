@@ -12,6 +12,8 @@ import numpy as np
 
 import time
 
+from control_cluster_bridge.utilities.cpu_utils.core_utils import get_memory_usage
+
 class LRhcIsaacSimEnv(IsaacSimEnv):
 
     def __init__(self,
@@ -198,6 +200,8 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
         #    wait for the solution if necessary. This means that the bottlneck of the step()
         #    will be the slowest between simulation stepping and cluster solution.
         # 5) we update the cluster state with the one reached after the sim stepping
+        
+        print(f"Current RAM usage: {get_memory_usage()}")
         
         for i in range(len(self.robot_names)):
             
