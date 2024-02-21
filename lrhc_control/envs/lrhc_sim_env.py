@@ -201,7 +201,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
         #    will be the slowest between simulation stepping and cluster solution.
         # 5) we update the cluster state with the one reached after the sim stepping
         
-        print(f"Current RAM usage: {get_memory_usage()}")
+        # print(f"Current RAM usage: {get_memory_usage()}")
         
         for i in range(len(self.robot_names)):
             
