@@ -13,6 +13,7 @@ import numpy as np
 import torch
 
 import os
+import shutil
 
 import time
 
@@ -43,8 +44,8 @@ class HybridQuadRhc(RHController):
         if not os.path.exists(self._codegen_dir):
             os.makedirs(self._codegen_dir)
         else:
-            # Directory already exists, remove it if empty and recreate
-            os.rmdir(self._codegen_dir)
+            # Directory already exists, delete it and recreate
+            shutil.rmtree(self._codegen_dir)
             os.makedirs(self._codegen_dir)
 
         self.step_counter = 0
@@ -532,14 +533,16 @@ class HybridQuadRhc(RHController):
         
         except Exception as e:
             
-            exception = f"Rti() failed" + \
-              f" with exception{type(e).__name__}"
-            
-            Journal.log(self.__class__.__name__,
-                            "solve",
-                            exception,
-                            LogType.EXCEP,
-                            throw_when_excep = False)
+            if self._verbose:
+
+                exception = f"Rti() failed" + \
+                f" with exception{type(e).__name__}"
+                
+                Journal.log(self.__class__.__name__,
+                                "solve",
+                                exception,
+                                LogType.EXCEP,
+                                throw_when_excep = False)
             
             if self.publish_sol:
                 
