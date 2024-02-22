@@ -232,8 +232,24 @@ class CleanPPO():
     def _done(self):
 
         if self._save_model:
+            
+            info = f"Saving model to {self._model_path}"
+
+            Journal.log(self.__class__.__name__,
+                "_done",
+                info,
+                LogType.INFO,
+                throw_when_excep = True)
 
             torch.save(self._agent.state_dict(), self._model_path)
+
+            info = f"Done."
+
+            Journal.log(self.__class__.__name__,
+                "_done",
+                info,
+                LogType.INFO,
+                throw_when_excep = True)
 
     # def _evaluate(self,
     #         eval_episodes: int,
