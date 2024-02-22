@@ -111,7 +111,8 @@ class LRHcIsaacTask(IsaacTask):
                                             jnt_names = self.jnt_imp_controllers[robot_name].jnts_names,
                                             namespace = robot_name, 
                                             verbose = True, 
-                                            vlevel = VLevel.V0)
+                                            force_reconnection = True,
+                                            vlevel = VLevel.V3)
 
             self.jnt_imp_cntrl_shared_data[robot_name].run()
 
