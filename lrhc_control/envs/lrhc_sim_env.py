@@ -156,7 +156,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                                             is_server = True, 
                                             verbose = True,
                                             vlevel = VLevel.V2,
-                                            force_reconnection = False,
+                                            force_reconnection = True,
                                             safe = True)
                         
             else:
