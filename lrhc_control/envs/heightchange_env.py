@@ -92,7 +92,7 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
 
         self._agent_refs.rob_refs.root_state.set_p(p=agent_p_ref_current,
                                             gpu=self._use_gpu)
-                    
+
         self._synch_refs(gpu=self._use_gpu)
     
     def _get_obs_names(self):

@@ -237,7 +237,7 @@ class TrainingEnvData(SharedDataWindow):
 
         self.grid.settings_widget_list[0].current_val.setText(f'{idx}')
 
-        for i in range(0, len(self.rt_plotters)):
+        for i in range(1, len(self.rt_plotters)):
             
             self.rt_plotters[i].rt_plot_widget.switch_to_data(data_idx = self.current_cluster_index)
 
