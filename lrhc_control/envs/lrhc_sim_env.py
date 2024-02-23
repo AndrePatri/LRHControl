@@ -140,7 +140,8 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                         verbose = cluster_client_verbose, 
                         debug = cluster_client_debug, 
                         robot_name=robot_name,
-                        use_gpu = task.using_gpu)
+                        use_gpu = task.using_gpu,
+                        force_reconnection = True)
             
             self.debug_data["cluster_sol_time"][robot_name] = np.nan
             self.debug_data["cluster_state_update_dt"][robot_name] = np.nan
@@ -155,7 +156,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                                             is_server = True, 
                                             verbose = True,
                                             vlevel = VLevel.V2,
-                                            force_reconnection = False,
+                                            force_reconnection = True,
                                             safe = True)
                         
             else:

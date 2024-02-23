@@ -310,7 +310,7 @@ class CleanPPO():
         self._save_model = True
         self._env_name = self._env.name()
 
-        self._total_timesteps = 5000000
+        self._total_timesteps = 20000000
         self._learning_rate = 3e-4
 
         self._num_envs = self._env.n_envs()

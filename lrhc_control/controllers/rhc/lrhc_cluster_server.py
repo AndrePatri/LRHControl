@@ -13,7 +13,8 @@ class LRhcClusterServer(ControlClusterServer):
             contact_linknames: List[str] = None,
             verbose: bool = False, 
             debug: bool = False,
-            use_gpu: bool = True):
+            use_gpu: bool = True,
+            force_reconnection: bool = True):
 
         self.robot_name = robot_name
                 
@@ -27,4 +28,5 @@ class LRhcClusterServer(ControlClusterServer):
             contact_linknames = contact_linknames, 
             verbose=verbose, 
             debug=debug,
-            use_gpu=use_gpu)
+            use_gpu=use_gpu,
+            force_reconnection=force_reconnection)
