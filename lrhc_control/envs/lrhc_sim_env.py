@@ -244,7 +244,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                                 robot_names=[robot_name],
                                 reset_world=False,
                                 reset_cluster=True)
-                        
+                            
                     just_activated = control_cluster.get_just_activated() # retrieves just 
                     # activated controllers
            

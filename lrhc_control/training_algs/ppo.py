@@ -41,7 +41,9 @@ class CleanPPO():
         self._setup_done = False
 
         self._verbose = False
-              
+
+        self._is_done = False
+
     def setup(self,
             run_name: str,
             custom_args: Dict = {},
@@ -74,8 +76,14 @@ class CleanPPO():
         self._init_buffers()
 
         self._setup_done = True
-       
-    def step(self):
+
+        self._is_done = False
+    
+    def is_done(self):
+
+        return self._is_done 
+    
+    def learn(self):
         
         if not self._setup_done:
         
@@ -109,105 +117,105 @@ class CleanPPO():
                                             self._env.get_last_truncations()) # either terminated or truncated
 
         # bootstrap value if not done
-        with torch.no_grad():
+        # with torch.no_grad():
 
-            self._advantages.zero_() # reset advantages
+        #     self._advantages.zero_() # reset advantages
 
-            lastgaelam = 0
-            for t in reversed(range(self._episode_n_steps)):
+        #     lastgaelam = 0
+        #     for t in reversed(range(self._episode_n_steps)):
 
-                if t == self._episode_n_steps - 1: # last step
+        #         if t == self._episode_n_steps - 1: # last step
 
-                    nextnonterminal = 1.0 - self._dones[t]
+        #             nextnonterminal = 1.0 - self._dones[t]
 
-                    nextvalues = self._values[t]
+        #             nextvalues = self._values[t]
 
-                else:
+        #         else:
 
-                    nextnonterminal = 1.0 - self._dones[t + 1]
+        #             nextnonterminal = 1.0 - self._dones[t + 1]
 
-                    nextvalues = self._values[t + 1]
+        #             nextvalues = self._values[t + 1]
 
-                # temporal difference error computation
-                actual_reward_discounted = self._rewards[t] + self._discount_factor * nextvalues * nextnonterminal
-                td_error = actual_reward_discounted - self._values[t] # meas. - est. reward
+        #         # temporal difference error computation
+        #         actual_reward_discounted = self._rewards[t] + self._discount_factor * nextvalues * nextnonterminal
+        #         td_error = actual_reward_discounted - self._values[t] # meas. - est. reward
 
-                # compute advantages using the Generalized Advantage Estimation (GAE) 
-                self._advantages[t] = lastgaelam = td_error + self._discount_factor * self._gae_lambda * nextnonterminal * lastgaelam
+        #         # compute advantages using the Generalized Advantage Estimation (GAE) 
+        #         self._advantages[t] = lastgaelam = td_error + self._discount_factor * self._gae_lambda * nextnonterminal * lastgaelam
 
-            # estimated cumulative rewards from each time step to the end of the episode
-            self._returns[:, :] = self._advantages + self._values
+        #     # estimated cumulative rewards from each time step to the end of the episode
+        #     self._returns[:, :] = self._advantages + self._values
 
-        # flatten batches
-        batched_obs = self._obs.reshape((-1, self._env.obs_dim()))
-        batched_logprobs = self._logprobs.reshape(-1)
-        batched_actions = self._actions.reshape((-1, self._env.actions_dim()))
-        batched_advantages = self._advantages.reshape(-1)
-        batched_returns = self._returns.reshape(-1)
-        batched_values = self._values.reshape(-1)
+        # # flatten batches
+        # batched_obs = self._obs.reshape((-1, self._env.obs_dim()))
+        # batched_logprobs = self._logprobs.reshape(-1)
+        # batched_actions = self._actions.reshape((-1, self._env.actions_dim()))
+        # batched_advantages = self._advantages.reshape(-1)
+        # batched_returns = self._returns.reshape(-1)
+        # batched_values = self._values.reshape(-1)
 
-        # optimize policy and value network
-        clipfracs = []
+        # # optimize policy and value network
+        # clipfracs = []
 
-        for epoch in range(self._update_epochs):
+        # for epoch in range(self._update_epochs):
 
-            shuffled_batch_indxs = torch.randperm(self._batch_size) # randomizing 
-            # indexes for removing correlations
+        #     shuffled_batch_indxs = torch.randperm(self._batch_size) # randomizing 
+        #     # indexes for removing correlations
 
-            for start in range(0, self._batch_size, self._minibatch_size):
+        #     for start in range(0, self._batch_size, self._minibatch_size):
                 
-                end = start + self._minibatch_size
-                minibatch_inds = shuffled_batch_indxs[start:end]
+        #         end = start + self._minibatch_size
+        #         minibatch_inds = shuffled_batch_indxs[start:end]
 
-                _, newlogprob, entropy, newvalue = self._agent.get_action_and_value(
-                                                                    batched_obs[minibatch_inds], 
-                                                                    batched_actions[minibatch_inds])
-                logratio = newlogprob - batched_logprobs[minibatch_inds]
-                ratio = logratio.exp()
+        #         _, newlogprob, entropy, newvalue = self._agent.get_action_and_value(
+        #                                                             batched_obs[minibatch_inds], 
+        #                                                             batched_actions[minibatch_inds])
+        #         logratio = newlogprob - batched_logprobs[minibatch_inds]
+        #         ratio = logratio.exp()
 
-                with torch.no_grad():
-                    # calculate approx_kl http://joschu.net/blog/kl-approx.html
-                    # old_approx_kl = (-logratio).mean()
-                    approx_kl = ((ratio - 1) - logratio).mean()
-                    clipfracs += [((ratio - 1.0).abs() > self._clip_coef).float().mean().item()]
+        #         with torch.no_grad():
+        #             # calculate approx_kl http://joschu.net/blog/kl-approx.html
+        #             # old_approx_kl = (-logratio).mean()
+        #             approx_kl = ((ratio - 1) - logratio).mean()
+        #             clipfracs += [((ratio - 1.0).abs() > self._clip_coef).float().mean().item()]
 
-                minibatch_advantages = batched_advantages[minibatch_inds]
-                if self._norm_adv:
-                    minibatch_advantages = (minibatch_advantages - minibatch_advantages.mean()) / (minibatch_advantages.std() + 1e-8)
+        #         minibatch_advantages = batched_advantages[minibatch_inds]
+        #         if self._norm_adv:
+        #             minibatch_advantages = (minibatch_advantages - minibatch_advantages.mean()) / (minibatch_advantages.std() + 1e-8)
 
-                # Policy loss
-                pg_loss1 = -minibatch_advantages * ratio
-                pg_loss2 = -minibatch_advantages * torch.clamp(ratio, 1 - self._clip_coef, 1 + self._clip_coef)
-                pg_loss = torch.max(pg_loss1, pg_loss2).mean()
+        #         # Policy loss
+        #         pg_loss1 = -minibatch_advantages * ratio
+        #         pg_loss2 = -minibatch_advantages * torch.clamp(ratio, 1 - self._clip_coef, 1 + self._clip_coef)
+        #         pg_loss = torch.max(pg_loss1, pg_loss2).mean()
 
-                # Value loss
-                newvalue = newvalue.view(-1)
-                if self._clip_vloss:
-                    v_loss_unclipped = (newvalue - batched_returns[minibatch_inds]) ** 2
-                    v_clipped = batched_values[minibatch_inds] + torch.clamp(
-                        newvalue - batched_values[minibatch_inds],
-                        -self._clip_coef,
-                        self._clip_coef,
-                    )
-                    v_loss_clipped = (v_clipped - batched_returns[minibatch_inds]) ** 2
-                    v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
-                    v_loss = 0.5 * v_loss_max.mean()
-                else:
-                    v_loss = 0.5 * ((newvalue - batched_returns[minibatch_inds]) ** 2).mean()
+        #         # Value loss
+        #         newvalue = newvalue.view(-1)
+        #         if self._clip_vloss:
+        #             v_loss_unclipped = (newvalue - batched_returns[minibatch_inds]) ** 2
+        #             v_clipped = batched_values[minibatch_inds] + torch.clamp(
+        #                 newvalue - batched_values[minibatch_inds],
+        #                 -self._clip_coef,
+        #                 self._clip_coef,
+        #             )
+        #             v_loss_clipped = (v_clipped - batched_returns[minibatch_inds]) ** 2
+        #             v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
+        #             v_loss = 0.5 * v_loss_max.mean()
+        #         else:
+        #             v_loss = 0.5 * ((newvalue - batched_returns[minibatch_inds]) ** 2).mean()
 
-                entropy_loss = entropy.mean()
-                loss = pg_loss - self._entropy_coeff * entropy_loss + v_loss * self._val_f_coeff
+        #         entropy_loss = entropy.mean()
+        #         loss = pg_loss - self._entropy_coeff * entropy_loss + v_loss * self._val_f_coeff
 
-                self._optimizer.zero_grad()
-                loss.backward()
-                nn.utils.clip_grad_norm_(self._agent.parameters(), self._max_grad_norm)
-                self._optimizer.step()
+        #         self._optimizer.zero_grad()
+        #         loss.backward()
+        #         nn.utils.clip_grad_norm_(self._agent.parameters(), self._max_grad_norm)
+        #         self._optimizer.step()
             
-            if self._target_kl is not None and approx_kl > self._target_kl:
+        #     if self._target_kl is not None and approx_kl > self._target_kl:
 
-                break
+        #         break
 
-        self._post_step()
+        # self._post_step()
 
     def _post_step(self):
 
@@ -226,9 +234,7 @@ class CleanPPO():
         if self._it_counter == self._iterations_n:
 
             self._done()
-
-            exit()
- 
+    
     def _done(self):
 
         if self._save_model:
@@ -250,6 +256,8 @@ class CleanPPO():
                 info,
                 LogType.INFO,
                 throw_when_excep = True)
+
+        self._is_done = True
 
     # def _evaluate(self,
     #         eval_episodes: int,

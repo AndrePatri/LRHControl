@@ -112,7 +112,7 @@ class LRHcIsaacTask(IsaacTask):
                                             namespace = robot_name, 
                                             verbose = True, 
                                             force_reconnection = True,
-                                            vlevel = VLevel.V3)
+                                            vlevel = VLevel.V2)
 
             self.jnt_imp_cntrl_shared_data[robot_name].run()
 
