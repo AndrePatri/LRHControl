@@ -20,6 +20,9 @@ from std_msgs.msg import String
 
 from typing import List
 
+from perf_sleep.pyperfsleep import PerfSleep
+import time 
+
 class RhcToVizBridge:
 
     # bridge from shared mem to ROS
@@ -76,6 +79,8 @@ class RhcToVizBridge:
 
         self._update_counter = 0
         self._print_frequency = 100
+
+        self._perf_timer = PerfSleep()
 
         self._is_running = False
 
@@ -144,7 +149,8 @@ class RhcToVizBridge:
         self._robot_indexes = list(range(self._robot_selector[0], 
                                     self._robot_selector[1]+1))
 
-    def run(self):
+    def run(self,
+        update_dt: float = 0.01):
                 
         # robot state
         self.robot_state = RobotState(namespace=self.namespace,
@@ -206,6 +212,48 @@ class RhcToVizBridge:
 
         self._is_running = True
 
+        start_time = 0.0
+        elapsed_time = 0.0
+
+        time_to_sleep_ns = 0
+
+        info = f": starting bridge with update dt {update_dt} s"
+        Journal.log(self.__class__.__name__,
+            "run",
+            info,
+            LogType.INFO,
+            throw_when_excep = True)
+
+        while self._is_running:
+
+            try:
+                
+                start_time = time.perf_counter() 
+
+                self.update()
+
+                elapsed_time = time.perf_counter() - start_time
+
+                time_to_sleep_ns = int((update_dt - elapsed_time) * 1e+9) # [ns]
+
+                if time_to_sleep_ns < 0:
+
+                    warning = f": Could not match desired update dt of {update_dt} s. " + \
+                        f"Elapsed time to update {elapsed_time}."
+                    Journal.log(self.__class__.__name__,
+                        "run",
+                        warning,
+                        LogType.WARN,
+                        throw_when_excep = True)
+
+                self._perf_timer.thread_sleep(time_to_sleep_ns) 
+
+                continue
+
+            except KeyboardInterrupt:
+
+                self.close()
+                
     def update(self):
         
         success = False
@@ -248,6 +296,8 @@ class RhcToVizBridge:
         if not self.robot_state is None:
 
             self.robot_state.close()
+        
+        self._is_running = False
     
     def _sporadic_log(self,
                 calling_methd: str,
