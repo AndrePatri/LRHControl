@@ -114,7 +114,7 @@ class CleanPPO():
             # retrieve new observations, rewards and termination/truncation states
             self._next_obs = self._env.get_last_obs()
             self._rewards[step] = self._env.get_last_rewards()
-            self._next_done = torch.logical_or(self._env.get_last_terminations(),
+            self._next_done[: ,:] = torch.logical_or(self._env.get_last_terminations(),
                                         self._env.get_last_truncations()) # either terminated or truncated
 
         # compute advantages and returns
