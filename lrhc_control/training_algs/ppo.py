@@ -12,7 +12,6 @@ from typing import Dict
 
 import os
 
-from SharsorIPCpp.PySharsorIPC import VLevel
 from SharsorIPCpp.PySharsorIPC import LogType
 from SharsorIPCpp.PySharsorIPC import Journal
         
@@ -89,133 +88,145 @@ class CleanPPO():
         
             self._should_have_called_setup()
 
-        # annealing the rate if enabled
+        # annealing the learning rate if enabled (may improve convergence)
         if self._anneal_lr:
 
             frac = 1.0 - (self._it_counter - 1.0) / self._iterations_n
             lrnow = frac * self._learning_rate
             self._optimizer.param_groups[0]["lr"] = lrnow
 
-        # collect data from current policy during an episode
+        # collect data from current policy over a predefined number of env. steps
         for step in range(self._episode_n_steps):
-
-            # sample actions from agent
-            with torch.no_grad(): # no need for gradients computation
-                action, logprob, _, value = self._agent.get_action_and_value(self._env.get_last_obs())
-                self._values[step] = value.reshape(-1, 1)
-                self._actions[step] = action.reshape(-1, 1)
-                self._logprobs[step] = logprob.reshape(-1, 1)
             
-            # step vectorized env
+            self._dones[step] = self._next_done
+            self._obs[step] = self._next_obs
+
+            # sample actions from latest policy (actor) and state value from latest value function (critic)
+            with torch.no_grad(): # no need for gradients computation
+                action, logprob, _, value = self._agent.get_action_and_value(self._next_obs)
+                self._values[step] = value.reshape(-1, 1)
+            self._actions[step] = action.reshape(-1, 1)
+            self._logprobs[step] = logprob.reshape(-1, 1)
+            
+            # perform a step of the (vectorized) env
             self._env.step(action) 
 
-            # retrieve termination states and rewards
-
-            self._obs[step] = self._env.get_last_obs()
+            # retrieve new observations, rewards and termination/truncation states
+            self._next_obs = self._env.get_last_obs()
             self._rewards[step] = self._env.get_last_rewards()
-            self._dones[step] = torch.logical_or(self._env.get_last_terminations(),
-                                            self._env.get_last_truncations()) # either terminated or truncated
+            self._next_done = torch.logical_or(self._env.get_last_terminations(),
+                                        self._env.get_last_truncations()) # either terminated or truncated
 
-        # bootstrap value if not done
-        # with torch.no_grad():
-
-        #     self._advantages.zero_() # reset advantages
-
-        #     lastgaelam = 0
-        #     for t in reversed(range(self._episode_n_steps)):
-
-        #         if t == self._episode_n_steps - 1: # last step
-
-        #             nextnonterminal = 1.0 - self._dones[t]
-
-        #             nextvalues = self._values[t]
-
-        #         else:
-
-        #             nextnonterminal = 1.0 - self._dones[t + 1]
-
-        #             nextvalues = self._values[t + 1]
-
-        #         # temporal difference error computation
-        #         actual_reward_discounted = self._rewards[t] + self._discount_factor * nextvalues * nextnonterminal
-        #         td_error = actual_reward_discounted - self._values[t] # meas. - est. reward
-
-        #         # compute advantages using the Generalized Advantage Estimation (GAE) 
-        #         self._advantages[t] = lastgaelam = td_error + self._discount_factor * self._gae_lambda * nextnonterminal * lastgaelam
-
-        #     # estimated cumulative rewards from each time step to the end of the episode
-        #     self._returns[:, :] = self._advantages + self._values
-
-        # # flatten batches
-        # batched_obs = self._obs.reshape((-1, self._env.obs_dim()))
-        # batched_logprobs = self._logprobs.reshape(-1)
-        # batched_actions = self._actions.reshape((-1, self._env.actions_dim()))
-        # batched_advantages = self._advantages.reshape(-1)
-        # batched_returns = self._returns.reshape(-1)
-        # batched_values = self._values.reshape(-1)
-
-        # # optimize policy and value network
-        # clipfracs = []
-
-        # for epoch in range(self._update_epochs):
-
-        #     shuffled_batch_indxs = torch.randperm(self._batch_size) # randomizing 
-        #     # indexes for removing correlations
-
-        #     for start in range(0, self._batch_size, self._minibatch_size):
-                
-        #         end = start + self._minibatch_size
-        #         minibatch_inds = shuffled_batch_indxs[start:end]
-
-        #         _, newlogprob, entropy, newvalue = self._agent.get_action_and_value(
-        #                                                             batched_obs[minibatch_inds], 
-        #                                                             batched_actions[minibatch_inds])
-        #         logratio = newlogprob - batched_logprobs[minibatch_inds]
-        #         ratio = logratio.exp()
-
-        #         with torch.no_grad():
-        #             # calculate approx_kl http://joschu.net/blog/kl-approx.html
-        #             # old_approx_kl = (-logratio).mean()
-        #             approx_kl = ((ratio - 1) - logratio).mean()
-        #             clipfracs += [((ratio - 1.0).abs() > self._clip_coef).float().mean().item()]
-
-        #         minibatch_advantages = batched_advantages[minibatch_inds]
-        #         if self._norm_adv:
-        #             minibatch_advantages = (minibatch_advantages - minibatch_advantages.mean()) / (minibatch_advantages.std() + 1e-8)
-
-        #         # Policy loss
-        #         pg_loss1 = -minibatch_advantages * ratio
-        #         pg_loss2 = -minibatch_advantages * torch.clamp(ratio, 1 - self._clip_coef, 1 + self._clip_coef)
-        #         pg_loss = torch.max(pg_loss1, pg_loss2).mean()
-
-        #         # Value loss
-        #         newvalue = newvalue.view(-1)
-        #         if self._clip_vloss:
-        #             v_loss_unclipped = (newvalue - batched_returns[minibatch_inds]) ** 2
-        #             v_clipped = batched_values[minibatch_inds] + torch.clamp(
-        #                 newvalue - batched_values[minibatch_inds],
-        #                 -self._clip_coef,
-        #                 self._clip_coef,
-        #             )
-        #             v_loss_clipped = (v_clipped - batched_returns[minibatch_inds]) ** 2
-        #             v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
-        #             v_loss = 0.5 * v_loss_max.mean()
-        #         else:
-        #             v_loss = 0.5 * ((newvalue - batched_returns[minibatch_inds]) ** 2).mean()
-
-        #         entropy_loss = entropy.mean()
-        #         loss = pg_loss - self._entropy_coeff * entropy_loss + v_loss * self._val_f_coeff
-
-        #         self._optimizer.zero_grad()
-        #         loss.backward()
-        #         nn.utils.clip_grad_norm_(self._agent.parameters(), self._max_grad_norm)
-        #         self._optimizer.step()
+        # compute advantages and returns
+        with torch.no_grad():
             
-        #     if self._target_kl is not None and approx_kl > self._target_kl:
+            next_value = self._agent.get_value(self._next_obs).reshape(1, -1) # value at last step
+            self._advantages.zero_() # reset advantages
+            lastgaelam = 0
 
-        #         break
+            for t in reversed(range(self._episode_n_steps)):
 
-        # self._post_step()
+                if t == self._episode_n_steps - 1: # last step
+
+                    nextnonterminal = 1.0 - self._next_done 
+                    nextvalues = next_value
+
+                else:
+
+                    nextnonterminal = 1.0 - self._dones[t + 1]
+                    nextvalues = self._values[t + 1]
+
+                # temporal difference error computation
+                actual_reward_discounted = self._rewards[t] + self._discount_factor * nextvalues * nextnonterminal
+                td_error = actual_reward_discounted - self._values[t] # meas. - est. reward
+
+                # compute advantages using the Generalized Advantage Estimation (GAE) 
+                self._advantages[t] = lastgaelam = td_error + self._discount_factor * self._gae_lambda * nextnonterminal * lastgaelam
+
+            # estimated cumulative rewards from each time step to the end of the episode
+            self._returns[:, :] = self._advantages + self._values
+
+        # flatten batches before policy update
+        batched_obs = self._obs.reshape((-1, self._env.obs_dim()))
+        batched_logprobs = self._logprobs.reshape(-1)
+        batched_actions = self._actions.reshape((-1, self._env.actions_dim()))
+        batched_advantages = self._advantages.reshape(-1)
+        batched_returns = self._returns.reshape(-1)
+        batched_values = self._values.reshape(-1)
+
+        # optimize policy and value network
+        clipfracs = []
+
+        for epoch in range(self._update_epochs):
+
+            shuffled_batch_indxs = torch.randperm(self._batch_size) # randomizing 
+            # indexes for removing correlations
+
+            for start in range(0, self._batch_size, self._minibatch_size):
+                
+                end = start + self._minibatch_size
+                minibatch_inds = shuffled_batch_indxs[start:end]
+
+                _, newlogprob, entropy, newvalue = self._agent.get_action_and_value(
+                                                                    batched_obs[minibatch_inds], 
+                                                                    batched_actions[minibatch_inds])
+                logratio = newlogprob - batched_logprobs[minibatch_inds]
+                ratio = logratio.exp() # ratio between the probability of taking an action
+                # under the current policy and the probability of taking the same action under the policy 
+
+                with torch.no_grad():
+
+                    # calculate approximate KL divergence http://joschu.net/blog/kl-approx.html
+                    # The KL (Kullback-Leibler) divergence is a measure of how one probability 
+                    # distribution diverges from a second, expected probability distribution
+                    # in PPO, this is used as a regularization term in the objective function
+
+                    # old_approx_kl = (-logratio).mean()
+                    approx_kl = ((ratio - 1) - logratio).mean()
+                    clipfracs += [((ratio - 1.0).abs() > self._clip_coef).float().mean().item()]
+
+                minibatch_advantages = batched_advantages[minibatch_inds]
+                if self._norm_adv: # normalizing advantages if requires
+                    minibatch_advantages = (minibatch_advantages - minibatch_advantages.mean()) / (minibatch_advantages.std() + 1e-8)
+
+                # Policy loss
+                pg_loss1 = -minibatch_advantages * ratio
+                pg_loss2 = -minibatch_advantages * torch.clamp(ratio, 1 - self._clip_coef, 1 + self._clip_coef)
+                pg_loss = torch.max(pg_loss1, pg_loss2).mean()
+
+                # Value loss
+                newvalue = newvalue.view(-1)
+                if self._clip_vloss:
+                    v_loss_unclipped = (newvalue - batched_returns[minibatch_inds]) ** 2
+                    v_clipped = batched_values[minibatch_inds] + torch.clamp(
+                        newvalue - batched_values[minibatch_inds],
+                        -self._clip_coef,
+                        self._clip_coef,
+                    )
+                    v_loss_clipped = (v_clipped - batched_returns[minibatch_inds]) ** 2
+                    v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
+                    v_loss = 0.5 * v_loss_max.mean()
+                else:
+                    v_loss = 0.5 * ((newvalue - batched_returns[minibatch_inds]) ** 2).mean()
+                
+                # entropy loss
+                entropy_loss = entropy.mean()
+
+                # total loss
+                loss = pg_loss - self._entropy_coeff * entropy_loss + self._val_f_coeff * v_loss
+
+                # update policy using this minibatch
+                self._optimizer.zero_grad() # reset gradients
+                loss.backward() # compute backward pass
+                nn.utils.clip_grad_norm_(self._agent.parameters(), 
+                                    self._max_grad_norm) # clip loss gradient
+                self._optimizer.step() # update actor's (policy) parameters
+            
+            if self._target_kl is not None and approx_kl > self._target_kl:
+
+                break
+
+        self._post_step()
 
     def _post_step(self):
 
@@ -303,14 +314,15 @@ class CleanPPO():
 
         self._seed = 1
         self._run_name = "DummyRun"
+
         self._use_gpu = self._env.using_gpu()
         self._torch_device = torch.device("cpu") # defaults to cpu
-
         self._torch_deterministic = True
+
         self._save_model = True
         self._env_name = self._env.name()
 
-        self._total_timesteps = 20000000
+        self._total_timesteps = 5000000
         self._learning_rate = 3e-4
 
         self._num_envs = self._env.n_envs()
@@ -358,6 +370,10 @@ class CleanPPO():
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device)
+        self._next_obs = torch.full(size=(self._num_envs, self._obs_dim),
+                        fill_value=0,
+                        dtype=self._dtype,
+                        device=self._torch_device)
         self._actions = torch.full(size=(self._episode_n_steps, self._num_envs, self._actions_dim),
                         fill_value=0,
                         dtype=self._dtype,
@@ -371,6 +387,10 @@ class CleanPPO():
                         dtype=self._dtype,
                         device=self._torch_device)
         self._dones = torch.full(size=(self._episode_n_steps, self._num_envs, 1),
+                        fill_value=False,
+                        dtype=self._dtype,
+                        device=self._torch_device)
+        self._next_done = torch.full(size=(self._num_envs, 1),
                         fill_value=False,
                         dtype=self._dtype,
                         device=self._torch_device)
