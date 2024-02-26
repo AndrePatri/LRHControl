@@ -140,8 +140,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                         verbose = cluster_client_verbose, 
                         debug = cluster_client_debug, 
                         robot_name=robot_name,
-                        use_gpu = task.using_gpu,
-                        force_reconnection = True)
+                        use_gpu = task.using_gpu)
             
             self.debug_data["cluster_sol_time"][robot_name] = np.nan
             self.debug_data["cluster_state_update_dt"][robot_name] = np.nan
@@ -245,7 +244,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                                 robot_names=[robot_name],
                                 reset_world=False,
                                 reset_cluster=True)
-                            
+                        
                     just_activated = control_cluster.get_just_activated() # retrieves just 
                     # activated controllers
            
