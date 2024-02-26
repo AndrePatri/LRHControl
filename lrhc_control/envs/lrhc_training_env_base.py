@@ -279,7 +279,7 @@ class LRhcTrainingEnvBase():
                             verbose=self._verbose,
                             vlevel=self._vlevel,
                             safe=True,
-                            force_reconnection=False,
+                            force_reconnection=True,
                             with_gpu_mirror=self._use_gpu,
                             fill_value=0.0)
         self._obs.run()
@@ -295,7 +295,7 @@ class LRhcTrainingEnvBase():
                             verbose=self._verbose,
                             vlevel=self._vlevel,
                             safe=True,
-                            force_reconnection=False,
+                            force_reconnection=True,
                             with_gpu_mirror=self._use_gpu,
                             fill_value=0.0)
 
@@ -312,7 +312,7 @@ class LRhcTrainingEnvBase():
                             verbose=self._verbose,
                             vlevel=self._vlevel,
                             safe=True,
-                            force_reconnection=False,
+                            force_reconnection=True,
                             with_gpu_mirror=self._use_gpu,
                             fill_value=0.0)
         
@@ -324,7 +324,7 @@ class LRhcTrainingEnvBase():
                             verbose=self._verbose,
                             vlevel=self._vlevel,
                             safe=True,
-                            force_reconnection=False,
+                            force_reconnection=True,
                             with_gpu_mirror=self._use_gpu,
                             fill_value=0.0)
         
@@ -406,7 +406,7 @@ class LRhcTrainingEnvBase():
                                 contact_names=self._robot_state.contact_names(),
                                 q_remapping=None,
                                 with_gpu_mirror=True,
-                                force_reconnection=False,
+                                force_reconnection=True,
                                 safe=False,
                                 verbose=self._verbose,
                                 vlevel=self._vlevel,
@@ -433,7 +433,7 @@ class LRhcTrainingEnvBase():
                 is_server=True, 
                 training_env_params_dict=traing_env_param_dict,
                 safe=False,
-                force_reconnection=False,
+                force_reconnection=True,
                 verbose=self._verbose,
                 vlevel=self._vlevel)
         self._training_sim_info.run()
