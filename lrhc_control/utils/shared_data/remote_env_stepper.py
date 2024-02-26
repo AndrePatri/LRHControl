@@ -1,4 +1,4 @@
-from lrhc_control.utils.shared_data.remote_stepping import RemoteStepper, RemoteStepperPolling
+from lrhc_control.utils.shared_data.remote_stepping import RemoteStepperPolling
 
 from SharsorIPCpp.PySharsor.wrappers.shared_data_view import SharedDataView
 from SharsorIPCpp.PySharsor.wrappers.shared_tensor_dict import SharedTensorDict
@@ -61,6 +61,7 @@ class RemoteEnvStepper:
                 fill_value = False)
             
     def __init__(self, 
+                n_envs: int = None,
                 namespace = "",
                 is_server = False, 
                 verbose: bool = False, 
@@ -88,6 +89,7 @@ class RemoteEnvStepper:
         
         self._stepper = RemoteStepperPolling(namespace=namespace,
                             is_server=is_server,
+                            n_envs=n_envs,
                             verbose=verbose,
                             vlevel=vlevel,
                             force_reconnection=force_reconnection,

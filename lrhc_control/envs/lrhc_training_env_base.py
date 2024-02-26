@@ -117,7 +117,9 @@ class LRhcTrainingEnvBase():
         self._is_first_step = False
     
     def _init_step(self):
-        
+    
+        self.reset()
+
         for i in range(self._n_preinit_steps): # perform some
             # dummy remote env stepping to make sure to have meaningful 
             # initializations (doesn't increment step counter)
@@ -131,8 +133,6 @@ class LRhcTrainingEnvBase():
             self._remote_stepper.step() 
 
             self._remote_stepper.wait()
-        
-        self.reset()
     
     def _debug(self):
         
@@ -179,7 +179,7 @@ class LRhcTrainingEnvBase():
 
         self._post_step() # post step operations
     
-    def reset(self, seed=None, options=None):
+    def reset(self):
         
         self._step_counter = 0
 
@@ -197,8 +197,8 @@ class LRhcTrainingEnvBase():
 
         self._remote_reset()
 
-        self._get_observations()
-        self._clamp_obs() # to avoid bad things
+        # self._get_observations()
+        # self._clamp_obs() # to avoid bad things
     
     def _remote_reset(self):
 
@@ -605,6 +605,10 @@ class LRhcTrainingEnvBase():
 
         self._episode_counters.reset(to_be_reset=either_truncated_or_terminated)
         
+        if either_truncated_or_terminated.any():
+            # send remote reset signal
+            self._remote_stepper.reset(env_indxs=either_truncated_or_terminated)
+
         # reset counter if either terminated
         if self._is_debug:
             

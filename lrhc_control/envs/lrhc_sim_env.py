@@ -153,7 +153,9 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
             
             if self._is_training[i]:
                 
-                self._training_servers[robot_name] = RemoteEnvStepper(namespace = robot_name,
+                self._training_servers[robot_name] = RemoteEnvStepper(
+                                            n_envs=self.task.num_envs,
+                                            namespace = robot_name,
                                             is_server = True, 
                                             verbose = True,
                                             vlevel = VLevel.V2,

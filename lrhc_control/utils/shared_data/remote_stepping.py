@@ -11,6 +11,7 @@ from control_cluster_bridge.utilities.shared_data.abstractions import SharedData
 from perf_sleep.pyperfsleep import PerfSleep
 
 import numpy as np
+import torch
 
 class RemoteStepperPolling(SharedDataBase):
     
@@ -80,6 +81,16 @@ class RemoteStepperPolling(SharedDataBase):
 
             return self.get_torch_view(gpu=False)
 
+        def restore(self):
+
+            if not self.is_server:
+
+                resets = self.get_torch_view(gpu=False)
+
+                resets.zero_()
+
+                self.synch_all(read=False,wait=True)
+
     def __init__(self,
             namespace: str,
             is_server: bool,
@@ -108,7 +119,15 @@ class RemoteStepperPolling(SharedDataBase):
                                 vlevel=self._vlevel,
                                 force_reconnection=self._force_reconnection,
                                 safe=self._safe)
-    
+
+        self.remote_resets = self.RemoteResetRequest(namespace=self._namespace,
+                                n_env=self._n_envs,
+                                is_server=self._is_server,
+                                verbose=self._verbose,
+                                vlevel=self._vlevel,
+                                force_reconnection=self._force_reconnection,
+                                safe=self._safe)
+
     def wait_for_step_request(self):
         
         if self.is_running():
@@ -130,11 +149,15 @@ class RemoteStepperPolling(SharedDataBase):
     def reset(self,
             env_indxs: torch.Tensor):
 
-        self.remote_resets.reset(env_indxs)
+        self.remote_resets.reset(env_indxs.squeeze())
 
     def get_resets(self):
 
-        return self.remote_resets.get()
+        resets_copy = self.remote_resets.get().clone()
+
+        self.remote_resets.restore()
+
+        return resets_copy
 
     def wait(self):
         
