@@ -29,7 +29,7 @@ class HybridQuadRhc(RHController):
             n_nodes:float = 25,
             dt: float = 0.02,
             max_solver_iter = 1, # defaults to rt-iteration
-            add_data_lenght: int = 2,
+            open_loop: bool = True,
             enable_replay = False, 
             verbose = False, 
             debug = False, 
@@ -39,6 +39,8 @@ class HybridQuadRhc(RHController):
             debug_sol = True, # whether to publish rhc rebug data,
             solver_deb_prints = False
             ):
+
+        self._open_loop = open_loop
 
         self._codegen_dir = codegen_dir
         if not os.path.exists(self._codegen_dir):
@@ -83,8 +85,6 @@ class HybridQuadRhc(RHController):
                         debug = debug,
                         array_dtype = array_dtype,
                         debug_sol = debug_sol)
-
-        self.add_data_lenght = add_data_lenght # length of the array holding additional info from the solver
 
         self.rhc_costs={}
         self.rhc_constr={}
@@ -451,11 +451,14 @@ class HybridQuadRhc(RHController):
 
             self._custom_timer_start = time.perf_counter()
 
-        # self._update_open_loop() # updates the TO ig and 
-        # initial conditions using data from the solution itself
+        if self._open_loop:
 
-        self._update_closed_loop() # updates the TO ig and 
-        # # initial conditions using robot measurements
+            self._update_open_loop() # updates the TO ig and 
+            # initial conditions using data from the solution itself
+
+        else: 
+            self._update_closed_loop() # updates the TO ig and 
+            # initial conditions using robot measurements
         
         if self._profile_all:
 
