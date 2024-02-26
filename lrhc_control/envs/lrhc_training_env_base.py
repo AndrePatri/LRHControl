@@ -16,6 +16,7 @@ from lrhc_control.utils.shared_data.training_env import Rewards
 from lrhc_control.utils.shared_data.training_env import Actions
 from lrhc_control.utils.shared_data.training_env import Terminations
 from lrhc_control.utils.shared_data.training_env import Truncations
+from lrhc_control.utils.shared_data.training_env import StepCounterEpisode
 
 from SharsorIPCpp.PySharsorIPC import VLevel
 from SharsorIPCpp.PySharsorIPC import LogType
@@ -33,6 +34,7 @@ class LRhcTrainingEnvBase():
             namespace: str,
             obs_dim: int,
             actions_dim: int,
+            episode_length: int,
             env_name: str = "",
             n_preinit_steps: int = 1,
             verbose: bool = False,
@@ -42,6 +44,8 @@ class LRhcTrainingEnvBase():
             dtype: torch.dtype = torch.float32):
         
         self._env_index = 0
+
+        self._episode_length = episode_length
 
         self._namespace = namespace
         self._with_gpu_mirror = True
@@ -70,6 +74,20 @@ class LRhcTrainingEnvBase():
         self._agent_refs = None
 
         self._step_counter = 0
+        self._episode_counters = StepCounterEpisode(namespace=self._namespace,
+                            n_envs=self._n_envs,
+                            reset_n_steps=self._episode_length,
+                            obs_dim=self._obs_dim,
+                            obs_names=self._get_obs_names(),
+                            env_names=None,
+                            is_server=True,
+                            verbose=self._verbose,
+                            vlevel=self._vlevel,
+                            safe=True,
+                            force_reconnection=True,
+                            with_gpu_mirror=self._use_gpu,
+                            fill_value=0) # handles step counter through episodes and through envs
+        self._episode_counters.reset(all=True)
 
         self._n_envs = 0
 
@@ -220,11 +238,11 @@ class LRhcTrainingEnvBase():
 
     def get_last_terminations(self):
         
-        return self._terminations
+        return self._terminations.get_torch_view(gpu=self._use_gpu)
 
     def get_last_truncations(self):
                                  
-        return self._truncations
+        return self._truncations.get_torch_view(gpu=self._use_gpu)
                             
     def obs_dim(self):
 
@@ -279,7 +297,7 @@ class LRhcTrainingEnvBase():
                             verbose=self._verbose,
                             vlevel=self._vlevel,
                             safe=True,
-                            force_reconnection=False,
+                            force_reconnection=True,
                             with_gpu_mirror=self._use_gpu,
                             fill_value=0.0)
         self._obs.run()
@@ -295,7 +313,7 @@ class LRhcTrainingEnvBase():
                             verbose=self._verbose,
                             vlevel=self._vlevel,
                             safe=True,
-                            force_reconnection=False,
+                            force_reconnection=True,
                             with_gpu_mirror=self._use_gpu,
                             fill_value=0.0)
 
@@ -312,7 +330,7 @@ class LRhcTrainingEnvBase():
                             verbose=self._verbose,
                             vlevel=self._vlevel,
                             safe=True,
-                            force_reconnection=False,
+                            force_reconnection=True,
                             with_gpu_mirror=self._use_gpu,
                             fill_value=0.0)
         
@@ -324,7 +342,7 @@ class LRhcTrainingEnvBase():
                             verbose=self._verbose,
                             vlevel=self._vlevel,
                             safe=True,
-                            force_reconnection=False,
+                            force_reconnection=True,
                             with_gpu_mirror=self._use_gpu,
                             fill_value=0.0)
         
@@ -339,23 +357,35 @@ class LRhcTrainingEnvBase():
 
         device = "cuda" if self._use_gpu else "cpu"
 
-        self._terminations = torch.full(size=(self._n_envs, 1), 
-                                    fill_value=False,
-                                    dtype=torch.bool,
-                                    device=device)
+        self._terminations = Terminations(namespace=self._namespace,
+                            n_envs=self._n_envs,
+                            is_server=True,
+                            verbose=self._verbose,
+                            vlevel=self._vlevel,
+                            safe=True,
+                            force_reconnection=True,
+                            with_gpu_mirror=self._use_gpu,
+                            fill_value=False) 
+        
+        self._terminations.run()
     
     def _init_truncations(self):
 
         # Boolean array indicating whether each environment episode has been truncated 
         # after the current step. Truncation usually means that the episode has been 
         # forcibly ended before reaching a natural termination point.
-
-        device = "cuda" if self._use_gpu else "cpu"
-
-        self._truncations = torch.full(size=(self._n_envs, 1), 
-                                    fill_value=False,
-                                    dtype=torch.bool,
-                                    device=device)
+        
+        self._truncations = Truncations(namespace=self._namespace,
+                            n_envs=self._n_envs,
+                            is_server=True,
+                            verbose=self._verbose,
+                            vlevel=self._vlevel,
+                            safe=True,
+                            force_reconnection=True,
+                            with_gpu_mirror=self._use_gpu,
+                            fill_value=False) 
+        
+        self._truncations.run()
     
     def _init_infos(self):
         
@@ -406,7 +436,7 @@ class LRhcTrainingEnvBase():
                                 contact_names=self._robot_state.contact_names(),
                                 q_remapping=None,
                                 with_gpu_mirror=True,
-                                force_reconnection=False,
+                                force_reconnection=True,
                                 safe=False,
                                 verbose=self._verbose,
                                 vlevel=self._vlevel,
@@ -484,10 +514,6 @@ class LRhcTrainingEnvBase():
 
         self._obs.get_torch_view(gpu=self._use_gpu).clamp_(-self._obs_threshold, self._obs_threshold)
     
-    def _check_termination(self):
-
-        return None
-    
     def _wait_for_sim_env(self):
 
         while not self._remote_stepper.is_sim_env_ready():
@@ -531,7 +557,37 @@ class LRhcTrainingEnvBase():
 
             exit()
     
+    def _check_truncations(self):
+
+        truncations = self._truncations.get_torch_view(gpu=self._use_gpu)
+
+        # truncating episodes if controller fail
+        truncations[:, :] = self._rhc_status.fails.get_torch_view(gpu=self._use_gpu)
+
+        if self._use_gpu:
+            # from GPU to CPU 
+            self._truncations.synch_mirror(from_gpu=True) 
+
+        self._truncations.synch_all(read=False, wait = True) # writes on shared mem
+    
+    def _check_terminations(self):
+
+        terminations = self._terminations.get_torch_view(gpu=self._use_gpu)
+        # handle episodes termination
+        terminations[:, :] = self._episode_counters.reset(env_indxs=self._episode_counters.to_be_reset())
+
+        if self._use_gpu:
+            # from GPU to CPU 
+            self._terminations.synch_mirror(from_gpu=True) 
+
+        self._terminations.synch_all(read=False, wait = True) # writes on shared mem
+
     def _post_step(self):
+        
+        self._episode_counters.increment() # first increment counters
+
+        self._check_truncations()
+        self._check_terminations()
 
         if self._is_debug:
             

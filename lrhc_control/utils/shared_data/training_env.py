@@ -10,7 +10,9 @@ from control_cluster_bridge.utilities.shared_data.abstractions import SharedData
 from lrhc_control.utils.shared_data.base_data import NamedSharedDataView
 
 from typing import Dict, Union, List
+
 import numpy as np
+import torch
 
 # Training env info
 
@@ -435,6 +437,131 @@ class Terminations(SharedDataView):
                 force_reconnection=force_reconnection,
                 with_gpu_mirror=with_gpu_mirror,
                 fill_value = fill_value)
+
+class StepCounterEpisode(SharedDataBase):
+
+    class StepCounter(SharedDataView):
+
+        def __init__(self,
+                namespace: str,
+                n_rows: int = None, 
+                is_server = False, 
+                verbose: bool = False, 
+                vlevel: VLevel = VLevel.V0,
+                safe: bool = True,
+                force_reconnection: bool = False,
+                with_gpu_mirror: bool = False,
+                fill_value = 0):
+                
+                basename = "StepCounterEpisode"
+        
+                super().__init__(namespace = namespace,
+                    basename = basename,
+                    is_server = is_server, 
+                    n_rows = n_rows, 
+                    n_cols = 1, 
+                    verbose = verbose, 
+                    vlevel = vlevel,
+                    safe = safe, # boolean operations are atomic on 64 bit systems
+                    dtype=sharsor_dtype.Int,
+                    force_reconnection=force_reconnection,
+                    with_gpu_mirror=with_gpu_mirror,
+                    fill_value = fill_value)
+    
+    def __init__(self,
+                namespace: str,
+                reset_n_steps: int = None,
+                n_rows: int = None, 
+                is_server = False, 
+                verbose: bool = False, 
+                vlevel: VLevel = VLevel.V0,
+                safe: bool = True,
+                force_reconnection: bool = False,
+                with_gpu_mirror: bool = False):
+
+        self._using_gpu = with_gpu_mirror
+
+        self._reset_n_steps = reset_n_steps # reset counters every n steps
+
+        self._step_counter = self.StepCounter(namespace = namespace,
+                    is_server = is_server, 
+                    n_rows = n_rows, 
+                    n_cols = 1, 
+                    verbose = verbose, 
+                    vlevel = vlevel,
+                    safe = safe, # boolean operations are atomic on 64 bit systems
+                    force_reconnection=force_reconnection,
+                    with_gpu_mirror=with_gpu_mirror)
+
+    def _write(self):
+
+        if self._using_gpu:
+
+            # copy from gpu to cpu
+            self._step_counter.synch_mirror(from_gpu=True)
+
+        # copy from cpu to shared memory
+        self._step_counter.synch_all(read=False, wait=True)
+
+    def increment(self):
+        
+        self.get()[:, :] = self.get() + 1
+
+        self._write()
+
+    def decrement(self):
+        
+        self.get()[:, :] = self.get() - 1
+
+        self._write()
+
+    def get(self):
+
+        return self._step_counter.get_torch_view(gpu=self._using_gpu)
+    
+    def counter(self):
+
+        return self._step_counter
+    
+    def run(self):
+
+        self._step_counter.run()
+
+    def close(self):
+
+        self._step_counter.close()
+
+    def _reset_flags(self):
+
+        return self.get() > self._reset_n_steps
+    
+    def to_be_reset(self):
+        
+        to_be_reset = torch.nonzero(self._reset_flags().squeeze()).squeeze()
+
+        if to_be_reset.shape[0] == 0:
+
+            return None
+        
+        else:
+
+            return to_be_reset
+    
+    def reset(self,
+        env_indxs: torch.Tensor = None,
+        all: bool = False):
+
+        if env_indxs is not None:
+
+            self.get()[env_indxs, :] = 0
+
+        if all:
+
+            self.get().zero_()
+
+        self._write()
+
+        return self._reset_flags()
 
 class Truncations(SharedDataView):
 

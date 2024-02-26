@@ -13,6 +13,9 @@ from lrhc_control.utils.shared_data.training_env import Observations
 from lrhc_control.utils.shared_data.training_env import Actions
 from lrhc_control.utils.shared_data.training_env import Rewards
 from lrhc_control.utils.shared_data.training_env import TotRewards
+from lrhc_control.utils.shared_data.training_env import Truncations
+from lrhc_control.utils.shared_data.training_env import Terminations
+from lrhc_control.utils.shared_data.training_env import StepCounterEpisode
 
 import numpy as np
 
@@ -96,6 +99,27 @@ class TrainingEnvData(SharedDataWindow):
                                             vlevel=VLevel.V2,
                                             safe=False,
                                             with_gpu_mirror=False))
+        
+        self.shared_data_clients.append(Truncations(namespace=self.namespace,
+                                            is_server=False,
+                                            verbose=True,
+                                            vlevel=VLevel.V2,
+                                            safe=False,
+                                            with_gpu_mirror=False))
+
+        self.shared_data_clients.append(Terminations(namespace=self.namespace,
+                                            is_server=False,
+                                            verbose=True,
+                                            vlevel=VLevel.V2,
+                                            safe=False,
+                                            with_gpu_mirror=False))
+        
+        self.shared_data_clients.append(StepCounterEpisode(namespace=self.namespace,
+                                            is_server=False,
+                                            verbose=True,
+                                            vlevel=VLevel.V2,
+                                            safe=False,
+                                            with_gpu_mirror=False))
 
         for client in self.shared_data_clients:
 
@@ -103,7 +127,7 @@ class TrainingEnvData(SharedDataWindow):
 
     def _post_shared_init(self):
         
-        self.grid_n_rows = 3
+        self.grid_n_rows = 5
 
         self.grid_n_cols = 2
 
@@ -178,7 +202,7 @@ class TrainingEnvData(SharedDataWindow):
                                     legend_list=self.shared_data_clients[6].col_names(), 
                                     ylabel="[float]"))
         
-        self.rt_plotters.append(RtPlotWindow(data_dim=1,
+        self.rt_plotters.append(RtPlotWindow(data_dim=len(self.shared_data_clients[7].col_names()),
                                     n_data = cluster_size,
                                     update_data_dt=self.update_data_dt, 
                                     update_plot_dt=self.update_plot_dt,
@@ -186,10 +210,10 @@ class TrainingEnvData(SharedDataWindow):
                                     parent=None, 
                                     base_name=f"Terminations", 
                                     window_buffer_factor=self.window_buffer_factor, 
-                                    legend_list="0", 
+                                    legend_list=self.shared_data_clients[7].col_names(), 
                                     ylabel="[bool]"))
         
-        self.rt_plotters.append(RtPlotWindow(data_dim=1,
+        self.rt_plotters.append(RtPlotWindow(data_dim=len(self.shared_data_clients[8].col_names()),
                                     n_data = cluster_size,
                                     update_data_dt=self.update_data_dt, 
                                     update_plot_dt=self.update_plot_dt,
@@ -197,16 +221,30 @@ class TrainingEnvData(SharedDataWindow):
                                     parent=None, 
                                     base_name=f"Truncations", 
                                     window_buffer_factor=self.window_buffer_factor, 
-                                    legend_list="0", 
+                                    legend_list=self.shared_data_clients[8].col_names(), 
                                     ylabel="[bool]"))
         
+        self.rt_plotters.append(RtPlotWindow(data_dim=len(self.shared_data_clients[9].col_names()),
+                                    n_data = cluster_size,
+                                    update_data_dt=self.update_data_dt, 
+                                    update_plot_dt=self.update_plot_dt,
+                                    window_duration=self.window_duration, 
+                                    parent=None, 
+                                    base_name=f"Episode counter", 
+                                    window_buffer_factor=self.window_buffer_factor, 
+                                    legend_list=self.shared_data_clients[9].col_names(), 
+                                    ylabel="[int]"))
+        
         self.grid.addFrame(self.rt_plotters[0].base_frame, 0, 0)
-        self.grid.addFrame(self.rt_plotters[1].base_frame, 1, 0)
-        self.grid.addFrame(self.rt_plotters[2].base_frame, 1, 1)
-        self.grid.addFrame(self.rt_plotters[3].base_frame, 2, 0)
-        self.grid.addFrame(self.rt_plotters[4].base_frame, 2, 1)
-        self.grid.addFrame(self.rt_plotters[5].base_frame, 3, 0)
-        self.grid.addFrame(self.rt_plotters[6].base_frame, 3, 1)
+        self.grid.addFrame(self.rt_plotters[1].base_frame, 0, 1)
+        self.grid.addFrame(self.rt_plotters[2].base_frame, 1, 0)
+        self.grid.addFrame(self.rt_plotters[3].base_frame, 1, 1)
+        self.grid.addFrame(self.rt_plotters[4].base_frame, 2, 0)
+        self.grid.addFrame(self.rt_plotters[5].base_frame, 2, 1)
+        self.grid.addFrame(self.rt_plotters[6].base_frame, 3, 0)
+        self.grid.addFrame(self.rt_plotters[7].base_frame, 3, 1)
+        self.grid.addFrame(self.rt_plotters[8].base_frame, 4, 0)
+        self.grid.addFrame(self.rt_plotters[9].base_frame, 4, 1)
 
     def _finalize_grid(self):
                 
@@ -258,11 +296,16 @@ class TrainingEnvData(SharedDataWindow):
             self.shared_data_clients[5].synch_all(read=True, wait=True)
             self.shared_data_clients[6].synch_all(read=True, wait=True)
 
+            self.shared_data_clients[7].synch_all(read=True, wait=True)
+            self.shared_data_clients[8].synch_all(read=True, wait=True)
+            self.shared_data_clients[9].counter().synch_all(read=True, wait=True)
+
             self.rt_plotters[0].rt_plot_widget.update(data)
             self.rt_plotters[1].rt_plot_widget.update(np.transpose(self.shared_data_clients[3].get_numpy_view()))
             self.rt_plotters[2].rt_plot_widget.update(np.transpose(self.shared_data_clients[4].get_numpy_view()))
             self.rt_plotters[3].rt_plot_widget.update(np.transpose(self.shared_data_clients[5].get_numpy_view()))
             self.rt_plotters[4].rt_plot_widget.update(np.transpose(self.shared_data_clients[6].get_numpy_view()))
+
 
 class AgentPerformanceWindow(SharedDataWindow):
 
