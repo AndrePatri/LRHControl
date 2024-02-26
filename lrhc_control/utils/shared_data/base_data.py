@@ -37,13 +37,15 @@ class NamedSharedDataView(SharedDataView):
                                             basename = basename + "ColNames", 
                                             name_space = namespace,
                                             verbose = verbose, 
-                                            vlevel = vlevel)
+                                            vlevel = vlevel,
+                                            force_reconnection = force_reconnection)
                 
                 self._row_names_shared = StringTensorServer(length = n_rows, 
                                             basename = basename + "RowNames", 
                                             name_space = namespace,
                                             verbose = verbose, 
-                                            vlevel = vlevel)
+                                            vlevel = vlevel,
+                                            force_reconnection = force_reconnection)
 
             else:
 

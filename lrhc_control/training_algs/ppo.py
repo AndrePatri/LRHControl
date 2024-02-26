@@ -120,7 +120,7 @@ class CleanPPO():
         # compute advantages and returns
         with torch.no_grad():
             
-            next_value = self._agent.get_value(self._next_obs).reshape(1, -1) # value at last step
+            next_value = self._agent.get_value(self._next_obs).reshape(-1, 1) # value at last step
             self._advantages.zero_() # reset advantages
             lastgaelam = 0
 

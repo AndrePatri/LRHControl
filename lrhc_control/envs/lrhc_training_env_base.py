@@ -463,7 +463,7 @@ class LRhcTrainingEnvBase():
                 is_server=True, 
                 training_env_params_dict=traing_env_param_dict,
                 safe=False,
-                force_reconnection=False,
+                force_reconnection=True,
                 verbose=self._verbose,
                 vlevel=self._vlevel)
         self._training_sim_info.run()
