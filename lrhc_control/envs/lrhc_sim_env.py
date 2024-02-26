@@ -233,8 +233,14 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                             self._training_servers[robot_name].wait() # blocking
                             
                             # is necessary, perform a remote FULL reset
-                            # if self._training_servers[robot_name].remote_reset():
-                            #    self.full_reset(robot_names=robot_name)
+                            to_be_reset_remotely = self._training_servers[robot_name].get_resets()
+
+                            if to_be_reset_remotely.any():
+                                
+                                self.reset(env_indxs=to_be_reset_remotely,
+                                    robot_names=[robot_name],
+                                    reset_world=False,
+                                    reset_cluster=True)
 
                             # when training controllers have to be kept always active
                             control_cluster.activate_controllers(idxs=control_cluster.get_inactive_controllers())
