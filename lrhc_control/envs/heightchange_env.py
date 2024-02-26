@@ -17,6 +17,8 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         obs_dim = 4
         actions_dim = 1
 
+        episode_length = 180
+
         env_name = "LRhcHeightChange"
 
         self._small_epsi = 1
@@ -24,6 +26,7 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         super().__init__(namespace=namespace,
                     obs_dim=obs_dim,
                     actions_dim=actions_dim,
+                    episode_length=episode_length,
                     env_name=env_name,
                     verbose=verbose,
                     vlevel=vlevel,

@@ -74,20 +74,6 @@ class LRhcTrainingEnvBase():
         self._agent_refs = None
 
         self._step_counter = 0
-        self._episode_counters = StepCounterEpisode(namespace=self._namespace,
-                            n_envs=self._n_envs,
-                            reset_n_steps=self._episode_length,
-                            obs_dim=self._obs_dim,
-                            obs_names=self._get_obs_names(),
-                            env_names=None,
-                            is_server=True,
-                            verbose=self._verbose,
-                            vlevel=self._vlevel,
-                            safe=True,
-                            force_reconnection=True,
-                            with_gpu_mirror=self._use_gpu,
-                            fill_value=0) # handles step counter through episodes and through envs
-        self._episode_counters.reset(all=True)
 
         self._n_envs = 0
 
@@ -97,6 +83,7 @@ class LRhcTrainingEnvBase():
 
         self._perf_timer = PerfSleep()
 
+        self._episode_counters = None
         self._obs = None
         self._actions = None
         self._tot_rewards = None
@@ -203,11 +190,19 @@ class LRhcTrainingEnvBase():
         self._rewards.reset()
         self._tot_rewards.reset()
 
-        self._terminations.zero_()
-        self._truncations.zero_()
+        self._terminations.reset()
+        self._truncations.reset()
+
+        self._episode_counters.reset(all=True)
+
+        self._remote_reset()
 
         self._get_observations()
         self._clamp_obs() # to avoid bad things
+    
+    def _remote_reset(self):
+
+        pass
 
     def close(self):
         
@@ -217,12 +212,17 @@ class LRhcTrainingEnvBase():
         self._rhc_status.close()
         
         self._remote_stepper.close()
+        
+        self._episode_counters.close()
 
         # closing env.-specific shared data
         self._obs.close()
         self._actions.close()
         self._rewards.close()
         self._tot_rewards.close()
+
+        self._terminations.close()
+        self._truncations.close()
 
     def get_last_obs(self):
     
@@ -355,8 +355,6 @@ class LRhcTrainingEnvBase():
         # the current step. An episode termination could occur based on predefined conditions
         # in the environment, such as reaching a goal or exceeding a time limit.
 
-        device = "cuda" if self._use_gpu else "cpu"
-
         self._terminations = Terminations(namespace=self._namespace,
                             n_envs=self._n_envs,
                             is_server=True,
@@ -451,7 +449,20 @@ class LRhcTrainingEnvBase():
                             safe=self._safe_shared_mem)
         self._remote_stepper.run()
         self._remote_stepper.training_env_ready()
-    
+        
+        # episode steps counters 
+        self._episode_counters = StepCounterEpisode(namespace=self._namespace,
+                            n_envs=self._n_envs,
+                            reset_n_steps=self._episode_length,
+                            is_server=True,
+                            verbose=self._verbose,
+                            vlevel=self._vlevel,
+                            safe=True,
+                            force_reconnection=True,
+                            with_gpu_mirror=self._use_gpu) # handles step counter through episodes and through envs
+        self._episode_counters.run()
+        self._episode_counters.reset(all=True)
+
         # debug data servers
         traing_env_param_dict = {}
         traing_env_param_dict["use_gpu"] = self._use_gpu
@@ -574,7 +585,7 @@ class LRhcTrainingEnvBase():
 
         terminations = self._terminations.get_torch_view(gpu=self._use_gpu)
         # handle episodes termination
-        terminations[:, :] = self._episode_counters.reset(env_indxs=self._episode_counters.to_be_reset())
+        terminations[:, :] = self._episode_counters.finished_episodes() 
 
         if self._use_gpu:
             # from GPU to CPU 
@@ -586,9 +597,15 @@ class LRhcTrainingEnvBase():
         
         self._episode_counters.increment() # first increment counters
 
-        self._check_truncations()
+        self._check_truncations() 
         self._check_terminations()
 
+        either_truncated_or_terminated = torch.logical_or(self._terminations.get_torch_view(gpu=self._use_gpu),
+                                        self._truncations.get_torch_view(gpu=self._use_gpu))
+
+        self._episode_counters.reset(to_be_reset=either_truncated_or_terminated)
+        
+        # reset counter if either terminated
         if self._is_debug:
             
             self._debug()

@@ -414,7 +414,7 @@ class Terminations(SharedDataView):
 
     def __init__(self,
             namespace: str,
-            n_rows: int = None, 
+            n_envs: int = None, 
             is_server = False, 
             verbose: bool = False, 
             vlevel: VLevel = VLevel.V0,
@@ -428,7 +428,7 @@ class Terminations(SharedDataView):
             super().__init__(namespace = namespace,
                 basename = basename,
                 is_server = is_server, 
-                n_rows = n_rows, 
+                n_rows = n_envs, 
                 n_cols = 1, 
                 verbose = verbose, 
                 vlevel = vlevel,
@@ -438,13 +438,49 @@ class Terminations(SharedDataView):
                 with_gpu_mirror=with_gpu_mirror,
                 fill_value = fill_value)
 
+    def reset(self):
+
+        self.to_zero()
+
+class Truncations(SharedDataView):
+
+    def __init__(self,
+            namespace: str,
+            n_envs: int = None, 
+            is_server = False, 
+            verbose: bool = False, 
+            vlevel: VLevel = VLevel.V0,
+            safe: bool = True,
+            force_reconnection: bool = False,
+            with_gpu_mirror: bool = False,
+            fill_value = 0):
+            
+            basename = "Truncations"
+    
+            super().__init__(namespace = namespace,
+                basename = basename,
+                is_server = is_server, 
+                n_rows = n_envs, 
+                n_cols = 1, 
+                verbose = verbose, 
+                vlevel = vlevel,
+                safe = safe, # boolean operations are atomic on 64 bit systems
+                dtype=sharsor_dtype.Bool,
+                force_reconnection=force_reconnection,
+                with_gpu_mirror=with_gpu_mirror,
+                fill_value = fill_value)
+
+    def reset(self):
+
+        self.to_zero()
+        
 class StepCounterEpisode(SharedDataBase):
 
     class StepCounter(SharedDataView):
 
         def __init__(self,
                 namespace: str,
-                n_rows: int = None, 
+                n_envs: int = None, 
                 is_server = False, 
                 verbose: bool = False, 
                 vlevel: VLevel = VLevel.V0,
@@ -458,7 +494,7 @@ class StepCounterEpisode(SharedDataBase):
                 super().__init__(namespace = namespace,
                     basename = basename,
                     is_server = is_server, 
-                    n_rows = n_rows, 
+                    n_rows = n_envs, 
                     n_cols = 1, 
                     verbose = verbose, 
                     vlevel = vlevel,
@@ -471,7 +507,7 @@ class StepCounterEpisode(SharedDataBase):
     def __init__(self,
                 namespace: str,
                 reset_n_steps: int = None,
-                n_rows: int = None, 
+                n_envs: int = None, 
                 is_server = False, 
                 verbose: bool = False, 
                 vlevel: VLevel = VLevel.V0,
@@ -485,8 +521,7 @@ class StepCounterEpisode(SharedDataBase):
 
         self._step_counter = self.StepCounter(namespace = namespace,
                     is_server = is_server, 
-                    n_rows = n_rows, 
-                    n_cols = 1, 
+                    n_envs = n_envs, 
                     verbose = verbose, 
                     vlevel = vlevel,
                     safe = safe, # boolean operations are atomic on 64 bit systems
@@ -502,6 +537,10 @@ class StepCounterEpisode(SharedDataBase):
 
         # copy from cpu to shared memory
         self._step_counter.synch_all(read=False, wait=True)
+
+    def is_running(self):
+
+        return self._step_counter.is_running()
 
     def increment(self):
         
@@ -527,17 +566,24 @@ class StepCounterEpisode(SharedDataBase):
 
         self._step_counter.run()
 
+        device = "cuda" if self._using_gpu else "cpu"
+
+        self._to_be_reset = torch.full(size=(self._step_counter.n_rows, 1), 
+                                fill_value=False,
+                                dtype=torch.bool,
+                                device=device)
+
     def close(self):
 
         self._step_counter.close()
 
-    def _reset_flags(self):
+    def finished_episodes(self):
 
         return self.get() > self._reset_n_steps
     
     def to_be_reset(self):
         
-        to_be_reset = torch.nonzero(self._reset_flags().squeeze()).squeeze()
+        self._to_be_reset[:, :] = torch.nonzero(self.finished_episodes().squeeze()).squeeze()
 
         if to_be_reset.shape[0] == 0:
 
@@ -548,12 +594,12 @@ class StepCounterEpisode(SharedDataBase):
             return to_be_reset
     
     def reset(self,
-        env_indxs: torch.Tensor = None,
+        to_be_reset: torch.Tensor = None,
         all: bool = False):
 
-        if env_indxs is not None:
+        if to_be_reset is not None:
 
-            self.get()[env_indxs, :] = 0
+            self.get()[to_be_reset.squeeze(), :] = 0
 
         if all:
 
@@ -561,32 +607,4 @@ class StepCounterEpisode(SharedDataBase):
 
         self._write()
 
-        return self._reset_flags()
-
-class Truncations(SharedDataView):
-
-    def __init__(self,
-            namespace: str,
-            n_rows: int = None, 
-            is_server = False, 
-            verbose: bool = False, 
-            vlevel: VLevel = VLevel.V0,
-            safe: bool = True,
-            force_reconnection: bool = False,
-            with_gpu_mirror: bool = False,
-            fill_value = 0):
-            
-            basename = "Truncations"
-    
-            super().__init__(namespace = namespace,
-                basename = basename,
-                is_server = is_server, 
-                n_rows = n_rows, 
-                n_cols = 1, 
-                verbose = verbose, 
-                vlevel = vlevel,
-                safe = safe, # boolean operations are atomic on 64 bit systems
-                dtype=sharsor_dtype.Bool,
-                force_reconnection=force_reconnection,
-                with_gpu_mirror=with_gpu_mirror,
-                fill_value = fill_value)
+        return self._to_be_reset
