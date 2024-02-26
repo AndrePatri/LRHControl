@@ -7,7 +7,7 @@ solver:
   ilqr.constr_viol_tol: 0.01
   ilqr.suppress_all_output: 'yes'
   ilqr.codegen_enabled: true
-  ilqr.codegen_workdir: /tmp/tyhio
+#  ilqr.codegen_workdir: /tmp/tyhio
   ilqr.enable_gn: true
   ilqr.hxx_reg_base: 0.0
   ilqr.n_threads: 0
