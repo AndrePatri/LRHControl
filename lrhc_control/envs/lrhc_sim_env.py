@@ -45,7 +45,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
         self.cluster_timers = {}
         self.env_timer = time.perf_counter()
 
-        self.step_counter = 0
+        self.step_counters = {}
         self.cluster_servers = {}
         self._trigger_cluster = {}
         self._cluster_dt = {}
@@ -106,6 +106,8 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
         for i in range(len(self.robot_names)):
             
             robot_name = self.robot_names[i]
+
+            self.step_counters[robot_name] = 0
 
             if not isinstance(cluster_dt[i], float):
 
@@ -221,7 +223,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                     self._training_servers[robot_name].run()
 
             # 1) this runs at a dt = cluster_clients[robot_name] dt (sol. triggering) 
-            if control_cluster.is_cluster_instant(self.step_counter):
+            if control_cluster.is_cluster_instant(self.step_counters[robot_name]):
                     
                 if self._trigger_cluster[robot_name]:
                     
@@ -230,6 +232,10 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
 
                             self._training_servers[robot_name].wait() # blocking
                             
+                            # is necessary, perform a remote FULL reset
+                            # if self._training_servers[robot_name].remote_reset():
+                            #    self.full_reset(robot_names=robot_name)
+
                             # when training controllers have to be kept always active
                             control_cluster.activate_controllers(idxs=control_cluster.get_inactive_controllers())
 
@@ -307,7 +313,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
             robot_name = self.robot_names[i]
 
             # this runs at a dt = control_cluster dt
-            if control_cluster.is_cluster_instant(self.step_counter):
+            if control_cluster.is_cluster_instant(self.step_counters[robot_name]):
             
                 if not self._trigger_cluster[robot_name]:                        
             
@@ -360,6 +366,8 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                     self._trigger_cluster[robot_name] = False # -> next cluster instant we get/wait the solution
                     # from the cluster                
 
+            self.step_counters[robot_name] += 1
+
         if self.debug:
             
             self.env_timer = time.perf_counter()
@@ -369,8 +377,6 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
         if self.debug:
                         
             self.debug_data["time_to_get_states_from_sim"] = time.perf_counter() - self.env_timer
-
-        self.step_counter += 1
 
     def reset_cluster(self,
             env_indxs: torch.Tensor = None,
@@ -389,12 +395,23 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
             control_cluster = self.cluster_servers[robot_name]
 
             control_cluster.reset_controllers(idxs=env_indxs)
-        
+    
+    def full_reset(self,
+            robot_name: str = None):
+
+        # resets EVERYTHING
+        self.reset(env_indxs=None,# all env
+                robot_names=[robot_name], # potenially not all robots
+                reset_world=False,
+                reset_cluster=True,
+                reset_counter=True)
+
     def reset(self,
             env_indxs: torch.Tensor = None,
             robot_names: List[str]=None,
             reset_world: bool = False,
-            reset_cluster: bool = False):
+            reset_cluster: bool = False,
+            reset_counter = False):
 
         if reset_cluster:
 
@@ -411,7 +428,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
         
         # perform a simulation step
         
-        self._world.step(render=self._render)
+        # self._world.step(render=self._render)
 
         self.task.get_states(env_indxs=env_indxs,
                         robot_names=robot_names) # updates states from sim 
@@ -429,7 +446,11 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                 self._update_cluster_state(robot_name=rob_names[i],
                                 env_indxs=env_indxs)
 
-        return None
+        if reset_counter:
+            
+            for i in range(len(rob_names)):
+                
+                self.step_counters[rob_names[i]] = 0
     
     def _init_safe_cluster_actions(self,
                             robot_name: str):
@@ -490,7 +511,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                     
             else:
                 
-                if ((self.step_counter + 1) % 10000) == 0:
+                if ((self.step_counters[robot_name] + 1) % 10000) == 0:
                     
                     # sporadic warning
                     warning = f"Contact state from link {contact_link} cannot be retrieved in IsaacSim if using use_gpu_pipeline is set to True!"
