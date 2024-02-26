@@ -241,15 +241,6 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
 
                     control_cluster.pre_trigger_steps() # performs pre-trigger steps, like retrieving
                     # values of some activation flags
-
-                    failed = control_cluster.get_failed_controllers() # retrieve failed controllers, if any
-
-                    if failed is not None:
-     
-                        self.reset(env_indxs=failed,
-                                robot_names=[robot_name],
-                                reset_world=False,
-                                reset_cluster=True)
                         
                     just_activated = control_cluster.get_just_activated() # retrieves just 
                     # activated controllers
@@ -335,6 +326,15 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                     self._update_cluster_state(robot_name = robot_name, 
                                     env_indxs = active)
                     
+                    failed = control_cluster.get_failed_controllers() # retrieve failed controllers, if any
+
+                    if failed is not None:
+     
+                        self.reset(env_indxs=failed,
+                                robot_names=[robot_name],
+                                reset_world=False,
+                                reset_cluster=True)
+
                     if self._training_servers[robot_name] is not None:
 
                         if self._start_training:
