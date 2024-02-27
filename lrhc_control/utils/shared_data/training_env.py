@@ -161,8 +161,8 @@ class SharedTrainingEnvInfo(SharedDataBase):
                 
                 exception = "Could not write shared train. env. names on shared memory!"
 
-                Logger.log(self.__class__.__name__,
-                    name,
+                Journal.log(self.__class__.__name__,
+                    "run()",
                     exception,
                     LogType.EXCEP,
                     throw_when_excep = True)
@@ -177,8 +177,8 @@ class SharedTrainingEnvInfo(SharedDataBase):
 
                 exception = "Could not read shared train. env. names on shared memory!"
 
-                Logger.log(self.__class__.__name__,
-                    name,
+                Journal.log(self.__class__.__name__,
+                    "run()",
                     exception,
                     LogType.EXCEP,
                     throw_when_excep = True)
@@ -219,8 +219,8 @@ class SharedTrainingEnvInfo(SharedDataBase):
 
                 exception = "The provided val should be a list of values!"
 
-                Logger.log(self.__class__.__name__,
-                    name,
+                Journal.log(self.__class__.__name__,
+                    "write()",
                     exception,
                     LogType.EXCEP,
                     throw_when_excep = True)
@@ -229,8 +229,8 @@ class SharedTrainingEnvInfo(SharedDataBase):
                 
                 exception = "Name list and values length mismatch!"
 
-                Logger.log(self.__class__.__name__,
-                    name,
+                Journal.log(self.__class__.__name__,
+                    "write()",
                     exception,
                     LogType.EXCEP,
                     throw_when_excep = True)
@@ -580,18 +580,6 @@ class StepCounterEpisode(SharedDataBase):
     def finished_episodes(self):
 
         return self.get() > self._reset_n_steps
-    
-    def to_be_reset(self):
-        
-        self._to_be_reset[:, :] = torch.nonzero(self.finished_episodes().squeeze()).squeeze()
-
-        if to_be_reset.shape[0] == 0:
-
-            return None
-        
-        else:
-
-            return to_be_reset
     
     def reset(self,
         to_be_reset: torch.Tensor = None,

@@ -187,6 +187,10 @@ class RemoteEnvStepper:
 
         self._stepper.step()
 
+    def get_stepper(self):
+
+        return self._stepper
+    
     def close(self):
 
         self._stepper.close()

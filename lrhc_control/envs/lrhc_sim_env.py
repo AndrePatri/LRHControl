@@ -234,11 +234,10 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
 
                             self._training_servers[robot_name].wait() # blocking
                             
-                            # is necessary, perform a remote FULL reset
-                            to_be_reset_remotely = self._training_servers[robot_name].get_resets()
+                            to_be_reset_remotely = self._training_servers[robot_name].get_stepper().get_resets()
+                            
+                            if to_be_reset_remotely is not None:
 
-                            if to_be_reset_remotely.any():
-                                
                                 self.reset(env_indxs=to_be_reset_remotely,
                                     robot_names=[robot_name],
                                     reset_world=False,
@@ -334,14 +333,17 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                     self._update_cluster_state(robot_name = robot_name, 
                                     env_indxs = active)
                     
-                    failed = control_cluster.get_failed_controllers() # retrieve failed controllers, if any
+                    if self._training_servers[robot_name] is None:
+                        
+                        # automatically reset failed controllers if not running training
+                        failed = control_cluster.get_failed_controllers()
 
-                    if failed is not None:
-     
-                        self.reset(env_indxs=failed,
-                                robot_names=[robot_name],
-                                reset_world=False,
-                                reset_cluster=True)
+                        if failed is not None:
+        
+                            self.reset(env_indxs=failed,
+                                    robot_names=[robot_name],
+                                    reset_world=False,
+                                    reset_cluster=True)
 
                     if self._training_servers[robot_name] is not None:
 

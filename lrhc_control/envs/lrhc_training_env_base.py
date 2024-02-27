@@ -73,8 +73,6 @@ class LRhcTrainingEnvBase():
 
         self._agent_refs = None
 
-        self._step_counter = 0
-
         self._n_envs = 0
 
         self._n_preinit_steps = n_preinit_steps
@@ -148,7 +146,8 @@ class LRhcTrainingEnvBase():
         self._tot_rewards.synch_all(read=False, wait=True)
         self._rewards.synch_all(read=False, wait=True)
 
-    def step(self, action, 
+    def step(self, 
+            action, 
             reset: bool = False):
         
         if reset:
@@ -163,9 +162,9 @@ class LRhcTrainingEnvBase():
         
         self._apply_actions_to_rhc() # apply agent actions to rhc controller
 
-        self._remote_stepper.step() # trigger simulation stepping
+        self._remote_stepper.step() # triggers simulation + RHC stepping
 
-        self._remote_stepper.wait() # blocking
+        self._remote_stepper.wait() # wait for step completion
 
         self._get_observations()
         self._clamp_obs() # to avoid bad things
@@ -175,14 +174,10 @@ class LRhcTrainingEnvBase():
         # truncated = None
         # info = {}
 
-        self._step_counter +=1
-
         self._post_step() # post step operations
     
     def reset(self):
         
-        self._step_counter = 0
-
         self._randomize_refs()
 
         self._actions.reset()
@@ -459,7 +454,7 @@ class LRhcTrainingEnvBase():
                             vlevel=self._vlevel,
                             safe=True,
                             force_reconnection=True,
-                            with_gpu_mirror=self._use_gpu) # handles step counter through episodes and through envs
+                            with_gpu_mirror=False) # handles step counter through episodes and through envs
         self._episode_counters.run()
         self._episode_counters.reset(all=True)
 
@@ -509,8 +504,8 @@ class LRhcTrainingEnvBase():
             self._rhc_status.rhc_constr_viol.synch_mirror(from_gpu=False)
             self._rhc_status.fails.synch_mirror(from_gpu=False)
 
-            torch.cuda.synchronize() # this way we ensure that after this the state on GPU
-            # is fully updated
+            #torch.cuda.synchronize() # ensuring that all the streams on the GPU are completed \
+            # before the CPU continues execution
 
     def _synch_refs(self,
             gpu=True):
@@ -590,7 +585,7 @@ class LRhcTrainingEnvBase():
         if self._use_gpu:
             # from GPU to CPU 
             self._terminations.synch_mirror(from_gpu=True) 
-
+        
         self._terminations.synch_all(read=False, wait = True) # writes on shared mem
 
     def _post_step(self):
@@ -605,9 +600,10 @@ class LRhcTrainingEnvBase():
 
         self._episode_counters.reset(to_be_reset=either_truncated_or_terminated)
         
-        if either_truncated_or_terminated.any():
-            # send remote reset signal
-            self._remote_stepper.reset(env_indxs=either_truncated_or_terminated)
+        stepper = self._remote_stepper.get_stepper()
+        print("ueppa")
+        print(either_truncated_or_terminated)
+        stepper.reset(env_mask=either_truncated_or_terminated)
 
         # reset counter if either terminated
         if self._is_debug:

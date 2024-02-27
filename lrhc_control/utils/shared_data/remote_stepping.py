@@ -65,25 +65,31 @@ class RemoteStepperPolling(SharedDataBase):
                 fill_value = False)
 
         def reset(self,
-            env_indxs: torch.Tensor = None):
+            env_mask: torch.Tensor = None):
 
-            if not self.is_server:
+            if (not self.is_server) and (env_mask is not None):
 
                 resets = self.get_torch_view(gpu=False)
 
-                resets[env_indxs, :] = True
+                resets[:, :] = env_mask
+                
+        def update(self):
+
+            if self.is_server:
+                
+                self.synch_all(read=True,wait=True)
+
+            else:
 
                 self.synch_all(read=False,wait=True)
-        
-        def get(self):
-            
-            self.synch_all(read=True,wait=True)
 
-            return self.get_torch_view(gpu=False)
+        def get(self):
+
+            return self.get_torch_view(gpu=False).squeeze()
 
         def restore(self):
 
-            if not self.is_server:
+            if self.is_server:
 
                 resets = self.get_torch_view(gpu=False)
 
@@ -147,18 +153,25 @@ class RemoteStepperPolling(SharedDataBase):
                 throw_when_excep = True)
     
     def reset(self,
-            env_indxs: torch.Tensor):
+            env_mask: torch.Tensor):
 
-        self.remote_resets.reset(env_indxs.squeeze())
+        self.remote_resets.reset(env_mask)
+        self.remote_resets.update()
 
     def get_resets(self):
+        
+        self.remote_resets.update()
 
-        resets_copy = self.remote_resets.get().clone()
+        idxs = torch.nonzero(self.remote_resets.get())
 
-        self.remote_resets.restore()
+        if idxs.shape[0] == 0:
 
-        return resets_copy
-
+            return None
+        
+        else:
+            
+            return idxs.flatten()
+    
     def wait(self):
         
         if self.is_running():
