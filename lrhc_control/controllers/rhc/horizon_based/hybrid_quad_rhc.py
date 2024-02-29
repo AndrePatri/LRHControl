@@ -538,7 +538,7 @@ class HybridQuadRhc(RHController):
             
             if self._verbose:
 
-                exception = f"Rti() failed" + \
+                exception = f"Rti() for controller {self.controller_index} failed" + \
                 f" with exception{type(e).__name__}"
                 
                 Journal.log(self.__class__.__name__,

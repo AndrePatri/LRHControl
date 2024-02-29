@@ -42,6 +42,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
         self._pre_training_step_counter = 0
         self._start_training = False
 
+        self._is_first_trigger = {}
         self.cluster_timers = {}
         self.env_timer = time.perf_counter()
 
@@ -108,7 +109,8 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
             robot_name = self.robot_names[i]
 
             self.step_counters[robot_name] = 0
-
+            self._is_first_trigger[robot_name] = True
+                
             if not isinstance(cluster_dt[i], float):
 
                 exception = f"cluster_dt should be a list of float values!"
@@ -167,7 +169,13 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                 self._training_servers[robot_name] = None
         
         self.using_gpu = task.using_gpu
-    
+
+        self._world.add_physics_callback(callback_name="Sparapippo", callback_fn=self.Sparapippo)
+
+    def Sparapippo(self, step_size):
+            
+        print('weweweewew')
+            
     def close(self):
 
         for i in range(len(self.robot_names)):
@@ -219,16 +227,30 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                 control_cluster.run()
 
                 self._init_safe_cluster_actions(robot_name=robot_name)
-
+                    
                 if self._training_servers[robot_name] is not None:
 
                     self._training_servers[robot_name].run()
 
             # 1) this runs at a dt = cluster_clients[robot_name] dt (sol. triggering) 
             if control_cluster.is_cluster_instant(self.step_counters[robot_name]):
-                    
+                
                 if self._trigger_cluster[robot_name]:
                     
+                    if self._is_first_trigger[robot_name]:
+                        
+                        # we update the all the default root state now. This state will be used 
+                        # for future resets
+                        self.task.synch_default_root_states(robot_name = robot_name)
+
+                        self.task.update_jnt_imp_control_gains(robot_name = robot_name, 
+                                        jnt_stiffness = self.task.startup_jnt_stiffness, 
+                                        jnt_damping = self.task.startup_jnt_damping, 
+                                        wheel_stiffness = self.task.startup_wheel_stiffness, 
+                                        wheel_damping = self.task.startup_wheel_damping)
+                            
+                        self._is_first_trigger[robot_name] = False
+
                     if self._training_servers[robot_name] is not None and \
                         self._start_training:
 
@@ -237,6 +259,9 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                             to_be_reset_remotely = self._training_servers[robot_name].get_stepper().get_resets()
                             
                             if to_be_reset_remotely is not None:
+                                
+                                print("Ueeeppaaa")
+                                print(to_be_reset_remotely)
 
                                 self.reset(env_indxs=to_be_reset_remotely,
                                     robot_names=[robot_name],
@@ -262,11 +287,6 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                         # we get the current absolute positions for the transitioned controllers and 
                         # use them as references
                         self.task.update_root_offsets(robot_name,
-                                        env_indxs = just_activated) 
-
-                        # we update the default root state now, so that we
-                        # can use it at the next call to reset
-                        self.task.synch_default_root_states(robot_name = robot_name,
                                         env_indxs = just_activated)
 
                         # we initialize values of states for the activated controllers
@@ -275,19 +295,19 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
 
                         # some controllers transitioned to running state -> we set the 
                         # running gain state for the low-level imp. controller
-                        self.task.update_jnt_imp_control_gains(robot_name = robot_name, 
-                                        jnt_stiffness = self.task.startup_jnt_stiffness, 
-                                        jnt_damping = self.task.startup_jnt_damping, 
-                                        wheel_stiffness = self.task.startup_wheel_stiffness, 
-                                        wheel_damping = self.task.startup_wheel_damping,
-                                        env_indxs = just_activated)
+                        # self.task.update_jnt_imp_control_gains(robot_name = robot_name, 
+                        #                 jnt_stiffness = self.task.startup_jnt_stiffness, 
+                        #                 jnt_damping = self.task.startup_jnt_damping, 
+                        #                 wheel_stiffness = self.task.startup_wheel_stiffness, 
+                        #                 wheel_damping = self.task.startup_wheel_damping,
+                        #                 env_indxs = just_activated)
 
-                    if just_deactivated is not None:
+                    # if just_deactivated is not None:
 
-                        # reset jnt imp. controllers for deactivated controllers
+                    #     # reset jnt imp. controllers for deactivated controllers
                         
-                        self.task.reset_jnt_imp_control(robot_name=robot_name,
-                                env_indxs=just_deactivated)
+                    #     self.task.reset_jnt_imp_control(robot_name=robot_name,
+                    #             env_indxs=just_deactivated)
 
                     # every control_cluster_dt, trigger the solution of the active controllers in the cluster
                     # with the latest available state
@@ -344,6 +364,8 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                                     robot_names=[robot_name],
                                     reset_world=False,
                                     reset_cluster=True)
+                    
+                        control_cluster.activate_controllers(idxs=control_cluster.get_inactive_controllers())
 
                     if self._training_servers[robot_name] is not None:
 
@@ -440,9 +462,12 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
         
         # self._world.step(render=self._render)
 
-        self.task.get_states(env_indxs=env_indxs,
-                        robot_names=robot_names) # updates states from sim 
+        # self.task.get_states(env_indxs=env_indxs,
+        #                 robot_names=robot_names) # updates states from sim 
 
+        self.task.after_reset(env_indxs = env_indxs,
+            robot_names = robot_names)
+        
         rob_names = robot_names
         
         if rob_names is None:
@@ -553,10 +578,8 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
         control_cluster = self.cluster_servers[robot_name]
 
         # floating base
-        relative_pos = torch.sub(self.task.root_p(robot_name=robot_name,
-                                            env_idxs=env_indxs), 
-                                self.task.root_offsets(robot_name=robot_name, 
-                                                        env_idxs=env_indxs))
+        relative_pos = self.task.root_p_rel(robot_name=robot_name,
+                                            env_idxs=env_indxs)
 
         control_cluster.get_state().root_state.set_p(p = relative_pos,
                                                             robot_idxs = env_indxs,
@@ -566,16 +589,28 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                                                                                             env_idxs=env_indxs),
                                                                 robot_idxs = env_indxs,
                                                                 gpu = self.using_gpu)
+        # control_cluster.get_state().root_state.set_q(q = self.task.root_q_rel(robot_name=robot_name,
+        #                                                                                     env_idxs=env_indxs),
+        #                                                         robot_idxs = env_indxs,
+        #                                                         gpu = self.using_gpu)
 
         control_cluster.get_state().root_state.set_v(v=self.task.root_v(robot_name=robot_name,
                                                                                             env_idxs=env_indxs),
                                                                 robot_idxs = env_indxs,
                                                                 gpu = self.using_gpu) 
+        # control_cluster.get_state().root_state.set_v(v=self.task.root_v_rel(robot_name=robot_name,
+        #                                                                                     env_idxs=env_indxs),
+        #                                                         robot_idxs = env_indxs,
+        #                                                         gpu = self.using_gpu) 
 
         control_cluster.get_state().root_state.set_omega(gpu = self.using_gpu,
                                                                     robot_idxs = env_indxs,
                                                                     omega=self.task.root_omega(robot_name=robot_name,
                                                                                             env_idxs=env_indxs)) 
+        # control_cluster.get_state().root_state.set_omega(gpu = self.using_gpu,
+        #                                                             robot_idxs = env_indxs,
+        #                                                             omega=self.task.root_omega_rel(robot_name=robot_name,
+        #                                                                                     env_idxs=env_indxs)) 
 
         # joints
         control_cluster.get_state().jnts_state.set_q(q=self.task.jnts_q(robot_name=robot_name,
