@@ -21,7 +21,7 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
 
         env_name = "LRhcHeightChange"
 
-        self._small_epsi = 1
+        self._epsi = 1e-6
 
         super().__init__(namespace=namespace,
                     obs_dim=obs_dim,
@@ -62,10 +62,10 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         rhc_fail_penalty = self._rhc_status.fails.get_torch_view(gpu=self._use_gpu)
 
         rewards = self._rewards.get_torch_view(gpu=self._use_gpu)
-        rewards[:, 0:1] = torch.reciprocal(h_error + self._small_epsi)
-        rewards[:, 1:2] = torch.reciprocal(rhc_cost + self._small_epsi)
-        rewards[:, 2:3] = torch.reciprocal(rhc_const_viol + self._small_epsi)
-        rewards[:, 3:4] = torch.reciprocal(rhc_fail_penalty + self._small_epsi)
+        rewards[:, 0:1] = self._epsi * torch.reciprocal(h_error + self._epsi)
+        rewards[:, 1:2] = 0 * self._epsi * torch.reciprocal(rhc_cost + self._epsi)
+        rewards[:, 2:3] = self._epsi * torch.reciprocal(rhc_const_viol + self._epsi)
+        rewards[:, 3:4] = self._epsi * torch.reciprocal(rhc_fail_penalty + self._epsi)
         
         tot_rewards = self._tot_rewards.get_torch_view(gpu=self._use_gpu)
         tot_rewards[:, :] = torch.sum(rewards, dim=1, keepdim=True)
