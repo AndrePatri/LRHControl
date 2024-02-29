@@ -25,7 +25,7 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         
         self._cnstr_viol_scale_f = 1e3
 
-        self._h_cmd_offset = 0.6
+        self._h_cmd_offset = 0.55
         self._h_cmd_scale = 0.2
 
         super().__init__(namespace=namespace,
