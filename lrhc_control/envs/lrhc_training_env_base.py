@@ -164,7 +164,7 @@ class LRhcTrainingEnvBase():
         actions = self._actions.get_torch_view(gpu=self._use_gpu)
         actions[:, :] = action # writes actions
         
-        # self._apply_actions_to_rhc() # apply agent actions to rhc controller
+        self._apply_actions_to_rhc() # apply agent actions to rhc controller
 
         self._remote_stepper.step() # triggers simulation + RHC stepping
 
