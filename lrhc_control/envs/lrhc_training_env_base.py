@@ -89,7 +89,7 @@ class LRhcTrainingEnvBase():
         self._terminations = None
         self._truncations = None
 
-        self._obs_threshold = 1e6 # used for clipping observations
+        self._obs_threshold = 1 # used for clipping observations
 
         self._base_info = {}
         self._base_info["final_info"] = None
@@ -107,7 +107,7 @@ class LRhcTrainingEnvBase():
         self._wait_for_sim_env()
 
         self._init_step()
-            
+    
     def _first_step(self):
 
         self._activate_rhc_controllers()
@@ -146,6 +146,10 @@ class LRhcTrainingEnvBase():
         self._tot_rewards.synch_all(read=False, wait=True)
         self._rewards.synch_all(read=False, wait=True)
 
+    def episode_lenght(self):
+
+        return self._episode_length
+    
     def step(self, 
             action, 
             reset: bool = False):
@@ -160,7 +164,7 @@ class LRhcTrainingEnvBase():
         actions = self._actions.get_torch_view(gpu=self._use_gpu)
         actions[:, :] = action # writes actions
         
-        self._apply_actions_to_rhc() # apply agent actions to rhc controller
+        # self._apply_actions_to_rhc() # apply agent actions to rhc controller
 
         self._remote_stepper.step() # triggers simulation + RHC stepping
 
@@ -601,8 +605,7 @@ class LRhcTrainingEnvBase():
         self._episode_counters.reset(to_be_reset=either_truncated_or_terminated)
         
         stepper = self._remote_stepper.get_stepper()
-        print("ueppa")
-        print(either_truncated_or_terminated)
+
         stepper.reset(env_mask=either_truncated_or_terminated)
 
         # reset counter if either terminated

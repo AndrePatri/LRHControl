@@ -309,8 +309,12 @@ class CleanPPO():
             throw_when_excep = True)
         
     def _init_params(self):
-
+        
         self._dtype = self._env.dtype()
+
+        self._num_envs = self._env.n_envs()
+        self._obs_dim = self._env.obs_dim()
+        self._actions_dim = self._env.actions_dim()
 
         self._seed = 1
         self._run_name = "DummyRun"
@@ -322,18 +326,18 @@ class CleanPPO():
         self._save_model = True
         self._env_name = self._env.name()
 
-        self._total_timesteps = 5000000
+        self._iterations_n = 100
+        self._episode_n_steps = self._env.episode_lenght()
+        self._total_timesteps = self._iterations_n * (self._episode_n_steps * self._num_envs)
+        self._batch_size =int(self._num_envs * self._episode_n_steps)
+        self._num_minibatches = self._env.n_envs()
+        self._minibatch_size = int(self._batch_size // self._num_minibatches)
+
         self._learning_rate = 3e-4
-
-        self._num_envs = self._env.n_envs()
-        self._obs_dim = self._env.obs_dim()
-        self._actions_dim = self._env.actions_dim()
-
-        self._episode_n_steps = 512
         self._anneal_lr = True
         self._discount_factor = 0.99
         self._gae_lambda = 0.95
-        self._num_minibatches = 32
+        
         self._update_epochs = 10
         self._norm_adv = True
         self._clip_coef = 0.2
@@ -342,10 +346,6 @@ class CleanPPO():
         self._val_f_coeff = 0.5
         self._max_grad_norm = 0.5
         self._target_kl = None
-
-        self._batch_size =int(self._num_envs * self._episode_n_steps)
-        self._minibatch_size = int(self._batch_size // self._num_minibatches)
-        self._iterations_n = self._total_timesteps // self._batch_size
         
         info = f"\nUsing \n" + \
             f"total_timesteps {self._total_timesteps}\n" + \

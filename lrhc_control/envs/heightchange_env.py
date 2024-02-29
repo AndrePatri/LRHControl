@@ -17,11 +17,13 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         obs_dim = 4
         actions_dim = 1
 
-        episode_length = 180
+        episode_length = 250
 
         env_name = "LRhcHeightChange"
 
         self._epsi = 1e-6
+        
+        self._cnstr_viol_scale_f = 1e3
 
         super().__init__(namespace=namespace,
                     obs_dim=obs_dim,
@@ -62,8 +64,8 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         rhc_fail_penalty = self._rhc_status.fails.get_torch_view(gpu=self._use_gpu)
 
         rewards = self._rewards.get_torch_view(gpu=self._use_gpu)
-        rewards[:, 0:1] = self._epsi * torch.reciprocal(h_error + self._epsi)
-        rewards[:, 1:2] = 0 * self._epsi * torch.reciprocal(rhc_cost + self._epsi)
+        rewards[:, 0:1] = 100 * (1 - h_error)
+        rewards[:, 1:2] = self._epsi * torch.reciprocal(rhc_cost + self._epsi)
         rewards[:, 2:3] = self._epsi * torch.reciprocal(rhc_const_viol + self._epsi)
         rewards[:, 3:4] = self._epsi * torch.reciprocal(rhc_fail_penalty + self._epsi)
         
@@ -82,7 +84,7 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         obs = self._obs.get_torch_view(gpu=self._use_gpu)
         obs[:, 0:1] = robot_h
         obs[:, 1:2] = rhc_cost
-        obs[:, 2:3] = rhc_const_viol
+        obs[:, 2:3] = self._cnstr_viol_scale_f * rhc_const_viol
         obs[: ,3:4] = agent_h_ref
     
     def _randomize_refs(self):
