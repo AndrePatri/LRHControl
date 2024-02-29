@@ -170,11 +170,11 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
         
         self.using_gpu = task.using_gpu
 
-        self._world.add_physics_callback(callback_name="Sparapippo", callback_fn=self.Sparapippo)
+        # self._world.add_physics_callback(callback_name="Sparapippo", callback_fn=self.Sparapippo)
 
-    def Sparapippo(self, step_size):
+    # def Sparapippo(self, step_size):
             
-        print('weweweewew')
+    #     print('weweweewew')
             
     def close(self):
 
@@ -295,19 +295,19 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
 
                         # some controllers transitioned to running state -> we set the 
                         # running gain state for the low-level imp. controller
-                        # self.task.update_jnt_imp_control_gains(robot_name = robot_name, 
-                        #                 jnt_stiffness = self.task.startup_jnt_stiffness, 
-                        #                 jnt_damping = self.task.startup_jnt_damping, 
-                        #                 wheel_stiffness = self.task.startup_wheel_stiffness, 
-                        #                 wheel_damping = self.task.startup_wheel_damping,
-                        #                 env_indxs = just_activated)
+                        self.task.update_jnt_imp_control_gains(robot_name = robot_name, 
+                                        jnt_stiffness = self.task.startup_jnt_stiffness, 
+                                        jnt_damping = self.task.startup_jnt_damping, 
+                                        wheel_stiffness = self.task.startup_wheel_stiffness, 
+                                        wheel_damping = self.task.startup_wheel_damping,
+                                        env_indxs = just_activated)
 
-                    # if just_deactivated is not None:
+                    if just_deactivated is not None:
 
-                    #     # reset jnt imp. controllers for deactivated controllers
+                        # reset jnt imp. controllers for deactivated controllers
                         
-                    #     self.task.reset_jnt_imp_control(robot_name=robot_name,
-                    #             env_indxs=just_deactivated)
+                        self.task.reset_jnt_imp_control(robot_name=robot_name,
+                                env_indxs=just_deactivated)
 
                     # every control_cluster_dt, trigger the solution of the active controllers in the cluster
                     # with the latest available state
