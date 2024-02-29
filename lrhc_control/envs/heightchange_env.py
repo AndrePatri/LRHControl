@@ -25,6 +25,9 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         
         self._cnstr_viol_scale_f = 1e3
 
+        self._h_cmd_offset = 0.6
+        self._h_cmd_scale = 0.1
+
         super().__init__(namespace=namespace,
                     obs_dim=obs_dim,
                     actions_dim=actions_dim,
@@ -40,7 +43,7 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         agent_action = self.get_last_actions()
 
         rhc_current_ref = self._rhc_refs.rob_refs.root_state.get_p(gpu=self._use_gpu)
-        rhc_current_ref[:, 2:3] = agent_action # overwrite z ref
+        rhc_current_ref[:, 2:3] = agent_action * self._h_cmd_scale + self._h_cmd_offset # overwrite z ref
 
         self._rhc_refs.rob_refs.root_state.set_p(p=rhc_current_ref,
                                             gpu=self._use_gpu) # write refs
@@ -67,7 +70,7 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         rewards[:, 0:1] = 100 * (1 - h_error).clamp_(0, torch.inf)
         rewards[:, 1:2] = self._epsi * torch.reciprocal(rhc_cost + self._epsi)
         rewards[:, 2:3] = self._epsi * torch.reciprocal(rhc_const_viol + self._epsi)
-        rewards[:, 3:4] = self._epsi * torch.reciprocal(rhc_fail_penalty + self._epsi)
+        rewards[:, 3:4] = 0 * ~rhc_fail_penalty
         
         tot_rewards = self._tot_rewards.get_torch_view(gpu=self._use_gpu)
         tot_rewards[:, :] = torch.sum(rewards, dim=1, keepdim=True)
