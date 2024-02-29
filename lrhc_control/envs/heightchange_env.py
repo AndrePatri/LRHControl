@@ -64,7 +64,7 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         rhc_fail_penalty = self._rhc_status.fails.get_torch_view(gpu=self._use_gpu)
 
         rewards = self._rewards.get_torch_view(gpu=self._use_gpu)
-        rewards[:, 0:1] = 100 * (1 - h_error)
+        rewards[:, 0:1] = 100 * (1 - h_error).clamp_(0, torch.inf)
         rewards[:, 1:2] = self._epsi * torch.reciprocal(rhc_cost + self._epsi)
         rewards[:, 2:3] = self._epsi * torch.reciprocal(rhc_const_viol + self._epsi)
         rewards[:, 3:4] = self._epsi * torch.reciprocal(rhc_fail_penalty + self._epsi)
