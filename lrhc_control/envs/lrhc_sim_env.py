@@ -169,12 +169,6 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                 self._training_servers[robot_name] = None
         
         self.using_gpu = task.using_gpu
-
-        # self._world.add_physics_callback(callback_name="Sparapippo", callback_fn=self.Sparapippo)
-
-    # def Sparapippo(self, step_size):
-            
-    #     print('weweweewew')
             
     def close(self):
 
@@ -259,9 +253,6 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                             to_be_reset_remotely = self._training_servers[robot_name].get_stepper().get_resets()
                             
                             if to_be_reset_remotely is not None:
-                                
-                                print("Ueeeppaaa")
-                                print(to_be_reset_remotely)
 
                                 self.reset(env_indxs=to_be_reset_remotely,
                                     robot_names=[robot_name],

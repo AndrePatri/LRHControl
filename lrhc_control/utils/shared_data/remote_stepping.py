@@ -162,12 +162,7 @@ class RemoteStepperPolling(SharedDataBase):
         
         self.remote_resets.update()
 
-        print('oooo')
-        print(self.remote_resets.get())
-
         idxs = torch.nonzero(self.remote_resets.get())
-
-        print(idxs)
 
         if idxs.shape[0] == 0:
 
