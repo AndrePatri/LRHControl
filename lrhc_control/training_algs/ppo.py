@@ -88,6 +88,8 @@ class CleanPPO():
         
             self._should_have_called_setup()
 
+        self._env.reset()
+
         # annealing the learning rate if enabled (may improve convergence)
         if self._anneal_lr:
 
@@ -95,7 +97,7 @@ class CleanPPO():
             lrnow = frac * self._learning_rate
             self._optimizer.param_groups[0]["lr"] = lrnow
 
-        # collect data from current policy over a predefined number of env. steps
+        # collect data from current policy over a number of timesteps
         for step in range(self._episode_n_steps):
             
             self._dones[step] = self._next_done
@@ -326,7 +328,7 @@ class CleanPPO():
         self._save_model = True
         self._env_name = self._env.name()
 
-        self._iterations_n = 100
+        self._iterations_n = 900
         self._episode_n_steps = self._env.episode_lenght()
         self._total_timesteps = self._iterations_n * (self._episode_n_steps * self._num_envs)
         self._batch_size =int(self._num_envs * self._episode_n_steps)
