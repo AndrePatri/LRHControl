@@ -236,7 +236,7 @@ class CleanPPO():
         
         if self._verbose:
 
-            info = f"Current iteration {self._it_counter + 1}/{self._iterations_n}"
+            info = f"N. iterations performed: {self._it_counter}/{self._iterations_n}"
 
             Journal.log(self.__class__.__name__,
                 "_post_step",
