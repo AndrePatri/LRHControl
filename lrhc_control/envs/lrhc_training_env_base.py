@@ -16,7 +16,7 @@ from lrhc_control.utils.shared_data.training_env import Rewards
 from lrhc_control.utils.shared_data.training_env import Actions
 from lrhc_control.utils.shared_data.training_env import Terminations
 from lrhc_control.utils.shared_data.training_env import Truncations
-from lrhc_control.utils.shared_data.training_env import StepCounterEpisode
+from lrhc_control.utils.shared_data.training_env import TimeUnlimitedTasksEpCounter
 
 from SharsorIPCpp.PySharsorIPC import VLevel
 from SharsorIPCpp.PySharsorIPC import LogType
@@ -34,7 +34,7 @@ class LRhcTrainingEnvBase():
             namespace: str,
             obs_dim: int,
             actions_dim: int,
-            episode_length: int,
+            time_limit_nsteps: int,
             env_name: str = "",
             n_preinit_steps: int = 1,
             verbose: bool = False,
@@ -45,7 +45,7 @@ class LRhcTrainingEnvBase():
         
         self._env_index = 0
 
-        self._episode_length = episode_length
+        self._time_limit_nsteps = time_limit_nsteps
 
         self._namespace = namespace
         self._with_gpu_mirror = True
@@ -145,10 +145,6 @@ class LRhcTrainingEnvBase():
         self._actions.synch_all(read=False, wait=True) 
         self._tot_rewards.synch_all(read=False, wait=True)
         self._rewards.synch_all(read=False, wait=True)
-
-    def episode_lenght(self):
-
-        return self._episode_length
     
     def step(self, 
             action, 
@@ -180,9 +176,14 @@ class LRhcTrainingEnvBase():
 
         self._post_step() # post step operations
     
+    def randomize_refs(self,
+                env_indxs: torch.Tensor = None):
+
+        self._randomize_refs(env_indxs=env_indxs)
+
     def reset(self):
         
-        self._randomize_refs()
+        self.randomize_refs(env_indxs=None) # randomize all refs across envs
 
         self._actions.reset()
         self._obs.reset()
@@ -192,7 +193,7 @@ class LRhcTrainingEnvBase():
         self._terminations.reset()
         self._truncations.reset()
 
-        self._episode_counters.reset(all=True)
+        self._episode_counters.reset()
 
         self._remote_reset()
 
@@ -450,9 +451,9 @@ class LRhcTrainingEnvBase():
         self._remote_stepper.training_env_ready()
         
         # episode steps counters 
-        self._episode_counters = StepCounterEpisode(namespace=self._namespace,
+        self._episode_counters = TimeUnlimitedTasksEpCounter(namespace=self._namespace,
                             n_envs=self._n_envs,
-                            reset_n_steps=self._episode_length,
+                            n_steps_limit=self._time_limit_nsteps,
                             is_server=True,
                             verbose=self._verbose,
                             vlevel=self._vlevel,
@@ -460,7 +461,7 @@ class LRhcTrainingEnvBase():
                             force_reconnection=True,
                             with_gpu_mirror=False) # handles step counter through episodes and through envs
         self._episode_counters.run()
-        self._episode_counters.reset(all=True)
+        self._episode_counters.reset()
 
         # debug data servers
         traing_env_param_dict = {}
@@ -571,8 +572,12 @@ class LRhcTrainingEnvBase():
 
         truncations = self._truncations.get_torch_view(gpu=self._use_gpu)
 
-        # truncating episodes if controller fail
-        truncations[:, :] = self._rhc_status.fails.get_torch_view(gpu=self._use_gpu)
+        # time unlimited episodes, using time limits just for diversifying 
+        # experience
+        truncations[:, :] = self._episode_counters.time_limits_reached() 
+        
+        self.randomize_refs(env_indxs=truncations.flatten()) # randomize 
+        # refs of envs that reached the time limit
 
         if self._use_gpu:
             # from GPU to CPU 
@@ -584,7 +589,7 @@ class LRhcTrainingEnvBase():
 
         terminations = self._terminations.get_torch_view(gpu=self._use_gpu)
         # handle episodes termination
-        terminations[:, :] = self._episode_counters.finished_episodes() 
+        terminations[:, :] = self._rhc_status.fails.get_torch_view(gpu=self._use_gpu)
 
         if self._use_gpu:
             # from GPU to CPU 
@@ -599,14 +604,15 @@ class LRhcTrainingEnvBase():
         self._check_truncations() 
         self._check_terminations()
 
-        either_truncated_or_terminated = torch.logical_or(self._terminations.get_torch_view(gpu=self._use_gpu),
-                                        self._truncations.get_torch_view(gpu=self._use_gpu))
+        terminated = self._terminations.get_torch_view(gpu=self._use_gpu)
 
-        self._episode_counters.reset(to_be_reset=either_truncated_or_terminated)
+        # only ending episode if termination reached (
+        # see "Time Limits in Reinforcement Learning" by F. Pardo)
+
+        self._episode_counters.reset(to_be_reset=terminated)
         
         stepper = self._remote_stepper.get_stepper()
-
-        stepper.reset(env_mask=either_truncated_or_terminated)
+        stepper.reset(env_mask=terminated) # only resetting terminated sim environments
 
         # reset counter if either terminated
         if self._is_debug:
@@ -629,6 +635,7 @@ class LRhcTrainingEnvBase():
         pass
     
     @abstractmethod
-    def _randomize_refs(self):
+    def _randomize_refs(self,
+                env_indxs: torch.Tensor = None):
         
         pass

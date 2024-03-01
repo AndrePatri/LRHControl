@@ -15,7 +15,7 @@ from lrhc_control.utils.shared_data.training_env import Rewards
 from lrhc_control.utils.shared_data.training_env import TotRewards
 from lrhc_control.utils.shared_data.training_env import Truncations
 from lrhc_control.utils.shared_data.training_env import Terminations
-from lrhc_control.utils.shared_data.training_env import StepCounterEpisode
+from lrhc_control.utils.shared_data.training_env import TimeUnlimitedTasksEpCounter
 
 import numpy as np
 
@@ -114,7 +114,7 @@ class TrainingEnvData(SharedDataWindow):
                                             safe=False,
                                             with_gpu_mirror=False))
         
-        self.shared_data_clients.append(StepCounterEpisode(namespace=self.namespace,
+        self.shared_data_clients.append(TimeUnlimitedTasksEpCounter(namespace=self.namespace,
                                             is_server=False,
                                             verbose=True,
                                             vlevel=VLevel.V2,

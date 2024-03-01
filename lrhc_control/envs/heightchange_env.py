@@ -17,8 +17,8 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         obs_dim = 4
         actions_dim = 1
 
-        episode_length = 250
-
+        time_limit_nsteps = 250
+        
         env_name = "LRhcHeightChange"
 
         self._epsi = 1e-6
@@ -28,10 +28,13 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         self._h_cmd_offset = 0.55
         self._h_cmd_scale = 0.2
 
+        self._href_lb = 0.35
+        self._href_ub = 0.7
+        
         super().__init__(namespace=namespace,
                     obs_dim=obs_dim,
                     actions_dim=actions_dim,
-                    episode_length=episode_length,
+                    time_limit_nsteps=time_limit_nsteps,
                     env_name=env_name,
                     verbose=verbose,
                     vlevel=vlevel,
@@ -68,7 +71,7 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         rhc_fail_penalty = self._rhc_status.fails.get_torch_view(gpu=self._use_gpu)
 
         rewards = self._rewards.get_torch_view(gpu=self._use_gpu)
-        rewards[:, 0:1] = 10 * ((1 - h_error))
+        rewards[:, 0:1] = 20 * ((1 - h_error))
         rewards[:, 1:2] = 0 * 1e2 * self._epsi * torch.reciprocal(rhc_cost + self._epsi)
         rewards[:, 2:3] = 1e5 * self._epsi * torch.reciprocal(rhc_const_viol + self._epsi)
         rewards[:, 3:4] = 0 * ~rhc_fail_penalty
@@ -91,13 +94,21 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         obs[:, 2:3] = self._cnstr_viol_scale_f * rhc_const_viol
         obs[: ,3:4] = agent_h_ref
     
-    def _randomize_refs(self):
+    def _randomize_refs(self,
+                env_indxs: torch.Tensor = None):
         
-        agent_p_ref_current = self._agent_refs.rob_refs.root_state.get_p(gpu=self._use_gpu)
+        if env_indxs is None:
 
-        ref_lb = 0.35
-        ref_ub = 0.7
-        agent_p_ref_current[:, 2:3] = (ref_ub-ref_lb) * torch.rand_like(agent_p_ref_current[:, 2:3]) + ref_lb # randomize h ref
+            agent_p_ref_current = self._agent_refs.rob_refs.root_state.get_p(gpu=self._use_gpu)
+
+            
+            agent_p_ref_current[:, 2:3] = (self._href_ub-self._href_lb) * torch.rand_like(agent_p_ref_current[:, 2:3]) + self._href_lb # randomize h ref
+
+        else:
+
+            agent_p_ref_current = self._agent_refs.rob_refs.root_state.get_p(gpu=self._use_gpu)
+
+            agent_p_ref_current[env_indxs, 2:3] = (self._href_ub-self._href_lb) * torch.rand_like(agent_p_ref_current[env_indxs, 2:3]) + self._href_lb
 
         self._agent_refs.rob_refs.root_state.set_p(p=agent_p_ref_current,
                                             gpu=self._use_gpu)

@@ -474,7 +474,11 @@ class Truncations(SharedDataView):
 
         self.to_zero()
         
-class StepCounterEpisode(SharedDataBase):
+class TimeLimitedTasksEpCounter(SharedDataBase):
+
+    # counter for time-limited tasks, i.e. tasks where 
+    # the episode has a well-determined time limit 
+    # see (see "Time Limits in Reinforcement Learning" by F. Pardo)
 
     class StepCounter(SharedDataView):
 
@@ -489,7 +493,7 @@ class StepCounterEpisode(SharedDataBase):
                 with_gpu_mirror: bool = False,
                 fill_value = 0):
                 
-                basename = "StepCounterEpisode"
+                basename = "StepCounter"
         
                 super().__init__(namespace = namespace,
                     basename = basename,
@@ -506,7 +510,7 @@ class StepCounterEpisode(SharedDataBase):
     
     def __init__(self,
                 namespace: str,
-                reset_n_steps: int = None,
+                n_steps_episode: int = None,
                 n_envs: int = None, 
                 is_server = False, 
                 verbose: bool = False, 
@@ -517,7 +521,7 @@ class StepCounterEpisode(SharedDataBase):
 
         self._using_gpu = with_gpu_mirror
 
-        self._reset_n_steps = reset_n_steps # reset counters every n steps
+        self._n_steps_episode = n_steps_episode # reset counters every n steps
 
         self._step_counter = self.StepCounter(namespace = namespace,
                     is_server = is_server, 
@@ -577,9 +581,9 @@ class StepCounterEpisode(SharedDataBase):
 
         self._step_counter.close()
 
-    def finished_episodes(self):
+    def time_limits_reached(self):
 
-        return self.get() > self._reset_n_steps
+        return self.get() > self._n_steps_episode
     
     def reset(self,
         to_be_reset: torch.Tensor = None,
@@ -596,3 +600,133 @@ class StepCounterEpisode(SharedDataBase):
         self._write()
 
         return self._to_be_reset
+
+class TimeUnlimitedTasksEpCounter(SharedDataBase):
+
+    # counter for time-unlimited tasks, i.e. tasks where 
+    # the episode does no have a well-determined time limit 
+    # see (see "Time Limits in Reinforcement Learning" by F. Pardo).
+    # In this case the episode length in theoretically infinite and
+    # time limits are only used for diversifying the agent's experience
+    
+    class StepCounter(SharedDataView):
+
+        def __init__(self,
+                namespace: str,
+                n_envs: int = None, 
+                is_server = False, 
+                verbose: bool = False, 
+                vlevel: VLevel = VLevel.V0,
+                safe: bool = True,
+                force_reconnection: bool = False,
+                with_gpu_mirror: bool = False,
+                fill_value = 0):
+                
+                basename = "StepCounter"
+        
+                super().__init__(namespace = namespace,
+                    basename = basename,
+                    is_server = is_server, 
+                    n_rows = n_envs, 
+                    n_cols = 1, 
+                    verbose = verbose, 
+                    vlevel = vlevel,
+                    safe = safe, # boolean operations are atomic on 64 bit systems
+                    dtype=sharsor_dtype.Int,
+                    force_reconnection=force_reconnection,
+                    with_gpu_mirror=with_gpu_mirror,
+                    fill_value = fill_value)
+    
+    def __init__(self,
+                namespace: str,
+                n_steps_limit: int = None,
+                n_envs: int = None, 
+                is_server = False, 
+                verbose: bool = False, 
+                vlevel: VLevel = VLevel.V0,
+                safe: bool = True,
+                force_reconnection: bool = False,
+                with_gpu_mirror: bool = False):
+
+        self._using_gpu = with_gpu_mirror
+
+        self._n_steps_limit = n_steps_limit # reset counters every n steps
+
+        self._step_counter = self.StepCounter(namespace = namespace,
+                    is_server = is_server, 
+                    n_envs = n_envs, 
+                    verbose = verbose, 
+                    vlevel = vlevel,
+                    safe = safe, # boolean operations are atomic on 64 bit systems
+                    force_reconnection=force_reconnection,
+                    with_gpu_mirror=with_gpu_mirror)
+
+    def _write(self):
+
+        if self._using_gpu:
+
+            # copy from gpu to cpu
+            self._step_counter.synch_mirror(from_gpu=True)
+
+        # copy from cpu to shared memory
+        self._step_counter.synch_all(read=False, wait=True)
+
+    def is_running(self):
+
+        return self._step_counter.is_running()
+
+    def increment(self):
+        
+        self.get()[:, :] = self.get() + 1
+
+        self._write()
+
+    def decrement(self):
+        
+        self.get()[:, :] = self.get() - 1
+
+        self._write()
+
+    def get(self):
+
+        return self._step_counter.get_torch_view(gpu=self._using_gpu)
+    
+    def counter(self):
+
+        return self._step_counter
+    
+    def run(self):
+
+        self._step_counter.run()
+
+        device = "cuda" if self._using_gpu else "cpu"
+
+        self._to_be_reset = torch.full(size=(self._step_counter.n_rows, 1), 
+                                fill_value=False,
+                                dtype=torch.bool,
+                                device=device)
+
+    def close(self):
+
+        self._step_counter.close()
+
+    def time_limits_reached(self):
+
+        # to be called after increment or decrement 
+
+        return (self.get() % self._n_steps_limit) == 0
+    
+    def reset(self,
+            to_be_reset: torch.Tensor = None):
+
+        if to_be_reset is None:
+
+            # resets all counters
+            
+            self.get().zero_()
+        
+        else:
+
+            self.get()[to_be_reset.squeeze(), :] = 0
+            
+        self._write()
