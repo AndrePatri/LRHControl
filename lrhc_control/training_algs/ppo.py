@@ -76,7 +76,7 @@ class CleanPPO():
         self._agent.to(self._torch_device) # move agent to target device
 
         self._optimizer = optim.Adam(self._agent.parameters(), 
-                                lr=self._learning_rate, 
+                                lr=self._base_learning_rate, 
                                 eps=1e-5 # small constant added to the optimization
                                 )
         self._init_buffers()
@@ -101,8 +101,8 @@ class CleanPPO():
         if self._anneal_lr:
 
             frac = 1.0 - (self._it_counter - 1.0) / self._iterations_n
-            lrnow = frac * self._learning_rate
-            self._optimizer.param_groups[0]["lr"] = lrnow
+            self._learning_rate_now = frac * self._base_learning_rate
+            self._optimizer.param_groups[0]["lr"] = self._learning_rate_now
 
         # collect data from current policy over a number of timesteps
         for step in range(self._env_timesteps):
@@ -297,6 +297,8 @@ class CleanPPO():
 
     def _post_step(self):
 
+        self._debug()
+
         self._it_counter +=1 
         
         if self._it_counter == self._iterations_n:
@@ -322,8 +324,38 @@ class CleanPPO():
             exception,
             LogType.EXCEP,
             throw_when_excep = True)
+    
+    def _debug(self):
+        
+        # write debug info to shared memory
+        self._shared_algo_data.write(dyn_info_name=["current_batch_iteration", 
+                                        "n_of_performed_policy_updates",
+                                        "n_of_played_episodes", 
+                                        "n_of_timesteps_done",
+                                        "current_learning_rate",
+                                        "env_step_fps",
+                                        "boostrap_dt",
+                                        "policy_update_fps",
+                                        "learn_step_total_fps"
+                                        ],
+                                val=[self._it_counter, 
+                (self._it_counter+1) * self._update_epochs * self._num_minibatches,
+                self._n_of_played_episodes, 
+                (self._it_counter+1) * self._batch_size,
+                self._learning_rate_now,
+                self._env_step_fps,
+                self._bootstrap_dt,
+                self._policy_update_fps,
+                self._learn_step_total_fps
+                ])
         
     def _init_params(self):
+        
+        self._env_step_fps = 0.0
+        self._bootstrap_dt = 0.0
+        self._policy_update_fps = 0.0
+        self._learn_step_total_fps = 0.0
+        self._n_of_played_episodes = 0.0
         
         self._dtype = self._env.dtype()
 
@@ -348,7 +380,8 @@ class CleanPPO():
         self._num_minibatches = self._env.n_envs()
         self._minibatch_size = int(self._batch_size // self._num_minibatches)
 
-        self._learning_rate = 3e-4
+        self._base_learning_rate = 3e-4
+        self._learning_rate_now = self._base_learning_rate
         self._anneal_lr = True
         self._discount_factor = 0.99
         self._gae_lambda = 0.95
@@ -392,7 +425,7 @@ class CleanPPO():
         self._hyperparameters["batch_size"] = self._batch_size
         self._hyperparameters["minibatch_size"] = self._minibatch_size
         self._hyperparameters["total_timesteps"] = self._total_timesteps
-        self._hyperparameters["base_learning_rate"] = self._learning_rate
+        self._hyperparameters["base_learning_rate"] = self._base_learning_rate
         self._hyperparameters["anneal_lr"] = self._anneal_lr
         self._hyperparameters["discount_factor"] = self._discount_factor
         self._hyperparameters["gae_lambda"] = self._gae_lambda
