@@ -14,7 +14,7 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
             use_gpu: bool = True,
             dtype: torch.dtype = torch.float32):
 
-        obs_dim = 4
+        obs_dim = 3
         actions_dim = 1
 
         time_limit_nsteps = 250
@@ -23,7 +23,7 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
 
         self._epsi = 1e-6
         
-        self._cnstr_viol_scale_f = 1e3
+        self._cnstr_viol_scale_f = 10
 
         self._h_cmd_offset = 0.55
         self._h_cmd_scale = 0.2
@@ -40,7 +40,9 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
                     vlevel=vlevel,
                     use_gpu=use_gpu,
                     dtype=dtype)
-    
+
+        self._obs_threshold = 1 # overrides parent default value
+
     def _apply_actions_to_rhc(self):
         
         agent_action = self.get_last_actions()
@@ -90,10 +92,9 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
 
         obs = self._obs.get_torch_view(gpu=self._use_gpu)
         obs[:, 0:1] = robot_h
-        obs[:, 1:2] = rhc_cost
-        obs[:, 2:3] = self._cnstr_viol_scale_f * rhc_const_viol
-        obs[: ,3:4] = agent_h_ref
-    
+        obs[:, 1:2] = self._cnstr_viol_scale_f * rhc_const_viol
+        obs[:, 2:3] = agent_h_ref
+
     def _randomize_refs(self,
                 env_indxs: torch.Tensor = None):
         
@@ -120,9 +121,8 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         obs_names = [""] * self.obs_dim()
 
         obs_names[0] = "robot_h"
-        obs_names[1] = "rhc_cost"
-        obs_names[2] = "rhc_const_viol"
-        obs_names[3] = "agent_h_ref"
+        obs_names[1] = "rhc_const_viol"
+        obs_names[2] = "agent_h_ref"
 
         return obs_names
 
