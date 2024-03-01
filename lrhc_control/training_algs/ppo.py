@@ -74,6 +74,8 @@ class CleanPPO():
                                 )
         self._init_buffers()
 
+        self._env.reset()
+        
         self._setup_done = True
 
         self._is_done = False
@@ -87,8 +89,6 @@ class CleanPPO():
         if not self._setup_done:
         
             self._should_have_called_setup()
-
-        self._env.reset()
 
         # annealing the learning rate if enabled (may improve convergence)
         if self._anneal_lr:
@@ -330,7 +330,7 @@ class CleanPPO():
         self._save_model = True
         self._env_name = self._env.name()
 
-        self._iterations_n = 100
+        self._iterations_n = 500
         self._env_timesteps = 1024
         self._total_timesteps = self._iterations_n * (self._env_timesteps * self._num_envs)
         self._batch_size =int(self._num_envs * self._env_timesteps)
