@@ -50,7 +50,10 @@ class DynamicRLAlgorithmNames:
                 "n_of_played_episodes", 
                 "n_of_timesteps_done",
                 "current_learning_rate",
-                
+                "env_step_fps",
+                "boostrap_dt",
+                "policy_update_fps",
+                "learn_step_total_fps"
                 ]
         
         self.idx_dict = dict.fromkeys(self._keys, None)
