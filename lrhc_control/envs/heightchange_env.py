@@ -25,11 +25,12 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         
         self._cnstr_viol_scale_f = 10
 
+        self._h_error_sensitiveness = 4.0
         self._h_cmd_offset = 0.55
         self._h_cmd_scale = 0.2
 
-        self._href_lb = 0.35
-        self._href_ub = 0.7
+        self._href_lb = 0.3
+        self._href_ub = 0.8
         
         super().__init__(namespace=namespace,
                     obs_dim=obs_dim,
@@ -73,7 +74,7 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         rhc_fail_penalty = self._rhc_status.fails.get_torch_view(gpu=self._use_gpu)
 
         rewards = self._rewards.get_torch_view(gpu=self._use_gpu)
-        rewards[:, 0:1] = 20 * ((1 - h_error))
+        rewards[:, 0:1] = 20 * ((1 - self._h_error_sensitiveness * h_error))
         rewards[:, 1:2] = 0 * 1e2 * self._epsi * torch.reciprocal(rhc_cost + self._epsi)
         rewards[:, 2:3] = 1e5 * self._epsi * torch.reciprocal(rhc_const_viol + self._epsi)
         rewards[:, 3:4] = 0 * ~rhc_fail_penalty

@@ -238,7 +238,7 @@ class CleanPPO():
         
         if self._it_counter == self._iterations_n:
 
-            self._done()
+            self.done()
 
         if self._verbose:
 
@@ -250,14 +250,14 @@ class CleanPPO():
                 LogType.INFO,
                 throw_when_excep = True)
 
-    def _done(self):
+    def done(self):
 
         if self._save_model:
             
             info = f"Saving model to {self._model_path}"
 
             Journal.log(self.__class__.__name__,
-                "_done",
+                "done",
                 info,
                 LogType.INFO,
                 throw_when_excep = True)
@@ -267,7 +267,7 @@ class CleanPPO():
             info = f"Done."
 
             Journal.log(self.__class__.__name__,
-                "_done",
+                "done",
                 info,
                 LogType.INFO,
                 throw_when_excep = True)
@@ -330,7 +330,7 @@ class CleanPPO():
         self._save_model = True
         self._env_name = self._env.name()
 
-        self._iterations_n = 500
+        self._iterations_n = 150
         self._env_timesteps = 1024
         self._total_timesteps = self._iterations_n * (self._env_timesteps * self._num_envs)
         self._batch_size =int(self._num_envs * self._env_timesteps)
