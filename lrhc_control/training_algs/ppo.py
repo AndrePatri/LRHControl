@@ -11,6 +11,7 @@ import random
 from typing import Dict
 
 import os
+import time
 
 from SharsorIPCpp.PySharsorIPC import LogType
 from SharsorIPCpp.PySharsorIPC import Journal
@@ -410,11 +411,3 @@ class CleanPPO():
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device)
-        
-    def _init_writer(self):
-
-        self._writer = SummaryWriter(f"runs/{self._run_name}")
-        self._writer.add_text(
-            "hyperparameters",
-            "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(self._hyperparameters).items()])),
-        )
