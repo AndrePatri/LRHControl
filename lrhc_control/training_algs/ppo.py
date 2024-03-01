@@ -52,13 +52,13 @@ class CleanPPO():
             custom_args: Dict = {},
             verbose: bool = False):
         
+        self._verbose = verbose
+
         self._run_name = run_name
 
         self._hyperparameters.update(custom_args)
 
         self._init_algo_shared_data(static_params=self._hyperparameters)
-
-        self._verbose = verbose
 
         self._drop_dir = "./" + f"{self.__class__.__name__}/" + self._run_name
         self._model_path = self._drop_dir + "model"
