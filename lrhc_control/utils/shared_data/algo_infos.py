@@ -49,6 +49,8 @@ class DynamicRLAlgorithmNames:
                 "n_of_performed_policy_updates",
                 "n_of_played_episodes", 
                 "n_of_timesteps_done",
+                "current_learning_rate",
+                
                 ]
         
         self.idx_dict = dict.fromkeys(self._keys, None)

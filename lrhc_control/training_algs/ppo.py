@@ -1,5 +1,5 @@
 from lrhc_control.agents.ppo_agent import Agent
-
+from lrhc_control.utils.shared_data.algo_infos import SharedRLAlgorithmInfo
 import torch 
 import torch.optim as optim
 import torch.nn as nn
@@ -15,7 +15,8 @@ import time
 
 from SharsorIPCpp.PySharsorIPC import LogType
 from SharsorIPCpp.PySharsorIPC import Journal
-        
+from SharsorIPCpp.PySharsorIPC import VLevel
+
 class CleanPPO():
 
     def __init__(self,
@@ -37,12 +38,14 @@ class CleanPPO():
         self._hyperparameters = {}
         
         self._init_params()
-
+        
         self._setup_done = False
 
         self._verbose = False
 
         self._is_done = False
+        
+        self._shared_algo_data = None
 
     def setup(self,
             run_name: str,
@@ -50,8 +53,11 @@ class CleanPPO():
             verbose: bool = False):
         
         self._run_name = run_name
-        self._hyperparameters = custom_args
-        
+
+        self._hyperparameters.update(custom_args)
+
+        self._init_algo_shared_data(static_params=self._hyperparameters)
+
         self._verbose = verbose
 
         self._drop_dir = "./" + f"{self.__class__.__name__}/" + self._run_name
@@ -233,24 +239,6 @@ class CleanPPO():
 
         self._post_step()
 
-    def _post_step(self):
-
-        self._it_counter +=1 
-        
-        if self._it_counter == self._iterations_n:
-
-            self.done()
-
-        if self._verbose:
-
-            info = f"N. iterations performed: {self._it_counter}/{self._iterations_n}"
-
-            Journal.log(self.__class__.__name__,
-                "_post_step",
-                info,
-                LogType.INFO,
-                throw_when_excep = True)
-
     def done(self):
 
         if self._save_model:
@@ -272,6 +260,10 @@ class CleanPPO():
                 info,
                 LogType.INFO,
                 throw_when_excep = True)
+
+        if self._shared_algo_data is not None:
+
+            self._shared_algo_data.close() # close shared memory
 
         self._is_done = True
 
@@ -302,6 +294,24 @@ class CleanPPO():
     #         obs = next_obs
 
     #     return episodic_returns
+
+    def _post_step(self):
+
+        self._it_counter +=1 
+        
+        if self._it_counter == self._iterations_n:
+
+            self.done()
+
+        if self._verbose:
+
+            info = f"N. iterations performed: {self._it_counter}/{self._iterations_n}"
+
+            Journal.log(self.__class__.__name__,
+                "_post_step",
+                info,
+                LogType.INFO,
+                throw_when_excep = True)
 
     def _should_have_called_setup(self):
 
@@ -368,7 +378,33 @@ class CleanPPO():
             throw_when_excep = True)
         
         self._it_counter = 0
-    
+
+        # write them to hyperparam dictionary for debugging
+        self._hyperparameters["n_envs"] = self._num_envs
+        self._hyperparameters["obs_dim"] = self._obs_dim
+        self._hyperparameters["actions_dim"] = self._actions_dim
+        self._hyperparameters["seed"] = self._seed
+        self._hyperparameters["using_gpu"] = self._use_gpu
+        self._hyperparameters["n_iterations"] = self._iterations_n
+        self._hyperparameters["n_policy_updates_per_batch"] = self._update_epochs * self._num_minibatches
+        self._hyperparameters["n_policy_updates_when_done"] = \
+            self._iterations_n * self._update_epochs * self._num_minibatches
+        self._hyperparameters["batch_size"] = self._batch_size
+        self._hyperparameters["minibatch_size"] = self._minibatch_size
+        self._hyperparameters["total_timesteps"] = self._total_timesteps
+        self._hyperparameters["base_learning_rate"] = self._learning_rate
+        self._hyperparameters["anneal_lr"] = self._anneal_lr
+        self._hyperparameters["discount_factor"] = self._discount_factor
+        self._hyperparameters["gae_lambda"] = self._gae_lambda
+        self._hyperparameters["update_epochs"] = self._update_epochs
+        self._hyperparameters["norm_adv"] = self._norm_adv
+        self._hyperparameters["clip_coef"] = self._clip_coef
+        self._hyperparameters["clip_vloss"] = self._clip_vloss
+        self._hyperparameters["entropy_coeff"] = self._entropy_coeff
+        self._hyperparameters["val_f_coeff"] = self._val_f_coeff
+        self._hyperparameters["max_grad_norm"] = self._max_grad_norm
+        self._hyperparameters["target_kl"] = self._target_kl
+
     def _init_buffers(self):
 
         self._obs = torch.full(size=(self._env_timesteps, self._num_envs, self._obs_dim),
@@ -411,3 +447,16 @@ class CleanPPO():
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device)
+
+    def _init_algo_shared_data(self,
+                static_params: Dict):
+
+        self._shared_algo_data = SharedRLAlgorithmInfo(namespace="CleanPPO",
+                is_server=True, 
+                static_params=static_params,
+                verbose=self._verbose, 
+                vlevel=VLevel.V2, 
+                safe=False,
+                force_reconnection=True)
+
+        self._shared_algo_data.run()
