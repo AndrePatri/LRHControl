@@ -5,6 +5,8 @@ import torch
 from SharsorIPCpp.PySharsorIPC import VLevel
 from SharsorIPCpp.PySharsorIPC import LogType
 
+import os
+
 class LRhcHeightChange(LRhcTrainingEnvBase):
 
     def __init__(self,
@@ -32,6 +34,8 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         self._href_lb = 0.3
         self._href_ub = 0.8
         
+        self._this_child_path = os.path.abspath(__file__)
+
         super().__init__(namespace=namespace,
                     obs_dim=obs_dim,
                     actions_dim=actions_dim,
@@ -43,6 +47,16 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
                     dtype=dtype)
 
         self._obs_threshold = 1 # overrides parent default value
+
+    def get_file_paths(self):
+
+        paths = []
+
+        paths.append(self._this_child_path)
+
+        paths.append(super()._get_this_file_path())
+
+        return paths
 
     def _apply_actions_to_rhc(self):
         

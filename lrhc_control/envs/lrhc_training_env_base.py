@@ -25,7 +25,9 @@ from SharsorIPCpp.PySharsorIPC import Journal
 from perf_sleep.pyperfsleep import PerfSleep
 
 from abc import abstractmethod
-    
+
+import os
+
 class LRhcTrainingEnvBase():
 
     """Base class for a remote training environment tailored to Learning-based Receding Horizon Control"""
@@ -43,6 +45,8 @@ class LRhcTrainingEnvBase():
             use_gpu: bool = True,
             dtype: torch.dtype = torch.float32):
         
+        self._this_path = os.path.abspath(__file__)
+
         self._env_index = 0
 
         self._time_limit_nsteps = time_limit_nsteps
@@ -108,6 +112,10 @@ class LRhcTrainingEnvBase():
 
         self._init_step()
     
+    def _get_this_file_path(self):
+
+        return self._this_path
+
     def _first_step(self):
 
         self._activate_rhc_controllers()

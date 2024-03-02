@@ -11,6 +11,8 @@ import random
 from typing import Dict
 
 import os
+import shutil
+
 import time
 
 from SharsorIPCpp.PySharsorIPC import LogType
@@ -47,6 +49,8 @@ class CleanPPO():
         
         self._shared_algo_data = None
 
+        self._this_path = os.path.abspath(__file__)
+        
     def setup(self,
             run_name: str,
             custom_args: Dict = {},
@@ -60,12 +64,9 @@ class CleanPPO():
 
         self._init_algo_shared_data(static_params=self._hyperparameters)
 
-        # create dump directory
-        self._drop_dir = "./" + f"{self.__class__.__name__}/" + self._run_name
-        if not os.path.exists(os.path.dirname(self._drop_dir)):
-            os.makedirs(self._drop_dir)
-        self._model_path = self._drop_dir + "/" + self._run_name + "_model"
-        
+        # create dump directory + copy important files for debug
+        self._init_drop_dir()
+
         # seeding
         random.seed(self._seed)
         torch.manual_seed(self._seed)
@@ -295,6 +296,17 @@ class CleanPPO():
 
     #     return episodic_returns
 
+    def _init_drop_dir(self):
+
+        self._drop_dir = "./" + f"{self.__class__.__name__}/" + self._run_name
+
+        os.makedirs(self._drop_dir)
+        self._model_path = self._drop_dir + "/" + self._run_name + "_model"
+        env_filepaths = self._env.get_file_paths()
+        env_filepaths.append(self._this_path)
+        for file in env_filepaths:
+            shutil.copy(file, self._drop_dir)
+
     def _post_step(self):
 
         self._debug()
@@ -373,14 +385,14 @@ class CleanPPO():
         self._save_model = True
         self._env_name = self._env.name()
 
-        self._iterations_n = 500
+        self._iterations_n = 150
         self._env_timesteps = 1024
         self._total_timesteps = self._iterations_n * (self._env_timesteps * self._num_envs)
         self._batch_size =int(self._num_envs * self._env_timesteps)
         self._num_minibatches = self._env.n_envs()
         self._minibatch_size = int(self._batch_size // self._num_minibatches)
 
-        self._base_learning_rate = 3e-4
+        self._base_learning_rate = 1e-3
         self._learning_rate_now = self._base_learning_rate
         self._anneal_lr = True
         self._discount_factor = 0.99
