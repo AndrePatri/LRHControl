@@ -60,12 +60,12 @@ class CleanPPO():
 
         self._init_algo_shared_data(static_params=self._hyperparameters)
 
+        # create dump directory
         self._drop_dir = "./" + f"{self.__class__.__name__}/" + self._run_name
-        self._model_path = self._drop_dir + "model"
-        model_directory = os.path.dirname(self._model_path)
-        if not os.path.exists(model_directory):
-            os.makedirs(model_directory)
-
+        if not os.path.exists(os.path.dirname(self._drop_dir)):
+            os.makedirs(self._drop_dir)
+        self._model_path = self._drop_dir + "/" + self._run_name + "_model"
+        
         # seeding
         random.seed(self._seed)
         torch.manual_seed(self._seed)
@@ -373,7 +373,7 @@ class CleanPPO():
         self._save_model = True
         self._env_name = self._env.name()
 
-        self._iterations_n = 150
+        self._iterations_n = 500
         self._env_timesteps = 1024
         self._total_timesteps = self._iterations_n * (self._env_timesteps * self._num_envs)
         self._batch_size =int(self._num_envs * self._env_timesteps)
