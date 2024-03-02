@@ -53,7 +53,8 @@ class DynamicRLAlgorithmNames:
                 "env_step_fps",
                 "boostrap_dt",
                 "policy_update_fps",
-                "learn_step_total_fps"
+                "learn_step_total_fps",
+                "elapsed_min"
                 ]
         
         self.idx_dict = dict.fromkeys(self._keys, None)

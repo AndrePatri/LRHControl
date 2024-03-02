@@ -39,6 +39,8 @@ class CleanPPO():
 
         self._hyperparameters = {}
         
+        self._init_dbdata()
+        
         self._init_params()
         
         self._setup_done = False
@@ -348,7 +350,8 @@ class CleanPPO():
                                         "env_step_fps",
                                         "boostrap_dt",
                                         "policy_update_fps",
-                                        "learn_step_total_fps"
+                                        "learn_step_total_fps",
+                                        "elapsed_min"
                                         ],
                                 val=[self._it_counter, 
                 (self._it_counter+1) * self._update_epochs * self._num_minibatches,
@@ -358,17 +361,23 @@ class CleanPPO():
                 self._env_step_fps,
                 self._bootstrap_dt,
                 self._policy_update_fps,
-                self._learn_step_total_fps
+                self._learn_step_total_fps,
+                self._elapsed_min
                 ])
-        
-    def _init_params(self):
-        
+    
+    def _init_dbdata(self):
+
+        # initalize some debug data
+
         self._env_step_fps = 0.0
         self._bootstrap_dt = 0.0
         self._policy_update_fps = 0.0
         self._learn_step_total_fps = 0.0
         self._n_of_played_episodes = 0.0
-        
+        self._elapsed_min = 0
+
+    def _init_params(self):
+
         self._dtype = self._env.dtype()
 
         self._num_envs = self._env.n_envs()
@@ -385,14 +394,14 @@ class CleanPPO():
         self._save_model = True
         self._env_name = self._env.name()
 
-        self._iterations_n = 150
+        self._iterations_n = 500
         self._env_timesteps = 1024
         self._total_timesteps = self._iterations_n * (self._env_timesteps * self._num_envs)
         self._batch_size =int(self._num_envs * self._env_timesteps)
         self._num_minibatches = self._env.n_envs()
         self._minibatch_size = int(self._batch_size // self._num_minibatches)
 
-        self._base_learning_rate = 1e-3
+        self._base_learning_rate = 3e-4
         self._learning_rate_now = self._base_learning_rate
         self._anneal_lr = True
         self._discount_factor = 0.99
