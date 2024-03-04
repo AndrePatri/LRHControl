@@ -39,7 +39,31 @@ class RemoteStepperPolling(SharedDataBase):
                 force_reconnection=force_reconnection,
                 fill_value = False)
     
-    class RemoteResetRequest(SharedDataView):
+    class ResetRequest(SharedDataView):
+
+        def __init__(self,
+                namespace = "",
+                is_server = False, 
+                verbose: bool = False, 
+                vlevel: VLevel = VLevel.V0,
+                force_reconnection: bool = False,
+                safe: bool = True):
+            
+            basename = "ResetRequestFlag"
+
+            super().__init__(namespace = namespace,
+                basename = basename,
+                is_server = is_server, 
+                n_rows = 1, 
+                n_cols = 1, 
+                verbose = verbose, 
+                vlevel = vlevel,
+                safe = safe, # boolean operations are atomdic on 64 bit systems
+                dtype=dtype.Bool,
+                force_reconnection=force_reconnection,
+                fill_value = False)
+
+    class RemoteResets(SharedDataView):
 
         def __init__(self,
                 namespace: str,
@@ -50,7 +74,7 @@ class RemoteStepperPolling(SharedDataBase):
                 force_reconnection: bool = False,
                 safe: bool = True):
             
-            basename = "RemoteResetRequest"
+            basename = "RemoteResets"
 
             super().__init__(namespace = namespace,
                 basename = basename,
@@ -126,7 +150,14 @@ class RemoteStepperPolling(SharedDataBase):
                                 force_reconnection=self._force_reconnection,
                                 safe=self._safe)
 
-        self.remote_resets = self.RemoteResetRequest(namespace=self._namespace,
+        self.reset_request = self.ResetRequest(namespace=self._namespace,
+                                is_server=self._is_server,
+                                verbose=self._verbose,
+                                vlevel=self._vlevel,
+                                force_reconnection=self._force_reconnection,
+                                safe=self._safe)
+
+        self.remote_resets = self.RemoteResets(namespace=self._namespace,
                                 n_env=self._n_envs,
                                 is_server=self._is_server,
                                 verbose=self._verbose,
@@ -134,24 +165,6 @@ class RemoteStepperPolling(SharedDataBase):
                                 force_reconnection=self._force_reconnection,
                                 safe=self._safe)
 
-    def wait_for_step_request(self):
-        
-        if self.is_running():
-
-            while not self.env_step.read_wait(row_index=0, col_index=0)[0]:
-
-                self._perf_timer.clock_sleep(1000) # nanoseconds 
-
-        else:
-
-            exception = f"Not running. Did you call the run()?"
-
-            Journal.log(self.__class__.__name__,
-                "wait_for_step_request",
-                exception,
-                LogType.EXCEP,
-                throw_when_excep = True)
-    
     def reset(self,
             env_mask: torch.Tensor):
 
@@ -172,7 +185,7 @@ class RemoteStepperPolling(SharedDataBase):
             
             return idxs.flatten()
     
-    def wait(self):
+    def wait_trigger(self):
         
         if self.is_running():
             
@@ -198,7 +211,7 @@ class RemoteStepperPolling(SharedDataBase):
                 LogType.EXCEP,
                 throw_when_excep = True)
             
-    def step(self):
+    def trigger(self):
         
         if self.is_running():
 
@@ -224,6 +237,58 @@ class RemoteStepperPolling(SharedDataBase):
                 LogType.EXCEP,
                 throw_when_excep = True)
 
+    def send_reset_request(self):
+        
+        if self.is_running():
+
+            if self._is_server:
+
+                self.reset_request.write_wait(False, 
+                        row_index=0,
+                        col_index=0)
+
+            else:
+
+                self.reset_request.write_wait(True, 
+                        row_index=0,
+                        col_index=0)
+                
+        else:
+
+            exception = f"Not running. Did you call the run()?"
+
+            Journal.log(self.__class__.__name__,
+                "send_reset_request",
+                exception,
+                LogType.EXCEP,
+                throw_when_excep = True)
+
+    def wait_reset_request(self):
+        
+        if self.is_running():
+            
+            if self._is_server:
+
+                while not self.reset_request.read_wait(row_index=0, col_index=0)[0]:
+
+                    self._perf_timer.clock_sleep(1000) # nanoseconds 
+            
+            else:
+
+                while self.reset_request.read_wait(row_index=0, col_index=0)[0]:
+
+                    self._perf_timer.clock_sleep(1000) # nanoseconds 
+
+        else:
+
+            exception = f"Not running. Did you call the run()?"
+
+            Journal.log(self.__class__.__name__,
+                "wait_reset_request",
+                exception,
+                LogType.EXCEP,
+                throw_when_excep = True)
+      
     def is_running(self):
 
         return self._is_running
@@ -231,6 +296,8 @@ class RemoteStepperPolling(SharedDataBase):
     def run(self):
 
         self.env_step.run()
+        self.reset_request.run()
+
         self.remote_resets.run()
 
         self._n_envs = self.remote_resets.n_rows

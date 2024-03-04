@@ -248,7 +248,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                     if self._training_servers[robot_name] is not None and \
                         self._start_training:
 
-                            self._training_servers[robot_name].wait() # blocking
+                            self._training_servers[robot_name].wait_for_step_request() # blocking
                             
                             to_be_reset_remotely = self._training_servers[robot_name].get_stepper().get_resets()
                             

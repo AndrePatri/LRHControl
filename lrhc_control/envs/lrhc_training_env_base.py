@@ -172,7 +172,7 @@ class LRhcTrainingEnvBase():
 
         self._remote_stepper.step() # triggers simulation + RHC stepping
 
-        self._remote_stepper.wait() # wait for step completion
+        self._remote_stepper.wait_for_step_request() # wait for step completion
 
         self._get_observations()
         self._clamp_obs() # to avoid bad things
@@ -622,7 +622,7 @@ class LRhcTrainingEnvBase():
                                         truncated)
         self._episode_counters.reset(to_be_reset=episode_finished)
         
-        stepper = self._remote_stepper.get_stepper()
+        triggerer = self._remote_stepper.get_triggerer()
         stepper.reset(env_mask=episode_finished) # remotely reset envs for which 
         # the episode is terminated
 

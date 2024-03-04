@@ -171,7 +171,7 @@ class RemoteEnvStepper:
             
             self._is_training_env_ready = True
 
-    def wait(self):
+    def wait_for_step_request(self):
         
         # if self._is_server:
             
@@ -187,6 +187,14 @@ class RemoteEnvStepper:
 
         self._stepper.step()
 
+    def send_reset_request(self):
+
+        self._stepper.send_reset_request()
+    
+    def wait_reset_request(self):
+
+        self._stepper.wait_for_step_request()
+        
     def get_stepper(self):
 
         return self._stepper
