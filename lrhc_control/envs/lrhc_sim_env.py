@@ -418,16 +418,6 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
             control_cluster = self.cluster_servers[robot_name]
 
             control_cluster.reset_controllers(idxs=env_indxs)
-    
-    def full_reset(self,
-            robot_name: str = None):
-
-        # resets EVERYTHING
-        self.reset(env_indxs=None,# all env
-                robot_names=[robot_name], # potenially not all robots
-                reset_world=False,
-                reset_cluster=True,
-                reset_counter=True)
 
     def reset(self,
             env_indxs: torch.Tensor = None,
@@ -437,8 +427,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
             reset_counter = False):
 
         if reset_cluster:
-
-            # reset clusters
+            # reset controllers remotely
             self.reset_cluster(env_indxs=env_indxs,
                     robot_names=robot_names)
             
@@ -447,35 +436,21 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
             self._world.reset()
 
         self.task.reset(env_indxs = env_indxs,
-            robot_names = robot_names)
-        
-        # perform a simulation step
-        
-        # self._world.step(render=self._render)
-
-        # self.task.get_states(env_indxs=env_indxs,
-        #                 robot_names=robot_names) # updates states from sim 
-
-        self.task.after_reset(env_indxs = env_indxs,
-            robot_names = robot_names)
+            robot_names = robot_names) # resets articulations in sim, the meas.
+        # states and the jnt imp controllers
         
         rob_names = robot_names
-        
         if rob_names is None:
-            
             rob_names = self.robot_names
 
+        # also reset the state of cluster using the reset state
         if reset_cluster:
-
             for i in range(len(rob_names)):
-
                 self._update_cluster_state(robot_name=rob_names[i],
                                 env_indxs=env_indxs)
 
         if reset_counter:
-            
             for i in range(len(rob_names)):
-                
                 self.step_counters[rob_names[i]] = 0
     
     def _init_safe_cluster_actions(self,
