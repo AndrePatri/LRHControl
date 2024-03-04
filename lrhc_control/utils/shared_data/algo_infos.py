@@ -52,7 +52,7 @@ class DynamicRLAlgorithmNames:
                 "current_learning_rate",
                 "env_step_fps",
                 "boostrap_dt",
-                "policy_update_fps",
+                "policy_update_dt",
                 "learn_step_total_fps",
                 "elapsed_min"
                 ]

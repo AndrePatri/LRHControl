@@ -92,7 +92,9 @@ class CleanPPO():
 
         self._is_done = False
 
-        self._start_time = time.time()
+        self._start_time_tot = time.perf_counter()
+
+        self._start_time = time.perf_counter()
     
     def is_done(self):
 
@@ -100,6 +102,8 @@ class CleanPPO():
     
     def learn(self):
         
+        self._start_time = time.perf_counter()
+
         if not self._setup_done:
         
             self._should_have_called_setup()
@@ -135,6 +139,8 @@ class CleanPPO():
             self._next_done[: ,:] = self._env.get_last_terminations() # done only if episode terminated 
             # (see "Time Limits in Reinforcement Learning" by F. Pardo)
 
+        self._bootstrap_dt = time.perf_counter() - _start_time
+
         # bootstrap: compute advantages and returns
         with torch.no_grad():
             
@@ -163,6 +169,8 @@ class CleanPPO():
 
             # estimated cumulative rewards from each time step to the end of the episode
             self._returns[:, :] = self._advantages + self._values
+
+        self._gae_dt = time.perf_counter() - self._bootstrap_dt
 
         # flatten batches before policy update
         batched_obs = self._obs.reshape((-1, self._env.obs_dim()))
@@ -243,6 +251,8 @@ class CleanPPO():
             if self._target_kl is not None and approx_kl > self._target_kl:
 
                 break
+
+        self._policy_update_dt = time.perf_counter() - self._gae_dt
 
         self._post_step()
 
@@ -348,7 +358,9 @@ class CleanPPO():
     
     def _debug(self):
         
-        self._elapsed_min = (time.time() - self._start_time) / 60
+        self._elapsed_min = (time.time() - self._start_time_tot) / 60
+        self._env_step_fps = self._batch_size / self._bootstrap_dt
+        
         # write debug info to shared memory
         self._shared_algo_data.write(dyn_info_name=["current_batch_iteration", 
                                         "n_of_performed_policy_updates",
@@ -368,7 +380,7 @@ class CleanPPO():
                 self._learning_rate_now,
                 self._env_step_fps,
                 self._bootstrap_dt,
-                self._policy_update_fps,
+                self._policy_update_dt,
                 self._learn_step_total_fps,
                 self._elapsed_min
                 ])
@@ -377,9 +389,11 @@ class CleanPPO():
 
         # initalize some debug data
 
-        self._env_step_fps = 0.0
         self._bootstrap_dt = 0.0
-        self._policy_update_fps = 0.0
+        self._gae_dt = 0.0
+
+        self._env_step_fps = 0.0
+        self._policy_update_dt = 0.0
         self._learn_step_total_fps = 0.0
         self._n_of_played_episodes = 0.0
         self._elapsed_min = 0
