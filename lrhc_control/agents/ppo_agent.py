@@ -7,8 +7,13 @@ class Agent(nn.Module):
 
     def __init__(self,
             obs_dim: int, 
-            actions_dim: int):
+            actions_dim: int,
+            actor_std: float = 0.01, 
+            critic_std: float = 1.0):
 
+        self._actor_std = actor_std
+        self._critic_std = critic_std
+        
         super().__init__()
             
         self._obs_dim = obs_dim
@@ -19,15 +24,15 @@ class Agent(nn.Module):
             nn.Tanh(),
             self._layer_init(nn.Linear(64, 64)),
             nn.Tanh(),
-            self._layer_init(nn.Linear(64, 1), std=1.0),
-        )
+            self._layer_init(nn.Linear(64, 1), std=self._critic_std),
+        ) # (stochastic critic)
         self.actor_mean = nn.Sequential(
             self._layer_init(nn.Linear(self._obs_dim, 64)),
             nn.Tanh(),
             self._layer_init(nn.Linear(64, 64)),
             nn.Tanh(),
-            self._layer_init(nn.Linear(64, self._actions_dim), std=0.01),
-        )
+            self._layer_init(nn.Linear(64, self._actions_dim), std=self._actor_std),
+        ) # (stochastic actor)
         self.actor_logstd = nn.Parameter(torch.zeros(1, self._actions_dim))
 
     def get_value(self, x):
@@ -46,7 +51,7 @@ class Agent(nn.Module):
 
         if action is None:
             action = probs.sample()
-
+            
         return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(x)
     
     def _layer_init(self, layer, std=torch.sqrt(torch.tensor(2)), bias_const=0.0):
