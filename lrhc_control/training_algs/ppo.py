@@ -27,7 +27,9 @@ class CleanPPO():
         self._env = env 
 
         self._agent = Agent(obs_dim=self._env.obs_dim(),
-                        actions_dim=self._env.actions_dim())
+                        actions_dim=self._env.actions_dim(),
+                        actor_std=1e-2,
+                        critic_std=1.0)
         
         self._optimizer = None
 
@@ -89,6 +91,8 @@ class CleanPPO():
         self._setup_done = True
 
         self._is_done = False
+
+        self._start_time = time.time()
     
     def is_done(self):
 
@@ -321,7 +325,10 @@ class CleanPPO():
 
         if self._verbose:
 
-            info = f"N. iterations performed: {self._it_counter}/{self._iterations_n}"
+            info = f"N. PPO iterations performed: {self._it_counter}/{self._iterations_n}\n" + \
+                f"N. policy updates performed: {(self._it_counter+1) * self._update_epochs * self._num_minibatches}\n" + \
+                f"N. timesteps performed: {(self._it_counter+1) * self._batch_size}\n" + \
+                f"Elapsed minutes: {self._elapsed_min}"
 
             Journal.log(self.__class__.__name__,
                 "_post_step",
@@ -341,6 +348,7 @@ class CleanPPO():
     
     def _debug(self):
         
+        self._elapsed_min = (time.time() - self._start_time) / 60
         # write debug info to shared memory
         self._shared_algo_data.write(dyn_info_name=["current_batch_iteration", 
                                         "n_of_performed_policy_updates",
@@ -394,7 +402,7 @@ class CleanPPO():
         self._save_model = True
         self._env_name = self._env.name()
 
-        self._iterations_n = 500
+        self._iterations_n = 250
         self._env_timesteps = 1024
         self._total_timesteps = self._iterations_n * (self._env_timesteps * self._num_envs)
         self._batch_size =int(self._num_envs * self._env_timesteps)
@@ -407,11 +415,11 @@ class CleanPPO():
         self._discount_factor = 0.99
         self._gae_lambda = 0.95
         
-        self._update_epochs = 10
+        self._update_epochs = 5
         self._norm_adv = True
         self._clip_coef = 0.2
         self._clip_vloss = True
-        self._entropy_coeff = 0.0
+        self._entropy_coeff = 0.01
         self._val_f_coeff = 0.5
         self._max_grad_norm = 0.5
         self._target_kl = None
