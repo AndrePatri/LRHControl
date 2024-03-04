@@ -27,7 +27,7 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         
         self._cnstr_viol_scale_f = 10
 
-        self._h_error_sensitiveness = 4.0
+        self._h_error_sensitiveness = 8.0
         self._h_cmd_offset = 0.55
         self._h_cmd_scale = 0.1
 
