@@ -168,8 +168,12 @@ class RemoteStepperPolling(SharedDataBase):
     def reset(self,
             env_mask: torch.Tensor):
 
+        # set reset mask
         self.remote_resets.reset(env_mask)
         self.remote_resets.update()
+
+        # signal mask was changed
+        self.send_reset_request()
 
     def get_resets(self):
         
@@ -188,7 +192,7 @@ class RemoteStepperPolling(SharedDataBase):
     def wait_trigger(self):
         
         if self.is_running():
-            
+
             if self._is_server:
 
                 while not self.env_step.read_wait(row_index=0, col_index=0)[0]:
@@ -196,9 +200,9 @@ class RemoteStepperPolling(SharedDataBase):
                     self._perf_timer.clock_sleep(1000) # nanoseconds 
             
             else:
-
+                
                 while self.env_step.read_wait(row_index=0, col_index=0)[0]:
-
+                    
                     self._perf_timer.clock_sleep(1000) # nanoseconds 
 
         else:
@@ -297,7 +301,6 @@ class RemoteStepperPolling(SharedDataBase):
 
         self.env_step.run()
         self.reset_request.run()
-
         self.remote_resets.run()
 
         self._n_envs = self.remote_resets.n_rows
@@ -307,3 +310,5 @@ class RemoteStepperPolling(SharedDataBase):
     def close(self):
         
         self.env_step.close()
+        self.reset_request.close()
+        self.remote_resets.close()

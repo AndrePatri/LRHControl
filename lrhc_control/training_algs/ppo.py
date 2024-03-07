@@ -28,7 +28,7 @@ class CleanPPO():
 
         self._agent = Agent(obs_dim=self._env.obs_dim(),
                         actions_dim=self._env.actions_dim(),
-                        actor_std=1e-2,
+                        actor_std=3e-4,
                         critic_std=1.0)
         
         self._optimizer = None
@@ -139,7 +139,7 @@ class CleanPPO():
             self._next_done[: ,:] = self._env.get_last_terminations() # done only if episode terminated 
             # (see "Time Limits in Reinforcement Learning" by F. Pardo)
 
-        self._bootstrap_dt = time.perf_counter() - _start_time
+        self._bootstrap_dt = time.perf_counter() - self._start_time
 
         # bootstrap: compute advantages and returns
         with torch.no_grad():
@@ -369,7 +369,7 @@ class CleanPPO():
                                         "current_learning_rate",
                                         "env_step_fps",
                                         "boostrap_dt",
-                                        "policy_update_fps",
+                                        "policy_update_dt",
                                         "learn_step_total_fps",
                                         "elapsed_min"
                                         ],
@@ -423,7 +423,7 @@ class CleanPPO():
         self._num_minibatches = self._env.n_envs()
         self._minibatch_size = int(self._batch_size // self._num_minibatches)
 
-        self._base_learning_rate = 3e-4
+        self._base_learning_rate = 1e-3
         self._learning_rate_now = self._base_learning_rate
         self._anneal_lr = True
         self._discount_factor = 0.99

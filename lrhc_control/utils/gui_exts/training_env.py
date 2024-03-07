@@ -176,7 +176,7 @@ class TrainingEnvData(SharedDataWindow):
                                     ylabel=""))
         
         self.rt_plotters.append(RtPlotWindow(data_dim=self.shared_data_clients[3].n_cols,
-                                    n_data = self.shared_data_clients[3].n_rows,
+                                    n_data = cluster_size,
                                     update_data_dt=self.update_data_dt, 
                                     update_plot_dt=self.update_plot_dt,
                                     window_duration=self.window_duration, 
@@ -187,7 +187,7 @@ class TrainingEnvData(SharedDataWindow):
                                     ylabel="[float]"))
         
         self.rt_plotters.append(RtPlotWindow(data_dim=self.shared_data_clients[4].n_cols,
-                                    n_data = self.shared_data_clients[4].n_rows,
+                                    n_data = cluster_size,
                                     update_data_dt=self.update_data_dt, 
                                     update_plot_dt=self.update_plot_dt,
                                     window_duration=self.window_duration, 
@@ -291,8 +291,8 @@ class TrainingEnvData(SharedDataWindow):
 
         self.grid.settings_widget_list[0].current_val.setText(f'{idx}')
 
-        for i in range(1, len(self.rt_plotters)):
-            
+        for i in range(2, len(self.rt_plotters)):
+            # only switching plots which have n_cluster dim
             self.rt_plotters[i].rt_plot_widget.switch_to_data(data_idx = self.current_cluster_index)
 
     def update(self,
