@@ -1,49 +1,159 @@
 from SharsorIPCpp.PySharsor.wrappers.shared_data_view import SharedDataView
-from SharsorIPCpp.PySharsor.wrappers.shared_tensor_dict import SharedTensorDict
 from SharsorIPCpp.PySharsorIPC import VLevel
-from SharsorIPCpp.PySharsorIPC import LogType
-from SharsorIPCpp.PySharsorIPC import Journal
 from SharsorIPCpp.PySharsorIPC import dtype
-from SharsorIPCpp.PySharsorIPC import StringTensorServer, StringTensorClient
+from SharsorIPCpp.PySharsorIPC import Producer, Consumer
 
-from control_cluster_bridge.utilities.shared_data.abstractions import SharedDataBase
-
-from perf_sleep.pyperfsleep import PerfSleep
-
-import numpy as np
 import torch
 
-class RemoteStepperPolling(SharedDataBase):
-    
-    class StepEnv(SharedDataView):
+class ProducerWrapper(): 
 
-        def __init__(self,
-                namespace = "",
-                is_server = False, 
-                verbose: bool = False, 
-                vlevel: VLevel = VLevel.V0,
-                force_reconnection: bool = False,
-                safe: bool = True):
-            
-            basename = "StepEnvFlag"
+    def __init__(self,
+            namespace: str,
+            basename: str,
+            verbose: bool = True,
+            vlevel: bool = VLevel.V0,
+            force_reconnection: bool = False):
 
-            super().__init__(namespace = namespace,
-                basename = basename,
-                is_server = is_server, 
-                n_rows = 1, 
-                n_cols = 1, 
-                verbose = verbose, 
-                vlevel = vlevel,
-                safe = safe, # boolean operations are atomdic on 64 bit systems
-                dtype=dtype.Bool,
-                force_reconnection=force_reconnection,
-                fill_value = False)
+        self._producer = Producer(namespace, 
+                            basename, 
+                            verbose, 
+                            vlevel, 
+                            force_reconnection)
+
+    def run(self):
+
+        self._producer.run()
     
-    class RemoteResetRequest(SharedDataView):
+    def close(self):
+
+        self._producer.close()
+    
+    def trigger(self):
+
+        self._producer.trigger()
+    
+    def wait_ack_from(self,
+            n_consumers, ms_timeout = -1):
+
+        self._producer.wait_ack_from(n_consumers=n_consumers, 
+                            ms_timeout=ms_timeout)
+
+class ConsumerWrapper(): 
+
+    def __init__(self,
+            namespace: str,
+            basename: str,
+            verbose: bool = True,
+            vlevel: bool = VLevel.V0):
+
+        self._consumer = Consumer(namespace, 
+                            basename, 
+                            verbose, 
+                            vlevel)
+
+    def run(self):
+
+        self._consumer.run()
+    
+    def close(self):
+
+        self._consumer.close()
+    
+    def wait(self, ms_timeout = -1):
+
+        self._consumer.wait(ms_timeout)
+    
+    def ack(self):
+
+        self._consumer.ack()
+
+class RemoteStepperSrvr(ProducerWrapper):
+
+    def __init__(self,
+            namespace: str,
+            verbose: bool = False,
+            vlevel: VLevel = VLevel.V0,
+            force_reconnection: bool = False):
+
+        super().__init__(namespace=namespace,
+            basename="RemoteStepper",
+            verbose=verbose,
+            vlevel=vlevel,
+            force_reconnection=force_reconnection)
+
+    def wait_ack_from(self, n_consumers, ms_timeout = -1):
+
+        super().wait_ack_from(n_consumers, ms_timeout)
+
+class RemoteStepperClnt(ConsumerWrapper):
+
+    def __init__(self,
+            namespace: str,
+            verbose: bool = False,
+            vlevel: VLevel = VLevel.V0):
+
+        super().__init__(namespace=namespace,
+            basename="RemoteStepper",
+            verbose=verbose,
+            vlevel=vlevel)
+    
+class SimEnvReadySrvr(ProducerWrapper):
+    
+    def __init__(self,
+            namespace: str,
+            verbose: bool = False,
+            vlevel: VLevel = VLevel.V0,
+            force_reconnection: bool = False):
+
+        super().__init__(namespace=namespace,
+            basename="SimEnvReady",
+            verbose=verbose,
+            vlevel=vlevel,
+            force_reconnection=force_reconnection)
+
+class SimEnvReadyClnt(ConsumerWrapper):
+    
+    def __init__(self,
+            namespace: str,
+            verbose: bool = False,
+            vlevel: VLevel = VLevel.V0):
+
+        super().__init__(namespace=namespace,
+            basename="SimEnvReady",
+            verbose=verbose,
+            vlevel=vlevel)
+
+class RemoteResetSrvr(ProducerWrapper):
+    
+    def __init__(self,
+            namespace: str,
+            verbose: bool = False,
+            vlevel: VLevel = VLevel.V0,
+            force_reconnection: bool = False):
+
+        super().__init__(namespace=namespace,
+            basename="RemoteReset",
+            verbose=verbose,
+            vlevel=vlevel,
+            force_reconnection=force_reconnection)
+
+class RemoteResetClnt(ConsumerWrapper):
+    
+    def __init__(self,
+            namespace: str,
+            verbose: bool = False,
+            vlevel: VLevel = VLevel.V0):
+
+        super().__init__(namespace=namespace,
+            basename="RemoteReset",
+            verbose=verbose,
+            vlevel=vlevel)
+        
+class RemoteResetRequest(SharedDataView):
 
         def __init__(self,
                 namespace: str,
-                n_env: int,
+                n_env: int = None,
                 is_server = False, 
                 verbose: bool = False, 
                 vlevel: VLevel = VLevel.V0,
@@ -63,180 +173,15 @@ class RemoteStepperPolling(SharedDataBase):
                 dtype=dtype.Bool,
                 force_reconnection=force_reconnection,
                 fill_value = False)
-
-        def reset(self,
-            env_mask: torch.Tensor = None):
-
-            if (not self.is_server) and (env_mask is not None):
-
-                resets = self.get_torch_view(gpu=False)
-
-                resets[:, :] = env_mask
-                
-        def update(self):
-
-            if self.is_server:
-                
-                self.synch_all(read=True,wait=True)
-
-            else:
-
-                self.synch_all(read=False,wait=True)
-
-        def get(self):
-
-            return self.get_torch_view(gpu=False).flatten()
-
-        def restore(self):
-
-            if self.is_server:
-
-                resets = self.get_torch_view(gpu=False)
-
-                resets.zero_()
-
-                self.synch_all(read=False,wait=True)
-
-    def __init__(self,
-            namespace: str,
-            is_server: bool,
-            n_envs: int = None,
-            verbose: bool = False,
-            vlevel: VLevel = VLevel.V1,
-            force_reconnection: bool = False,
-            safe: bool = True):
-
-        self._namespace = namespace
-        self._is_server = is_server
-        self._verbose = verbose
-        self._vlevel = vlevel
-        self._force_reconnection = force_reconnection
-        self._safe = safe
-
-        self._n_envs = n_envs
-
-        self._is_running = False
-
-        self._perf_timer = PerfSleep()
         
-        self.env_step = self.StepEnv(namespace=self._namespace,
-                                is_server=self._is_server,
-                                verbose=self._verbose,
-                                vlevel=self._vlevel,
-                                force_reconnection=self._force_reconnection,
-                                safe=self._safe)
+        def to_be_reset(self):
 
-        self.remote_resets = self.RemoteResetRequest(namespace=self._namespace,
-                                n_env=self._n_envs,
-                                is_server=self._is_server,
-                                verbose=self._verbose,
-                                vlevel=self._vlevel,
-                                force_reconnection=self._force_reconnection,
-                                safe=self._safe)
+            idxs = torch.nonzero(self.get_torch_view())
 
-    def wait_for_step_request(self):
-        
-        if self.is_running():
+            if idxs.shape[0] == 0:
 
-            while not self.env_step.read_wait(row_index=0, col_index=0)[0]:
-
-                self._perf_timer.clock_sleep(1000) # nanoseconds 
-
-        else:
-
-            exception = f"Not running. Did you call the run()?"
-
-            Journal.log(self.__class__.__name__,
-                "wait_for_step_request",
-                exception,
-                LogType.EXCEP,
-                throw_when_excep = True)
-    
-    def reset(self,
-            env_mask: torch.Tensor):
-
-        self.remote_resets.reset(env_mask)
-        self.remote_resets.update()
-
-    def get_resets(self):
-        
-        self.remote_resets.update()
-
-        idxs = torch.nonzero(self.remote_resets.get())
-
-        if idxs.shape[0] == 0:
-
-            return None
-        
-        else:
-            
-            return idxs.flatten()
-    
-    def wait(self):
-        
-        if self.is_running():
-            
-            if self._is_server:
-
-                while not self.env_step.read_wait(row_index=0, col_index=0)[0]:
-
-                    self._perf_timer.clock_sleep(1000) # nanoseconds 
+                return None
             
             else:
-
-                while self.env_step.read_wait(row_index=0, col_index=0)[0]:
-
-                    self._perf_timer.clock_sleep(1000) # nanoseconds 
-
-        else:
-
-            exception = f"Not running. Did you call the run()?"
-
-            Journal.log(self.__class__.__name__,
-                "wait_for_step_request",
-                exception,
-                LogType.EXCEP,
-                throw_when_excep = True)
-            
-    def step(self):
-        
-        if self.is_running():
-
-            if self._is_server:
-
-                self.env_step.write_wait(False, 
-                        row_index=0,
-                        col_index=0)
-
-            else:
-
-                self.env_step.write_wait(True, 
-                        row_index=0,
-                        col_index=0)
                 
-        else:
-
-            exception = f"Not running. Did you call the run()?"
-
-            Journal.log(self.__class__.__name__,
-                "step",
-                exception,
-                LogType.EXCEP,
-                throw_when_excep = True)
-
-    def is_running(self):
-
-        return self._is_running
-    
-    def run(self):
-
-        self.env_step.run()
-        self.remote_resets.run()
-
-        self._n_envs = self.remote_resets.n_rows
-
-        self._is_running = True
-    
-    def close(self):
-        
-        self.env_step.close()
+                return idxs.flatten()

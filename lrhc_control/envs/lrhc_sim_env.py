@@ -1,7 +1,10 @@
 from omni_robo_gym.envs.isaac_env import IsaacSimEnv
 
 from lrhc_control.controllers.rhc.lrhc_cluster_server import LRhcClusterServer
-from lrhc_control.utils.shared_data.remote_env_stepper import RemoteEnvStepper
+from lrhc_control.utils.shared_data.remote_stepping import RemoteStepperClnt
+from lrhc_control.utils.shared_data.remote_stepping import RemoteResetClnt
+from lrhc_control.utils.shared_data.remote_stepping import SimEnvReadySrvr
+from lrhc_control.utils.shared_data.remote_stepping import RemoteResetRequest
 
 from SharsorIPCpp.PySharsorIPC import VLevel, Journal, LogType
 
@@ -36,12 +39,6 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
         self.debug_data["cluster_sol_time"] = {}
         self.debug_data["cluster_state_update_dt"] = {}
 
-        self._is_training = [] # whether the i-th task is a training task or simply a simulation
-        self._training_servers = {} # object in charge of handling connection with training env
-        self._n_pre_training_steps = 0
-        self._pre_training_step_counter = 0
-        self._start_training = False
-
         self._is_first_trigger = {}
         self.cluster_timers = {}
         self.env_timer = time.perf_counter()
@@ -50,143 +47,17 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
         self.cluster_servers = {}
         self._trigger_cluster = {}
         self._cluster_dt = {}
-                
-    def set_task(self, 
-                task, 
-                cluster_dt: List[float], 
-                is_training: List[bool],
-                n_pre_training_steps = 0,
-                backend="torch", 
-                sim_params=None, 
-                init_sim=True, 
-                cluster_client_verbose = False, 
-                cluster_client_debug = False) -> None:
 
-        super().set_task(task, 
-                backend=backend, 
-                sim_params=sim_params, 
-                init_sim=init_sim)
-        
-        self.robot_names = self.task.robot_names
-        self.robot_pkg_names = self.task.robot_pkg_names
-        self._is_training = is_training
-        self._n_pre_training_steps = n_pre_training_steps
-        
-        if not isinstance(cluster_dt, List):
-            
-            exception = "cluster_dt must be a list!"
-
-            Journal.log(self.__class__.__name__,
-                "set_task",
-                exception,
-                LogType.EXCEP,
-                throw_when_excep = True)
-
-        if not (len(cluster_dt) == len(self.robot_names)):
-
-            exception = f"cluster_dt length{len(cluster_dt)} does not match robot number {len(self.robot_names)}!"
-
-            Journal.log(self.__class__.__name__,
-                "set_task",
-                exception,
-                LogType.EXCEP,
-                throw_when_excep = True)
-
-        if not (len(is_training) == len(self.robot_names)):
-
-            exception = f"is_training length{len(is_training)} does not match robot number {len(self.robot_names)}!"
-
-            Journal.log(self.__class__.__name__,
-                "set_task",
-                exception,
-                LogType.EXCEP,
-                throw_when_excep = True)
-
-        # now the task and the simulation is guaranteed to be initialized
-        # -> we have the data to initialize the cluster client
-        for i in range(len(self.robot_names)):
-            
-            robot_name = self.robot_names[i]
-
-            self.step_counters[robot_name] = 0
-            self._is_first_trigger[robot_name] = True
-                
-            if not isinstance(cluster_dt[i], float):
-
-                exception = f"cluster_dt should be a list of float values!"
-
-                Journal.log(self.__class__.__name__,
-                    "set_task",
-                    exception,
-                    LogType.EXCEP,
-                    throw_when_excep = True)
-            
-            self._cluster_dt[robot_name] = cluster_dt[i]
-
-            self._trigger_cluster[robot_name] = True # allow first trigger
-
-            if robot_name in task.omni_contact_sensors:
-
-                n_contact_sensors = task.omni_contact_sensors[robot_name].n_sensors
-                contact_names = task.omni_contact_sensors[robot_name].contact_prims
-            
-            else:
-                
-                n_contact_sensors = -1
-                contact_names = None
-
-            self.cluster_servers[robot_name] = LRhcClusterServer(cluster_size=task.num_envs, 
-                        cluster_dt=self._cluster_dt[robot_name], 
-                        control_dt=task.integration_dt(), 
-                        jnt_names = task.robot_dof_names[robot_name], 
-                        n_contact_sensors = n_contact_sensors,
-                        contact_linknames = contact_names, 
-                        verbose = cluster_client_verbose, 
-                        debug = cluster_client_debug, 
-                        robot_name=robot_name,
-                        use_gpu = task.using_gpu)
-            
-            self.debug_data["cluster_sol_time"][robot_name] = np.nan
-            self.debug_data["cluster_state_update_dt"][robot_name] = np.nan
-
-            if self.debug:
-
-                self.cluster_timers[robot_name] = time.perf_counter()
-            
-            if self._is_training[i]:
-                
-                self._training_servers[robot_name] = RemoteEnvStepper(
-                                            n_envs=self.task.num_envs,
-                                            namespace = robot_name,
-                                            is_server = True, 
-                                            verbose = True,
-                                            vlevel = VLevel.V2,
-                                            force_reconnection = True,
-                                            safe = True)
-                        
-            else:
-                
-                self._training_servers[robot_name] = None
-        
-        self.using_gpu = task.using_gpu
-            
-    def close(self):
-
-        for i in range(len(self.robot_names)):
-
-            self.cluster_servers[self.robot_names[i]].close()
-            
-            if self._training_servers[self.robot_names[i]] is not None:
-            
-                self._training_servers[self.robot_names[i]].sim_env_not_ready() # signal for client
-
-                self._training_servers[self.robot_names[i]].close()
-            
-        self.task.close() # performs closing steps for task
-
-        super().close() # this has to be called last 
-        # so that isaac's simulation is close properly
-    
+        # remote simulation
+        self._start_remote_stepping = False
+        self._n_init_steps = 0 # n steps to be performed before waiting for remote stepping
+        self._init_step_counter = 0
+        self._use_remote_stepping = [] # whether the task associated with robot i should use remote stepping
+        self._remote_steppers = {}
+        self._remote_resetters = {}
+        self._remote_reset_requests = {}
+        self._sim_env_ready = {}
+                       
     def step(self, 
         actions = None):
         
@@ -222,9 +93,12 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
 
                 self._init_safe_cluster_actions(robot_name=robot_name)
                     
-                if self._training_servers[robot_name] is not None:
+                if self._use_remote_stepping[i]:
 
-                    self._training_servers[robot_name].run()
+                    self._remote_steppers[robot_name].run()
+                    self._remote_resetters[robot_name].run()
+                    self._remote_reset_requests[robot_name].run()
+                    self._sim_env_ready[robot_name].run()
 
             # 1) this runs at a dt = cluster_clients[robot_name] dt (sol. triggering) 
             if control_cluster.is_cluster_instant(self.step_counters[robot_name]):
@@ -245,19 +119,12 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                             
                         self._is_first_trigger[robot_name] = False
 
-                    if self._training_servers[robot_name] is not None and \
-                        self._start_training:
+                    if self._use_remote_stepping[i] and \
+                        self._start_remote_stepping:
 
-                            self._training_servers[robot_name].wait() # blocking
+                            self._wait_for_remote_step_req(robot_name=robot_name)
                             
-                            to_be_reset_remotely = self._training_servers[robot_name].get_stepper().get_resets()
-                            
-                            if to_be_reset_remotely is not None:
-
-                                self.reset(env_indxs=to_be_reset_remotely,
-                                    robot_names=[robot_name],
-                                    reset_world=False,
-                                    reset_cluster=True)
+                            self._wait_for_remote_reset_req(robot_name=robot_name)
 
                             # when training controllers have to be kept always active
                             control_cluster.activate_controllers(idxs=control_cluster.get_inactive_controllers())
@@ -342,11 +209,29 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
 
                     # update cluster state 
                     self._update_cluster_state(robot_name = robot_name, 
-                                    env_indxs = active)
-                    
-                    if self._training_servers[robot_name] is None:
+                                    env_indxs = active)                        
                         
-                        # automatically reset failed controllers if not running training
+                    if self._use_remote_stepping[i]:
+
+                        if self._start_remote_stepping:
+                            
+                            self._remote_steppers[robot_name].ack() # signal stepping is finished
+                            
+                        if self._init_step_counter < self._n_init_steps and \
+                                not self._start_remote_stepping:
+                    
+                            self._init_step_counter += 1
+                    
+                        if self._init_step_counter >= self._n_init_steps and \
+                                not self._start_remote_stepping:
+                            
+                            self._start_remote_stepping = True # next cluster step we wait for connection to training client
+
+                            self._signal_sim_env_is_ready(robot_name=robot_name) # signal sim is ready
+                    
+                    else:
+
+                        # automatically reset and reactivate failed controllers if not running remotely
                         failed = control_cluster.get_failed_controllers()
 
                         if failed is not None:
@@ -358,24 +243,6 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                     
                         control_cluster.activate_controllers(idxs=control_cluster.get_inactive_controllers())
 
-                    if self._training_servers[robot_name] is not None:
-
-                        if self._start_training:
-                            
-                            self._training_servers[robot_name].step() # signal stepping is finished
-                            
-                        if self._pre_training_step_counter < self._n_pre_training_steps and \
-                                not self._start_training:
-                    
-                            self._pre_training_step_counter += 1
-                    
-                        if self._pre_training_step_counter >= self._n_pre_training_steps and \
-                                not self._start_training:
-                            
-                            self._start_training = True # next cluster step we wait for connection to training client
-
-                            self._training_servers[robot_name].sim_env_ready() # signal training client sim is ready
-                        
                     if self.debug:
 
                         self.debug_data["cluster_state_update_dt"][robot_name] = \
@@ -401,24 +268,136 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                         
             self.debug_data["time_to_get_states_from_sim"] = time.perf_counter() - self.env_timer
 
-    def reset_cluster(self,
-            env_indxs: torch.Tensor = None,
-            robot_names: List[str]=None):
+    def set_task(self, 
+                task, 
+                cluster_dt: List[float], 
+                use_remote_stepping: List[bool],
+                n_pre_training_steps = 0,
+                backend="torch", 
+                sim_params=None, 
+                init_sim=True, 
+                cluster_client_verbose = False, 
+                cluster_client_debug = False) -> None:
+
+        super().set_task(task, 
+                backend=backend, 
+                sim_params=sim_params, 
+                init_sim=init_sim)
         
-        rob_names = robot_names
+        self.robot_names = self.task.robot_names
+        self.robot_pkg_names = self.task.robot_pkg_names
+        self._use_remote_stepping = use_remote_stepping
+        self._n_init_steps = n_pre_training_steps
         
-        if rob_names is None:
+        if not isinstance(cluster_dt, List):
             
-            rob_names = self.robot_names
+            exception = "cluster_dt must be a list!"
 
-        for i in range(len(rob_names)):
+            Journal.log(self.__class__.__name__,
+                "set_task",
+                exception,
+                LogType.EXCEP,
+                throw_when_excep = True)
+
+        if not (len(cluster_dt) == len(self.robot_names)):
+
+            exception = f"cluster_dt length{len(cluster_dt)} does not match robot number {len(self.robot_names)}!"
+
+            Journal.log(self.__class__.__name__,
+                "set_task",
+                exception,
+                LogType.EXCEP,
+                throw_when_excep = True)
+
+        if not (len(use_remote_stepping) == len(self.robot_names)):
+
+            exception = f"use_remote_stepping length{len(use_remote_stepping)} does not match robot number {len(self.robot_names)}!"
+
+            Journal.log(self.__class__.__name__,
+                "set_task",
+                exception,
+                LogType.EXCEP,
+                throw_when_excep = True)
+
+        # now the task and the simulation is guaranteed to be initialized
+        # -> we have the data to initialize the cluster client
+        for i in range(len(self.robot_names)):
             
-            robot_name = rob_names[i]
+            robot_name = self.robot_names[i]
 
-            control_cluster = self.cluster_servers[robot_name]
+            self.step_counters[robot_name] = 0
+            self._is_first_trigger[robot_name] = True
+                
+            if not isinstance(cluster_dt[i], float):
 
-            control_cluster.reset_controllers(idxs=env_indxs)
+                exception = f"cluster_dt should be a list of float values!"
 
+                Journal.log(self.__class__.__name__,
+                    "set_task",
+                    exception,
+                    LogType.EXCEP,
+                    throw_when_excep = True)
+            
+            self._cluster_dt[robot_name] = cluster_dt[i]
+
+            self._trigger_cluster[robot_name] = True # allow first trigger
+
+            if robot_name in task.omni_contact_sensors:
+
+                n_contact_sensors = task.omni_contact_sensors[robot_name].n_sensors
+                contact_names = task.omni_contact_sensors[robot_name].contact_prims
+            
+            else:
+                
+                n_contact_sensors = -1
+                contact_names = None
+
+            self.cluster_servers[robot_name] = LRhcClusterServer(cluster_size=task.num_envs, 
+                        cluster_dt=self._cluster_dt[robot_name], 
+                        control_dt=task.integration_dt(), 
+                        jnt_names = task.robot_dof_names[robot_name], 
+                        n_contact_sensors = n_contact_sensors,
+                        contact_linknames = contact_names, 
+                        verbose = cluster_client_verbose, 
+                        debug = cluster_client_debug, 
+                        robot_name=robot_name,
+                        use_gpu = task.using_gpu)
+            
+            self.debug_data["cluster_sol_time"][robot_name] = np.nan
+            self.debug_data["cluster_state_update_dt"][robot_name] = np.nan
+
+            if self.debug:
+
+                self.cluster_timers[robot_name] = time.perf_counter()
+            
+            if self._use_remote_stepping[i]:
+                
+                self._remote_steppers[robot_name] = RemoteStepperClnt(namespace=robot_name,
+                                                            verbose=True,
+                                                            vlevel=VLevel.V2)
+                self._remote_resetters[robot_name] = RemoteResetClnt(namespace=robot_name,
+                                                            verbose=True,
+                                                            vlevel=VLevel.V2)
+                self._remote_reset_requests[robot_name] = RemoteResetRequest(namespace=robot_name,
+                                                                    n_env=self.num_envs,
+                                                                    is_server=True, 
+                                                                    verbose=True, 
+                                                                    vlevel=VLevel.V2, 
+                                                                    force_reconnection=True, 
+                                                                    safe=False)
+                self._sim_env_ready[robot_name] = SimEnvReadySrvr(namespace=robot_name,
+                                                            verbose=True,
+                                                            vlevel=VLevel.V2,
+                                                            force_reconnection=True)
+            else:
+                
+                self._remote_steppers[robot_name] = None
+                self._sim_env_ready[robot_name] = None
+                self._remote_reset_requests[robot_name] = None
+                self._remote_resetters[robot_name] = None
+        
+        self.using_gpu = task.using_gpu
+     
     def reset(self,
             env_indxs: torch.Tensor = None,
             robot_names: List[str]=None,
@@ -428,7 +407,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
 
         if reset_cluster:
             # reset controllers remotely
-            self.reset_cluster(env_indxs=env_indxs,
+            self._reset_cluster(env_indxs=env_indxs,
                     robot_names=robot_names)
             
         if reset_world:
@@ -453,6 +432,68 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
             for i in range(len(rob_names)):
                 self.step_counters[rob_names[i]] = 0
     
+    def close(self):
+
+        for i in range(len(self.robot_names)):
+
+            self.cluster_servers[self.robot_names[i]].close()
+            
+            if self._use_remote_stepping[i]:
+
+                self._remote_reset_requests[self.robot_names[i]].close()
+                self._remote_resetters[self.robot_names[i]].close()
+                self._remote_steppers[self.robot_names[i]].close()
+                self._sim_env_ready[self.robot_names[i]].close()
+
+        self.task.close() # performs closing steps for task
+
+        super().close() # this has to be called last 
+        # so that isaac's simulation is close properly
+    
+    def _signal_sim_env_is_ready(self,
+                            robot_name: str):
+
+        self._sim_env_ready[robot_name].trigger() # signal training client sim is ready
+        if not self._sim_env_ready[robot_name].wait_ack_from(1):
+            Journal.log(self.__class__.__name__,
+                "_signal_sim_env_is_ready",
+                "Could not ack sim ready reception!",
+                LogType.EXCEP,
+                throw_when_excep = True)
+    
+    def _wait_for_remote_step_req(self,
+                            robot_name: str):
+
+        if not self._remote_steppers[robot_name].wait():
+
+            Journal.log(self.__class__.__name__,
+                "_wait_for_remote_step_req",
+                "Didn't receive any remote step req within timeout!",
+                LogType.EXCEP,
+                throw_when_excep = True)
+    
+    def _wait_for_remote_reset_req(self,
+                            robot_name: str):
+        
+        if not self._remote_resetters[robot_name].wait():
+
+            Journal.log(self.__class__.__name__,
+                "_wait_for_remote_reset_req",
+                "Didn't receive any remote reset req within timeout!",
+                LogType.EXCEP,
+                throw_when_excep = True)
+            
+        reset_requests = self._remote_reset_requests[robot_name]
+        reset_requests.synch_all(read=True, wait=True) # read reset requests from shared mem
+        to_be_reset = reset_requests.to_be_reset()
+        if to_be_reset is not None:
+            self.reset(env_indxs=to_be_reset,
+                robot_names=[robot_name],
+                reset_world=False,
+                reset_cluster=True)
+            
+        self._remote_resetters[robot_name].ack() # signal reset performed
+        
     def _init_safe_cluster_actions(self,
                             robot_name: str):
 
@@ -522,7 +563,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                         warning,
                         LogType.WARN,
                         throw_when_excep = True)
-            
+        
     def _update_cluster_state(self, 
                     robot_name: str, 
                     env_indxs: torch.Tensor = None):
@@ -592,3 +633,21 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
         # Updating contact state for selected contact links
         self._update_contact_state(robot_name=robot_name,
                             env_indxs=env_indxs)
+
+    def _reset_cluster(self,
+            env_indxs: torch.Tensor = None,
+            robot_names: List[str]=None):
+        
+        rob_names = robot_names
+        
+        if rob_names is None:
+            
+            rob_names = self.robot_names
+
+        for i in range(len(rob_names)):
+            
+            robot_name = rob_names[i]
+
+            control_cluster = self.cluster_servers[robot_name]
+
+            control_cluster.reset_controllers(idxs=env_indxs)

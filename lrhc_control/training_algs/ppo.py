@@ -149,7 +149,8 @@ class CleanPPO():
             lastgaelam = 0
 
             for t in reversed(range(self._env_timesteps)):
-
+                
+                # loop through transitions
                 if t == self._env_timesteps - 1: # last step
 
                     nextnonterminal = 1.0 - self._next_done 

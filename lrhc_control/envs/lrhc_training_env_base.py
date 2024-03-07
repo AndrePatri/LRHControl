@@ -6,7 +6,11 @@ from control_cluster_bridge.utilities.shared_data.rhc_data import RobotState
 from control_cluster_bridge.utilities.shared_data.rhc_data import RhcRefs
 from control_cluster_bridge.utilities.shared_data.rhc_data import RhcStatus
 
-from lrhc_control.utils.shared_data.remote_env_stepper import RemoteEnvStepper
+from lrhc_control.utils.shared_data.remote_stepping import RemoteStepperSrvr
+from lrhc_control.utils.shared_data.remote_stepping import RemoteResetSrvr
+from lrhc_control.utils.shared_data.remote_stepping import RemoteResetRequest
+from lrhc_control.utils.shared_data.remote_stepping import SimEnvReadyClnt
+
 from lrhc_control.utils.shared_data.agent_refs import AgentRefs
 from lrhc_control.utils.shared_data.training_env import SharedTrainingEnvInfo
 
@@ -74,6 +78,9 @@ class LRhcTrainingEnvBase():
         self._rhc_status = None
 
         self._remote_stepper = None
+        self._remote_resetter = None
+        self._remote_reset_req = None
+        self._sim_env_ready = None
 
         self._agent_refs = None
 
@@ -136,9 +143,7 @@ class LRhcTrainingEnvBase():
 
                 self._first_step()
             
-            self._remote_stepper.step() 
-
-            self._remote_stepper.wait()
+            self._remote_sim_step() # 1 remote sim. step
     
     def _debug(self):
         
@@ -154,6 +159,32 @@ class LRhcTrainingEnvBase():
         self._tot_rewards.synch_all(read=False, wait=True)
         self._rewards.synch_all(read=False, wait=True)
     
+    def _remote_sim_step(self):
+
+        self._remote_stepper.trigger() # triggers simulation + RHC
+        if not self._remote_stepper.wait_ack_from(1):
+            Journal.log(self.__class__.__name__,
+            "_remote_sim_step",
+            "Remote sim. env step ack not received within timeout",
+            LogType.EXCEP,
+            throw_when_excep = True)
+
+    def _remote_reset(self,
+                reset_mask: torch.Tensor):
+
+        reset_reqs = self._remote_reset_req.get_torch_view()
+        reset_reqs[:, :] = reset_mask # remotely reset envs for which 
+        # the episode is terminated
+        self._remote_reset_req.synch_all(read=False, wait=True)
+
+        self._remote_resetter.trigger()
+        if not self._remote_resetter.wait_ack_from(1): # remote reset completed
+            Journal.log(self.__class__.__name__,
+                "_post_step",
+                "Remote reset did not complete within the prescibed timeout!",
+                LogType.EXCEP,
+                throw_when_excep = False)
+            
     def step(self, 
             action, 
             reset: bool = False):
@@ -170,9 +201,7 @@ class LRhcTrainingEnvBase():
         
         self._apply_actions_to_rhc() # apply agent actions to rhc controller
 
-        self._remote_stepper.step() # triggers simulation + RHC stepping
-
-        self._remote_stepper.wait() # wait for step completion
+        self._remote_sim_step() # blocking
 
         self._get_observations()
         self._clamp_obs() # to avoid bad things
@@ -184,6 +213,31 @@ class LRhcTrainingEnvBase():
 
         self._post_step() # post step operations
     
+    def _post_step(self):
+        
+        self._episode_counters.increment() # first increment counters
+
+        self._check_truncations() 
+        self._check_terminations()
+
+        terminated = self._terminations.get_torch_view(gpu=self._use_gpu)
+        truncated = self._truncations.get_torch_view(gpu=self._use_gpu)
+
+        # only ending episode if termination reached (
+        # see "Time Limits in Reinforcement Learning" by F. Pardo)
+
+        episode_finished = torch.logical_or(terminated,
+                                        truncated)
+        self._episode_counters.reset(to_be_reset=episode_finished)
+        
+        # reset target remote envs
+        self._remote_reset(reset_mask=episode_finished)
+        
+        # reset counter if either terminated
+        if self._is_debug:
+            
+            self._debug()
+
     def randomize_refs(self,
                 env_indxs: torch.Tensor = None):
 
@@ -203,14 +257,8 @@ class LRhcTrainingEnvBase():
 
         self._episode_counters.reset()
 
-        self._remote_reset()
-
         # self._get_observations()
         # self._clamp_obs() # to avoid bad things
-    
-    def _remote_reset(self):
-
-        pass
 
     def close(self):
         
@@ -449,15 +497,28 @@ class LRhcTrainingEnvBase():
                                 fill_value=0)
         self._agent_refs.run()
         
-        # remote stepper for coordination with sim environment
-        self._remote_stepper = RemoteEnvStepper(namespace=self._namespace,
-                            is_server=False,
+        # remote stepping data
+        self._remote_stepper = RemoteStepperSrvr(namespace=self._namespace,
                             verbose=self._verbose,
                             vlevel=self._vlevel,
-                            safe=self._safe_shared_mem)
+                            force_reconnection=True)
         self._remote_stepper.run()
-        self._remote_stepper.training_env_ready()
-        
+        self._remote_resetter = RemoteResetSrvr(namespace=self._namespace,
+                            verbose=self._verbose,
+                            vlevel=self._vlevel,
+                            force_reconnection=True)
+        self._remote_resetter.run()
+        self._remote_reset_req = RemoteResetRequest(namespace=self._namespace,
+                                            is_server=False, 
+                                            verbose=self._verbose,
+                                            vlevel=self._vlevel,
+                                            safe=False)
+        self._remote_reset_req.run()
+        self._sim_env_ready = SimEnvReadyClnt(namespace=self._namespace, 
+                                        verbose=self._verbose,
+                                        vlevel=self._vlevel)
+        self._sim_env_ready.run()
+
         # episode steps counters 
         self._episode_counters = TimeUnlimitedTasksEpCounter(namespace=self._namespace,
                             n_envs=self._n_envs,
@@ -534,24 +595,25 @@ class LRhcTrainingEnvBase():
         self._obs.get_torch_view(gpu=self._use_gpu).clamp_(-self._obs_threshold, self._obs_threshold)
     
     def _wait_for_sim_env(self):
-
-        while not self._remote_stepper.is_sim_env_ready():
-    
-            warning = f"Waiting for sim env to be ready..."
-
-            Journal.log(self.__class__.__name__,
-                "_wait_for_sim_env",
-                warning,
-                LogType.WARN,
-                throw_when_excep = True)
-            
-            self._perf_timer.clock_sleep(2000000000) # nanoseconds 
         
-        info = f"Sim. env ready."
-
         Journal.log(self.__class__.__name__,
             "_wait_for_sim_env",
-            info,
+            "Waiting for remote sim env to be ready...",
+            LogType.INFO,
+            throw_when_excep = True)
+    
+        # check remote sim env is ready
+        if not self._sim_env_ready.wait():
+            Journal.log(self.__class__.__name__,
+                "_wait_for_sim_env",
+                "Remote sim. env not ready within timeout!!",
+                LogType.EXCEP,
+                throw_when_excep = True)
+        self._sim_env_ready.ack()
+    
+        Journal.log(self.__class__.__name__,
+            "_wait_for_sim_env",
+            "Remote sim. env ready.",
             LogType.INFO,
             throw_when_excep = True)
     
@@ -604,32 +666,6 @@ class LRhcTrainingEnvBase():
             self._terminations.synch_mirror(from_gpu=True) 
         
         self._terminations.synch_all(read=False, wait = True) # writes on shared mem
-
-    def _post_step(self):
-        
-        self._episode_counters.increment() # first increment counters
-
-        self._check_truncations() 
-        self._check_terminations()
-
-        terminated = self._terminations.get_torch_view(gpu=self._use_gpu)
-        truncated = self._truncations.get_torch_view(gpu=self._use_gpu)
-
-        # only ending episode if termination reached (
-        # see "Time Limits in Reinforcement Learning" by F. Pardo)
-
-        episode_finished = torch.logical_or(terminated,
-                                        truncated)
-        self._episode_counters.reset(to_be_reset=episode_finished)
-        
-        stepper = self._remote_stepper.get_stepper()
-        stepper.reset(env_mask=episode_finished) # remotely reset envs for which 
-        # the episode is terminated
-
-        # reset counter if either terminated
-        if self._is_debug:
-            
-            self._debug()
 
     @abstractmethod
     def _apply_actions_to_rhc(self):
