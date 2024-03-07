@@ -106,6 +106,8 @@ class LRhcTrainingEnvBase():
         self._base_info["final_info"] = None
         self._infos = []
         
+        self._timeout = -1
+
         self._attach_to_shared_mem()
 
         self._init_obs()
@@ -162,7 +164,7 @@ class LRhcTrainingEnvBase():
     def _remote_sim_step(self):
 
         self._remote_stepper.trigger() # triggers simulation + RHC
-        if not self._remote_stepper.wait_ack_from(1):
+        if not self._remote_stepper.wait_ack_from(1, self._timeout):
             Journal.log(self.__class__.__name__,
             "_remote_sim_step",
             "Remote sim. env step ack not received within timeout",
@@ -178,7 +180,7 @@ class LRhcTrainingEnvBase():
         self._remote_reset_req.synch_all(read=False, wait=True)
 
         self._remote_resetter.trigger()
-        if not self._remote_resetter.wait_ack_from(1): # remote reset completed
+        if not self._remote_resetter.wait_ack_from(1, self._timeout): # remote reset completed
             Journal.log(self.__class__.__name__,
                 "_post_step",
                 "Remote reset did not complete within the prescibed timeout!",
@@ -603,7 +605,7 @@ class LRhcTrainingEnvBase():
             throw_when_excep = True)
     
         # check remote sim env is ready
-        if not self._sim_env_ready.wait():
+        if not self._sim_env_ready.wait(self._timeout):
             Journal.log(self.__class__.__name__,
                 "_wait_for_sim_env",
                 "Remote sim. env not ready within timeout!!",
