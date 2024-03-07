@@ -81,10 +81,6 @@ class RemoteStepperSrvr(ProducerWrapper):
             vlevel=vlevel,
             force_reconnection=force_reconnection)
 
-    def wait_ack_from(self, n_consumers, ms_timeout = -1):
-
-        super().wait_ack_from(n_consumers, ms_timeout)
-
 class RemoteStepperClnt(ConsumerWrapper):
 
     def __init__(self,

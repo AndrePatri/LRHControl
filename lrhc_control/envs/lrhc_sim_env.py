@@ -49,7 +49,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
         self._cluster_dt = {}
 
         # remote simulation
-        self._timeout = 10000
+        self._timeout = 30000
         self._start_remote_stepping = False
         self._n_init_steps = 0 # n steps to be performed before waiting for remote stepping
         self._init_step_counter = 0
@@ -125,8 +125,6 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
 
                             self._wait_for_remote_step_req(robot_name=robot_name)
                             
-                            self._wait_for_remote_reset_req(robot_name=robot_name)
-
                             # when training controllers have to be kept always active
                             control_cluster.activate_controllers(idxs=control_cluster.get_inactive_controllers())
 
@@ -218,6 +216,8 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                             
                             self._remote_steppers[robot_name].ack() # signal stepping is finished
                             
+                            self._wait_for_remote_reset_req(robot_name=robot_name)
+
                         if self._init_step_counter < self._n_init_steps and \
                                 not self._start_remote_stepping:
                     

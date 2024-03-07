@@ -106,7 +106,7 @@ class LRhcTrainingEnvBase():
         self._base_info["final_info"] = None
         self._infos = []
         
-        self._timeout = 10000
+        self._timeout = 30000
 
         self._attach_to_shared_mem()
 
