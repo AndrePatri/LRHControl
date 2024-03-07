@@ -49,7 +49,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
         self._cluster_dt = {}
 
         # remote simulation
-        self._timeout = 100000
+        self._timeout = 10000
         self._start_remote_stepping = False
         self._n_init_steps = 0 # n steps to be performed before waiting for remote stepping
         self._init_step_counter = 0
@@ -455,7 +455,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                             robot_name: str):
 
         self._sim_env_ready[robot_name].trigger() # signal training client sim is ready
-        if not self._sim_env_ready[robot_name].wait_ack_from(1, -1):
+        if not self._sim_env_ready[robot_name].wait_ack_from(1, self._timeout):
             Journal.log(self.__class__.__name__,
                 "_signal_sim_env_is_ready",
                 "Could not ack sim ready reception!",

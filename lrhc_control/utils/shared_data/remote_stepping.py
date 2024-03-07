@@ -35,7 +35,7 @@ class ProducerWrapper():
     def wait_ack_from(self,
             n_consumers, ms_timeout = -1):
 
-        self._producer.wait_ack_from(n_consumers=n_consumers, 
+        return self._producer.wait_ack_from(n_consumers=n_consumers, 
                             ms_timeout=ms_timeout)
 
 class ConsumerWrapper(): 
@@ -61,7 +61,7 @@ class ConsumerWrapper():
     
     def wait(self, ms_timeout = -1):
 
-        self._consumer.wait(ms_timeout)
+        return self._consumer.wait(ms_timeout)
     
     def ack(self):
 
