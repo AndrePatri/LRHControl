@@ -249,15 +249,6 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                         self._start_training:
 
                             self._training_servers[robot_name].wait_for_step_request() # blocking
-                            
-                            to_be_reset_remotely = self._training_servers[robot_name].get_stepper().get_resets()
-                            
-                            if to_be_reset_remotely is not None:
-
-                                self.reset(env_indxs=to_be_reset_remotely,
-                                    robot_names=[robot_name],
-                                    reset_world=False,
-                                    reset_cluster=True)
 
                             # when training controllers have to be kept always active
                             control_cluster.activate_controllers(idxs=control_cluster.get_inactive_controllers())
@@ -343,8 +334,40 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                     # update cluster state 
                     self._update_cluster_state(robot_name = robot_name, 
                                     env_indxs = active)
+
+                    if self._training_servers[robot_name] is not None:
+
+                        if self._start_training:
+                            
+                            self._training_servers[robot_name].send_step_request() # signal stepping is finished
+                            
+                            self._training_servers[robot_name].wait_reset_request() # waits for remote tr. env.
+                            # to set the reset flags
+
+                            # here we are sure the reset flags were updated
+                            to_be_reset_remotely = self._training_servers[robot_name].get_stepper().get_resets()
+                            if to_be_reset_remotely is not None:
+                                self.reset(env_indxs=to_be_reset_remotely,
+                                    robot_names=[robot_name],
+                                    reset_world=False,
+                                    reset_cluster=True)
+                            
+                            self._training_servers[robot_name].send_reset_request() # signal tr. env reset was 
+                            # completed
+
+                        if self._pre_training_step_counter < self._n_pre_training_steps and \
+                                not self._start_training:
                     
-                    if self._training_servers[robot_name] is None:
+                            self._pre_training_step_counter += 1
+                    
+                        if self._pre_training_step_counter >= self._n_pre_training_steps and \
+                                not self._start_training:
+                            
+                            self._start_training = True # next cluster step we wait for connection to training client
+
+                            self._training_servers[robot_name].sim_env_ready() # signal training client sim is ready
+                    
+                    else:
                         
                         # automatically reset failed controllers if not running training
                         failed = control_cluster.get_failed_controllers()
@@ -358,24 +381,6 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                     
                         control_cluster.activate_controllers(idxs=control_cluster.get_inactive_controllers())
 
-                    if self._training_servers[robot_name] is not None:
-
-                        if self._start_training:
-                            
-                            self._training_servers[robot_name].step() # signal stepping is finished
-                            
-                        if self._pre_training_step_counter < self._n_pre_training_steps and \
-                                not self._start_training:
-                    
-                            self._pre_training_step_counter += 1
-                    
-                        if self._pre_training_step_counter >= self._n_pre_training_steps and \
-                                not self._start_training:
-                            
-                            self._start_training = True # next cluster step we wait for connection to training client
-
-                            self._training_servers[robot_name].sim_env_ready() # signal training client sim is ready
-                        
                     if self.debug:
 
                         self.debug_data["cluster_state_update_dt"][robot_name] = \
