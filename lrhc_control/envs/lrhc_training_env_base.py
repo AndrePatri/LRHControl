@@ -136,13 +136,9 @@ class LRhcTrainingEnvBase():
 
                 self._first_step()
             
-            self._remote_stepper.send_step_request() 
+            self._remote_stepper.step() 
 
-            self._remote_stepper.wait_for_step_request()
-            
-            # dummy reset call (just to allow remote step completion)
-            self._remote_stepper.send_reset_request()
-            self._remote_stepper.wait_reset_request()
+            self._remote_stepper.wait()
     
     def _debug(self):
         
@@ -172,11 +168,11 @@ class LRhcTrainingEnvBase():
         actions = self._actions.get_torch_view(gpu=self._use_gpu)
         actions[:, :] = action # writes actions
         
-        # self._apply_actions_to_rhc() # apply agent actions to rhc controller
+        self._apply_actions_to_rhc() # apply agent actions to rhc controller
 
-        self._remote_stepper.send_step_request() # triggers simulation + RHC stepping
+        self._remote_stepper.step() # triggers simulation + RHC stepping
 
-        self._remote_stepper.wait_for_step_request() # wait for step completion
+        self._remote_stepper.wait() # wait for step completion
 
         self._get_observations()
         self._clamp_obs() # to avoid bad things
@@ -622,17 +618,17 @@ class LRhcTrainingEnvBase():
         # only ending episode if termination reached (
         # see "Time Limits in Reinforcement Learning" by F. Pardo)
 
-        finished_episodes = torch.logical_or(terminated,
+        episode_finished = torch.logical_or(terminated,
                                         truncated)
-        self._episode_counters.reset(to_be_reset=finished_episodes)
+        self._episode_counters.reset(to_be_reset=episode_finished)
         
         stepper = self._remote_stepper.get_stepper()
-        stepper.reset(env_mask=finished_episodes) # remotely reset envs for which 
+        stepper.reset(env_mask=episode_finished) # remotely reset envs for which 
         # the episode is terminated
-        stepper.wait_reset_request() # reset completed
-        
+
         # reset counter if either terminated
         if self._is_debug:
+            
             self._debug()
 
     @abstractmethod

@@ -171,22 +171,22 @@ class RemoteEnvStepper:
             
             self._is_training_env_ready = True
 
-    def wait_for_step_request(self):
+    def wait(self):
         
-        self._stepper.wait_trigger()
+        # if self._is_server:
+            
+        #     self._check_training_env_ready() # blocking only if tr. env. is not ready
+
+        # else:
+            
+        #     self._check_sim_env_ready() # blocking only if sim. env. is not ready
+            
+        self._stepper.wait()
         
-    def send_step_request(self):
+    def step(self):
 
-        self._stepper.trigger()
+        self._stepper.step()
 
-    def wait_reset_request(self):
-
-        self._stepper.wait_reset_request()
-
-    def send_reset_request(self):
-
-        self._stepper.send_reset_request()
-    
     def get_stepper(self):
 
         return self._stepper
