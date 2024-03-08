@@ -172,7 +172,7 @@ class RemoteResetRequest(SharedDataView):
         
         def to_be_reset(self):
 
-            idxs = torch.nonzero(self.get_torch_view())
+            idxs = torch.nonzero(self.get_torch_view().squeeze())
 
             if idxs.shape[0] == 0:
 
