@@ -65,7 +65,6 @@ class CleanPPO():
         self._run_name = run_name
 
         self._hyperparameters.update(custom_args)
-
         self._init_algo_shared_data(static_params=self._hyperparameters)
 
         # create dump directory + copy important files for debug
@@ -85,8 +84,8 @@ class CleanPPO():
                                 eps=1e-5 # small constant added to the optimization
                                 )
         self._init_buffers()
-
-        self._env.reset()
+        
+        # self._env.reset()
         
         self._setup_done = True
 
@@ -118,8 +117,8 @@ class CleanPPO():
         # collect data from current policy over a number of timesteps
         for step in range(self._env_timesteps):
             
-            self._dones[step] = self._next_done
-            self._obs[step] = self._next_obs
+            self._dones[step] = self._env.get_last_terminations()
+            self._obs[step] = self._env.get_last_obs()
 
             # sample actions from latest policy (actor) and state value from latest value function (critic)
             with torch.no_grad(): # no need for gradients computation
@@ -128,39 +127,29 @@ class CleanPPO():
             self._actions[step] = action.reshape(-1, 1)
             self._logprobs[step] = logprob.reshape(-1, 1)
             
-            # perform a step of the (vectorized) env
+            # perform a step of the (vectorized) env and retrieve 
             self._env.step(action) 
 
             # retrieve new observations, rewards and termination/truncation states
-            self._next_obs = self._env.get_last_obs()
             self._rewards[step] = self._env.get_last_rewards()
-            # self._next_done[: ,:] = torch.logical_or(self._env.get_last_terminations(),
-            #                             self._env.get_last_truncations()) # either terminated or truncated
-            self._next_done[: ,:] = self._env.get_last_terminations() # done only if episode terminated 
-            # (see "Time Limits in Reinforcement Learning" by F. Pardo)
 
         self._bootstrap_dt = time.perf_counter() - self._start_time
 
         # bootstrap: compute advantages and returns
         with torch.no_grad():
             
-            next_value = self._agent.get_value(self._next_obs).reshape(-1, 1) # value at last step
+            # get value of last transition in batch
+            next_value = self._agent.get_value(self._env.get_last_obs()).reshape(-1, 1)
             self._advantages.zero_() # reset advantages
             lastgaelam = 0
 
             for t in reversed(range(self._env_timesteps)):
-                
-                # loop through transitions
-                if t == self._env_timesteps - 1: # last step
-
-                    nextnonterminal = 1.0 - self._next_done 
+                if t == self._env_timesteps - 1:
+                    nextnonterminal = 1.0 - self._env.get_last_terminations()
                     nextvalues = next_value
-
                 else:
-
                     nextnonterminal = 1.0 - self._dones[t + 1]
                     nextvalues = self._values[t + 1]
-
                 # temporal difference error computation
                 actual_reward_discounted = self._rewards[t] + self._discount_factor * nextvalues * nextnonterminal
                 td_error = actual_reward_discounted - self._values[t] # meas. - est. reward
@@ -487,11 +476,7 @@ class CleanPPO():
         self._obs = torch.full(size=(self._env_timesteps, self._num_envs, self._obs_dim),
                         fill_value=0,
                         dtype=self._dtype,
-                        device=self._torch_device)
-        self._next_obs = torch.full(size=(self._num_envs, self._obs_dim),
-                        fill_value=0,
-                        dtype=self._dtype,
-                        device=self._torch_device)
+                        device=self._torch_device) 
         self._actions = torch.full(size=(self._env_timesteps, self._num_envs, self._actions_dim),
                         fill_value=0,
                         dtype=self._dtype,
@@ -505,10 +490,6 @@ class CleanPPO():
                         dtype=self._dtype,
                         device=self._torch_device)
         self._dones = torch.full(size=(self._env_timesteps, self._num_envs, 1),
-                        fill_value=False,
-                        dtype=self._dtype,
-                        device=self._torch_device)
-        self._next_done = torch.full(size=(self._num_envs, 1),
                         fill_value=False,
                         dtype=self._dtype,
                         device=self._torch_device)
