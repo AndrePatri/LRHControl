@@ -117,7 +117,11 @@ class CleanPPO():
         # collect data from current policy over a number of timesteps
         for step in range(self._env_timesteps):
             
-            self._dones[step] = self._env.get_last_terminations()
+            self._dones[step] = torch.logical_or(self._env.get_last_terminations(), 
+                                        self._env.get_last_truncations()) # note: this is not
+            # correct in theory -> truncations should not be treated as terminations. But introducing
+            # this error (underestimates values of truncation states) makes code cleaner (clearnrl does this)
+
             self._obs[step] = self._env.get_last_obs()
 
             # sample actions from latest policy (actor) and state value from latest value function (critic)

@@ -225,15 +225,12 @@ class LRhcTrainingEnvBase():
 
         terminated = self._terminations.get_torch_view(gpu=self._use_gpu)
         truncated = self._truncations.get_torch_view(gpu=self._use_gpu)
-
-        # only ending episode if termination reached (
-        # see "Time Limits in Reinforcement Learning" by F. Pardo)
-
+        
         episode_finished = torch.logical_or(terminated,
                                         truncated)
         self._episode_counters.reset(to_be_reset=episode_finished)
         
-        # reset target remote envs
+        # reset envs for which episode is finished
         self._remote_reset(reset_mask=episode_finished)
         
         # reset counter if either terminated
