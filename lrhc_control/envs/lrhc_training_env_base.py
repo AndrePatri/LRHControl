@@ -207,7 +207,7 @@ class LRhcTrainingEnvBase():
         self._remote_sim_step() # blocking
 
         self._get_observations()
-        self._clamp_obs() # to avoid bad things
+        self._clamp_obs() # to avoid explosions
 
         self._compute_rewards()
 
@@ -591,9 +591,29 @@ class LRhcTrainingEnvBase():
         self._agent_refs.rob_refs.root_state.synch_all(read=False, wait = True) # write on shared mem
 
     def _clamp_obs(self):
+        
+        obs = self._obs.get_torch_view(gpu=self._use_gpu)
 
-        self._obs.get_torch_view(gpu=self._use_gpu).clamp_(-self._obs_threshold, self._obs_threshold)
+        if self._is_debug:
+            
+            self._check_finite(obs, "observations", False)
+
+        obs.clamp_(-self._obs_threshold, self._obs_threshold)
     
+    def _check_finite(self, 
+                tensor: torch.Tensor,
+                name: str, 
+                throw: bool = False):
+            
+        if not torch.isfinite(tensor).all().item():
+            exception = f"Found nonfinite elements in {name} tensor!!"
+            Journal.log(self.__class__.__name__,
+                "_check_finite",
+                exception,
+                LogType.EXCEP,
+                throw_when_excep = throw)
+            print(tensor)
+
     def _wait_for_sim_env(self):
         
         Journal.log(self.__class__.__name__,

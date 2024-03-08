@@ -489,6 +489,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
         reset_requests.synch_all(read=True, wait=True) # read reset requests from shared mem
         to_be_reset = reset_requests.to_be_reset()
         if to_be_reset is not None:
+
             self.reset(env_indxs=to_be_reset,
                 robot_names=[robot_name],
                 reset_world=False,
