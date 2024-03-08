@@ -23,7 +23,7 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         
         env_name = "LRhcHeightChange"
 
-        n_preinit_steps = 0
+        n_preinit_steps = 1 # one steps of the controllers to properly initialize everything
 
         self._epsi = 1e-6
         
