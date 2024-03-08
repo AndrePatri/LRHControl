@@ -138,15 +138,14 @@ class CleanPPO():
         # bootstrap: compute advantages and returns
         with torch.no_grad():
             
-            # get value of last transition in batch
-            next_value = self._agent.get_value(self._env.get_last_obs()).reshape(-1, 1)
             self._advantages.zero_() # reset advantages
             lastgaelam = 0
 
             for t in reversed(range(self._env_timesteps)):
                 if t == self._env_timesteps - 1:
+                    # handling last transition in env batch
                     nextnonterminal = 1.0 - self._env.get_last_terminations()
-                    nextvalues = next_value
+                    nextvalues = self._agent.get_value(self._env.get_last_obs()).reshape(-1, 1)
                 else:
                     nextnonterminal = 1.0 - self._dones[t + 1]
                     nextvalues = self._values[t + 1]
