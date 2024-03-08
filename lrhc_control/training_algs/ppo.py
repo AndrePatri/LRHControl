@@ -410,13 +410,13 @@ class CleanPPO():
         self._env_name = self._env.name()
 
         self._iterations_n = 250
-        self._env_timesteps = 1024
+        self._env_timesteps = 8192
         self._total_timesteps = self._iterations_n * (self._env_timesteps * self._num_envs)
         self._batch_size =int(self._num_envs * self._env_timesteps)
         self._num_minibatches = self._env.n_envs()
         self._minibatch_size = int(self._batch_size // self._num_minibatches)
 
-        self._base_learning_rate = 1e-3
+        self._base_learning_rate = 3e-4
         self._learning_rate_now = self._base_learning_rate
         self._anneal_lr = True
         self._discount_factor = 0.99
