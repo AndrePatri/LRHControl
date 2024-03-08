@@ -1,4 +1,6 @@
-from lrhc_control.agents.ppo_agent import Agent
+from lrhc_control.agents.ppo_agent import ActorCriticTanh
+from lrhc_control.agents.ppo_agent import ActorCriticLRelu
+
 from lrhc_control.utils.shared_data.algo_infos import SharedRLAlgorithmInfo
 import torch 
 import torch.optim as optim
@@ -15,6 +17,8 @@ import shutil
 
 import time
 
+import wandb
+
 from SharsorIPCpp.PySharsorIPC import LogType
 from SharsorIPCpp.PySharsorIPC import Journal
 from SharsorIPCpp.PySharsorIPC import VLevel
@@ -22,15 +26,23 @@ from SharsorIPCpp.PySharsorIPC import VLevel
 class CleanPPO():
 
     def __init__(self,
-            env):
+            env, 
+            debug = False):
 
         self._env = env 
 
-        self._agent = Agent(obs_dim=self._env.obs_dim(),
+        self._agent = ActorCriticTanh(obs_dim=self._env.obs_dim(),
                         actions_dim=self._env.actions_dim(),
-                        actor_std=3e-4,
+                        actor_std=0.01,
                         critic_std=1.0)
         
+        # self._agent = ActorCriticLRelu(obs_dim=self._env.obs_dim(),
+        #                 actions_dim=self._env.actions_dim(),
+        #                 actor_std=0.01,
+        #                 critic_std=1.0)
+
+        self._debug = debug
+
         self._optimizer = None
 
         self._writer = None
@@ -60,6 +72,20 @@ class CleanPPO():
             custom_args: Dict = {},
             verbose: bool = False):
         
+        if (self._debug):
+            
+            torch.autograd.set_detect_anomaly(self._debug)
+
+            wandb.init(
+                project="LRHControl",
+                entity=None,
+                sync_tensorboard=True,
+                name=run_name,
+                monitor_gym=True,
+                save_code=True,
+            )
+            wandb.watch(self._agent)
+
         self._verbose = verbose
 
         self._run_name = run_name
@@ -148,7 +174,7 @@ class CleanPPO():
             for t in reversed(range(self._env_timesteps)):
                 if t == self._env_timesteps - 1:
                     # handling last transition in env batch
-                    nextnonterminal = 1.0 - self._env.get_last_terminations()
+                    nextnonterminal = 1.0 - self._env.get_last_terminations().to(self._dtype)
                     nextvalues = self._agent.get_value(self._env.get_last_obs()).reshape(-1, 1)
                 else:
                     nextnonterminal = 1.0 - self._dones[t + 1]
@@ -182,9 +208,28 @@ class CleanPPO():
             # indexes for removing correlations
 
             for start in range(0, self._batch_size, self._minibatch_size):
-                
+
                 end = start + self._minibatch_size
                 minibatch_inds = shuffled_batch_indxs[start:end]
+            
+                # nan_mask = torch.isnan(batched_obs[minibatch_inds])
+                # max_value = torch.max(batched_obs[minibatch_inds]).item()
+                # min_value = torch.min(batched_obs[minibatch_inds]).item()
+                # nan_mask2 = torch.isnan(batched_actions[minibatch_inds])
+                # max_value2 = torch.max(batched_actions[minibatch_inds]).item()
+                # min_value2 = torch.min(batched_actions[minibatch_inds]).item()
+                # print("Epoch")
+                # print(epoch)
+                # print("obs nans")
+                # print(torch.sum(nan_mask).item())
+                # print("obs max/min")
+                # print(max_value)
+                # print(min_value)
+                # print("actions nans")
+                # print(torch.sum(nan_mask2).item())
+                # print("actions max/min")
+                # print(max_value2)
+                # print(min_value2)
 
                 _, newlogprob, entropy, newvalue = self._agent.get_action_and_value(
                                                                     batched_obs[minibatch_inds], 
@@ -318,7 +363,7 @@ class CleanPPO():
 
     def _post_step(self):
 
-        self._debug()
+        self._debug_info()
 
         self._it_counter +=1 
         
@@ -349,9 +394,9 @@ class CleanPPO():
             LogType.EXCEP,
             throw_when_excep = True)
     
-    def _debug(self):
+    def _debug_info(self):
         
-        self._elapsed_min = (time.time() - self._start_time_tot) / 60
+        self._elapsed_min = (time.perf_counter() - self._start_time_tot) / 60
         self._env_step_fps = self._batch_size / self._bootstrap_dt
         
         # write debug info to shared memory
@@ -410,7 +455,9 @@ class CleanPPO():
         self._env_name = self._env.name()
 
         self._iterations_n = 250
-        self._env_timesteps = 8192
+        self._env_timesteps = 4096
+        # self._env_timesteps = 8192
+
         self._total_timesteps = self._iterations_n * (self._env_timesteps * self._num_envs)
         self._batch_size =int(self._num_envs * self._env_timesteps)
         self._num_minibatches = self._env.n_envs()
