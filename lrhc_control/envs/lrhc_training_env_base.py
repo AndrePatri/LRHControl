@@ -42,7 +42,7 @@ class LRhcTrainingEnvBase():
             actions_dim: int,
             time_limit_nsteps: int,
             env_name: str = "",
-            n_preinit_steps: int = 1,
+            n_preinit_steps: int = 0,
             verbose: bool = False,
             vlevel: VLevel = VLevel.V1,
             debug: bool = True,
@@ -146,6 +146,10 @@ class LRhcTrainingEnvBase():
                 self._first_step()
             
             self._remote_sim_step() # 1 remote sim. step
+
+            self._send_remote_reset_req() # fake reset request 
+        
+        self._get_observations() # initialize observations
     
     def _debug(self):
         
@@ -179,6 +183,10 @@ class LRhcTrainingEnvBase():
         # the episode is terminated
         self._remote_reset_req.synch_all(read=False, wait=True)
 
+        self._send_remote_reset_req()
+    
+    def _send_remote_reset_req(self):
+
         self._remote_resetter.trigger()
         if not self._remote_resetter.wait_ack_from(1, self._timeout): # remote reset completed
             Journal.log(self.__class__.__name__,
@@ -186,7 +194,7 @@ class LRhcTrainingEnvBase():
                 "Remote reset did not complete within the prescibed timeout!",
                 LogType.EXCEP,
                 throw_when_excep = False)
-            
+
     def step(self, 
             action, 
             reset: bool = False):

@@ -123,7 +123,7 @@ class CleanPPO():
 
             # sample actions from latest policy (actor) and state value from latest value function (critic)
             with torch.no_grad(): # no need for gradients computation
-                action, logprob, _, value = self._agent.get_action_and_value(self._next_obs)
+                action, logprob, _, value = self._agent.get_action_and_value(self._obs[step])
                 self._values[step] = value.reshape(-1, 1)
             self._actions[step] = action.reshape(-1, 1)
             self._logprobs[step] = logprob.reshape(-1, 1)

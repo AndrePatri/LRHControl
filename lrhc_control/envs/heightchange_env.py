@@ -23,11 +23,13 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         
         env_name = "LRhcHeightChange"
 
+        n_preinit_steps = 0
+
         self._epsi = 1e-6
         
         self._cnstr_viol_scale_f = 10
 
-        self._h_error_sensitiveness = 8.0
+        self._h_error_sensitiveness = 2
         self._h_cmd_offset = 0.55
         self._h_cmd_scale = 0.1
 
@@ -41,6 +43,7 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
                     actions_dim=actions_dim,
                     time_limit_nsteps=time_limit_nsteps,
                     env_name=env_name,
+                    n_preinit_steps=n_preinit_steps,
                     verbose=verbose,
                     vlevel=vlevel,
                     use_gpu=use_gpu,
@@ -62,10 +65,10 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         
         agent_action = self.get_last_actions()
 
-        rhc_current_ref = self._rhc_refs.rob_refs.root_state.get_p(gpu=self._use_gpu)
-        rhc_current_ref[:, 2:3] = agent_action * self._h_cmd_scale + self._h_cmd_offset # overwrite z ref
-
-        self._rhc_refs.rob_refs.root_state.set_p(p=rhc_current_ref,
+        rhc_latest_ref = self._rhc_refs.rob_refs.root_state.get_p(gpu=self._use_gpu)
+        rhc_latest_ref[:, 2:3] = agent_action * self._h_cmd_scale + self._h_cmd_offset # overwrite z ref
+        
+        self._rhc_refs.rob_refs.root_state.set_p(p=rhc_latest_ref,
                                             gpu=self._use_gpu) # write refs
 
         if self._use_gpu:

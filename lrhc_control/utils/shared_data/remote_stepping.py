@@ -67,7 +67,7 @@ class ConsumerWrapper():
 
         self._consumer.ack()
 
-class RemoteStepperSrvr(ProducerWrapper):
+class RemoteStepperSrvr(Producer):
 
     def __init__(self,
             namespace: str,
@@ -81,7 +81,7 @@ class RemoteStepperSrvr(ProducerWrapper):
             vlevel=vlevel,
             force_reconnection=force_reconnection)
 
-class RemoteStepperClnt(ConsumerWrapper):
+class RemoteStepperClnt(Consumer):
 
     def __init__(self,
             namespace: str,
@@ -93,7 +93,7 @@ class RemoteStepperClnt(ConsumerWrapper):
             verbose=verbose,
             vlevel=vlevel)
     
-class SimEnvReadySrvr(ProducerWrapper):
+class SimEnvReadySrvr(Producer):
     
     def __init__(self,
             namespace: str,
@@ -107,7 +107,7 @@ class SimEnvReadySrvr(ProducerWrapper):
             vlevel=vlevel,
             force_reconnection=force_reconnection)
 
-class SimEnvReadyClnt(ConsumerWrapper):
+class SimEnvReadyClnt(Consumer):
     
     def __init__(self,
             namespace: str,
@@ -119,7 +119,7 @@ class SimEnvReadyClnt(ConsumerWrapper):
             verbose=verbose,
             vlevel=vlevel)
 
-class RemoteResetSrvr(ProducerWrapper):
+class RemoteResetSrvr(Producer):
     
     def __init__(self,
             namespace: str,
@@ -133,7 +133,7 @@ class RemoteResetSrvr(ProducerWrapper):
             vlevel=vlevel,
             force_reconnection=force_reconnection)
 
-class RemoteResetClnt(ConsumerWrapper):
+class RemoteResetClnt(Consumer):
     
     def __init__(self,
             namespace: str,

@@ -521,17 +521,6 @@ class HybridQuadRhc(RHController):
 
             self.sol_counter = self.sol_counter + 1
 
-            if self.publish_sol:
-
-                self._publish_rhc_sol_data() 
-                self._publish_rob_state_data()
-
-            if self._debug_sol:
-                
-                # we update cost and constr. dictionaries
-                self.rhc_costs.update(self._ti.solver_rti.getCostsValues())
-                self.rhc_constr.update(self._ti.solver_rti.getConstraintsValues())
-
             return True
         
         except Exception as e:
@@ -546,15 +535,19 @@ class HybridQuadRhc(RHController):
                                 exception,
                                 LogType.EXCEP,
                                 throw_when_excep = False)
+        
+        if self.publish_sol:
+
+            self._publish_rhc_sol_data() 
+            self._publish_rob_state_data()
+
+        if self._debug_sol:
             
-            if self.publish_sol:
-                
-                # we publish solution anyway ??
+            # we update cost and constr. dictionaries
+            self.rhc_costs.update(self._ti.solver_rti.getCostsValues())
+            self.rhc_constr.update(self._ti.solver_rti.getConstraintsValues())
 
-                self._publish_rhc_sol_data() 
-                self._publish_rob_state_data()
-
-            return False
+        return False
 
     def _reset(self):
         

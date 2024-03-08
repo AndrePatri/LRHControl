@@ -126,14 +126,13 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                             self._wait_for_remote_step_req(robot_name=robot_name)
                             
                             # when training controllers have to be kept always active
-                            control_cluster.activate_controllers(idxs=control_cluster.get_inactive_controllers())
+                            # control_cluster.activate_controllers(idxs=control_cluster.get_inactive_controllers())
 
                     control_cluster.pre_trigger_steps() # performs pre-trigger steps, like retrieving
                     # values of some activation flags
                         
                     just_activated = control_cluster.get_just_activated() # retrieves just 
                     # activated controllers
-           
                     just_deactivated = control_cluster.get_just_deactivated() # retrieves just 
                     # deactivated controllers
                         
@@ -186,6 +185,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
         for i in range(len(self.robot_names)):
             
             robot_name = self.robot_names[i]
+            control_cluster = self.cluster_servers[robot_name]
 
             # this runs at a dt = control_cluster dt
             if control_cluster.is_cluster_instant(self.step_counters[robot_name]):
@@ -216,17 +216,20 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                             
                             self._remote_steppers[robot_name].ack() # signal stepping is finished
                             
-                            self._wait_for_remote_reset_req(robot_name=robot_name)
+                            self._process_remote_reset_req(robot_name=robot_name)
 
                         if self._init_step_counter < self._n_init_steps and \
                                 not self._start_remote_stepping:
                     
                             self._init_step_counter += 1
                     
-                        if self._init_step_counter >= self._n_init_steps and \
+                        if self._init_step_counter == self._n_init_steps and \
                                 not self._start_remote_stepping:
                             
                             self._start_remote_stepping = True # next cluster step we wait for connection to training client
+
+                            # activate inactive controllers
+                            control_cluster.activate_controllers(idxs=control_cluster.get_inactive_controllers())
 
                             self._signal_sim_env_is_ready(robot_name=robot_name) # signal sim is ready
                     
@@ -466,20 +469,18 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                             robot_name: str):
 
         if not self._remote_steppers[robot_name].wait(self._timeout):
-
             Journal.log(self.__class__.__name__,
                 "_wait_for_remote_step_req",
                 "Didn't receive any remote step req within timeout!",
                 LogType.EXCEP,
                 throw_when_excep = True)
     
-    def _wait_for_remote_reset_req(self,
+    def _process_remote_reset_req(self,
                             robot_name: str):
         
         if not self._remote_resetters[robot_name].wait(self._timeout):
-
             Journal.log(self.__class__.__name__,
-                "_wait_for_remote_reset_req",
+                "_process_remote_reset_req",
                 "Didn't receive any remote reset req within timeout!",
                 LogType.EXCEP,
                 throw_when_excep = True)
@@ -492,7 +493,11 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                 robot_names=[robot_name],
                 reset_world=False,
                 reset_cluster=True)
-            
+        
+        control_cluster = self.cluster_servers[robot_name]
+        control_cluster.activate_controllers(idxs=to_be_reset) # activate controllers
+        # (necessary if failed)
+
         self._remote_resetters[robot_name].ack() # signal reset performed
         
     def _init_safe_cluster_actions(self,
