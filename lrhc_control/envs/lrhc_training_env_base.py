@@ -133,8 +133,6 @@ class LRhcTrainingEnvBase():
     
     def _init_step(self):
     
-        self.reset()
-
         for i in range(self._n_preinit_steps): # perform some
             # dummy remote env stepping to make sure to have meaningful 
             # initializations (doesn't increment step counter)
@@ -149,8 +147,8 @@ class LRhcTrainingEnvBase():
 
             self._send_remote_reset_req() # fake reset request 
         
-        self._get_observations() # initialize observations
-    
+        self.reset()
+
     def _debug(self):
         
         if self._use_gpu:
@@ -196,12 +194,7 @@ class LRhcTrainingEnvBase():
                 throw_when_excep = False)
 
     def step(self, 
-            action, 
-            reset: bool = False):
-        
-        if reset:
-
-            self.reset()
+            action):
 
         self._check_controllers_registered() # does not make sense to run training
         # if we lost some controllers
@@ -267,8 +260,8 @@ class LRhcTrainingEnvBase():
 
         self._episode_counters.reset()
 
-        # self._get_observations()
-        # self._clamp_obs() # to avoid bad things
+        self._get_observations() # initialize observations
+        self._clamp_obs() # to avoid bad things
 
     def close(self):
         
