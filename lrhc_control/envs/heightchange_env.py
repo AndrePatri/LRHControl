@@ -59,7 +59,7 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         paths = []
 
         paths.append(self._this_child_path)
-
+        
         paths.append(super()._get_this_file_path())
 
         return paths
