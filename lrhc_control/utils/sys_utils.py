@@ -9,3 +9,7 @@ class PathsGetter:
         self.DEFAULT_RVIZ_CONFIG_PATH = os.path.join(self.PACKAGE_ROOT_DIR, 
                                             'cfg', 
                                             'config.rviz')
+        
+        self.CONFIGPATH = os.path.join(self.PACKAGE_ROOT_DIR, 
+                                        'config', 
+                                        'kyon_horizon_wheel_config.yaml')

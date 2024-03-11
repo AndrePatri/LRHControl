@@ -1,5 +1,5 @@
-from lrhc_control.agents.ppo_agent import ActorCriticTanh
-from lrhc_control.agents.ppo_agent import ActorCriticLRelu
+from lrhc_control.agents.ppo_agents import ActorCriticTanh
+from lrhc_control.agents.ppo_agents import ActorCriticLRelu
 
 from lrhc_control.utils.shared_data.algo_infos import SharedRLAlgorithmInfo
 import torch 
@@ -23,7 +23,13 @@ from SharsorIPCpp.PySharsorIPC import LogType
 from SharsorIPCpp.PySharsorIPC import Journal
 from SharsorIPCpp.PySharsorIPC import VLevel
 
-class CleanPPO():
+class MemEffPPO():
+
+    # Memory-efficient implementation of PPO built starting from cleanrl's one. Compared with clearl one, it
+    # properly handles bootstrapping at terminations and truncations and it does so in a "memory efficient" way, 
+    # sacrificing code readability for proper algorithm implementation. An alternative way to preserve code readability
+    # and correct implementation together would be to store current and next observations in separate buffer, basically 
+    # doubling the GPU memory requirement. This is why we call this implementation "memory efficient".
 
     def __init__(self,
             env, 
@@ -31,15 +37,15 @@ class CleanPPO():
 
         self._env = env 
 
-        self._agent = ActorCriticTanh(obs_dim=self._env.obs_dim(),
-                        actions_dim=self._env.actions_dim(),
-                        actor_std=0.01,
-                        critic_std=1.0)
-        
-        # self._agent = ActorCriticLRelu(obs_dim=self._env.obs_dim(),
+        # self._agent = ActorCriticTanh(obs_dim=self._env.obs_dim(),
         #                 actions_dim=self._env.actions_dim(),
         #                 actor_std=0.01,
         #                 critic_std=1.0)
+        
+        self._agent = ActorCriticLRelu(obs_dim=self._env.obs_dim(),
+                        actions_dim=self._env.actions_dim(),
+                        actor_std=0.01,
+                        critic_std=1.0)
 
         self._debug = debug
 

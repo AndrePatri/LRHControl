@@ -3,7 +3,7 @@
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # should match env name from YAML
-ENV_NAME=lrhc_examples_isaac2023.1.1
+ENV_NAME=LRHControlMambaEnv
 
 pushd "${ROOT_DIR}/"
 
@@ -16,7 +16,7 @@ pushd "${ROOT_DIR}/"
     mamba remove -y -n "${ENV_NAME}" --all
 
     # create the env from YAML
-    mamba env create -f ./lrhc_examples_mamba_env.yml
+    mamba env create -f ./mamba_env.yml
 
     # activate env
     # mamba activate "${ENV_NAME}"
