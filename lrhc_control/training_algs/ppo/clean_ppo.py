@@ -105,7 +105,7 @@ class CleanPPO():
                 name=run_name,
                 monitor_gym=True,
                 save_code=True,
-                dir=drop_dir_name
+                dir=self._drop_dir
             )
             wandb.watch(self._agent)
 
