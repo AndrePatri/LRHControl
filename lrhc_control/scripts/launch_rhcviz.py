@@ -16,7 +16,7 @@ def set_affinity(cores):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description="Multi Robot Visualizer")
-    parser.add_argument('--robot_name', type=str)
+    parser.add_argument('--ns', type=str, help='Namespace to be used for cluster shared memory')
     parser.add_argument('--dpath', type=str)
     parser.add_argument('--nodes_perc', type=int, default=100)
     parser.add_argument('--cores', nargs='+', type=int, help='List of CPU cores to set 	affinity to')
@@ -30,7 +30,7 @@ if __name__ == '__main__':
     
     rhcviz = RHCViz(urdf_file_path=args.dpath, 
         rviz_config_path=syspaths.DEFAULT_RVIZ_CONFIG_PATH,
-        namespace=args.robot_name, 
+        namespace=args.ns, 
         basename="RHCViz", 
         rate = 100,
         cpu_cores = [0],

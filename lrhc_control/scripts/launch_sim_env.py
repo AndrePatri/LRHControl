@@ -26,8 +26,12 @@ if __name__ == '__main__':
     parser.add_argument('--robot_pkg_name', type=str, help='Name of the package for robot description')
     parser.add_argument('--num_envs', type=int)
     parser.add_argument('--cores', nargs='+', type=int, help='List of CPU cores to set 	affinity to')
-    parser.add_argument('--contact_list', nargs='+', default=["wheel_1", "wheel_2", "wheel_3", "wheel_4"],
+    parser.add_argument('--contacts_list', nargs='+', default=["wheel_1", "wheel_2", "wheel_3", "wheel_4"],
                         help='Contact sensor list (needs to mathc an available body)')
+    parser.add_argument('--jnt_imp_cntrl_deb', type=bool, 
+                        help='Whether to debug jnt imp control on shared mem (requires frequent copies from GPU to CPU',
+                        default=False)
+
 
     args = parser.parse_args()
 
@@ -96,7 +100,7 @@ if __name__ == '__main__':
     robot_names = [robot_name]
 
     contact_prims = {} # contact sensors to be added
-    contact_prims[robot_name] = args.contact_list # foot contact sensors
+    contact_prims[robot_name] = args.contacts_list # foot contact sensors
     contact_offsets = {}
     contact_offsets[robot_name] = {}
     for i in range(0, len(contact_prims[robot_name])):
@@ -145,7 +149,7 @@ if __name__ == '__main__':
             device = device, 
             use_diff_velocities = False, # whether to differentiate velocities numerically
             dtype=dtype_torch,
-            debug_mode_jnt_imp = True) # writes jnt imp. controller info on shared mem (overhead)
+            debug_mode_jnt_imp = args.jnt_imp_cntrl_deb) # writes jnt imp. controller info on shared mem (overhead)
             # and profiles it
 
     env.set_task(task, 

@@ -76,8 +76,24 @@ class CleanPPO():
     def setup(self,
             run_name: str,
             custom_args: Dict = {},
-            verbose: bool = False):
-        
+            verbose: bool = False,
+            drop_dir_name: str = None):
+
+        self._verbose = verbose
+
+        self._run_name = run_name
+
+        self._hyperparameters.update(custom_args)
+        self._init_algo_shared_data(static_params=self._hyperparameters)
+
+        # create dump directory + copy important files for debug
+        self._init_drop_dir(drop_dir_name)
+
+        # seeding
+        random.seed(self._seed)
+        torch.manual_seed(self._seed)
+        torch.backends.cudnn.deterministic = self._torch_deterministic
+
         if (self._debug):
             
             torch.autograd.set_detect_anomaly(self._debug)
@@ -89,23 +105,9 @@ class CleanPPO():
                 name=run_name,
                 monitor_gym=True,
                 save_code=True,
+                dir=drop_dir_name
             )
             wandb.watch(self._agent)
-
-        self._verbose = verbose
-
-        self._run_name = run_name
-
-        self._hyperparameters.update(custom_args)
-        self._init_algo_shared_data(static_params=self._hyperparameters)
-
-        # create dump directory + copy important files for debug
-        self._init_drop_dir()
-
-        # seeding
-        random.seed(self._seed)
-        torch.manual_seed(self._seed)
-        torch.backends.cudnn.deterministic = self._torch_deterministic
 
         self._torch_device = torch.device("cuda" if torch.cuda.is_available() and self._use_gpu else "cpu")
 
@@ -356,10 +358,14 @@ class CleanPPO():
 
     #     return episodic_returns
 
-    def _init_drop_dir(self):
+    def _init_drop_dir(self,
+                drop_dir_name: str = None):
 
-        self._drop_dir = "./" + f"{self.__class__.__name__}/" + self._run_name
-
+        if drop_dir_name is None:
+            # drop to current directory
+            self._drop_dir = "./" + f"{self.__class__.__name__}/" + self._run_name
+        else:
+            self._drop_dir = drop_dir_name + "/" + f"{self.__class__.__name__}/" + self._run_name
         os.makedirs(self._drop_dir)
         self._model_path = self._drop_dir + "/" + self._run_name + "_model"
         env_filepaths = self._env.get_file_paths()

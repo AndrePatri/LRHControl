@@ -17,8 +17,8 @@ directories=(
     "$WS_ROOT/src/LRHControl"
     "$WS_ROOT/src/CoClusterBridge"
     "$WS_ROOT/src/OmniRoboGym"
+    "$WS_ROOT/src/SharsorIPCpp"
     "$WS_ROOT/src/horizon"
-    "$WS_ROOT/build/horizon"
     # Add more directories as needed
 )
 
@@ -114,26 +114,30 @@ source_mamba_env
 execute_command "source ~/.local/share/ov/pkg/isaac_sim-2023.1.1/setup_conda_env.sh"
 execute_command "source $WS_ROOT/setup.bash"
 increase_file_limits_locally 
-prepare_command "reset && python launch_sim_env.py"
+press_enter
+prepare_command "reset && python launch_sim_env.py --robot_name {} --robot_pkg_name {} --num_envs {} --cores {} --contacts_list {} --jnt_imp_cntrl_deb false"
 
 split_v
 execute_command "cd ${WORKING_DIR}"
 source_mamba_env
 execute_command "source $WS_ROOT/setup.bash"
 increase_file_limits_locally
-prepare_command "reset && python launch_control_cluster.py"
+press_enter
+prepare_command "reset && python launch_control_cluster.py --v --force_cores --c_start_idx {} --c_end_idx {} --ns {} --robot_pkg_name {} --size {} --open_loop false --cores {}"
 
 split_h
 execute_command "cd ${WORKING_DIR}"
 source_mamba_env
 increase_file_limits_locally
-prepare_command "reset && python launch_GUI.py"
+press_enter
+prepare_command "reset && python launch_GUI.py --cores {} --ns {}"
 
 split_h
 execute_command "cd ${WORKING_DIR}"
 source_mamba_env
 increase_file_limits_locally
-prepare_command "reset && python launch_keyboard_cmds.py"
+press_enter
+prepare_command "reset && python launch_keyboard_cmds.py --ns {}"
 
 go_to_pane 0 
 
@@ -141,15 +145,18 @@ split_h
 execute_command "cd ${WORKING_DIR}"
 source_mamba_env
 increase_file_limits_locally
-prepare_command "reset && python launch_train_env.py"
+press_enter
+prepare_command "reset && python launch_train_env.py --ns {} --run_name {} --drop_dir {$HOME} --cores {}"
 
 split_h
 execute_command "cd ${WORKING_DIR}"
-execute_command "source /opt/ros/noetic/setup.bash"
+# execute_command "source /opt/ros/noetic/setup.bash"
+execute_command "source /opt/ros/humble/setup.bash"
 execute_command "source $WS_ROOT/setup.bash"
 source_mamba_env
 increase_file_limits_locally
-prepare_command "reset && python launch_rhc2ros_bridge.py kyon0"
+press_enter
+prepare_command "reset && python launch_rhc2ros_bridge.py --ros2 --ns {} --cores {} --dt {}"
 
 # tab 1
 new_tab
@@ -157,7 +164,11 @@ execute_command "cd ${WORKING_DIR}"
 
 split_h
 execute_command "cd ${WORKING_DIR}"
-prepare_command "reset && python3 launch_rhcviz.py --nodes_perc 10 --robot_type kyon --robot_name kyon0 --dpath "
+# execute_command "source /opt/ros/noetic/setup.bash"
+execute_command "source /opt/ros/humble/setup.bash"
+source_mamba_env
+press_enter
+prepare_command "reset && python3 launch_rhcviz.py --ns {} --dpath {} --nodes_perc 10 --cores {}"
 
 # tab2
 new_tab

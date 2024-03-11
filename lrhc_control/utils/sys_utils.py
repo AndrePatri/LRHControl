@@ -5,11 +5,10 @@ class PathsGetter:
     def __init__(self):
         
         self.PACKAGE_ROOT_DIR = os.path.dirname(os.path.dirname(__file__))
-
-        self.DEFAULT_RVIZ_CONFIG_PATH = os.path.join(self.PACKAGE_ROOT_DIR, 
-                                            'cfg', 
-                                            'config.rviz')
         
         self.CONFIGPATH = os.path.join(self.PACKAGE_ROOT_DIR, 
-                                        'config', 
-                                        'kyon_horizon_wheel_config.yaml')
+                                    'controllers',
+                                    'rhc',
+                                    'horizon_based',
+                                    'config', 
+                                    'rhc_horizon_config.yaml')

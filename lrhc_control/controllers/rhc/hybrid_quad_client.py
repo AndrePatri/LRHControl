@@ -22,6 +22,8 @@ class HybridQuadrupedClusterClient(LRhcClusterClient):
 
         self._paths = PathsGetter()
 
+        self._codegen_dir_name = namespace
+
         super().__init__(namespace = namespace, 
                         robot_pkg_name = robot_pkg_name,
                         cluster_size=cluster_size,
@@ -44,7 +46,7 @@ class HybridQuadrupedClusterClient(LRhcClusterClient):
                 srdf_path=self._srdf_path,
                 cluster_size=self.cluster_size,
                 robot_name=self.namespace,
-                codegen_dir=self.codegen_dir() + f"/KyonRhc{idx}",
+                codegen_dir=self.codegen_dir() + f"/{self._codegen_dir_name}Rhc{idx}",
                 config_path = self._paths.CONFIGPATH,
                 dt=0.03,
                 n_nodes=31, 
