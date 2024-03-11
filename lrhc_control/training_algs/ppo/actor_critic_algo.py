@@ -217,6 +217,14 @@ class ActorCriticAlgoBase():
     def _load_model(self,
             model_path: str):
         
+        info = f"Loading model at {self._model_path}"
+
+        Journal.log(self.__class__.__name__,
+            "_load_model",
+            info,
+            LogType.INFO,
+            throw_when_excep = True)
+        
         self._agent.load_state_dict(torch.load(model_path, 
                             map_location=self._torch_device))
         self._agent.eval()
@@ -226,7 +234,7 @@ class ActorCriticAlgoBase():
         random.seed(self._seed) # python seed
         torch.manual_seed(self._seed)
         torch.backends.cudnn.deterministic = self._torch_deterministic
-        torch.use_deterministic_algorithms() # will throw excep. when trying to use non-det. algos
+        # torch.use_deterministic_algorithms(mode=True) # will throw excep. when trying to use non-det. algos
         import numpy as np
         np.random.seed(0)
 
@@ -243,8 +251,10 @@ class ActorCriticAlgoBase():
 
         if self._eval: # drop in same directory
             self._drop_dir = self._drop_dir + "/" + self._run_name + "EvalRun"
-                        
+        
+        aux_drop_dir = self._drop_dir + "/aux"
         os.makedirs(self._drop_dir)
+        os.makedirs(aux_drop_dir)
 
         filepaths = self._env.get_file_paths() # envs implementation
         filepaths.append(self._this_basepath) # algorithm implementation
@@ -255,7 +265,7 @@ class ActorCriticAlgoBase():
 
         aux_dirs = self._env.get_aux_dir()
         for aux_dir in aux_dirs:
-            shutil.copytree(aux_dir, self._drop_dir, dirs_exist_ok=True)
+            shutil.copytree(aux_dir, aux_drop_dir, dirs_exist_ok=True)
 
     def _post_step(self):
 
@@ -360,7 +370,7 @@ class ActorCriticAlgoBase():
         self._env_name = self._env.name()
 
         self._iterations_n = 250
-        self._env_timesteps = 4096
+        self._env_timesteps = 1024
         # self._env_timesteps = 8192
 
         self._total_timesteps = self._iterations_n * (self._env_timesteps * self._num_envs)

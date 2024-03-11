@@ -67,9 +67,11 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
 
     def get_aux_dir(self):
 
+        aux_dirs = []
         paths = PathsGetter()
 
-        return paths.RHCDIR
+        aux_dirs.append(paths.RHCDIR)
+        return aux_dirs
 
     def _apply_actions_to_rhc(self):
         
