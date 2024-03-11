@@ -25,6 +25,8 @@ if __name__ == "__main__":
     parser.add_argument('--run_name', type=str, help='Name of training run', default="LRHCTraining")
     parser.add_argument('--ns', type=str, help='Namespace to be used for shared memory')
     parser.add_argument('--drop_dir', type=str, help='Directory root where all run data will be dumped')
+    parser.add_argument('--eval', action='store_true', help='If set, evaluates policy instead of training')
+    parser.add_argument('--eval_tsteps', type=int, help='N. timestep to evaluate if eval flag is set', default=1e4)
 
     args = parser.parse_args()
     
@@ -42,8 +44,11 @@ if __name__ == "__main__":
         verbose=True,
         drop_dir_name=args.drop_dir)
     
-    try:
-        while not ppo.is_done():
-            ppo.learn()
-    except KeyboardInterrupt:
-        ppo.done() # dumps model in case it's interrupted by user
+    if not args.eval:
+        try:
+            while not ppo.is_done():
+                ppo.learn()
+        except KeyboardInterrupt:
+            ppo.done() # dumps model in case it's interrupted by user
+    else:
+        ppo.eval(n_timesteps=args.eval_tsteps)

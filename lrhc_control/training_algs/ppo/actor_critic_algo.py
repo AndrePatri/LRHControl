@@ -37,6 +37,7 @@ class ActorCriticAlgoBase():
         self._env = env 
         self._seed = seed
 
+        self._eval = False
         # self._agent = ActorCriticTanh(obs_dim=self._env.obs_dim(),
         #                 actions_dim=self._env.actions_dim(),
         #                 actor_std=0.01,
@@ -77,9 +78,12 @@ class ActorCriticAlgoBase():
             run_name: str,
             custom_args: Dict = {},
             verbose: bool = False,
-            drop_dir_name: str = None):
+            drop_dir_name: str = None,
+            eval: bool = False):
 
         self._verbose = verbose
+
+        self._eval = eval
 
         self._run_name = run_name
 
@@ -89,6 +93,9 @@ class ActorCriticAlgoBase():
         # create dump directory + copy important files for debug
         self._init_drop_dir(drop_dir_name)
 
+        if self._eval: # load pretrained model
+            self._load_model(self._model_path)
+            
         # seeding + deterministic behavior for reproducibility
         self._set_all_deterministic()
 
@@ -146,7 +153,7 @@ class ActorCriticAlgoBase():
             self._learning_rate_now = frac * self._base_learning_rate
             self._optimizer.param_groups[0]["lr"] = self._learning_rate_now
 
-        self._collect_batch()
+        self._play(self._env_timesteps)
 
         self._bootstrap()
 
@@ -154,8 +161,21 @@ class ActorCriticAlgoBase():
 
         self._post_step()
 
+    def eval(self, 
+        n_timesteps: int):
+
+        self._start_time = time.perf_counter()
+
+        if not self._setup_done:
+        
+            self._should_have_called_setup()
+
+        self._play(n_timesteps)
+
+        self._eval_post_step()
+
     @abstractmethod
-    def _collect_batch(self):
+    def _play(self):
         pass
     
     @abstractmethod
@@ -170,7 +190,7 @@ class ActorCriticAlgoBase():
 
         if self._save_model:
             
-            info = f"Saving model to {self._model_path}"
+            info = f"Saving model and other data to {self._model_path}"
 
             Journal.log(self.__class__.__name__,
                 "done",
@@ -194,33 +214,12 @@ class ActorCriticAlgoBase():
 
         self._is_done = True
 
-    # def _evaluate(self,
-    #         eval_episodes: int,
-    #         run_name: str,
-    #         device: torch.device = torch.device("cpu"),
-    #         capture_video: bool = True,
-    #         gamma: float = 0.99,
-    #     ):
-
-    #     self._agent.load_state_dict(torch.load(self._model_path, map_location=self._torch_device))
-
-    #     self._agent.eval()
-
-    #     self._env.reset()
-
-    #     episodic_returns = []
-    #     while len(episodic_returns) < eval_episodes:
-    #         actions, _, _, _ = agent.get_action_and_value(torch.Tensor(obs).to(device))
-    #         next_obs, _, _, _, infos = envs.step(actions.cpu().numpy())
-    #         if "final_info" in infos:
-    #             for info in infos["final_info"]:
-    #                 if "episode" not in info:
-    #                     continue
-    #                 print(f"eval_episode={len(episodic_returns)}, episodic_return={info['episode']['r']}")
-    #                 episodic_returns += [info["episode"]["r"]]
-    #         obs = next_obs
-
-    #     return episodic_returns
+    def _load_model(self,
+            model_path: str):
+        
+        self._agent.load_state_dict(torch.load(model_path, 
+                            map_location=self._torch_device))
+        self._agent.eval()
 
     def _set_all_deterministic(self):
 
@@ -239,8 +238,13 @@ class ActorCriticAlgoBase():
             self._drop_dir = "./" + f"{self.__class__.__name__}/" + self._run_name
         else:
             self._drop_dir = drop_dir_name + "/" + f"{self.__class__.__name__}/" + self._run_name
-        os.makedirs(self._drop_dir)
+
         self._model_path = self._drop_dir + "/" + self._run_name + "_model"
+
+        if self._eval: # drop in same directory
+            self._drop_dir = self._drop_dir + "/" + self._run_name + "EvalRun"
+                        
+        os.makedirs(self._drop_dir)
 
         filepaths = self._env.get_file_paths() # envs implementation
         filepaths.append(self._this_basepath) # algorithm implementation
@@ -276,6 +280,16 @@ class ActorCriticAlgoBase():
                 LogType.INFO,
                 throw_when_excep = True)
 
+    def _eval_post_step(self):
+        
+        info = f"Evaluation of policy model {self._model_path} completed. Dropping evaluation info to {self._drop_dir}"
+
+        Journal.log(self.__class__.__name__,
+            "_post_step",
+            info,
+            LogType.INFO,
+            throw_when_excep = True)
+            
     def _should_have_called_setup(self):
 
         exception = f"setup() was not called!"

@@ -26,10 +26,11 @@ class CleanPPO(ActorCriticAlgoBase):
 
         self._this_child_path = os.path.abspath(__file__) # overrides parent
 
-    def _collect_batch(self):
+    def _play(self,
+        n_timesteps: int):
 
         # collect data from current policy over a number of timesteps
-        for step in range(self._env_timesteps):
+        for step in range(n_timesteps):
             
             self._dones[step] = torch.logical_or(self._env.get_last_terminations(), 
                                         self._env.get_last_truncations()) # note: this is not
