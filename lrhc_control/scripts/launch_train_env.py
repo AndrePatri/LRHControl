@@ -37,8 +37,8 @@ if __name__ == "__main__":
                     vlevel=VLevel.V2)
 
     ppo = CleanPPO(env=env, debug=True)
-    time_id = datetime.now().strftime('%Y%m%d%H%M%S')
-    ppo.setup(run_name=args.run_name + time_id, 
+    time_id = datetime.now().strftime('d%Y_%m_%d_h%H_m%M_s%S')
+    ppo.setup(run_name=time_id + "-" + args.run_name, 
         verbose=True,
         drop_dir_name=args.drop_dir)
     
