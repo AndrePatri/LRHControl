@@ -12,3 +12,7 @@ class PathsGetter:
                                     'horizon_based',
                                     'config', 
                                     'rhc_horizon_config.yaml')
+
+        self.RHCDIR = os.path.join(self.PACKAGE_ROOT_DIR, 
+                                    'controllers',
+                                    'rhc')

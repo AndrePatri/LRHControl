@@ -125,6 +125,14 @@ class LRhcTrainingEnvBase():
 
         return self._this_path
 
+    def get_file_paths(self):
+        empty_list = []
+        return empty_list
+
+    def get_aux_dirs(self):
+        empty_list = []
+        return empty_list
+    
     def _first_step(self):
 
         self._activate_rhc_controllers()

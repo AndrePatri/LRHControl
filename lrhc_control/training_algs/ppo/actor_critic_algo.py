@@ -249,6 +249,10 @@ class ActorCriticAlgoBase():
         for file in filepaths:
             shutil.copy(file, self._drop_dir)
 
+        aux_dirs = self._env.get_aux_dir()
+        for aux_dir in aux_dirs:
+            shutil.copytree(aux_dir, self._drop_dir, dirs_exist_ok=True)
+
     def _post_step(self):
 
         self._debug_info()

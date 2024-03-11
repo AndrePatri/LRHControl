@@ -1,5 +1,6 @@
 from lrhc_control.envs.lrhc_training_env_base import LRhcTrainingEnvBase
 
+from lrhc_control.utils.sys_utils import PathsGetter
 import torch
 
 from SharsorIPCpp.PySharsorIPC import VLevel
@@ -63,6 +64,12 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         paths.append(super()._get_this_file_path())
 
         return paths
+
+    def get_aux_dir(self):
+
+        paths = PathsGetter()
+
+        return paths.RHCDIR
 
     def _apply_actions_to_rhc(self):
         
