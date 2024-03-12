@@ -28,6 +28,8 @@ if __name__ == '__main__':
     parser.add_argument('--cores', nargs='+', type=int, help='List of CPU cores to set 	affinity to')
     parser.add_argument('--contacts_list', nargs='+', default=["wheel_1", "wheel_2", "wheel_3", "wheel_4"],
                         help='Contact sensor list (needs to mathc an available body)')
+    parser.add_argument('--remote_stepping', action='store_true', 
+                help='Whether to use remote stepping for cluster triggering (to be set during training)')
     parser.add_argument('--cpu_pipeline', action='store_true', help='Whether to use the cpu pipeline (greatly increases GPU RX data)')
     parser.add_argument('--jnt_imp_cntrl_deb', action='store_true', help='Whether to debug jnt imp control on shared mem (requires frequent copies from GPU to CPU')
 
@@ -153,7 +155,7 @@ if __name__ == '__main__':
     env.set_task(task, 
             cluster_dt = [control_clust_dt],
             backend="torch", 
-            use_remote_stepping = [False],
+            use_remote_stepping = [args.remote_stepping],
             n_pre_training_steps = 10, # n of env steps before connecting to training client
             sim_params = sim_params, 
             cluster_client_verbose=True, 
