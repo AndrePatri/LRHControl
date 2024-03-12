@@ -27,6 +27,7 @@ if __name__ == "__main__":
     parser.add_argument('--drop_dir', type=str, help='Directory root where all run data will be dumped')
     parser.add_argument('--eval', action='store_true', help='If set, evaluates policy instead of training')
     parser.add_argument('--eval_tsteps', type=int, help='N. timestep to evaluate if eval flag is set', default=1e4)
+    parser.add_argument('--use_cpu', action='store_true', help='If set, all the training (data included) will be perfomed on CPU')
 
     args = parser.parse_args()
     
@@ -36,7 +37,8 @@ if __name__ == "__main__":
     
     env = LRhcHeightChange(namespace=args.ns,
                     verbose=True,
-                    vlevel=VLevel.V2)
+                    vlevel=VLevel.V2,
+                    use_gpu=not args.use_cpu)
 
     ppo = CleanPPO(env=env, debug=True)
     time_id = datetime.now().strftime('d%Y_%m_%d_h%H_m%M_s%S')
