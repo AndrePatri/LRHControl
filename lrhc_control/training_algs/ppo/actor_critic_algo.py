@@ -379,7 +379,7 @@ class ActorCriticAlgoBase():
         self._env_name = self._env.name()
 
         self._iterations_n = 250
-        self._env_timesteps = 8192
+        self._env_timesteps = 256
 
         self._env_episode_n_steps = self._env.n_steps_per_episode()
         self._total_timesteps = self._iterations_n * (self._env_timesteps * self._num_envs)

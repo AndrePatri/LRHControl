@@ -136,7 +136,7 @@ execute_command "cd ${WORKING_DIR}"
 source_mamba_env
 increase_file_limits_locally
 clear_terminal
-prepare_command "reset && python launch_GUI.py --cores {} --ns {}"
+prepare_command "reset && python launch_GUI.py --cores {} --ns {} --dt_data 0.01 --dt_plot 0.5 --w_length 5.0"
 
 split_h
 execute_command "cd ${WORKING_DIR}"
