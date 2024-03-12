@@ -131,7 +131,11 @@ class LRhcTrainingEnvBase():
     def _get_this_file_path(self):
 
         return self._this_path
+    
+    def n_steps_per_episode(self):
 
+        return self._n_steps_episode
+    
     def get_file_paths(self):
         empty_list = []
         return empty_list

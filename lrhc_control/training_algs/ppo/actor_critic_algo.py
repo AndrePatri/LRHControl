@@ -380,7 +380,8 @@ class ActorCriticAlgoBase():
 
         self._iterations_n = 250
         self._env_timesteps = 8192
-        
+
+        self._env_episode_n_steps = self._env.n_steps_per_episode()
         self._total_timesteps = self._iterations_n * (self._env_timesteps * self._num_envs)
         self._batch_size =int(self._num_envs * self._env_timesteps)
         self._num_minibatches = self._env.n_envs()
@@ -402,13 +403,16 @@ class ActorCriticAlgoBase():
         self._target_kl = None
         
         info = f"\nUsing \n" + \
-            f"total_timesteps {self._total_timesteps}\n" + \
             f"batch_size {self._batch_size}\n" + \
+            f"minibatch_size {self._minibatch_size}\n" + \
             f"num_minibatches {self._num_minibatches}\n" + \
+            f"n steps per env. episode {self._env_episode_n_steps}\n" + \
+            f"n steps per env. rollout {self._env_timesteps}\n" + \
             f"iterations_n {self._iterations_n}\n" + \
-            f"update_epochs {self._update_epochs}\n" + \
-            f"total policy updates {self._update_epochs * self._num_minibatches * self._iterations_n}\n" + \
-            f"episode_n_steps {self._env_timesteps}"
+            f"per batch-update_epochs {self._update_epochs}\n" + \
+            f"per-epoch policy updates {self._num_minibatches}\n" + \
+            f"total policy updates to be performed {self._update_epochs * self._num_minibatches * self._iterations_n}\n" + \
+            f"total_timesteps to be simulated {self._total_timesteps}\n"
             
         Journal.log(self.__class__.__name__,
             "_init_params",
