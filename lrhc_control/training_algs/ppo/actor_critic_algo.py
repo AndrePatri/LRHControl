@@ -160,6 +160,14 @@ class ActorCriticAlgoBase():
 
         self._play(self._env_timesteps)
 
+        # after rolling out policy, we get the episodic reward for debugging purposes
+        self._episodic_rewards = self._env.get_episodic_rewards()
+        self._episodic_rewards_detail = self._env.get_episodic_rewards_detail()
+
+        if self._debug:
+
+            wandb.log({'average_episodic_rewards': wandb.Histogram(self._episodic_rewards.numpy())})
+
         self._bootstrap()
 
         self._improve_policy()
@@ -287,14 +295,15 @@ class ActorCriticAlgoBase():
             self.done()
 
         if self._verbose:
-
+            
             info = f"N. PPO iterations performed: {self._it_counter}/{self._iterations_n}\n" + \
                 f"N. policy updates performed: {self._it_counter * self._update_epochs * self._num_minibatches}/" + \
                 f"{self._update_epochs * self._num_minibatches * self._iterations_n}\n" + \
                 f"N. timesteps performed: {self._it_counter * self._batch_size}/{self._total_timesteps}\n" + \
                 f"Elapsed minutes: {self._elapsed_min}\n" + \
                 f"Estimated remaining training time: " + \
-                f"{self._elapsed_min/60 * 1/self._it_counter * (self._iterations_n-self._it_counter)} hours\n"
+                f"{self._elapsed_min/60 * 1/self._it_counter * (self._iterations_n-self._it_counter)} hours\n" + \
+                f"Average episodic reward across all environments: {torch.sum(self._episodic_rewards)/self._num_envs}"
 
             Journal.log(self.__class__.__name__,
                 "_post_step",
@@ -364,6 +373,9 @@ class ActorCriticAlgoBase():
         self._n_of_played_episodes = 0.0
         self._elapsed_min = 0
 
+        self._episodic_rewards = None
+        self._episodic_rewards_detail = None
+
     def _init_params(self):
 
         self._dtype = self._env.dtype()
@@ -382,12 +394,12 @@ class ActorCriticAlgoBase():
         self._env_name = self._env.name()
 
         self._iterations_n = 250
-        self._env_timesteps = 256
+        self._env_timesteps = 716
 
         self._env_episode_n_steps = self._env.n_steps_per_episode()
         self._total_timesteps = self._iterations_n * (self._env_timesteps * self._num_envs)
         self._batch_size =int(self._num_envs * self._env_timesteps)
-        self._num_minibatches = self._env.n_envs()
+        self._num_minibatches = 28
         self._minibatch_size = int(self._batch_size // self._num_minibatches)
 
         self._base_learning_rate = 3e-4
@@ -412,7 +424,7 @@ class ActorCriticAlgoBase():
             f"n steps per env. episode {self._env_episode_n_steps}\n" + \
             f"n steps per env. rollout {self._env_timesteps}\n" + \
             f"iterations_n {self._iterations_n}\n" + \
-            f"per batch-update_epochs {self._update_epochs}\n" + \
+            f"per-batch update_epochs {self._update_epochs}\n" + \
             f"per-epoch policy updates {self._num_minibatches}\n" + \
             f"total policy updates to be performed {self._update_epochs * self._num_minibatches * self._iterations_n}\n" + \
             f"total_timesteps to be simulated {self._total_timesteps}\n"

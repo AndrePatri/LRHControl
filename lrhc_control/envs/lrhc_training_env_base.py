@@ -22,6 +22,8 @@ from lrhc_control.utils.shared_data.training_env import Terminations
 from lrhc_control.utils.shared_data.training_env import Truncations
 from lrhc_control.utils.shared_data.training_env import EpisodesCounter, TaskRandCounter
 
+from lrhc_control.utils.episodic_rewards import EpisodicRewards
+
 from SharsorIPCpp.PySharsorIPC import VLevel
 from SharsorIPCpp.PySharsorIPC import LogType
 from SharsorIPCpp.PySharsorIPC import Journal
@@ -102,6 +104,8 @@ class LRhcTrainingEnvBase():
         self._rewards = None
         self._terminations = None
         self._truncations = None
+
+        self._episodic_rewards_getter = None
 
         self._obs_threshold = 1 # used for clipping observations
 
@@ -252,6 +256,10 @@ class LRhcTrainingEnvBase():
         
         episode_finished = torch.logical_or(terminated,
                                         truncated)
+        
+        self._episodic_rewards_getter.update(step_reward = self._rewards.get_torch_view(gpu=False),
+                                        is_done = episode_finished)
+                                        
         self._episode_counter.reset(to_be_reset=episode_finished)
         self._randomization_counter.reset(to_be_reset=episode_finished)
 
@@ -267,6 +275,14 @@ class LRhcTrainingEnvBase():
                 env_indxs: torch.Tensor = None):
 
         self._randomize_refs(env_indxs=env_indxs)
+
+    def get_episodic_rewards_detail(self):
+
+        self._episodic_rewards_getter.get() 
+
+    def get_episodic_rewards(self):
+
+        self._episodic_rewards_getter.get_total()
 
     def reset(self):
         
@@ -435,6 +451,9 @@ class LRhcTrainingEnvBase():
         
         self._rewards.run()
         self._tot_rewards.run()
+
+        self._episodic_rewards_getter = EpisodicRewards(reward_tensor=self._rewards.get_torch_view(),
+                                        reward_names=self._get_rewards_names())
     
     def _init_terminations(self):
 
