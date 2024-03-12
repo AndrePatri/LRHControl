@@ -95,8 +95,6 @@ class RhcToViz2Bridge:
 
         self._update_counter = 0
         self._print_frequency = 100
-
-        self._perf_timer = PerfSleep()
         
         self._is_running = False
 
