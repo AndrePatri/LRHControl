@@ -38,14 +38,14 @@ class ActorCriticAlgoBase():
         self._seed = seed
 
         self._eval = False
-        # self._agent = ActorCriticTanh(obs_dim=self._env.obs_dim(),
-        #                 actions_dim=self._env.actions_dim(),
-        #                 actor_std=0.01,
-        #                 critic_std=1.0)
-        self._agent = ActorCriticLRelu(obs_dim=self._env.obs_dim(),
+        self._agent = ActorCriticTanh(obs_dim=self._env.obs_dim(),
                         actions_dim=self._env.actions_dim(),
                         actor_std=0.01,
                         critic_std=1.0)
+        # self._agent = ActorCriticLRelu(obs_dim=self._env.obs_dim(),
+        #                 actions_dim=self._env.actions_dim(),
+        #                 actor_std=0.01,
+        #                 critic_std=1.0)
 
         self._debug = debug
 
@@ -112,7 +112,9 @@ class ActorCriticAlgoBase():
                 save_code=True,
                 dir=self._drop_dir
             )
-            wandb.watch(self._agent)
+            wandb.watch(self._agent.critic)
+            wandb.watch(self._agent.actor_mean)
+            wandb.watch(self._agent.actor_logstd)
 
         self._torch_device = torch.device("cuda" if torch.cuda.is_available() and self._use_gpu else "cpu")
 
@@ -255,6 +257,10 @@ class ActorCriticAlgoBase():
         aux_drop_dir = self._drop_dir + "/aux"
         os.makedirs(self._drop_dir)
         os.makedirs(aux_drop_dir)
+
+        print(self._drop_dir)
+        print(aux_drop_dir)
+        exit()
 
         filepaths = self._env.get_file_paths() # envs implementation
         filepaths.append(self._this_basepath) # algorithm implementation
