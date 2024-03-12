@@ -1,0 +1,16 @@
+{
+"version": "0.2.0",
+"configurations": [
+    {
+        "name": "Python Debugger: Current File",
+        "type": "debugpy",
+        "request": "launch",
+        "program": "lrhc_control/scripts/launch_train_env.py",
+        "args": ["--ns ", "kyon0", "--run_name", "vsoddedebg", "--drop_dir", "/home/Desktop"],
+        // "program": "kyonrlstepping/scripts/RunControlCluster.py",
+        "console": "integratedTerminal",
+        "pythonPath": "/home/andreap/mambaforge/envs/LRHControlMambaEnv/bin/python",  // Update this path
+        "justMyCode": false
+    },
+]
+}
