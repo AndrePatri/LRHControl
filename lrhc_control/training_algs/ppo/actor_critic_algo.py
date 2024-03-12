@@ -289,9 +289,12 @@ class ActorCriticAlgoBase():
         if self._verbose:
 
             info = f"N. PPO iterations performed: {self._it_counter}/{self._iterations_n}\n" + \
-                f"N. policy updates performed: {(self._it_counter+1) * self._update_epochs * self._num_minibatches}\n" + \
-                f"N. timesteps performed: {(self._it_counter+1) * self._batch_size}\n" + \
-                f"Elapsed minutes: {self._elapsed_min}"
+                f"N. policy updates performed: {self._it_counter * self._update_epochs * self._num_minibatches}/" + \
+                f"{self._update_epochs * self._num_minibatches * self._iterations_n}\n" + \
+                f"N. timesteps performed: {self._it_counter * self._batch_size}/{self._total_timesteps}\n" + \
+                f"Elapsed minutes: {self._elapsed_min}\n" + \
+                f"Estimated remaining training time: " + \
+                f"{self._elapsed_min/60 * 1/self._it_counter * (self._iterations_n-self._it_counter)} hours\n"
 
             Journal.log(self.__class__.__name__,
                 "_post_step",
