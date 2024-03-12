@@ -60,19 +60,20 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
     def get_file_paths(self):
 
         paths = []
-
+        path_getter = PathsGetter()
         paths.append(self._this_child_path)
-        
         paths.append(super()._get_this_file_path())
-
+        paths.append(path_getter.SIMENVPATH)
+        for script_path in path_getter.SCRIPTSPATHS:
+            paths.append(script_path)
         return paths
 
     def get_aux_dir(self):
 
         aux_dirs = []
-        paths = PathsGetter()
+        path_getter = PathsGetter()
 
-        aux_dirs.append(paths.RHCDIR)
+        aux_dirs.append(path_getter.RHCDIR)
         return aux_dirs
 
     def _apply_actions_to_rhc(self):

@@ -16,3 +16,17 @@ class PathsGetter:
         self.RHCDIR = os.path.join(self.PACKAGE_ROOT_DIR, 
                                     'controllers',
                                     'rhc')
+        
+        self.SIMENVPATH = os.path.join(self.PACKAGE_ROOT_DIR, 
+                                    'envs',
+                                    'lrhc_sim_env.py')
+        
+        self.SCRIPTSPATHS = [os.path.join(self.PACKAGE_ROOT_DIR, 
+                                    'scripts', 
+                                    'launch_sim_env.py'),
+                            os.path.join(self.PACKAGE_ROOT_DIR, 
+                                    'scripts', 
+                                    'launch_train_env.py'),
+                            os.path.join(self.PACKAGE_ROOT_DIR, 
+                                    'scripts', 
+                                    'launch_control_cluster.py')]
