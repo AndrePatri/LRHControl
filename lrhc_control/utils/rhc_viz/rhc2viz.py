@@ -80,8 +80,6 @@ class RhcToVizBridge:
         self._update_counter = 0
         self._print_frequency = 100
 
-        self._perf_timer = PerfSleep()
-
         self._is_running = False
 
     def _check_selector(self):
@@ -234,7 +232,7 @@ class RhcToVizBridge:
 
                 elapsed_time = time.perf_counter() - start_time
 
-                time_to_sleep_ns = int((update_dt - elapsed_time) * 1e+9) # [ns]
+                time_to_sleep_ns = int((update_dt - elapsed_time) * 1000000000) # [ns]
 
                 if time_to_sleep_ns < 0:
 
@@ -246,7 +244,7 @@ class RhcToVizBridge:
                         LogType.WARN,
                         throw_when_excep = True)
 
-                self._perf_timer.thread_sleep(time_to_sleep_ns) 
+                PerfSleep.thread_sleep(time_to_sleep_ns) 
 
                 continue
 

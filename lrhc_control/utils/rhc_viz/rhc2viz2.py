@@ -260,7 +260,7 @@ class RhcToViz2Bridge:
                         LogType.WARN,
                         throw_when_excep = True)
 
-                self._perf_timer.thread_sleep(time_to_sleep_ns) 
+                PerfSleep.thread_sleep(time_to_sleep_ns) 
 
                 continue
 

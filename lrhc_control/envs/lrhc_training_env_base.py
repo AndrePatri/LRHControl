@@ -52,6 +52,8 @@ class LRhcTrainingEnvBase():
         self._this_path = os.path.abspath(__file__)
 
         self._env_index = 0
+        
+        self._closed = False
 
         self._time_limit_nsteps = time_limit_nsteps
 
@@ -90,8 +92,6 @@ class LRhcTrainingEnvBase():
         
         self._is_first_step = True
 
-        self._perf_timer = PerfSleep()
-
         self._episode_counters = None
         self._obs = None
         self._actions = None
@@ -120,7 +120,11 @@ class LRhcTrainingEnvBase():
         self._wait_for_sim_env()
 
         self._init_step()
-    
+
+    def __del__(self):
+
+        self.close()
+
     def _get_this_file_path(self):
 
         return self._this_path
@@ -197,7 +201,7 @@ class LRhcTrainingEnvBase():
         if not self._remote_resetter.wait_ack_from(1, self._timeout): # remote reset completed
             Journal.log(self.__class__.__name__,
                 "_post_step",
-                "Remote reset did not complete within the prescibed timeout!",
+                "Remote reset did not complete within the prescribed timeout!",
                 LogType.EXCEP,
                 throw_when_excep = False)
 
@@ -270,23 +274,25 @@ class LRhcTrainingEnvBase():
 
     def close(self):
         
-        # close all shared mem. clients
-        self._robot_state.close()
-        self._rhc_refs.close()
-        self._rhc_status.close()
-        
-        self._remote_stepper.close()
-        
-        self._episode_counters.close()
+        if not self._closed:
 
-        # closing env.-specific shared data
-        self._obs.close()
-        self._actions.close()
-        self._rewards.close()
-        self._tot_rewards.close()
+            # close all shared mem. clients
+            self._robot_state.close()
+            self._rhc_refs.close()
+            self._rhc_status.close()
+            
+            self._remote_stepper.close()
+            
+            self._episode_counters.close()
 
-        self._terminations.close()
-        self._truncations.close()
+            # closing env.-specific shared data
+            self._obs.close()
+            self._actions.close()
+            self._rewards.close()
+            self._tot_rewards.close()
+
+            self._terminations.close()
+            self._truncations.close()
 
     def get_last_obs(self):
     
@@ -651,20 +657,19 @@ class LRhcTrainingEnvBase():
 
         n_connected_controllers = self._rhc_status.controllers_counter.torch_view[0, 0].item()
 
-        if not n_connected_controllers == self._n_envs:
+        while not (n_connected_controllers == self._n_envs):
 
-            exception = f"Expected {self._n_envs} controllers to be active during training, " + \
-                f"but got {n_connected_controllers}"
+            warn = f"Expected {self._n_envs} controllers to be active during training, " + \
+                f"but got {n_connected_controllers}. Will wait for all to be connected..."
 
             Journal.log(self.__class__.__name__,
                 "_check_controllers_registered",
-                exception,
-                LogType.EXCEP,
+                warn,
+                LogType.WARN,
                 throw_when_excep = False)
             
-            self.close()
-
-            exit()
+            nsecs = int(1 * 1000000000)
+            PerfSleep.thread_sleep(nsecs) 
     
     def _check_truncations(self):
 
