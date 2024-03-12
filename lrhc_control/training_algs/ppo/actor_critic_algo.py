@@ -73,7 +73,11 @@ class ActorCriticAlgoBase():
 
         self._this_child_path = None
         self._this_basepath = os.path.abspath(__file__)
-        
+    
+    def __del__(self):
+
+        self.done()
+
     def setup(self,
             run_name: str,
             custom_args: Dict = {},
@@ -114,7 +118,6 @@ class ActorCriticAlgoBase():
             )
             wandb.watch(self._agent.critic)
             wandb.watch(self._agent.actor_mean)
-            wandb.watch(self._agent.actor_logstd)
 
         self._torch_device = torch.device("cuda" if torch.cuda.is_available() and self._use_gpu else "cpu")
 
@@ -189,32 +192,36 @@ class ActorCriticAlgoBase():
         pass
 
     def done(self):
+        
+        if not self._is_done:
 
-        if self._save_model:
-            
-            info = f"Saving model and other data to {self._model_path}"
+            if self._save_model:
+                
+                info = f"Saving model and other data to {self._model_path}"
 
-            Journal.log(self.__class__.__name__,
-                "done",
-                info,
-                LogType.INFO,
-                throw_when_excep = True)
+                Journal.log(self.__class__.__name__,
+                    "done",
+                    info,
+                    LogType.INFO,
+                    throw_when_excep = True)
 
-            torch.save(self._agent.state_dict(), self._model_path)
+                torch.save(self._agent.state_dict(), self._model_path)
 
-            info = f"Done."
+                info = f"Done."
 
-            Journal.log(self.__class__.__name__,
-                "done",
-                info,
-                LogType.INFO,
-                throw_when_excep = True)
+                Journal.log(self.__class__.__name__,
+                    "done",
+                    info,
+                    LogType.INFO,
+                    throw_when_excep = True)
 
-        if self._shared_algo_data is not None:
+            if self._shared_algo_data is not None:
 
-            self._shared_algo_data.close() # close shared memory
+                self._shared_algo_data.close() # close shared memory
 
-        self._is_done = True
+            self._env.close()
+
+            self._is_done = True
 
     def _load_model(self,
             model_path: str):
@@ -257,10 +264,6 @@ class ActorCriticAlgoBase():
         aux_drop_dir = self._drop_dir + "/aux"
         os.makedirs(self._drop_dir)
         os.makedirs(aux_drop_dir)
-
-        print(self._drop_dir)
-        print(aux_drop_dir)
-        exit()
 
         filepaths = self._env.get_file_paths() # envs implementation
         filepaths.append(self._this_basepath) # algorithm implementation
@@ -376,7 +379,7 @@ class ActorCriticAlgoBase():
         self._env_name = self._env.name()
 
         self._iterations_n = 250
-        self._env_timesteps = 1024
+        self._env_timesteps = 2048
         # self._env_timesteps = 8192
 
         self._total_timesteps = self._iterations_n * (self._env_timesteps * self._num_envs)

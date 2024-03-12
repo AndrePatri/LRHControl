@@ -44,9 +44,6 @@ dependencies:
     - gym
     - gymnasium
     - stable_baselines3[extra]
-    # - box2d-py
-    - tensorboard
-    - tensorboard-plugin-wit
     - protobuf
     - matplotlib
     - scipy
@@ -58,4 +55,5 @@ dependencies:
     - multiprocess
     - matplotlib
     - wandb
+    - tensorflow
 

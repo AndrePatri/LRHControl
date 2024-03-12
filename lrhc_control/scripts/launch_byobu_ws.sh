@@ -64,6 +64,12 @@ source_mamba_env() {
 
 }
 
+clear_terminal() {
+
+    execute_command "clear"
+
+}
+
 increase_file_limits_locally() {
 
     # for shared memory
@@ -114,7 +120,7 @@ source_mamba_env
 execute_command "source ~/.local/share/ov/pkg/isaac_sim-2023.1.1/setup_conda_env.sh"
 execute_command "source $WS_ROOT/setup.bash"
 increase_file_limits_locally 
-press_enter
+clear_terminal
 prepare_command "reset && python launch_sim_env.py --robot_name {} --robot_pkg_name {} --num_envs {} --cores {} --contacts_list {} --jnt_imp_cntrl_deb false"
 
 split_v
@@ -122,21 +128,21 @@ execute_command "cd ${WORKING_DIR}"
 source_mamba_env
 execute_command "source $WS_ROOT/setup.bash"
 increase_file_limits_locally
-press_enter
+clear_terminal
 prepare_command "reset && python launch_control_cluster.py --v --force_cores --c_start_idx {} --c_end_idx {} --ns {} --robot_pkg_name {} --size {} --open_loop false --cores {}"
 
 split_h
 execute_command "cd ${WORKING_DIR}"
 source_mamba_env
 increase_file_limits_locally
-press_enter
+clear_terminal
 prepare_command "reset && python launch_GUI.py --cores {} --ns {}"
 
 split_h
 execute_command "cd ${WORKING_DIR}"
 source_mamba_env
 increase_file_limits_locally
-press_enter
+clear_terminal
 prepare_command "reset && python launch_keyboard_cmds.py --ns {}"
 
 go_to_pane 0 
@@ -145,7 +151,7 @@ split_h
 execute_command "cd ${WORKING_DIR}"
 source_mamba_env
 increase_file_limits_locally
-press_enter
+clear_terminal
 prepare_command "reset && python launch_train_env.py --ns {} --run_name {} --drop_dir {$HOME} --cores {}"
 
 split_h
@@ -155,7 +161,7 @@ execute_command "source /opt/ros/humble/setup.bash"
 execute_command "source $WS_ROOT/setup.bash"
 source_mamba_env
 increase_file_limits_locally
-press_enter
+clear_terminal
 prepare_command "reset && python launch_rhc2ros_bridge.py --ros2 --ns {} --cores {} --dt {}"
 
 # tab 1
@@ -167,7 +173,7 @@ execute_command "cd ${WORKING_DIR}"
 # execute_command "source /opt/ros/noetic/setup.bash"
 execute_command "source /opt/ros/humble/setup.bash"
 source_mamba_env
-press_enter
+clear_terminal
 prepare_command "reset && python3 launch_rhcviz.py --ns {} --dpath {} --nodes_perc 10 --cores {}"
 
 # tab2
@@ -177,7 +183,7 @@ execute_command "htop"
 split_h
 execute_command "cd ${WORKING_DIR}"
 execute_command "nvtop"
-press_enter
+clear_terminal
 
 # tab 3
 

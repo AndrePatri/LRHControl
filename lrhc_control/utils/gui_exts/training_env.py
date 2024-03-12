@@ -15,7 +15,7 @@ from lrhc_control.utils.shared_data.training_env import Rewards
 from lrhc_control.utils.shared_data.training_env import TotRewards
 from lrhc_control.utils.shared_data.training_env import Truncations
 from lrhc_control.utils.shared_data.training_env import Terminations
-from lrhc_control.utils.shared_data.training_env import TimeUnlimitedTasksEpCounter
+from lrhc_control.utils.shared_data.training_env import EpisodesCounter
 from lrhc_control.utils.shared_data.algo_infos import SharedRLAlgorithmInfo
 
 import numpy as np
@@ -115,7 +115,7 @@ class TrainingEnvData(SharedDataWindow):
                                             safe=False,
                                             with_gpu_mirror=False))
         
-        self.shared_data_clients.append(TimeUnlimitedTasksEpCounter(namespace=self.namespace,
+        self.shared_data_clients.append(EpisodesCounter(namespace=self.namespace,
                                             is_server=False,
                                             verbose=True,
                                             vlevel=VLevel.V2,

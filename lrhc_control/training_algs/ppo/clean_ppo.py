@@ -47,8 +47,8 @@ class CleanPPO(ActorCriticAlgoBase):
             self._logprobs[step] = logprob.reshape(-1, 1)
             
             # perform a step of the (vectorized) env and retrieve 
-            self._env.step(action) 
-
+            self._env.step(action)
+            
             # retrieve new observations, rewards and termination/truncation states
             self._rewards[step] = self._env.get_last_rewards()
     

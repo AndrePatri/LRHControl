@@ -20,7 +20,7 @@ from lrhc_control.utils.shared_data.training_env import Rewards
 from lrhc_control.utils.shared_data.training_env import Actions
 from lrhc_control.utils.shared_data.training_env import Terminations
 from lrhc_control.utils.shared_data.training_env import Truncations
-from lrhc_control.utils.shared_data.training_env import TimeUnlimitedTasksEpCounter
+from lrhc_control.utils.shared_data.training_env import EpisodesCounter, TaskRandCounter
 
 from SharsorIPCpp.PySharsorIPC import VLevel
 from SharsorIPCpp.PySharsorIPC import LogType
@@ -40,7 +40,8 @@ class LRhcTrainingEnvBase():
             namespace: str,
             obs_dim: int,
             actions_dim: int,
-            time_limit_nsteps: int,
+            n_steps_episode: int,
+            n_steps_task_rand: int,
             env_name: str = "",
             n_preinit_steps: int = 0,
             verbose: bool = False,
@@ -55,7 +56,8 @@ class LRhcTrainingEnvBase():
         
         self._closed = False
 
-        self._time_limit_nsteps = time_limit_nsteps
+        self._n_steps_episode = n_steps_episode
+        self._n_steps_task_rand = n_steps_task_rand
 
         self._namespace = namespace
         self._with_gpu_mirror = True
@@ -92,7 +94,8 @@ class LRhcTrainingEnvBase():
         
         self._is_first_step = True
 
-        self._episode_counters = None
+        self._episode_counter = None
+        self._randomization_counter = None
         self._obs = None
         self._actions = None
         self._tot_rewards = None
@@ -149,7 +152,7 @@ class LRhcTrainingEnvBase():
             # dummy remote env stepping to make sure to have meaningful 
             # initializations (doesn't increment step counter)
         
-            self._check_controllers_registered()
+            self._check_controllers_registered(wait=True)
 
             if self._is_first_step:
 
@@ -208,7 +211,7 @@ class LRhcTrainingEnvBase():
     def step(self, 
             action):
 
-        self._check_controllers_registered() # does not make sense to run training
+        ok = self._check_controllers_registered(wait=False) # does not make sense to run training
         # if we lost some controllers
 
         actions = self._actions.get_torch_view(gpu=self._use_gpu)
@@ -227,10 +230,15 @@ class LRhcTrainingEnvBase():
         # info = {}
 
         self._post_step() # post step operations
+
+        return ok
     
     def _post_step(self):
         
-        self._episode_counters.increment() # first increment counters
+        self._episode_counter.increment() # first increment counters
+        self._randomization_counter.increment()
+        self.randomize_refs(env_indxs=self._randomization_counter.time_limits_reached().flatten()) # randomize 
+        # refs of envs that reached the time limit
 
         self._check_truncations() 
         self._check_terminations()
@@ -240,8 +248,9 @@ class LRhcTrainingEnvBase():
         
         episode_finished = torch.logical_or(terminated,
                                         truncated)
-        self._episode_counters.reset(to_be_reset=episode_finished)
-        
+        self._episode_counter.reset(to_be_reset=episode_finished)
+        self._randomization_counter.reset(to_be_reset=episode_finished)
+
         # reset envs for which episode is finished
         self._remote_reset(reset_mask=episode_finished)
         
@@ -267,7 +276,8 @@ class LRhcTrainingEnvBase():
         self._terminations.reset()
         self._truncations.reset()
 
-        self._episode_counters.reset()
+        self._episode_counter.reset()
+        self._randomization_counter.reset()
 
         self._get_observations() # initialize observations
         self._clamp_obs() # to avoid bad things
@@ -283,7 +293,8 @@ class LRhcTrainingEnvBase():
             
             self._remote_stepper.close()
             
-            self._episode_counters.close()
+            self._episode_counter.close()
+            self._randomization_counter.close()
 
             # closing env.-specific shared data
             self._obs.close()
@@ -293,6 +304,8 @@ class LRhcTrainingEnvBase():
 
             self._terminations.close()
             self._truncations.close()
+
+            self._closed = True
 
     def get_last_obs(self):
     
@@ -533,18 +546,30 @@ class LRhcTrainingEnvBase():
                                         vlevel=self._vlevel)
         self._sim_env_ready.run()
 
-        # episode steps counters 
-        self._episode_counters = TimeUnlimitedTasksEpCounter(namespace=self._namespace,
+        # episode steps counters (for detecting episode truncations for 
+        # time limits) 
+        self._episode_counter = EpisodesCounter(namespace=self._namespace,
                             n_envs=self._n_envs,
-                            n_steps_limit=self._time_limit_nsteps,
+                            n_steps_limit=self._n_steps_episode,
                             is_server=True,
                             verbose=self._verbose,
                             vlevel=self._vlevel,
                             safe=True,
                             force_reconnection=True,
                             with_gpu_mirror=False) # handles step counter through episodes and through envs
-        self._episode_counters.run()
-        self._episode_counters.reset()
+        self._episode_counter.run()
+        self._episode_counter.reset()
+        self._randomization_counter = TaskRandCounter(namespace=self._namespace,
+                            n_envs=self._n_envs,
+                            n_steps_limit=self._n_steps_task_rand,
+                            is_server=True,
+                            verbose=self._verbose,
+                            vlevel=self._vlevel,
+                            safe=True,
+                            force_reconnection=True,
+                            with_gpu_mirror=False) # handles step counter through episodes and through envs
+        self._randomization_counter.run()
+        self._randomization_counter.reset()
 
         # debug data servers
         traing_env_param_dict = {}
@@ -651,36 +676,59 @@ class LRhcTrainingEnvBase():
             LogType.INFO,
             throw_when_excep = True)
     
-    def _check_controllers_registered(self):
+    def _check_controllers_registered(self, 
+                wait: bool = False):
 
-        self._rhc_status.controllers_counter.synch_all(read=True, wait=True)
+        if wait:
+            n_connected_controllers = 0
+            while not (n_connected_controllers == self._n_envs):
+                
+                warn = f"Expected {self._n_envs} controllers to be active during training, " + \
+                    f"but got {n_connected_controllers}. Will wait for all to be connected..."
+                Journal.log(self.__class__.__name__,
+                    "_check_controllers_registered",
+                    warn,
+                    LogType.WARN,
+                    throw_when_excep = False)
+                
+                nsecs = int(2 * 1000000000)
+                PerfSleep.thread_sleep(nsecs) 
 
-        n_connected_controllers = self._rhc_status.controllers_counter.torch_view[0, 0].item()
+                self._rhc_status.controllers_counter.synch_all(read=True, wait=True)
+                n_connected_controllers = self._rhc_status.controllers_counter.torch_view[0, 0].item()
 
-        while not (n_connected_controllers == self._n_envs):
-
-            warn = f"Expected {self._n_envs} controllers to be active during training, " + \
-                f"but got {n_connected_controllers}. Will wait for all to be connected..."
-
+            info = f"All {n_connected_controllers} controllers connected!"
             Journal.log(self.__class__.__name__,
                 "_check_controllers_registered",
-                warn,
-                LogType.WARN,
+                info,
+                LogType.INFO,
                 throw_when_excep = False)
             
-            nsecs = int(1 * 1000000000)
-            PerfSleep.thread_sleep(nsecs) 
-    
+            return True
+        
+        else:
+
+            self._rhc_status.controllers_counter.synch_all(read=True, wait=True)
+            n_connected_controllers = self._rhc_status.controllers_counter.torch_view[0, 0].item()
+            
+            if not (n_connected_controllers == self._n_envs):
+                exception = f"Expected {self._n_envs} controllers to be active during training, " + \
+                    f"but got {n_connected_controllers}. Aborting..."
+                Journal.log(self.__class__.__name__,
+                    "_check_controllers_registered",
+                    exception,
+                    LogType.EXCEP,
+                    throw_when_excep = True)
+                            
+            return True
+                
     def _check_truncations(self):
 
         truncations = self._truncations.get_torch_view(gpu=self._use_gpu)
 
         # time unlimited episodes, using time limits just for diversifying 
         # experience
-        truncations[:, :] = self._episode_counters.time_limits_reached() 
-        
-        self.randomize_refs(env_indxs=truncations.flatten()) # randomize 
-        # refs of envs that reached the time limit
+        truncations[:, :] = self._episode_counter.time_limits_reached() 
 
         if self._use_gpu:
             # from GPU to CPU 

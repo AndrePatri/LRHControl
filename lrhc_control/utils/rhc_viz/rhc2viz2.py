@@ -299,15 +299,19 @@ class RhcToViz2Bridge:
 
     def close(self):
 
-        if not self.rhc_internal_clients is None:
+        if self._is_running:
 
-            for i in range(len(self.rhc_internal_clients)):
+            if not self.rhc_internal_clients is None:
 
-                self.rhc_internal_clients[i].close() # closes servers
+                for i in range(len(self.rhc_internal_clients)):
 
-        if not self.robot_state is None:
+                    self.rhc_internal_clients[i].close() # closes servers
 
-            self.robot_state.close()
+            if not self.robot_state is None:
+
+                self.robot_state.close()
+            
+            self._is_running = False
     
     def _sporadic_log(self,
                 calling_methd: str,
