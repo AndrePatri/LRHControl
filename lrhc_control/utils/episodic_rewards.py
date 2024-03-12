@@ -31,7 +31,7 @@ class EpisodicRewards():
                     throw_when_excep=True)
         else:
             self.reward_names = []
-            for i in range(self.reward_names):
+            for i in range(self._n_rewards):
                 self.reward_names.append(f"reward_n{i}")
     
     def reset(self):
@@ -40,7 +40,7 @@ class EpisodicRewards():
                                     fill_value=0.0,
                                     dtype=torch.float32, device="cpu") # we don't need it on GPU
 
-        self._current_ep_idx = torch.full(size=(self._n_envs, self._n_rewards), 
+        self._current_ep_idx = torch.full(size=(self._n_envs, 1), 
                                     fill_value=1,
                                     dtype=torch.int32, device="cpu")
         
@@ -78,7 +78,7 @@ class EpisodicRewards():
         
         self._episodic_rewards[:, :] = self._episodic_rewards[:, :] + step_reward[:, :]
 
-        self._current_ep_idx[is_done.flatten(), :] = self._current_ep_idx[is_done.flatten(), :] + 1
+        self._current_ep_idx[is_done.flatten(), 0] = self._current_ep_idx[is_done.flatten(), 0] + 1
     
     def get(self):
     
@@ -90,7 +90,7 @@ class EpisodicRewards():
     def get_total(self):
     
         # total average reward over the performed episodes for each env
-        self._tot_avrg_episodic_reward[: , 0] = torch.sum(self._episodic_rewards, dim=1) / self._current_ep_idx
+        self._tot_avrg_episodic_reward[: , 0] = torch.sum(self._avrg_episodic_reward, dim=1)
 
         return self._tot_avrg_episodic_reward
 
