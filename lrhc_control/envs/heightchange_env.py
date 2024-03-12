@@ -20,8 +20,8 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         obs_dim = 3
         actions_dim = 1
 
-        n_steps_episode = 1024
-        n_steps_task_rand = 256 # randomize agent refs every n steps
+        n_steps_episode = 4096
+        n_steps_task_rand = 128 # randomize agent refs every n steps
 
         env_name = "LRhcHeightChange"
 
@@ -135,14 +135,11 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         if env_indxs is None:
 
             agent_p_ref_current = self._agent_refs.rob_refs.root_state.get_p(gpu=self._use_gpu)
-
-            
             agent_p_ref_current[:, 2:3] = (self._href_ub-self._href_lb) * torch.rand_like(agent_p_ref_current[:, 2:3]) + self._href_lb # randomize h ref
 
         else:
 
             agent_p_ref_current = self._agent_refs.rob_refs.root_state.get_p(gpu=self._use_gpu)
-
             agent_p_ref_current[env_indxs, 2:3] = (self._href_ub-self._href_lb) * torch.rand_like(agent_p_ref_current[env_indxs, 2:3]) + self._href_lb
 
         self._agent_refs.rob_refs.root_state.set_p(p=agent_p_ref_current,
