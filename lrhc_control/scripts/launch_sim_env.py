@@ -28,10 +28,8 @@ if __name__ == '__main__':
     parser.add_argument('--cores', nargs='+', type=int, help='List of CPU cores to set 	affinity to')
     parser.add_argument('--contacts_list', nargs='+', default=["wheel_1", "wheel_2", "wheel_3", "wheel_4"],
                         help='Contact sensor list (needs to mathc an available body)')
-    parser.add_argument('--jnt_imp_cntrl_deb', type=bool, 
-                        help='Whether to debug jnt imp control on shared mem (requires frequent copies from GPU to CPU',
-                        default=False)
-
+    parser.add_argument('--cpu_pipeline', action='store_true', help='Whether to use the cpu pipeline (greatly increases GPU RX data)')
+    parser.add_argument('--jnt_imp_cntrl_deb', action='store_true', help='Whether to debug jnt imp control on shared mem (requires frequent copies from GPU to CPU')
 
     args = parser.parse_args()
 
@@ -50,9 +48,9 @@ if __name__ == '__main__':
 
     # simulation parameters
     sim_params = {}
-    sim_params["use_gpu_pipeline"] = True # disabling gpu pipeline is necessary to be able
+    sim_params["use_gpu_pipeline"] = not args.cpu_pipeline # disabling gpu pipeline is necessary to be able
     # to retrieve some quantities from the simulator which, otherwise, would have random values
-    sim_params["use_gpu"] = True # does this actually do anything?
+    # sim_params["use_gpu"] = False # does this actually do anything?
     if sim_params["use_gpu_pipeline"]:
         sim_params["device"] = "cuda"
     else:
@@ -74,7 +72,7 @@ if __name__ == '__main__':
     # sim_params["friction_correlation_distance"] = 0.025
     # sim_params["enable_sleeping"] = True
     # Per-actor settings ( can override in actor_options )
-    sim_params["solver_position_iteration_count"] = 4 # defaults to 4
+    sim_params["solver_position_iteration_count"] = 2 # defaults to 4
     sim_params["solver_velocity_iteration_count"] = 1 # defaults to 1
     sim_params["sleep_threshold"] = 0.0 # Mass-normalized kinetic energy threshold below which an actor may go to sleep.
     # Allowed range [0, max_float).
@@ -121,7 +119,7 @@ if __name__ == '__main__':
     # now we can import the task (not before, since Omni plugins are loaded 
     # upon environment initialization)
     from lrhc_control.tasks.hybrid_quad_task import HybridQuadTask
-                                
+    
     task = HybridQuadTask(
             robot_name=robot_name,
             robot_pkg_name=args.robot_pkg_name,
@@ -138,8 +136,8 @@ if __name__ == '__main__':
             default_jnt_damping=50.0, 
             default_wheel_stiffness = 0.0,
             default_wheel_damping=10.0,
-            startup_jnt_stiffness = 10,
-            startup_jnt_damping = 5,
+            startup_jnt_stiffness = 0,
+            startup_jnt_damping = 0,
             startup_wheel_stiffness = 0.0,
             startup_wheel_damping=10.0,
             contact_prims = contact_prims,
@@ -155,7 +153,7 @@ if __name__ == '__main__':
     env.set_task(task, 
             cluster_dt = [control_clust_dt],
             backend="torch", 
-            use_remote_stepping = [True],
+            use_remote_stepping = [False],
             n_pre_training_steps = 10, # n of env steps before connecting to training client
             sim_params = sim_params, 
             cluster_client_verbose=True, 

@@ -119,7 +119,7 @@ class LRHcIsaacTask(IsaacTask):
     def _update_jnt_imp_cntrl_shared_data(self):
 
         if self._debug_mode_jnt_imp:
-
+            
             for i in range(0, len(self.robot_names)):
             
                 robot_name = self.robot_names[i]

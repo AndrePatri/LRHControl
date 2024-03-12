@@ -17,7 +17,7 @@ if __name__ == '__main__':
     parser.add_argument('--dt', type=float, default=0.01, help='Update interval in seconds, default is 0.01')
     parser.add_argument('--ns', type=str, help='Namespace to be used for cluster shared memory')
     parser.add_argument('--debug', action='store_true', help='Enable debug mode, default is False')
-    parser.add_argument('--verbose', type=bool, default=True, help='Enable verbose mode, default is True')
+    parser.add_argument('--verbose', action='store_true', help='Enable verbose mode, default is True')
     parser.add_argument('--ros2', action='store_true', help='Enable ROS 2 mode')
 
     args = parser.parse_args()

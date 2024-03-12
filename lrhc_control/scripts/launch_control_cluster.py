@@ -22,12 +22,10 @@ if __name__ == "__main__":
     parser.add_argument('--ns', type=str, help='Namespace to be used for cluster shared memory')
     parser.add_argument('--robot_pkg_name', type=str, help='Robot description package name')
     parser.add_argument('--size', type=int, help='cluster size')
-    parser.add_argument('--v', action='store_true', help='run in verbose mode')
+    parser.add_argument('--verbose', action='store_true', help='run in verbose mode')
     parser.add_argument('--force_cores', action='store_true', help='whether to force RHC controller affinity')
-    parser.add_argument('--open_loop', type=bool, help='whether use RHC controllers in open loop mode',
-                default=False)
-    parser.add_argument('--i_cores_only', type=bool, help='whether use isolated cores only for RHC controllers',
-                default=False)
+    parser.add_argument('--open_loop', action='store_true', help='whether use RHC controllers in open loop mode')
+    parser.add_argument('--i_cores_only', action='store_true', help='whether use isolated cores only for RHC controllers')
     parser.add_argument('--c_start_idx', type=int, 
             help='start index for cores over which RHC controllers will be distributed',
             default=0)
@@ -43,7 +41,7 @@ if __name__ == "__main__":
     namespace = args.ns
     cluster_size = args.size
     verbose = False
-    if args.v:
+    if args.verbose:
         verbose = True
     core_ids_override_list = None
     if args.force_cores:
