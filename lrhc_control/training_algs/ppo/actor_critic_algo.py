@@ -156,11 +156,15 @@ class ActorCriticAlgoBase():
             self._learning_rate_now = frac * self._base_learning_rate
             self._optimizer.param_groups[0]["lr"] = self._learning_rate_now
 
+        episodic_reward_getter = self._env.ep_reward_getter()
+        episodic_reward_getter.reset() # necessary, we don't want to accumulate 
+        # debug rewards from previous rollout
+
         self._play(self._env_timesteps)
 
-        # after rolling out policy, we get the episodic reward for debugging purposes
-        self._episodic_rewards = self._env.get_episodic_rewards()
-        self._episodic_rewards_detail = self._env.get_episodic_rewards_detail()
+        # after rolling out policy, we get the episodic reward for the current policy
+        self._episodic_rewards = episodic_reward_getter.get_total()
+        self._episodic_rewards_detail = episodic_reward_getter.get()
 
         if self._debug:
             wandb.log({'average_episodic_rewards': wandb.Histogram(self._episodic_rewards.numpy())})

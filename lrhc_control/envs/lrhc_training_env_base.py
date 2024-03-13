@@ -258,7 +258,7 @@ class LRhcTrainingEnvBase():
                                         truncated)
         
         self._episodic_rewards_getter.update(step_reward = self._rewards.get_torch_view(gpu=False),
-                                        is_done = episode_finished)
+                                        is_done = episode_finished.cpu())
                                         
         self._episode_counter.reset(to_be_reset=episode_finished)
         self._randomization_counter.reset(to_be_reset=episode_finished)
@@ -275,14 +275,6 @@ class LRhcTrainingEnvBase():
                 env_indxs: torch.Tensor = None):
 
         self._randomize_refs(env_indxs=env_indxs)
-
-    def get_episodic_rewards_detail(self):
-
-        return self._episodic_rewards_getter.get() 
-
-    def get_episodic_rewards(self):
-
-        return self._episodic_rewards_getter.get_total()
 
     def reset(self):
         
@@ -346,7 +338,7 @@ class LRhcTrainingEnvBase():
     def get_last_truncations(self):
                                  
         return self._truncations.get_torch_view(gpu=self._use_gpu)
-                            
+
     def obs_dim(self):
 
         return self._obs_dim
@@ -354,6 +346,10 @@ class LRhcTrainingEnvBase():
     def actions_dim(self):
 
         return self._actions_dim
+    
+    def ep_reward_getter(self):
+
+        return self._episodic_rewards_getter
     
     def using_gpu(self):
 
