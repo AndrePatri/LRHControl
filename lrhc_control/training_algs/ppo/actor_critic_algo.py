@@ -57,6 +57,8 @@ class ActorCriticAlgoBase():
 
         self._hyperparameters = {}
         
+        self._episodic_reward_getter = self._env.ep_reward_getter()
+
         self._init_dbdata()
         
         self._init_params()
@@ -71,8 +73,6 @@ class ActorCriticAlgoBase():
 
         self._this_child_path = None
         self._this_basepath = os.path.abspath(__file__)
-
-        self._episodic_reward_getter = self._env.ep_reward_getter()
     
     def __del__(self):
 
@@ -168,17 +168,6 @@ class ActorCriticAlgoBase():
         self._episodic_rewards_detail = self._episodic_reward_getter.get()
         self._episodic_rewards_detail_env_avrg = self._episodic_reward_getter.get_env_avrg()
         self._episodic_rewards_env_avrg = self._episodic_reward_getter.get_total_env_avrg()
-
-        if self._debug:
-            wandb.log({'tot_episodic_reward': wandb.Histogram(self._episodic_rewards.numpy())})
-            wandb.log({'tot_episodic_reward_env_avrg': wandb.Histogram(self._episodic_rewards_env_avrg)})
-            wandb.log({'detail_episodic_rewards_env_avrg': wandb.Histogram(self._episodic_rewards_detail_env_avrg)})
-            wandb.log({"detail_episodic_rewards_env_avrg" : wandb.plot.line_series(
-                       xs=[self._episodic_reward_getter.step_idx()], 
-                       ys=self._episodic_rewards_detail_env_avrg.numpy().flatten(),
-                       keys=self._episodic_reward_getter.reward_names(),
-                       title="Detailed episodic rewards averaged across envs",
-                       xname="time step")})
 
         self._bootstrap()
 
@@ -315,7 +304,7 @@ class ActorCriticAlgoBase():
                 f"Elapsed minutes: {self._elapsed_min}\n" + \
                 f"Estimated remaining training time: " + \
                 f"{self._elapsed_min/60 * 1/self._it_counter * (self._iterations_n-self._it_counter)} hours\n" + \
-                f"Average episodic reward across all environments: {self._episodic_rewards_env_avrg}" + \
+                f"Average episodic reward across all environments: {self._episodic_rewards_env_avrg}\n" + \
                 f"Average episodic rewards across all environments {self._reward_names}: {self._episodic_rewards_detail_env_avrg}\n"
 
             Journal.log(self.__class__.__name__,
@@ -323,7 +312,7 @@ class ActorCriticAlgoBase():
                 info,
                 LogType.INFO,
                 throw_when_excep = True)
-
+            
     def _eval_post_step(self):
         
         info = f"Evaluation of policy model {self._model_path} completed. Dropping evaluation info to {self._drop_dir}"
@@ -349,29 +338,43 @@ class ActorCriticAlgoBase():
         self._elapsed_min = (time.perf_counter() - self._start_time_tot) / 60
         self._env_step_fps = self._batch_size / self._bootstrap_dt
         
-        # write debug info to shared memory
-        self._shared_algo_data.write(dyn_info_name=["current_batch_iteration", 
-                                        "n_of_performed_policy_updates",
-                                        "n_of_played_episodes", 
-                                        "n_of_timesteps_done",
-                                        "current_learning_rate",
-                                        "env_step_fps",
-                                        "boostrap_dt",
-                                        "policy_update_dt",
-                                        "learn_step_total_fps",
-                                        "elapsed_min"
-                                        ],
-                                val=[self._it_counter, 
-                (self._it_counter+1) * self._update_epochs * self._num_minibatches,
-                self._n_of_played_episodes, 
-                (self._it_counter+1) * self._batch_size,
-                self._learning_rate_now,
-                self._env_step_fps,
-                self._bootstrap_dt,
-                self._policy_update_dt,
-                self._learn_step_total_fps,
-                self._elapsed_min
-                ])
+        if self._debug:
+
+            # write debug info to shared memory    
+            self._shared_algo_data.write(dyn_info_name=["current_batch_iteration", 
+                                            "n_of_performed_policy_updates",
+                                            "n_of_played_episodes", 
+                                            "n_of_timesteps_done",
+                                            "current_learning_rate",
+                                            "env_step_fps",
+                                            "boostrap_dt",
+                                            "policy_update_dt",
+                                            "learn_step_total_fps",
+                                            "elapsed_min"
+                                            ],
+                                    val=[self._it_counter, 
+                    (self._it_counter+1) * self._update_epochs * self._num_minibatches,
+                    self._n_of_played_episodes, 
+                    (self._it_counter+1) * self._batch_size,
+                    self._learning_rate_now,
+                    self._env_step_fps,
+                    self._bootstrap_dt,
+                    self._policy_update_dt,
+                    self._learn_step_total_fps,
+                    self._elapsed_min
+                    ])
+
+            # write debug info to shared memory    
+            wandb.log({'tot_episodic_reward': wandb.Histogram(self._episodic_rewards.numpy())})
+            wandb.log({'tot_episodic_reward_env_avrg': wandb.Histogram(self._episodic_rewards_env_avrg)})
+            # wandb.log({'detail_episodic_rewards_env_avrg': wandb.Histogram(self._episodic_rewards_detail_env_avrg)})
+            wandb.log({"detail_episodic_rewards_env_avrg" : wandb.plot.line_series(
+                       xs=[self._episodic_reward_getter.step_idx()], 
+                       ys=torch.reshape(self._episodic_rewards_detail_env_avrg, 
+                                    (self._episodic_rewards_detail_env_avrg.shape[0], 1)).numpy(),
+                       keys=self._episodic_reward_getter.reward_names(),
+                       title="Detailed episodic rewards averaged across envs",
+                       xname="time step")})
     
     def _init_dbdata(self):
 
