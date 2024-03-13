@@ -6,8 +6,6 @@ import torch
 import torch.optim as optim
 import torch.nn as nn
 
-from torch.utils.tensorboard import SummaryWriter
-
 import random
 
 from typing import Dict
@@ -38,14 +36,14 @@ class ActorCriticAlgoBase():
         self._seed = seed
 
         self._eval = False
-        self._agent = ActorCriticTanh(obs_dim=self._env.obs_dim(),
-                        actions_dim=self._env.actions_dim(),
-                        actor_std=0.01,
-                        critic_std=1.0)
-        # self._agent = ActorCriticLRelu(obs_dim=self._env.obs_dim(),
+        # self._agent = ActorCriticTanh(obs_dim=self._env.obs_dim(),
         #                 actions_dim=self._env.actions_dim(),
         #                 actor_std=0.01,
         #                 critic_std=1.0)
+        self._agent = ActorCriticLRelu(obs_dim=self._env.obs_dim(),
+                        actions_dim=self._env.actions_dim(),
+                        actor_std=0.01,
+                        critic_std=1.0)
 
         self._debug = debug
 
@@ -393,12 +391,12 @@ class ActorCriticAlgoBase():
         self._env_name = self._env.name()
 
         self._iterations_n = 250
-        self._env_timesteps = 716
+        self._env_timesteps = 256
 
         self._env_episode_n_steps = self._env.n_steps_per_episode()
         self._total_timesteps = self._iterations_n * (self._env_timesteps * self._num_envs)
         self._batch_size =int(self._num_envs * self._env_timesteps)
-        self._num_minibatches = 28
+        self._num_minibatches = self._env.n_envs()
         self._minibatch_size = int(self._batch_size // self._num_minibatches)
 
         self._base_learning_rate = 3e-4
