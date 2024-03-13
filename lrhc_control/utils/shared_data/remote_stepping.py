@@ -5,68 +5,6 @@ from SharsorIPCpp.PySharsorIPC import Producer, Consumer
 
 import torch
 
-class ProducerWrapper(): 
-
-    def __init__(self,
-            namespace: str,
-            basename: str,
-            verbose: bool = True,
-            vlevel: bool = VLevel.V0,
-            force_reconnection: bool = False):
-
-        self._producer = Producer(namespace, 
-                            basename, 
-                            verbose, 
-                            vlevel, 
-                            force_reconnection)
-
-    def run(self):
-
-        self._producer.run()
-    
-    def close(self):
-
-        self._producer.close()
-    
-    def trigger(self):
-
-        self._producer.trigger()
-    
-    def wait_ack_from(self,
-            n_consumers, ms_timeout = -1):
-
-        return self._producer.wait_ack_from(n_consumers=n_consumers, 
-                            ms_timeout=ms_timeout)
-
-class ConsumerWrapper(): 
-
-    def __init__(self,
-            namespace: str,
-            basename: str,
-            verbose: bool = True,
-            vlevel: bool = VLevel.V0):
-
-        self._consumer = Consumer(namespace, 
-                            basename, 
-                            verbose, 
-                            vlevel)
-
-    def run(self):
-
-        self._consumer.run()
-    
-    def close(self):
-
-        self._consumer.close()
-    
-    def wait(self, ms_timeout = -1):
-
-        return self._consumer.wait(ms_timeout)
-    
-    def ack(self):
-
-        self._consumer.ack()
-
 class RemoteStepperSrvr(Producer):
 
     def __init__(self,
