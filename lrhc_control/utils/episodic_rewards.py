@@ -84,14 +84,12 @@ class EpisodicRewards():
     
         # average reward over the performed episodes for each env
         self._avrg_episodic_reward = self._episodic_rewards / self._current_ep_idx
-
         return self._avrg_episodic_reward
 
     def get_total(self):
-    
+        
         # total average reward over the performed episodes for each env
-        self._tot_avrg_episodic_reward[: , 0] = torch.sum(self._avrg_episodic_reward, dim=1)
-
+        self._tot_avrg_episodic_reward[: , 0] = torch.sum(self._episodic_rewards / self._current_ep_idx, dim=1)
         return self._tot_avrg_episodic_reward
 
 

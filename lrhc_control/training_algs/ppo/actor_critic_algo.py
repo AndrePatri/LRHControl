@@ -165,7 +165,6 @@ class ActorCriticAlgoBase():
         self._episodic_rewards_detail = self._env.get_episodic_rewards_detail()
 
         if self._debug:
-
             wandb.log({'average_episodic_rewards': wandb.Histogram(self._episodic_rewards.numpy())})
 
         self._bootstrap()

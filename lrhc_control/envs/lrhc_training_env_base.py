@@ -278,11 +278,11 @@ class LRhcTrainingEnvBase():
 
     def get_episodic_rewards_detail(self):
 
-        self._episodic_rewards_getter.get() 
+        return self._episodic_rewards_getter.get() 
 
     def get_episodic_rewards(self):
 
-        self._episodic_rewards_getter.get_total()
+        return self._episodic_rewards_getter.get_total()
 
     def reset(self):
         
