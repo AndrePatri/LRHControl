@@ -262,6 +262,8 @@ class LRhcTrainingEnvBase():
                                         
         self._episode_counter.reset(to_be_reset=episode_finished)
         self._randomization_counter.reset(to_be_reset=episode_finished)
+        self.randomize_refs(env_indxs=episode_finished.flatten()) # randomize refs also upon
+        # episode termination
 
         # reset envs for which episode is finished
         self._remote_reset(reset_mask=episode_finished)
