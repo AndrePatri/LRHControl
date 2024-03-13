@@ -71,6 +71,8 @@ class ActorCriticAlgoBase():
 
         self._this_child_path = None
         self._this_basepath = os.path.abspath(__file__)
+
+        self._episodic_reward_getter = self._env.ep_reward_getter()
     
     def __del__(self):
 
@@ -156,18 +158,27 @@ class ActorCriticAlgoBase():
             self._learning_rate_now = frac * self._base_learning_rate
             self._optimizer.param_groups[0]["lr"] = self._learning_rate_now
 
-        episodic_reward_getter = self._env.ep_reward_getter()
-        episodic_reward_getter.reset() # necessary, we don't want to accumulate 
+        self._episodic_reward_getter.reset() # necessary, we don't want to accumulate 
         # debug rewards from previous rollout
 
         self._play(self._env_timesteps)
 
         # after rolling out policy, we get the episodic reward for the current policy
-        self._episodic_rewards = episodic_reward_getter.get_total()
-        self._episodic_rewards_detail = episodic_reward_getter.get()
+        self._episodic_rewards = self._episodic_reward_getter.get_total()
+        self._episodic_rewards_detail = self._episodic_reward_getter.get()
+        self._episodic_rewards_detail_env_avrg = self._episodic_reward_getter.get_env_avrg()
+        self._episodic_rewards_env_avrg = self._episodic_reward_getter.get_total_env_avrg()
 
         if self._debug:
-            wandb.log({'average_episodic_rewards': wandb.Histogram(self._episodic_rewards.numpy())})
+            wandb.log({'tot_episodic_reward': wandb.Histogram(self._episodic_rewards.numpy())})
+            wandb.log({'tot_episodic_reward_env_avrg': wandb.Histogram(self._episodic_rewards_env_avrg)})
+            wandb.log({'detail_episodic_rewards_env_avrg': wandb.Histogram(self._episodic_rewards_detail_env_avrg)})
+            wandb.log({"detail_episodic_rewards_env_avrg" : wandb.plot.line_series(
+                       xs=[self._episodic_reward_getter.step_idx()], 
+                       ys=self._episodic_rewards_detail_env_avrg.numpy().flatten(),
+                       keys=self._episodic_reward_getter.reward_names(),
+                       title="Detailed episodic rewards averaged across envs",
+                       xname="time step")})
 
         self._bootstrap()
 
@@ -297,14 +308,15 @@ class ActorCriticAlgoBase():
 
         if self._verbose:
             
-            info = f"N. PPO iterations performed: {self._it_counter}/{self._iterations_n}\n" + \
+            info = f"\nN. PPO iterations performed: {self._it_counter}/{self._iterations_n}\n" + \
                 f"N. policy updates performed: {self._it_counter * self._update_epochs * self._num_minibatches}/" + \
                 f"{self._update_epochs * self._num_minibatches * self._iterations_n}\n" + \
                 f"N. timesteps performed: {self._it_counter * self._batch_size}/{self._total_timesteps}\n" + \
                 f"Elapsed minutes: {self._elapsed_min}\n" + \
                 f"Estimated remaining training time: " + \
                 f"{self._elapsed_min/60 * 1/self._it_counter * (self._iterations_n-self._it_counter)} hours\n" + \
-                f"Average episodic reward across all environments: {torch.sum(self._episodic_rewards)/self._num_envs}"
+                f"Average episodic reward across all environments: {self._episodic_rewards_env_avrg}" + \
+                f"Average episodic rewards across all environments {self._reward_names}: {self._episodic_rewards_detail_env_avrg}\n"
 
             Journal.log(self.__class__.__name__,
                 "_post_step",
@@ -375,7 +387,10 @@ class ActorCriticAlgoBase():
         self._elapsed_min = 0
 
         self._episodic_rewards = None
+        self._episodic_rewards_env_avrg = None
         self._episodic_rewards_detail = None
+        self._episodic_rewards_detail_env_avrg = None
+        self._reward_names = "[" + ', '.join(self._episodic_reward_getter.reward_names()) + "]"
 
     def _init_params(self):
 
