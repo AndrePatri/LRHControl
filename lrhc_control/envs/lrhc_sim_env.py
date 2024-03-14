@@ -50,7 +50,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
 
         # remote simulation
         self._timeout = 30000
-        self._start_remote_stepping = False
+        self._init_steps_done = False
         self._n_init_steps = 0 # n steps to be performed before waiting for remote stepping
         self._init_step_counter = 0
         self._use_remote_stepping = [] # whether the task associated with robot i should use remote stepping
@@ -112,7 +112,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                         self._is_first_trigger[robot_name] = False
 
                     if self._use_remote_stepping[i] and \
-                        self._start_remote_stepping:
+                        self._init_steps_done:
 
                             self._wait_for_remote_step_req(robot_name=robot_name)
                             # when training controllers have to be kept always active
@@ -157,7 +157,8 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
 
                     # every control_cluster_dt, trigger the solution of the active controllers in the cluster
                     # with the latest available state
-                    control_cluster.trigger_solution()
+                    if self._init_steps_done:
+                        control_cluster.trigger_solution()
 
             # 2) this runs at a dt = simulation dt i.e. the highest possible rate,
             #    using the latest available RHC solution (the new one is not available yet)
@@ -187,7 +188,8 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                     # cluster
 
                     # 3) wait for solution (will also read latest computed cmds)
-                    control_cluster.wait_for_solution() # this is blocking
+                    if self._init_steps_done:
+                        control_cluster.wait_for_solution() # this is blocking
 
                     self._trigger_cluster[robot_name] = True # this allows for the next trigger 
 
@@ -200,47 +202,45 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                     self._update_cluster_state(robot_name = robot_name, 
                                     env_indxs = active)                        
                         
-                    if self._use_remote_stepping[i]:
-
-                        if self._start_remote_stepping:
+                    if self._use_remote_stepping[i] and self._init_steps_done:
                             
-                            self._remote_steppers[robot_name].ack() # signal stepping is finished
-                            
-                            self._process_remote_reset_req(robot_name=robot_name)
+                        self._remote_steppers[robot_name].ack() # signal stepping is finished
+                        
+                        self._process_remote_reset_req(robot_name=robot_name)
 
-                        if self._init_step_counter < self._n_init_steps and \
-                                not self._start_remote_stepping:
-                    
-                            self._init_step_counter += 1
-                    
-                        if self._init_step_counter == self._n_init_steps and \
-                                not self._start_remote_stepping:
-                            
-                            self._start_remote_stepping = True # next cluster step we wait for connection to training client
-
-                            self._remote_steppers[robot_name].run()
-                            self._remote_resetters[robot_name].run()
-                            self._remote_reset_requests[robot_name].run()
-
-                            # activate inactive controllers
-                            control_cluster.activate_controllers(idxs=control_cluster.get_inactive_controllers())
-
-                            self._signal_sim_env_is_ready(robot_name=robot_name) # signal sim is ready
-                    
                     else:
 
                         # automatically reset and reactivate failed controllers if not running remotely
                         failed = control_cluster.get_failed_controllers()
-
                         if failed is not None:
-        
                             self.reset(env_indxs=failed,
                                     robot_names=[robot_name],
                                     reset_world=False,
                                     reset_cluster=True)
-                    
+                        # activate inactive controllers
                         control_cluster.activate_controllers(idxs=control_cluster.get_inactive_controllers())
 
+                    if self._init_step_counter < self._n_init_steps and \
+                            not self._init_steps_done:
+                
+                        self._init_step_counter += 1
+                    
+                    if self._init_step_counter == self._n_init_steps and \
+                            not self._init_steps_done:
+                            
+                        self._init_steps_done = True # next cluster step we wait for connection to training client
+
+                        # activate inactive controllers
+                        control_cluster.activate_controllers(idxs=control_cluster.get_inactive_controllers())
+
+                        if self._use_remote_stepping[i]:
+
+                            self._remote_steppers[robot_name].run()
+                            self._remote_resetters[robot_name].run()
+                            self._remote_reset_requests[robot_name].run()
+                        
+                            self._signal_sim_env_is_ready(robot_name=robot_name) # signal sim is ready
+                                                                
                     if self.debug:
 
                         self.debug_data["cluster_state_update_dt"][robot_name] = \

@@ -539,18 +539,18 @@ class LRhcTrainingEnvBase():
         self._remote_stepper = RemoteStepperSrvr(namespace=self._namespace,
                             verbose=self._verbose,
                             vlevel=self._vlevel,
-                            force_reconnection=False)
+                            force_reconnection=True)
         self._remote_stepper.run()
         self._remote_resetter = RemoteResetSrvr(namespace=self._namespace,
                             verbose=self._verbose,
                             vlevel=self._vlevel,
-                            force_reconnection=False)
+                            force_reconnection=True)
         self._remote_resetter.run()
         self._remote_reset_req = RemoteResetRequest(namespace=self._namespace,
                                             is_server=False, 
                                             verbose=self._verbose,
                                             vlevel=self._vlevel,
-                                            safe=False)
+                                            safe=True)
         self._remote_reset_req.run()
         self._sim_env_ready = SimEnvReadyClnt(namespace=self._namespace, 
                                         verbose=self._verbose,
