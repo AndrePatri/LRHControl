@@ -108,12 +108,6 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                         # we update the all the default root state now. This state will be used 
                         # for future resets
                         self.task.synch_default_root_states(robot_name = robot_name)
-
-                        self.task.update_jnt_imp_control_gains(robot_name = robot_name, 
-                                        jnt_stiffness = self.task.startup_jnt_stiffness, 
-                                        jnt_damping = self.task.startup_jnt_damping, 
-                                        wheel_stiffness = self.task.startup_wheel_stiffness, 
-                                        wheel_damping = self.task.startup_wheel_damping)
                             
                         self._is_first_trigger[robot_name] = False
 
