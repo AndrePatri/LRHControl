@@ -32,6 +32,7 @@ if __name__ == '__main__':
                 help='Whether to use remote stepping for cluster triggering (to be set during training)')
     parser.add_argument('--cpu_pipeline', action='store_true', help='Whether to use the cpu pipeline (greatly increases GPU RX data)')
     parser.add_argument('--jnt_imp_cntrl_deb', action='store_true', help='Whether to debug jnt imp control on shared mem (requires frequent copies from GPU to CPU')
+    parser.add_argument('--headless', action='store_true', help='Whether to run simulation in headless mode')
 
     args = parser.parse_args()
 
@@ -43,7 +44,7 @@ if __name__ == '__main__':
     dtype_torch = torch.float32
     num_envs = args.num_envs
     control_clust_dt = 0.03 # [s]. Dt at which RHC controllers run 
-    headless = True
+    headless = args.headless
     enable_livestream = False
     enable_viewport = False
     env_debug = True
@@ -189,39 +190,39 @@ if __name__ == '__main__':
 
     while env._simulation_app.is_running():
         
-        try:
-            if rt_factor.reset_due():
-                rt_factor.reset()
-                
-            env.step() 
-            rt_factor.update()
-
-            for i in range(len(robot_names)):
-                shared_sim_infos[i].write(dyn_info_name=["sim_rt_factor", 
-                                                    "total_rt_factor", 
-                                                    "env_stepping_dt",
-                                                    "world_stepping_dt",
-                                                    "time_to_get_states_from_sim",
-                                                    "cluster_state_update_dt",
-                                                    "cluster_sol_time"
-                                                    ],
-                                    val=[rt_factor.get(), 
-                                        rt_factor.get() * num_envs,
-                                        rt_factor.get_avrg_step_time(),
-                                        env.debug_data["time_to_step_world"],
-                                        env.debug_data["time_to_get_states_from_sim"],
-                                        env.debug_data["cluster_state_update_dt"][robot_names[i]],
-                                        env.debug_data["cluster_sol_time"][robot_names[i]]])
-
-        except Exception as e:
+        # try:
+        if rt_factor.reset_due():
+            rt_factor.reset()
             
-            print(f"An exception occurred: {e}")
+        env.step() 
+        rt_factor.update()
+
+        for i in range(len(robot_names)):
+            shared_sim_infos[i].write(dyn_info_name=["sim_rt_factor", 
+                                                "total_rt_factor", 
+                                                "env_stepping_dt",
+                                                "world_stepping_dt",
+                                                "time_to_get_states_from_sim",
+                                                "cluster_state_update_dt",
+                                                "cluster_sol_time"
+                                                ],
+                                val=[rt_factor.get(), 
+                                    rt_factor.get() * num_envs,
+                                    rt_factor.get_avrg_step_time(),
+                                    env.debug_data["time_to_step_world"],
+                                    env.debug_data["time_to_get_states_from_sim"],
+                                    env.debug_data["cluster_state_update_dt"][robot_names[i]],
+                                    env.debug_data["cluster_sol_time"][robot_names[i]]])
+
+        # except Exception as e:
             
-            for i in range(len(robot_names)):
+        #     print(f"An exception occurred: {e}")
+            
+        #     for i in range(len(robot_names)):
 
-                shared_sim_infos[i].close()
+        #         shared_sim_infos[i].close()
 
-            env.close()
+        #     env.close()
 
-            break
+        #     break
 

@@ -1,16 +1,17 @@
 {
 "version": "0.2.0",
 "configurations": [
-    
+
     {
         "name": "Python Debugger: Current File",
         "type": "debugpy",
         "request": "launch",
-        "program": "lrhc_control/scripts/launch_train_env.py",
-        "args": ["--ns ", "kyon0", "--run_name", "vsoddedebg", "--drop_dir", "/home/Desktop"],
-        // "program": "kyonrlstepping/scripts/RunControlCluster.py",
+        // "program": "lrhc_control/scripts/launch_train_env.py",
+        // "args": ["--ns", "kyon0", "--run_name", "vsoddedebg", "--drop_dir", "/home/Desktop"],
+        "program": "lrhc_control/scripts/launch_sim_env.py",
+        "args": ["--robot_name", "kyon0", "--robot_pkg_name", "kyon", "--num_envs", "1", "--remote_stepping", "--cpu_pipeline"],
         "console": "integratedTerminal",
-        "pythonPath": "/home/andreap/mambaforge/envs/LRHControlMambaEnv/bin/python",  // Update this path
+        "pythonPath": "/home/apatrizi/mambaforge/envs/LRHControlMambaEnv/bin/python",  // Update this path
         "justMyCode": false
     },
 ]

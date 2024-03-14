@@ -96,11 +96,8 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                     
                 if self._use_remote_stepping[i]:
 
-                    self._remote_steppers[robot_name].run()
-                    self._remote_resetters[robot_name].run()
-                    self._remote_reset_requests[robot_name].run()
                     self._sim_env_ready[robot_name].run()
-
+            
             # 1) this runs at a dt = cluster_clients[robot_name] dt (sol. triggering) 
             if control_cluster.is_cluster_instant(self.step_counters[robot_name]):
                 
@@ -123,9 +120,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                     if self._use_remote_stepping[i] and \
                         self._start_remote_stepping:
 
-                            print("UUUUUUUUUUUUU")
                             self._wait_for_remote_step_req(robot_name=robot_name)
-                            print("AAAAAAAAAAAAAAA")
                             # when training controllers have to be kept always active
                             # control_cluster.activate_controllers(idxs=control_cluster.get_inactive_controllers())
 
@@ -198,9 +193,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                     # cluster
 
                     # 3) wait for solution (will also read latest computed cmds)
-                    print("waiting for sol")
                     control_cluster.wait_for_solution() # this is blocking
-                    print("got sol")
 
                     self._trigger_cluster[robot_name] = True # this allows for the next trigger 
 
@@ -217,7 +210,6 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
 
                         if self._start_remote_stepping:
                             
-                            print("ack remote stepping")
                             self._remote_steppers[robot_name].ack() # signal stepping is finished
                             
                             self._process_remote_reset_req(robot_name=robot_name)
@@ -231,6 +223,10 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                                 not self._start_remote_stepping:
                             
                             self._start_remote_stepping = True # next cluster step we wait for connection to training client
+
+                            self._remote_steppers[robot_name].run()
+                            self._remote_resetters[robot_name].run()
+                            self._remote_reset_requests[robot_name].run()
 
                             # activate inactive controllers
                             control_cluster.activate_controllers(idxs=control_cluster.get_inactive_controllers())
@@ -433,7 +429,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
         rob_names = robot_names
         if rob_names is None:
             rob_names = self.robot_names
-
+                
         # also reset the state of cluster using the reset state
         if reset_cluster:
             for i in range(len(rob_names)):
@@ -497,12 +493,11 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
         reset_requests.synch_all(read=True, wait=True) # read reset requests from shared mem
         to_be_reset = reset_requests.to_be_reset()
         if to_be_reset is not None:
-
             self.reset(env_indxs=to_be_reset,
                 robot_names=[robot_name],
                 reset_world=False,
                 reset_cluster=True)
-        
+
         control_cluster = self.cluster_servers[robot_name]
         control_cluster.activate_controllers(idxs=to_be_reset) # activate controllers
         # (necessary if failed)

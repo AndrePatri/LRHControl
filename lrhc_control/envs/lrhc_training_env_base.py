@@ -94,8 +94,6 @@ class LRhcTrainingEnvBase():
 
         self._n_preinit_steps = n_preinit_steps
         
-        self._is_first_step = True
-
         self._episode_counter = None
         self._randomization_counter = None
         self._obs = None
@@ -149,21 +147,17 @@ class LRhcTrainingEnvBase():
         return empty_list
     
     def _init_step(self):
-    
+        
+        self._check_controllers_registered(wait=True)
+
+        self._activate_rhc_controllers()
+
         for i in range(self._n_preinit_steps): # perform some
             # dummy remote env stepping to make sure to have meaningful 
             # initializations (doesn't increment step counter)
-        
-            self._check_controllers_registered(wait=True)
-
-            if self._is_first_step:
-                self._activate_rhc_controllers()
-                self._is_first_step = False
-            
-            print("IIIIIIIIII")
+                    
             self._remote_sim_step() # 1 remote sim. step
             self._send_remote_reset_req() # fake reset request 
-            print("AAAAAAAAAAA")
 
         self.reset()
 
@@ -184,7 +178,7 @@ class LRhcTrainingEnvBase():
     def _remote_sim_step(self):
 
         self._remote_stepper.trigger() # triggers simulation + RHC
-        print("UUUUUUUUUUUU")
+
         if not self._remote_stepper.wait_ack_from(1, self._timeout):
             Journal.log(self.__class__.__name__,
             "_remote_sim_step",
@@ -210,7 +204,7 @@ class LRhcTrainingEnvBase():
                 "_post_step",
                 "Remote reset did not complete within the prescribed timeout!",
                 LogType.EXCEP,
-                throw_when_excep = False)
+                throw_when_excep = True)
 
     def step(self, 
             action):
@@ -545,12 +539,12 @@ class LRhcTrainingEnvBase():
         self._remote_stepper = RemoteStepperSrvr(namespace=self._namespace,
                             verbose=self._verbose,
                             vlevel=self._vlevel,
-                            force_reconnection=True)
+                            force_reconnection=False)
         self._remote_stepper.run()
         self._remote_resetter = RemoteResetSrvr(namespace=self._namespace,
                             verbose=self._verbose,
                             vlevel=self._vlevel,
-                            force_reconnection=True)
+                            force_reconnection=False)
         self._remote_resetter.run()
         self._remote_reset_req = RemoteResetRequest(namespace=self._namespace,
                                             is_server=False, 

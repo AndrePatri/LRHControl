@@ -14,7 +14,7 @@ class RemoteStepperSrvr(Producer):
             force_reconnection: bool = False):
 
         super().__init__(namespace=namespace,
-            basename="RemoteStepper",
+            basename="RemoteStep",
             verbose=verbose,
             vlevel=vlevel,
             force_reconnection=force_reconnection)
@@ -27,7 +27,7 @@ class RemoteStepperClnt(Consumer):
             vlevel: VLevel = VLevel.V0):
 
         super().__init__(namespace=namespace,
-            basename="RemoteStepper",
+            basename="RemoteStep",
             verbose=verbose,
             vlevel=vlevel)
     
@@ -109,8 +109,8 @@ class RemoteResetRequest(SharedDataView):
                 fill_value = False)
         
         def to_be_reset(self):
-
-            idxs = torch.nonzero(self.get_torch_view().squeeze())
+        
+            idxs = torch.nonzero(self.get_torch_view().flatten())
 
             if idxs.shape[0] == 0:
 

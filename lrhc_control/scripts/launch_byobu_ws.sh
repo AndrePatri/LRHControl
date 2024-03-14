@@ -121,7 +121,7 @@ execute_command "source ~/.local/share/ov/pkg/isaac_sim-2023.1.1/setup_conda_env
 execute_command "source $WS_ROOT/setup.bash"
 increase_file_limits_locally 
 clear_terminal
-prepare_command "reset && python launch_sim_env.py --robot_name {} --robot_pkg_name {} --num_envs {} --remote_stepping--cpu_pipeline --cores {} --contacts_list {}"
+prepare_command "reset && python launch_sim_env.py --headless --remote_stepping --cpu_pipeline --robot_name {} --robot_pkg_name {} --num_envs {} --cores {} --contacts_list {}"
 
 split_v
 execute_command "cd ${WORKING_DIR}"
