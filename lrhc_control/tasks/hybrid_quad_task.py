@@ -41,8 +41,8 @@ class HybridQuadTask(LRHcIsaacTask):
         self.hybrid_quad_rob_name = robot_name
         self.hybrid_quad_robot_pkg_name = robot_pkg_name
 
-        robot_names = [self.hybrid_quad_rob_name]
-        robot_pkg_names = [self.hybrid_quad_robot_pkg_name]
+        robot_names = [self.hybrid_quad_rob_name] * 1
+        robot_pkg_names = [self.hybrid_quad_robot_pkg_name] * len(robot_names)
         
         name = self.__class__.__name__
 
@@ -78,7 +78,7 @@ class HybridQuadTask(LRHcIsaacTask):
 
     def _xrdf_cmds(self):
 
-        cmds = get_xrdf_cmds_isaac(n_robots=1, 
-                    robot_pkg_name=self.hybrid_quad_robot_pkg_name) 
+        cmds = get_xrdf_cmds_isaac(robot_pkg_name=self.hybrid_quad_robot_pkg_name,
+                        robot_names=self.robot_names) 
         
         return cmds

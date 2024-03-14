@@ -1,5 +1,7 @@
-def get_xrdf_cmds_isaac(n_robots: int, 
-                robot_pkg_name: str = None):
+from typing import List
+
+def get_xrdf_cmds_isaac(robot_pkg_name: str = None,
+                robot_names: List[str] = None):
 
         cmds = {}
         cmds_aux = []
@@ -26,9 +28,8 @@ def get_xrdf_cmds_isaac(n_robots: int,
         package_root_path = rospackage.get_path(robot_pkg_name + "_urdf")
         cmds_aux.append(robot_pkg_name + "_root:=" + package_root_path)
 
-        for i in range(n_robots):
-                # we use the same settings for all robots
-                cmds[robot_pkg_name + str(i)] = cmds_aux
+        for name in robot_names:
+                cmds[name] = cmds_aux
 
         return cmds
 
