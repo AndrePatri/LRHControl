@@ -20,7 +20,7 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         obs_dim = 3
         actions_dim = 1
 
-        n_steps_episode = 1024
+        n_steps_episode = 4096
         n_steps_task_rand = 64 # randomize agent refs every n steps
 
         env_name = "LRhcHeightChange"
