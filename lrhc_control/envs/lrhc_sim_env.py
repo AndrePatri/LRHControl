@@ -123,8 +123,9 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                     if self._use_remote_stepping[i] and \
                         self._start_remote_stepping:
 
+                            print("UUUUUUUUUUUUU")
                             self._wait_for_remote_step_req(robot_name=robot_name)
-                            
+                            print("AAAAAAAAAAAAAAA")
                             # when training controllers have to be kept always active
                             # control_cluster.activate_controllers(idxs=control_cluster.get_inactive_controllers())
 
@@ -197,8 +198,10 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                     # cluster
 
                     # 3) wait for solution (will also read latest computed cmds)
+                    print("waiting for sol")
                     control_cluster.wait_for_solution() # this is blocking
-                        
+                    print("got sol")
+
                     self._trigger_cluster[robot_name] = True # this allows for the next trigger 
 
                     # 4) update cluster state
@@ -214,6 +217,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
 
                         if self._start_remote_stepping:
                             
+                            print("ack remote stepping")
                             self._remote_steppers[robot_name].ack() # signal stepping is finished
                             
                             self._process_remote_reset_req(robot_name=robot_name)

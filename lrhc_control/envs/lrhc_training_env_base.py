@@ -148,12 +148,6 @@ class LRhcTrainingEnvBase():
         empty_list = []
         return empty_list
     
-    def _first_step(self):
-
-        self._activate_rhc_controllers()
-
-        self._is_first_step = False
-    
     def _init_step(self):
     
         for i in range(self._n_preinit_steps): # perform some
@@ -163,13 +157,14 @@ class LRhcTrainingEnvBase():
             self._check_controllers_registered(wait=True)
 
             if self._is_first_step:
-
-                self._first_step()
+                self._activate_rhc_controllers()
+                self._is_first_step = False
             
+            print("IIIIIIIIII")
             self._remote_sim_step() # 1 remote sim. step
-
             self._send_remote_reset_req() # fake reset request 
-        
+            print("AAAAAAAAAAA")
+
         self.reset()
 
     def _debug(self):
@@ -189,6 +184,7 @@ class LRhcTrainingEnvBase():
     def _remote_sim_step(self):
 
         self._remote_stepper.trigger() # triggers simulation + RHC
+        print("UUUUUUUUUUUU")
         if not self._remote_stepper.wait_ack_from(1, self._timeout):
             Journal.log(self.__class__.__name__,
             "_remote_sim_step",
