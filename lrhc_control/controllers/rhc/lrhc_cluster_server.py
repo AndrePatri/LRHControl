@@ -1,5 +1,6 @@
 from control_cluster_bridge.cluster_server.control_cluster_server import ControlClusterServer
 from typing import List
+from SharsorIPCpp.PySharsorIPC import VLevel
 
 class LRhcClusterServer(ControlClusterServer):
 
@@ -12,6 +13,7 @@ class LRhcClusterServer(ControlClusterServer):
             n_contact_sensors: int = -1,
             contact_linknames: List[str] = None,
             verbose: bool = False, 
+            vlevel: VLevel = VLevel.V1,
             debug: bool = False,
             use_gpu: bool = True,
             force_reconnection: bool = True):
@@ -27,6 +29,7 @@ class LRhcClusterServer(ControlClusterServer):
             n_contact_sensors = n_contact_sensors,
             contact_linknames = contact_linknames, 
             verbose=verbose, 
+            vlevel=vlevel,
             debug=debug,
             use_gpu=use_gpu,
             force_reconnection=force_reconnection)

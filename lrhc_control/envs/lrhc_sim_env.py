@@ -281,7 +281,9 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                 sim_params=None, 
                 init_sim=True, 
                 cluster_client_verbose = False, 
-                cluster_client_debug = False) -> None:
+                cluster_client_debug = False,
+                verbose: bool = True,
+                vlevel: VLevel = VLevel.V1) -> None:
 
         super().set_task(task, 
                 backend=backend, 
@@ -363,6 +365,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                         n_contact_sensors = n_contact_sensors,
                         contact_linknames = contact_names, 
                         verbose = cluster_client_verbose, 
+                        vlevel = vlevel,
                         debug = cluster_client_debug, 
                         robot_name=robot_name,
                         use_gpu = task.using_gpu,
@@ -378,21 +381,21 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
             if self._use_remote_stepping[i]:
                 
                 self._remote_steppers[robot_name] = RemoteStepperClnt(namespace=robot_name,
-                                                            verbose=True,
-                                                            vlevel=VLevel.V2)
+                                                            verbose=verbose,
+                                                            vlevel=vlevel)
                 self._remote_resetters[robot_name] = RemoteResetClnt(namespace=robot_name,
-                                                            verbose=True,
-                                                            vlevel=VLevel.V2)
+                                                            verbose=verbose,
+                                                            vlevel=vlevel)
                 self._remote_reset_requests[robot_name] = RemoteResetRequest(namespace=robot_name,
                                                                     n_env=self.num_envs,
-                                                                    is_server=True, 
-                                                                    verbose=True, 
-                                                                    vlevel=VLevel.V2, 
+                                                                    is_server=True,
+                                                                    verbose=verbose,
+                                                                    vlevel=vlevel, 
                                                                     force_reconnection=True, 
                                                                     safe=False)
                 self._sim_env_ready[robot_name] = SimEnvReadySrvr(namespace=robot_name,
-                                                            verbose=True,
-                                                            vlevel=VLevel.V2,
+                                                            verbose=verbose,
+                                                            vlevel=vlevel,
                                                             force_reconnection=True)
             else:
                 

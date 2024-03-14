@@ -159,7 +159,9 @@ if __name__ == '__main__':
             n_pre_training_steps = 10, # n of env steps before connecting to training client
             sim_params = sim_params, 
             cluster_client_verbose=True, 
-            cluster_client_debug=True) # add the task to the environment 
+            cluster_client_debug=True,
+            verbose=True, 
+            vlevel=VLevel.V2) # add the task to the environment 
     # (includes spawning robots and launching the cluster client for the controllers)
     env.reset(reset_world=True)
 
