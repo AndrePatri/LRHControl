@@ -456,7 +456,7 @@ class ActorCriticAlgoBase():
         self._save_model = True
         self._env_name = self._env.name()
 
-        self._iterations_n = 1000
+        self._iterations_n = 300
         self._env_timesteps = 256
 
         self._env_episode_n_steps = self._env.n_steps_per_episode()
