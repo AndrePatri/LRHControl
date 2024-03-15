@@ -94,25 +94,39 @@ class EpisodicRewards():
 
         return self._steps_counter
     
-    def get(self):
+    def get(self, 
+            normalize: bool = True):
     
         # average reward over the performed episodes for each env
         self._avrg_episodic_reward = self._episodic_rewards / self._current_ep_idx
-        return self._avrg_episodic_reward
 
-    def get_env_avrg(self):
+        if normalize: # normalize of the number of steps
+            return self._avrg_episodic_reward / self._steps_counter
+        else:
 
-        return torch.sum(self.get(), dim=0)/self._n_envs
+            return self._avrg_episodic_reward
+
+    def get_env_avrg(self,
+                normalize: bool = True):
+
+        return torch.sum(self.get(normalize=normalize), dim=0)/self._n_envs
     
-    def get_total(self):
+    def get_total(self, 
+            normalize: bool = True):
         
         # total average reward over the performed episodes for each env
         self._tot_avrg_episodic_reward[: , 0] = torch.sum(self._episodic_rewards / self._current_ep_idx, dim=1)
-        return self._tot_avrg_episodic_reward
-    
-    def get_total_env_avrg(self):
 
-        return torch.sum(self.get_total()).item()/self._n_envs
+        if normalize: # normalize of the number of steps
+            return self._tot_avrg_episodic_reward / self._steps_counter
+        else:
+
+            return self._tot_avrg_episodic_reward
+            
+    def get_total_env_avrg(self, 
+            normalize: bool = True):
+
+        return torch.sum(self.get_total(normalize=normalize)).item()/self._n_envs
 
 
                              
