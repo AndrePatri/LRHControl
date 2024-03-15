@@ -53,6 +53,7 @@ class ActorCriticAlgoBase():
         
         self._run_name = None
         self._drop_dir = None
+        self._dbinfo_drop_dir = None
         self._model_path = None
 
         self._hyperparameters = {}
@@ -235,6 +236,8 @@ class ActorCriticAlgoBase():
                     info,
                     LogType.INFO,
                     throw_when_excep = True)
+            
+            self._dump_dbinfo_to_file()
 
             if self._shared_algo_data is not None:
 
@@ -243,6 +246,34 @@ class ActorCriticAlgoBase():
             self._env.close()
 
             self._is_done = True
+
+    def _dump_dbinfo_to_file(self):
+
+        import h5py
+
+        info = f"Dumping debug info at {self._dbinfo_drop_dir}"
+        Journal.log(self.__class__.__name__,
+            "_dump_dbinfo_to_file",
+            info,
+            LogType.INFO,
+            throw_when_excep = True)
+        
+        print(self._hyperparameters)
+
+        with h5py.File(self._dbinfo_drop_dir+".hdf5", 'w') as hf:
+            # hf.create_dataset('numpy_data', data=numpy_data)
+            # Write dictionaries to HDF5 as attributes
+            for key, value in self._hyperparameters.items():
+                if value is None:
+                    value = "None"
+                hf.attrs[key] = value
+        
+        info = f"done."
+        Journal.log(self.__class__.__name__,
+            "_dump_dbinfo_to_file",
+            info,
+            LogType.INFO,
+            throw_when_excep = True)
 
     def _load_model(self,
             model_path: str):
@@ -280,8 +311,10 @@ class ActorCriticAlgoBase():
         self._model_path = self._drop_dir + "/" + self._unique_id + "_model"
 
         if self._eval: # drop in same directory
-            self._drop_dir = self._drop_dir + "/" + self._unique_id + "_evalrun"
+            f = self._drop_dir + "/" + self._unique_id + "_evalrun"
         
+        self._dbinfo_drop_dir = self._drop_dir + "/" + self._unique_id + "db_info"
+
         aux_drop_dir = self._drop_dir + "/other"
         os.makedirs(self._drop_dir)
         os.makedirs(aux_drop_dir)
@@ -457,6 +490,12 @@ class ActorCriticAlgoBase():
         self._hyperparameters["n_policy_updates_per_batch"] = self._update_epochs * self._num_minibatches
         self._hyperparameters["n_policy_updates_when_done"] = \
             self._iterations_n * self._update_epochs * self._num_minibatches
+        self._hyperparameters["n steps per env. episode"] = self._env_episode_n_steps
+        self._hyperparameters["n steps per env. rollout"] = self._env_timesteps
+        self._hyperparameters["per-batch update_epochs"] = self._update_epochs
+        self._hyperparameters["per-epoch policy updates"] = self._num_minibatches
+        self._hyperparameters["total policy updates to be performed"] = self._update_epochs * self._num_minibatches * self._iterations_n
+        self._hyperparameters["total_timesteps to be simulated"] = self._total_timesteps
         self._hyperparameters["batch_size"] = self._batch_size
         self._hyperparameters["minibatch_size"] = self._minibatch_size
         self._hyperparameters["total_timesteps"] = self._total_timesteps
@@ -464,7 +503,6 @@ class ActorCriticAlgoBase():
         self._hyperparameters["anneal_lr"] = self._anneal_lr
         self._hyperparameters["discount_factor"] = self._discount_factor
         self._hyperparameters["gae_lambda"] = self._gae_lambda
-        self._hyperparameters["update_epochs"] = self._update_epochs
         self._hyperparameters["norm_adv"] = self._norm_adv
         self._hyperparameters["clip_coef"] = self._clip_coef
         self._hyperparameters["clip_vloss"] = self._clip_vloss

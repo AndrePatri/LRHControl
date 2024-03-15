@@ -1,7 +1,10 @@
 from lrhc_control.envs.heightchange_env import LRhcHeightChange
+
 from lrhc_control.training_algs.ppo.clean_ppo import CleanPPO
 # from lrhc_control.training_algs.ppo.mem_eff_ppo import MemEffPPO
 # from lrhc_control.training_algs.ppo.ppo import PPO
+
+from control_cluster_bridge.utilities.shared_data.sim_data import SharedSimInfo
 
 from SharsorIPCpp.PySharsorIPC import VLevel
 
@@ -39,11 +42,22 @@ if __name__ == "__main__":
                     vlevel=VLevel.V2,
                     use_gpu=not args.use_cpu)
 
+    # getting some sim info for debugging
+    sim_data = {}
+    sim_info_shared = SharedSimInfo(namespace=args.ns,
+                is_server=False,
+                safe=False)
+    sim_info_shared.run()
+    sim_info_keys = sim_info_shared.param_keys
+    sim_info_data = sim_info_shared.get().flatten()
+    for i in range(len(sim_info_keys)):
+        sim_data[sim_info_keys[i]] = sim_info_data[i]
+    
     ppo = CleanPPO(env=env, debug=True)
     ppo.setup(run_name=args.run_name, 
         verbose=True,
         drop_dir_name=args.drop_dir,
-        custom_args = vars(args),
+        custom_args = sim_data,
         comment=args.comment)
     
     if not args.eval:
