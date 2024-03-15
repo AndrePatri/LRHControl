@@ -364,17 +364,13 @@ class ActorCriticAlgoBase():
                     self._elapsed_min
                     ])
 
+            d = {'tot_episodic_reward': wandb.Histogram(self._episodic_rewards.numpy()),
+                'tot_episodic_reward_env_avrg': self._episodic_rewards_env_avrg,
+                'ppo_iteration' : self._it_counter}
+            d.update({f"sub_reward/{self._episodic_reward_getter.reward_names()[i]}":
+                      self._episodic_rewards_detail_env_avrg[i] for i in range(len(self._episodic_reward_getter.reward_names())) })
             # write debug info to shared memory    
-            wandb.log({'tot_episodic_reward': wandb.Histogram(self._episodic_rewards.numpy())})
-            wandb.log({'tot_episodic_reward_env_avrg': wandb.Histogram(self._episodic_rewards_env_avrg)})
-            # wandb.log({'detail_episodic_rewards_env_avrg': wandb.Histogram(self._episodic_rewards_detail_env_avrg)})
-            wandb.log({"detail_episodic_rewards_env_avrg" : wandb.plot.line_series(
-                       xs=[self._episodic_reward_getter.step_idx()], 
-                       ys=torch.reshape(self._episodic_rewards_detail_env_avrg, 
-                                    (self._episodic_rewards_detail_env_avrg.shape[0], 1)).numpy(),
-                       keys=self._episodic_reward_getter.reward_names(),
-                       title="Detailed episodic rewards averaged across envs",
-                       xname="time step")})
+            wandb.log(d)
     
     def _init_dbdata(self):
 
@@ -412,7 +408,7 @@ class ActorCriticAlgoBase():
         self._save_model = True
         self._env_name = self._env.name()
 
-        self._iterations_n = 500
+        self._iterations_n = 1000
         self._env_timesteps = 256
 
         self._env_episode_n_steps = self._env.n_steps_per_episode()
