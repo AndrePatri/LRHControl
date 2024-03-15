@@ -7,8 +7,6 @@ from SharsorIPCpp.PySharsorIPC import VLevel
 
 import os, argparse
 
-from datetime import datetime
-
 # Function to set CPU affinity
 def set_affinity(cores):
     try:
@@ -28,6 +26,7 @@ if __name__ == "__main__":
     parser.add_argument('--eval', action='store_true', help='If set, evaluates policy instead of training')
     parser.add_argument('--eval_tsteps', type=int, help='N. timestep to evaluate if eval flag is set', default=1e4)
     parser.add_argument('--use_cpu', action='store_true', help='If set, all the training (data included) will be perfomed on CPU')
+    parser.add_argument('--comment', type=str, help='Any useful comment associated with this run',default="")
 
     args = parser.parse_args()
     
@@ -41,10 +40,11 @@ if __name__ == "__main__":
                     use_gpu=not args.use_cpu)
 
     ppo = CleanPPO(env=env, debug=True)
-    time_id = datetime.now().strftime('d%Y_%m_%d_h%H_m%M_s%S')
-    ppo.setup(run_name=time_id + "-" + args.run_name, 
+    ppo.setup(run_name=args.run_name, 
         verbose=True,
-        drop_dir_name=args.drop_dir)
+        drop_dir_name=args.drop_dir,
+        custom_args = vars(args),
+        comment=args.comment)
     
     if not args.eval:
         try:

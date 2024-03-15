@@ -83,16 +83,20 @@ class ActorCriticAlgoBase():
             custom_args: Dict = {},
             verbose: bool = False,
             drop_dir_name: str = None,
-            eval: bool = False):
+            eval: bool = False,
+            comment: str = ""):
 
         self._verbose = verbose
 
         self._eval = eval
 
         self._run_name = run_name
-
+        from datetime import datetime
+        self._time_id = datetime.now().strftime('d%Y_%m_%d_h%H_m%M_s%S')
+        self._unique_id = self._time_id + "-" + self._run_name
+        self._init_algo_shared_data(static_params=self._hyperparameters) # can only handle dicts with
+        # numeric values
         self._hyperparameters.update(custom_args)
-        self._init_algo_shared_data(static_params=self._hyperparameters)
 
         # create dump directory + copy important files for debug
         self._init_drop_dir(drop_dir_name)
@@ -106,12 +110,20 @@ class ActorCriticAlgoBase():
         if (self._debug):
             
             torch.autograd.set_detect_anomaly(self._debug)
-
+            job_type = "evaluation" if eval else "training"
             wandb.init(
                 project="LRHControl",
+                group=self._run_name,
+                name=self._unique_id,
+                id=self._unique_id,
+                job_type=job_type,
+                # tags=None,
+                notes=comment,
+                resume="never", # do not allow runs with the same unique id
+                mode="online", # "online", "offline" or "disabled"
                 entity=None,
                 sync_tensorboard=True,
-                name=run_name,
+                config=self._hyperparameters,
                 monitor_gym=True,
                 save_code=True,
                 dir=self._drop_dir
@@ -261,16 +273,16 @@ class ActorCriticAlgoBase():
 
         if drop_dir_name is None:
             # drop to current directory
-            self._drop_dir = "./" + f"{self.__class__.__name__}/" + self._run_name
+            self._drop_dir = "./" + f"{self.__class__.__name__}/" + self._run_name + "/" + self._unique_id
         else:
-            self._drop_dir = drop_dir_name + "/" + f"{self.__class__.__name__}/" + self._run_name
+            self._drop_dir = drop_dir_name + "/" + f"{self.__class__.__name__}/" + self._run_name + "/" + self._unique_id
 
         self._model_path = self._drop_dir + "/" + self._run_name + "_model"
 
         if self._eval: # drop in same directory
             self._drop_dir = self._drop_dir + "/" + self._run_name + "EvalRun"
         
-        aux_drop_dir = self._drop_dir + "/aux"
+        aux_drop_dir = self._drop_dir + "/other"
         os.makedirs(self._drop_dir)
         os.makedirs(aux_drop_dir)
 
@@ -367,8 +379,11 @@ class ActorCriticAlgoBase():
             d = {'tot_episodic_reward': wandb.Histogram(self._episodic_rewards.numpy()),
                 'tot_episodic_reward_env_avrg': self._episodic_rewards_env_avrg,
                 'ppo_iteration' : self._it_counter}
+            d.update({f"sub_reward/{self._episodic_reward_getter.reward_names()[i]}_env_avrg":
+                      self._episodic_rewards_detail_env_avrg[i] for i in range(len(self._episodic_reward_getter.reward_names()))})
             d.update({f"sub_reward/{self._episodic_reward_getter.reward_names()[i]}":
-                      self._episodic_rewards_detail_env_avrg[i] for i in range(len(self._episodic_reward_getter.reward_names())) })
+                      wandb.Histogram(self._episodic_rewards_detail.numpy()[:, i:i+1]) for i in range(len(self._episodic_reward_getter.reward_names()))})
+            
             # write debug info to shared memory    
             wandb.log(d)
     
@@ -431,26 +446,6 @@ class ActorCriticAlgoBase():
         self._val_f_coeff = 0.5
         self._max_grad_norm = 0.5
         self._target_kl = None
-        
-        info = f"\nUsing \n" + \
-            f"batch_size {self._batch_size}\n" + \
-            f"minibatch_size {self._minibatch_size}\n" + \
-            f"num_minibatches {self._num_minibatches}\n" + \
-            f"n steps per env. episode {self._env_episode_n_steps}\n" + \
-            f"n steps per env. rollout {self._env_timesteps}\n" + \
-            f"iterations_n {self._iterations_n}\n" + \
-            f"per-batch update_epochs {self._update_epochs}\n" + \
-            f"per-epoch policy updates {self._num_minibatches}\n" + \
-            f"total policy updates to be performed {self._update_epochs * self._num_minibatches * self._iterations_n}\n" + \
-            f"total_timesteps to be simulated {self._total_timesteps}\n"
-            
-        Journal.log(self.__class__.__name__,
-            "_init_params",
-            info,
-            LogType.INFO,
-            throw_when_excep = True)
-        
-        self._it_counter = 0
 
         # write them to hyperparam dictionary for debugging
         self._hyperparameters["n_envs"] = self._num_envs
@@ -477,6 +472,26 @@ class ActorCriticAlgoBase():
         self._hyperparameters["val_f_coeff"] = self._val_f_coeff
         self._hyperparameters["max_grad_norm"] = self._max_grad_norm
         self._hyperparameters["target_kl"] = self._target_kl
+
+        # small debug log
+        info = f"\nUsing \n" + \
+            f"batch_size {self._batch_size}\n" + \
+            f"minibatch_size {self._minibatch_size}\n" + \
+            f"num_minibatches {self._num_minibatches}\n" + \
+            f"n steps per env. episode {self._env_episode_n_steps}\n" + \
+            f"n steps per env. rollout {self._env_timesteps}\n" + \
+            f"iterations_n {self._iterations_n}\n" + \
+            f"per-batch update_epochs {self._update_epochs}\n" + \
+            f"per-epoch policy updates {self._num_minibatches}\n" + \
+            f"total policy updates to be performed {self._update_epochs * self._num_minibatches * self._iterations_n}\n" + \
+            f"total_timesteps to be simulated {self._total_timesteps}\n"
+        Journal.log(self.__class__.__name__,
+            "_init_params",
+            info,
+            LogType.INFO,
+            throw_when_excep = True)
+        
+        self._it_counter = 0
 
     def _init_buffers(self):
 
