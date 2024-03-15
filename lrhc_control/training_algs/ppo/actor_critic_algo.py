@@ -277,10 +277,10 @@ class ActorCriticAlgoBase():
         else:
             self._drop_dir = drop_dir_name + "/" + f"{self.__class__.__name__}/" + self._run_name + "/" + self._unique_id
 
-        self._model_path = self._drop_dir + "/" + self._run_name + "_model"
+        self._model_path = self._drop_dir + "/" + self._unique_id + "_model"
 
         if self._eval: # drop in same directory
-            self._drop_dir = self._drop_dir + "/" + self._run_name + "EvalRun"
+            self._drop_dir = self._drop_dir + "/" + self._unique_id + "_evalrun"
         
         aux_drop_dir = self._drop_dir + "/other"
         os.makedirs(self._drop_dir)
