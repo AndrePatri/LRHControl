@@ -32,6 +32,7 @@ if __name__ == "__main__":
     parser.add_argument('--c_end_idx', type=int, 
             help='end index for cores over which RHC controllers will be distributed',
             default=mp.cpu_count())
+    parser.add_argument('--comment', type=str, help='Any useful comment associated with this run',default="")
 
     args = parser.parse_args()
 

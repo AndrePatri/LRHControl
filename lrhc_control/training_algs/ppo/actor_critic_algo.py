@@ -59,11 +59,11 @@ class ActorCriticAlgoBase():
         self._hyperparameters = {}
         
         self._episodic_reward_getter = self._env.ep_reward_getter()
-
-        self._init_dbdata()
         
         self._init_params()
         
+        self._init_dbdata()
+
         self._setup_done = False
 
         self._verbose = False
@@ -176,10 +176,10 @@ class ActorCriticAlgoBase():
 
         self._play(self._env_timesteps)
         # after rolling out policy, we get the episodic reward for the current policy
-        self._episodic_rewards = self._episodic_reward_getter.get_total() # total ep. rewards across envs
-        self._episodic_sub_rewards = self._episodic_reward_getter.get() # sub-episodic rewards across envs
-        self._episodic_sub_rewards_env_avrg = self._episodic_reward_getter.get_env_avrg() # avrg over envs
-        self._episodic_rewards_env_avrg = self._episodic_reward_getter.get_total_env_avrg() # avrg over envs
+        self._episodic_rewards[self._it_counter, :, :] = self._episodic_reward_getter.get_total() # total ep. rewards across envs
+        self._episodic_sub_rewards[self._it_counter, :, :] = self._episodic_reward_getter.get() # sub-episodic rewards across envs
+        self._episodic_sub_rewards_env_avrg[self._it_counter, :] = self._episodic_reward_getter.get_env_avrg() # avrg over envs
+        self._episodic_rewards_env_avrg[self._it_counter, :, :] = self._episodic_reward_getter.get_total_env_avrg() # avrg over envs
         self._rollout_t = time.perf_counter()
 
         self._compute_returns()
@@ -260,8 +260,6 @@ class ActorCriticAlgoBase():
             LogType.INFO,
             throw_when_excep = True)
         
-        print(self._hyperparameters)
-
         with h5py.File(self._dbinfo_drop_dir+".hdf5", 'w') as hf:
             # hf.create_dataset('numpy_data', data=numpy_data)
             # Write dictionaries to HDF5 as attributes
@@ -269,6 +267,19 @@ class ActorCriticAlgoBase():
                 if value is None:
                     value = "None"
                 hf.attrs[key] = value
+            
+            # rewards
+            hf.create_dataset('sub_reward_names', data=self._reward_names, 
+                dtype='S20') 
+            
+            hf.create_dataset('episodic_rewards', data=self._episodic_rewards.numpy())
+            hf.create_dataset('episodic_sub_rewards', data=self._episodic_sub_rewards.numpy())
+            hf.create_dataset('episodic_sub_rewards_env_avrg', data=self._episodic_sub_rewards_env_avrg.numpy())
+            hf.create_dataset('episodic_rewards_env_avrg', data=self._episodic_rewards_env_avrg.numpy())
+
+            # sub episodic rewards
+
+            # tot episodic rewards
         
         info = f"done."
         Journal.log(self.__class__.__name__,
@@ -349,7 +360,7 @@ class ActorCriticAlgoBase():
         self._env_step_fps = self._batch_size / self._rollout_dt
         self._policy_update_fps = self._update_epochs * self._num_minibatches / self._policy_update_dt
 
-        self._debug_info()
+        self._log_info()
 
         if self._it_counter == self._iterations_n:
 
@@ -374,7 +385,7 @@ class ActorCriticAlgoBase():
             LogType.EXCEP,
             throw_when_excep = True)
     
-    def _debug_info(self):
+    def _log_info(self):
         
         if self._debug:
 
@@ -407,14 +418,14 @@ class ActorCriticAlgoBase():
             self._shared_algo_data.write(dyn_info_name=info_names,
                                     val=info_data)
 
-            wandb_d = {'tot_episodic_reward': wandb.Histogram(self._episodic_rewards.numpy()),
-                'tot_episodic_reward_env_avrg': self._episodic_rewards_env_avrg,
+            wandb_d = {'tot_episodic_reward': wandb.Histogram(self._episodic_rewards[self._it_counter-1, :, :].numpy()),
+                'tot_episodic_reward_env_avrg': self._episodic_rewards_env_avrg[self._it_counter-1, :, :].item(),
                 'ppo_iteration' : self._it_counter}
             wandb_d.update(dict(zip(info_names, info_data)))
-            wandb_d.update({f"sub_reward/{self._episodic_reward_getter.reward_names()[i]}_env_avrg":
-                      self._episodic_sub_rewards_env_avrg[i] for i in range(len(self._episodic_reward_getter.reward_names()))})
-            wandb_d.update({f"sub_reward/{self._episodic_reward_getter.reward_names()[i]}":
-                      wandb.Histogram(self._episodic_sub_rewards.numpy()[:, i:i+1]) for i in range(len(self._episodic_reward_getter.reward_names()))})
+            wandb_d.update({f"sub_reward/{self._reward_names[i]}_env_avrg":
+                      self._episodic_sub_rewards_env_avrg[self._it_counter-1, i] for i in range(len(self._reward_names))})
+            wandb_d.update({f"sub_reward/{self._reward_names[i]}":
+                      wandb.Histogram(self._episodic_sub_rewards.numpy()[self._it_counter-1, :, i:i+1]) for i in range(len(self._reward_names))})
             
             # write debug info to shared memory    
             wandb.log(wandb_d),
@@ -428,8 +439,8 @@ class ActorCriticAlgoBase():
                 f"Elapsed minutes: {self._elapsed_min}\n" + \
                 f"Estimated remaining training time: " + \
                 f"{self._elapsed_min/60 * 1/self._it_counter * (self._iterations_n-self._it_counter)} hours\n" + \
-                f"Average episodic reward across all environments: {self._episodic_rewards_env_avrg}\n" + \
-                f"Average episodic rewards across all environments {self._reward_names}: {self._episodic_sub_rewards_env_avrg}\n"
+                f"Average episodic reward across all environments: {self._episodic_rewards_env_avrg[self._it_counter-1, :, :].item()}\n" + \
+                f"Average episodic rewards across all environments {self._reward_names_str}: {self._episodic_sub_rewards_env_avrg[self._it_counter-1, :]}\n"
             Journal.log(self.__class__.__name__,
                 "_post_step",
                 info,
@@ -456,11 +467,20 @@ class ActorCriticAlgoBase():
         self._n_policy_updates = 0
         self._elapsed_min = 0
 
-        self._episodic_rewards = None
-        self._episodic_rewards_env_avrg = None
-        self._episodic_sub_rewards = None
-        self._episodic_sub_rewards_env_avrg = None
-        self._reward_names = "[" + ', '.join(self._episodic_reward_getter.reward_names()) + "]"
+        tot_ep_rew_shape = self._episodic_reward_getter.get_total().shape
+        subrep_ewards_shape = self._episodic_reward_getter.get().shape
+        subrep_ewards_avrg_shape = self._episodic_reward_getter.get_env_avrg().shape
+
+        self._reward_names = self._episodic_reward_getter.reward_names()
+        self._reward_names_str = "[" + ', '.join(self._reward_names) + "]"
+        self._episodic_rewards = torch.full((self._iterations_n, tot_ep_rew_shape[0], tot_ep_rew_shape[1]), 
+                                        dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._episodic_rewards_env_avrg = torch.full((self._iterations_n, 1, 1), 
+                                        dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._episodic_sub_rewards = torch.full((self._iterations_n, subrep_ewards_shape[0], subrep_ewards_shape[1]), 
+                                        dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._episodic_sub_rewards_env_avrg = torch.full((self._iterations_n, subrep_ewards_avrg_shape[0]), 
+                                        dtype=torch.float32, fill_value=0.0, device="cpu")
 
     def _init_params(self):
 
@@ -479,13 +499,13 @@ class ActorCriticAlgoBase():
         self._save_model = True
         self._env_name = self._env.name()
 
-        self._iterations_n = 500
+        self._iterations_n = 250
         self._env_timesteps = 256
 
         self._env_episode_n_steps = self._env.n_steps_per_episode()
         self._total_timesteps = self._iterations_n * (self._env_timesteps * self._num_envs)
         self._batch_size =int(self._num_envs * self._env_timesteps)
-        self._num_minibatches = self._env.n_envs()
+        self._num_minibatches = 2 * self._env.n_envs()
         self._minibatch_size = int(self._batch_size // self._num_minibatches)
 
         self._base_learning_rate = 3e-4

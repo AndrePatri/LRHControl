@@ -20,6 +20,8 @@ if __name__ == '__main__':
     parser.add_argument('--dpath', type=str)
     parser.add_argument('--nodes_perc', type=int, default=100)
     parser.add_argument('--cores', nargs='+', type=int, help='List of CPU cores to set 	affinity to')
+    parser.add_argument('--comment', type=str, help='Any useful comment associated with this run',default="")
+
     args = parser.parse_args()
     
     # Set CPU affinity if cores are provided
