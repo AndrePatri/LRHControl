@@ -271,16 +271,23 @@ class ActorCriticAlgoBase():
             # rewards
             hf.create_dataset('sub_reward_names', data=self._reward_names, 
                 dtype='S20') 
-            
             hf.create_dataset('episodic_rewards', data=self._episodic_rewards.numpy())
             hf.create_dataset('episodic_sub_rewards', data=self._episodic_sub_rewards.numpy())
             hf.create_dataset('episodic_sub_rewards_env_avrg', data=self._episodic_sub_rewards_env_avrg.numpy())
             hf.create_dataset('episodic_rewards_env_avrg', data=self._episodic_rewards_env_avrg.numpy())
 
-            # sub episodic rewards
+            # other data
+            hf.create_dataset('rollout_dt', data=self._rollout_dt.numpy())
+            hf.create_dataset('env_step_fps', data=self._env_step_fps.numpy())
+            hf.create_dataset('gae_dt', data=self._gae_dt.numpy())
+            hf.create_dataset('policy_update_dt', data=self._policy_update_dt.numpy())
+            hf.create_dataset('policy_update_fps', data=self._policy_update_fps.numpy())
+            hf.create_dataset('n_of_played_episodes', data=self._n_of_played_episodes.numpy())
+            hf.create_dataset('n_timesteps_done', data=self._n_timesteps_done.numpy())
+            hf.create_dataset('n_policy_updates', data=self._n_policy_updates.numpy())
+            hf.create_dataset('elapsed_min', data=self._elapsed_min.numpy())
+            hf.create_dataset('learn_rates', data=self._learning_rates.numpy())
 
-            # tot episodic rewards
-        
         info = f"done."
         Journal.log(self.__class__.__name__,
             "_dump_dbinfo_to_file",
@@ -347,18 +354,20 @@ class ActorCriticAlgoBase():
 
         self._it_counter +=1 
 
-        self._rollout_dt = self._rollout_t -self._start_time
-        self._gae_dt = self._gae_t - self._rollout_t
-        self._policy_update_dt = self._policy_update_t - self._gae_t
+        self._rollout_dt[self._it_counter-1] = self._rollout_t -self._start_time
+        self._gae_dt[self._it_counter-1] = self._gae_t - self._rollout_t
+        self._policy_update_dt[self._it_counter-1] = self._policy_update_t - self._gae_t
         
-        self._n_of_played_episodes = self._episodic_reward_getter.get_n_played_episodes()
-        self._n_timesteps_done = self._it_counter * self._batch_size
-        self._n_policy_updates = self._it_counter * self._update_epochs * self._num_minibatches
+        self._n_of_played_episodes[self._it_counter-1] = self._episodic_reward_getter.get_n_played_episodes()
+        self._n_timesteps_done[self._it_counter-1] = self._it_counter * self._batch_size
+        self._n_policy_updates[self._it_counter-1] = self._it_counter * self._update_epochs * self._num_minibatches
         
-        self._elapsed_min = (time.perf_counter() - self._start_time_tot) / 60
+        self._elapsed_min[self._it_counter-1] = (time.perf_counter() - self._start_time_tot) / 60
         
-        self._env_step_fps = self._batch_size / self._rollout_dt
-        self._policy_update_fps = self._update_epochs * self._num_minibatches / self._policy_update_dt
+        self._learning_rates[self._it_counter-1] = self._learning_rate_now
+
+        self._env_step_fps[self._it_counter-1] = self._batch_size / self._rollout_dt[self._it_counter-1]
+        self._policy_update_fps[self._it_counter-1] = self._update_epochs * self._num_minibatches / self._policy_update_dt[self._it_counter-1]
 
         self._log_info()
 
@@ -402,16 +411,16 @@ class ActorCriticAlgoBase():
                 "elapsed_min"
                 ]
             info_data = [self._it_counter, 
-                self._n_policy_updates,
-                self._n_of_played_episodes, 
-                self._n_timesteps_done,
+                self._n_policy_updates[self._it_counter-1].item(),
+                self._n_of_played_episodes[self._it_counter-1].item(), 
+                self._n_timesteps_done[self._it_counter-1].item(),
                 self._learning_rate_now,
-                self._rollout_dt,
-                self._gae_dt,
-                self._policy_update_dt,
-                self._env_step_fps,
-                self._policy_update_fps,
-                self._elapsed_min
+                self._rollout_dt[self._it_counter-1].item(),
+                self._gae_dt[self._it_counter-1].item(),
+                self._policy_update_dt[self._it_counter-1].item(),
+                self._env_step_fps[self._it_counter-1].item(),
+                self._policy_update_fps[self._it_counter-1].item(),
+                self._elapsed_min[self._it_counter-1].item()
                 ]
 
             # write debug info to shared memory    
@@ -433,12 +442,12 @@ class ActorCriticAlgoBase():
         if self._verbose:
             
             info = f"\nN. PPO iterations performed: {self._it_counter}/{self._iterations_n}\n" + \
-                f"N. policy updates performed: {self._it_counter * self._update_epochs * self._num_minibatches}/" + \
+                f"N. policy updates performed: {self._n_policy_updates[self._it_counter-1].item()}/" + \
                 f"{self._update_epochs * self._num_minibatches * self._iterations_n}\n" + \
                 f"N. timesteps performed: {self._it_counter * self._batch_size}/{self._total_timesteps}\n" + \
-                f"Elapsed minutes: {self._elapsed_min}\n" + \
+                f"Elapsed minutes: {self._elapsed_min[self._it_counter-1].item()}\n" + \
                 f"Estimated remaining training time: " + \
-                f"{self._elapsed_min/60 * 1/self._it_counter * (self._iterations_n-self._it_counter)} hours\n" + \
+                f"{self._elapsed_min[self._it_counter-1]/60 * 1/self._it_counter * (self._iterations_n-self._it_counter)} hours\n" + \
                 f"Average episodic reward across all environments: {self._episodic_rewards_env_avrg[self._it_counter-1, :, :].item()}\n" + \
                 f"Average episodic rewards across all environments {self._reward_names_str}: {self._episodic_sub_rewards_env_avrg[self._it_counter-1, :]}\n"
             Journal.log(self.__class__.__name__,
@@ -451,22 +460,32 @@ class ActorCriticAlgoBase():
 
         # initalize some debug data
 
-        self._rollout_dt = -1.0
+        self._rollout_dt = torch.full((self._iterations_n, 1), 
+                    dtype=torch.float32, fill_value=-1.0, device="cpu")
         self._rollout_t = -1.0
-        self._env_step_fps = 0.0
+        self._env_step_fps = torch.full((self._iterations_n, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
 
         self._gae_t = -1.0
-        self._gae_dt = -1.0
+        self._gae_dt = torch.full((self._iterations_n, 1), 
+                    dtype=torch.float32, fill_value=-1.0, device="cpu")
 
         self._policy_update_t = -1.0
-        self._policy_update_dt = -1.0
-        self._policy_update_fps = 0.0
+        self._policy_update_dt = torch.full((self._iterations_n, 1), 
+                    dtype=torch.float32, fill_value=-1.0, device="cpu")
+        self._policy_update_fps = torch.full((self._iterations_n, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
         
-        self._n_of_played_episodes = 0
-        self._n_timesteps_done = 0
-        self._n_policy_updates = 0
-        self._elapsed_min = 0
-
+        self._n_of_played_episodes = torch.full((self._iterations_n, 1), 
+                    dtype=torch.int32, fill_value=0, device="cpu")
+        self._n_timesteps_done = torch.full((self._iterations_n, 1), 
+                    dtype=torch.int32, fill_value=0, device="cpu")
+        self._n_policy_updates = torch.full((self._iterations_n, 1), 
+                    dtype=torch.int32, fill_value=0, device="cpu")
+        self._elapsed_min = torch.full((self._iterations_n, 1), 
+                    dtype=torch.float32, fill_value=0, device="cpu")
+        self._learning_rates = torch.full((self._iterations_n, 1), 
+                    dtype=torch.float32, fill_value=0, device="cpu")
         tot_ep_rew_shape = self._episodic_reward_getter.get_total().shape
         subrep_ewards_shape = self._episodic_reward_getter.get().shape
         subrep_ewards_avrg_shape = self._episodic_reward_getter.get_env_avrg().shape
@@ -505,7 +524,7 @@ class ActorCriticAlgoBase():
         self._env_episode_n_steps = self._env.n_steps_per_episode()
         self._total_timesteps = self._iterations_n * (self._env_timesteps * self._num_envs)
         self._batch_size =int(self._num_envs * self._env_timesteps)
-        self._num_minibatches = 2 * self._env.n_envs()
+        self._num_minibatches = self._env.n_envs()
         self._minibatch_size = int(self._batch_size // self._num_minibatches)
 
         self._base_learning_rate = 3e-4
@@ -523,6 +542,8 @@ class ActorCriticAlgoBase():
         self._max_grad_norm = 0.5
         self._target_kl = None
 
+        self._n_policy_updates_to_be_done = self._update_epochs * self._num_minibatches * self._iterations_n
+
         # write them to hyperparam dictionary for debugging
         self._hyperparameters["n_envs"] = self._num_envs
         self._hyperparameters["obs_dim"] = self._obs_dim
@@ -531,8 +552,7 @@ class ActorCriticAlgoBase():
         self._hyperparameters["using_gpu"] = self._use_gpu
         self._hyperparameters["n_iterations"] = self._iterations_n
         self._hyperparameters["n_policy_updates_per_batch"] = self._update_epochs * self._num_minibatches
-        self._hyperparameters["n_policy_updates_when_done"] = \
-            self._iterations_n * self._update_epochs * self._num_minibatches
+        self._hyperparameters["n_policy_updates_when_done"] = self._n_policy_updates_to_be_done
         self._hyperparameters["n steps per env. episode"] = self._env_episode_n_steps
         self._hyperparameters["n steps per env. rollout"] = self._env_timesteps
         self._hyperparameters["per-batch update_epochs"] = self._update_epochs
