@@ -128,6 +128,10 @@ class EpisodicRewards():
 
         return torch.sum(self.get_total(normalize=normalize)).item()/self._n_envs
 
+    def get_n_played_episodes(self):
+
+        return torch.sum(self._current_ep_idx).item()
+
 
                              
         

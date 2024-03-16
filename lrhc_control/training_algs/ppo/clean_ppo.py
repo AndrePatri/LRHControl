@@ -52,9 +52,7 @@ class CleanPPO(ActorCriticAlgoBase):
             # retrieve new observations, rewards and termination/truncation states
             self._rewards[step] = self._env.get_last_rewards()
     
-    def _bootstrap(self):
-
-        self._bootstrap_dt = time.perf_counter() - self._start_time
+    def _compute_returns(self):
 
         # bootstrap: compute advantages and returns
         with torch.no_grad():
@@ -79,8 +77,6 @@ class CleanPPO(ActorCriticAlgoBase):
 
             # estimated cumulative rewards from each time step to the end of the episode
             self._returns[:, :] = self._advantages + self._values
-
-        self._gae_dt = time.perf_counter() - self._bootstrap_dt
 
     def _improve_policy(self):
 
@@ -182,5 +178,3 @@ class CleanPPO(ActorCriticAlgoBase):
             if self._target_kl is not None and approx_kl > self._target_kl:
 
                 break
-
-        self._policy_update_dt = time.perf_counter() - self._gae_dt

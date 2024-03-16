@@ -45,18 +45,18 @@ class DynamicRLAlgorithmNames:
 
     def __init__(self):
 
-        self._keys = ["current_batch_iteration", 
+        self._keys = ["current_ppo_iteration", 
                 "n_of_performed_policy_updates",
                 "n_of_played_episodes", 
                 "n_of_timesteps_done",
                 "current_learning_rate",
+                "rollout_dt",
+                "return_dt",
+                "policy_improv_dt",
                 "env_step_fps",
-                "boostrap_dt",
-                "policy_update_dt",
-                "learn_step_total_fps",
+                "policy_improv_fps",
                 "elapsed_min"
                 ]
-        
         self.idx_dict = dict.fromkeys(self._keys, None)
 
         # dynamic sim info is by convention

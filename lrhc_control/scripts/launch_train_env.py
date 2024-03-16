@@ -30,6 +30,7 @@ if __name__ == "__main__":
     parser.add_argument('--eval_tsteps', type=int, help='N. timestep to evaluate if eval flag is set', default=1e4)
     parser.add_argument('--use_cpu', action='store_true', help='If set, all the training (data included) will be perfomed on CPU')
     parser.add_argument('--comment', type=str, help='Any useful comment associated with this run',default="")
+    parser.add_argument('--seed', type=int, help='seed', default=1)
 
     args = parser.parse_args()
     
@@ -53,7 +54,7 @@ if __name__ == "__main__":
     for i in range(len(sim_info_keys)):
         sim_data[sim_info_keys[i]] = sim_info_data[i]
     
-    ppo = CleanPPO(env=env, debug=True)
+    ppo = CleanPPO(env=env, debug=True, seed=args.seed)
     ppo.setup(run_name=args.run_name, 
         verbose=True,
         drop_dir_name=args.drop_dir,
