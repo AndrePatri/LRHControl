@@ -174,7 +174,9 @@ class ActorCriticAlgoBase():
 
         self._start_time = time.perf_counter()
 
-        self._play(self._env_timesteps)
+        rollout_ok = self._play(self._env_timesteps)
+        if not rollout_ok:
+            return False
         # after rolling out policy, we get the episodic reward for the current policy
         self._episodic_rewards[self._it_counter, :, :] = self._episodic_reward_getter.get_total() # total ep. rewards across envs
         self._episodic_sub_rewards[self._it_counter, :, :] = self._episodic_reward_getter.get() # sub-episodic rewards across envs
@@ -189,6 +191,8 @@ class ActorCriticAlgoBase():
         self._policy_update_t = time.perf_counter()
 
         self._post_step()
+
+        return True
 
     def eval(self, 
         n_timesteps: int):
@@ -518,7 +522,7 @@ class ActorCriticAlgoBase():
         self._save_model = True
         self._env_name = self._env.name()
 
-        self._iterations_n = 250
+        self._iterations_n = 500
         self._env_timesteps = 256
 
         self._env_episode_n_steps = self._env.n_steps_per_episode()
@@ -527,7 +531,7 @@ class ActorCriticAlgoBase():
         self._num_minibatches = self._env.n_envs()
         self._minibatch_size = int(self._batch_size // self._num_minibatches)
 
-        self._base_learning_rate = 3e-4
+        self._base_learning_rate = 3e-3
         self._learning_rate_now = self._base_learning_rate
         self._anneal_lr = True
         self._discount_factor = 0.99

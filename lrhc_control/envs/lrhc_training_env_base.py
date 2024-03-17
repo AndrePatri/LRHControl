@@ -184,7 +184,11 @@ class LRhcTrainingEnvBase():
             "_remote_sim_step",
             "Remote sim. env step ack not received within timeout",
             LogType.EXCEP,
-            throw_when_excep = True)
+            throw_when_excep = False)
+        
+            return False
+
+        return True
 
     def _remote_reset(self,
                 reset_mask: torch.Tensor):
@@ -217,7 +221,7 @@ class LRhcTrainingEnvBase():
         
         self._apply_actions_to_rhc() # apply agent actions to rhc controller
 
-        self._remote_sim_step() # blocking
+        ok_sim_step = self._remote_sim_step() # blocking
 
         self._get_observations()
         self._clamp_obs() # to avoid explosions
@@ -229,7 +233,7 @@ class LRhcTrainingEnvBase():
 
         self._post_step() # post step operations
 
-        return ok
+        return ok and ok_sim_step
     
     def _post_step(self):
         

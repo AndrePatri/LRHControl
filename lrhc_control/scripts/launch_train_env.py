@@ -64,7 +64,8 @@ if __name__ == "__main__":
     if not args.eval:
         try:
             while not ppo.is_done():
-                ppo.learn()
+                if not ppo.learn():
+                    ppo.done() 
         except KeyboardInterrupt:
             ppo.done() # dumps model in case it's interrupted by user
     else:
