@@ -451,7 +451,7 @@ class ActorCriticAlgoBase():
                 f"N. timesteps performed: {self._it_counter * self._batch_size}/{self._total_timesteps}\n" + \
                 f"Elapsed minutes: {self._elapsed_min[self._it_counter-1].item()}\n" + \
                 f"Estimated remaining training time: " + \
-                f"{self._elapsed_min[self._it_counter-1]/60 * 1/self._it_counter * (self._iterations_n-self._it_counter)} hours\n" + \
+                f"{self._elapsed_min[self._it_counter-1].item()/60 * 1/self._it_counter * (self._iterations_n-self._it_counter)} hours\n" + \
                 f"Average episodic reward across all environments: {self._episodic_rewards_env_avrg[self._it_counter-1, :, :].item()}\n" + \
                 f"Average episodic rewards across all environments {self._reward_names_str}: {self._episodic_sub_rewards_env_avrg[self._it_counter-1, :]}\n"
             Journal.log(self.__class__.__name__,
