@@ -32,12 +32,12 @@ class CleanPPO(ActorCriticAlgoBase):
         # collect data from current policy over a number of timesteps
         for step in range(n_timesteps):
             
-            self._dones[step] = torch.logical_or(self._env.get_last_terminations(), 
-                                        self._env.get_last_truncations()) # note: this is not
+            self._dones[step] = torch.logical_or(self._env.get_terminations(), 
+                                        self._env.get_truncations()) # note: this is not
             # correct in theory -> truncations should not be treated as terminations. But introducing
             # this error (underestimates values of truncation states) makes code cleaner (clearnrl does this)
 
-            self._obs[step] = self._env.get_last_obs()
+            self._obs[step] = self._env.get_obs()
 
             # sample actions from latest policy (actor) and state value from latest value function (critic)
             with torch.no_grad(): # no need for gradients computation
@@ -52,7 +52,7 @@ class CleanPPO(ActorCriticAlgoBase):
             if not env_step_ok:
                 return False
             # retrieve new observations, rewards and termination/truncation states
-            self._rewards[step] = self._env.get_last_rewards()
+            self._rewards[step] = self._env.get_rewards()
         
         return True
     
@@ -67,8 +67,10 @@ class CleanPPO(ActorCriticAlgoBase):
             for t in reversed(range(self._env_timesteps)):
                 if t == self._env_timesteps - 1:
                     # handling last transition in env batch
-                    nextnonterminal = 1.0 - self._env.get_last_terminations().to(self._dtype)
-                    nextvalues = self._agent.get_value(self._env.get_last_obs()).reshape(-1, 1)
+                    last_done = torch.logical_or(self._env.get_terminations(), 
+                                        self._env.get_truncations()).to(self._dtype)
+                    nextnonterminal = 1.0 - last_done
+                    nextvalues = self._agent.get_value(self._env.get_next_obs()).reshape(-1, 1)
                 else:
                     nextnonterminal = 1.0 - self._dones[t + 1]
                     nextvalues = self._values[t + 1]

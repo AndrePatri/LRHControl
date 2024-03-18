@@ -65,6 +65,20 @@ class ActorCriticTanh(nn.Module):
             
         return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(x)
     
+    def get_action(self, x):
+
+        action_mean = self.actor_mean(x)
+
+        action_logstd = self.actor_logstd.expand_as(action_mean)
+
+        action_std = torch.exp(action_logstd)
+
+        probs = Normal(action_mean, action_std)
+
+        action = probs.sample()
+            
+        return action, probs.log_prob(action).sum(1), probs.entropy().sum(1)
+
     def _layer_init(self, layer, std=torch.sqrt(torch.tensor(2)), bias_const=0.0):
 
         torch.nn.init.orthogonal_(layer.weight, std)

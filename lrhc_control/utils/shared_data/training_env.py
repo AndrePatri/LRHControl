@@ -377,6 +377,39 @@ class Observations(NamedSharedDataView):
                     with_gpu_mirror=with_gpu_mirror,
                     fill_value=fill_value)
 
+class NextObservations(NamedSharedDataView):
+
+    def __init__(self,
+            namespace: str,
+            n_envs: int = None, 
+            obs_dim: int = None,
+            obs_names: List[str] = None,
+            env_names: List[str] = None,
+            is_server = False, 
+            verbose: bool = False, 
+            vlevel: VLevel = VLevel.V0,
+            safe: bool = True,
+            force_reconnection: bool = False,
+            with_gpu_mirror: bool = False,
+            fill_value = 0.0):
+
+        basename = "NextObservations"
+
+        super().__init__(namespace=namespace,
+                    basename=basename,
+                    n_rows=n_envs,
+                    n_cols=obs_dim,
+                    dtype=sharsor_dtype.Float,
+                    col_names=obs_names,
+                    row_names=env_names,
+                    is_server=is_server,
+                    verbose=verbose,
+                    vlevel=vlevel,
+                    safe=safe,
+                    force_reconnection=force_reconnection,
+                    with_gpu_mirror=with_gpu_mirror,
+                    fill_value=fill_value)
+
 class Actions(NamedSharedDataView):
 
     def __init__(self,

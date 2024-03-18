@@ -7,12 +7,12 @@ import os
 
 import time
 
-class CleanPPO(ActorCriticAlgoBase):
+class PPO(ActorCriticAlgoBase):
 
-    # Implementation of PPO. W.r.t cleanrl's implementation, 
+    # "accurate" implementation of PPO. W.r.t cleanrl's implementation, 
     # this class correctly handles truncations during bootstrap and it does so 
-    # trading memory efficienct with code readability (obs and next obs are stored in
-    # separate tensors)
+    # trading memory efficiency and some computational overhead with code readability 
+    # (obs and next obs are stored in separate tensors)
      
     def __init__(self,
             env, 
@@ -25,34 +25,44 @@ class CleanPPO(ActorCriticAlgoBase):
 
         self._this_child_path = os.path.abspath(__file__) # overrides parent
 
-    def _collect_batch(self):
+    def _play(self,
+        n_timesteps: int):
 
         # collect data from current policy over a number of timesteps
-        for step in range(self._env_timesteps):
+        for transition in range(n_timesteps):
+
+            self._obs[transition] = self._env.get_obs() # also accounts for resets when envs are 
+            # either terminated or truncated
+
+            # sample actions from latest policy (actor) and state value from latest value function (critic)
+            with torch.no_grad(): # no need for gradient computation
+                action, logprob, entropies = self._agent.get_action(self._obs[transition])
+            self._values[transition] = self._agent.get_value(self._obs[transition]).reshape(-1, 1)
+            self._actions[transition] = action.reshape(-1, 1)
+            self._logprobs[transition] = logprob.reshape(-1, 1)
+            self._action_entropies[transition] = entropies.reshape(-1, 1)
+
+            # perform a step of the (vectorized) env and retrieve 
+            env_step_ok = self._env.step(action)
             
-            self._dones[step] = torch.logical_or(self._env.get_last_terminations(), 
-                                        self._env.get_last_truncations()) # note: this is not
+            self._next_obs[transition] = self._env.get_next_obs() # state after env step (get_next_obs
+            # holds the current obs even in case of resets; it includes both terminal and 
+            # truncation states)
+            self._next_values[transition] = self._agent.get_value(self._next_obs[transition]).reshape(-1, 1)
+            self._rewards[transition] = self._env.get_rewards()
+            self._dones[transition] = torch.logical_or(self._env.get_terminations())
+            # self._dones[transition] = torch.logical_or(self._env.get_terminations(), 
+            #                             self._env.get_truncations()) # note: this is not
             # correct in theory -> truncations should not be treated as terminations. But introducing
             # this error (underestimates values of truncation states) makes code cleaner (clearnrl does this)
 
-            self._obs[step] = self._env.get_last_obs()
-
-            # sample actions from latest policy (actor) and state value from latest value function (critic)
-            with torch.no_grad(): # no need for gradients computation
-                action, logprob, _, value = self._agent.get_action_and_value(self._obs[step])
-                self._values[step] = value.reshape(-1, 1)
-            self._actions[step] = action.reshape(-1, 1)
-            self._logprobs[step] = logprob.reshape(-1, 1)
+            if not env_step_ok:
+                return False
             
-            # perform a step of the (vectorized) env and retrieve 
-            self._env.step(action) 
-
-            # retrieve new observations, rewards and termination/truncation states
-            self._rewards[step] = self._env.get_last_rewards()
+        
+        return True
     
-    def _bootstrap(self):
-
-        self._bootstrap_dt = time.perf_counter() - self._start_time
+    def _compute_returns(self):
 
         # bootstrap: compute advantages and returns
         with torch.no_grad():
@@ -61,15 +71,12 @@ class CleanPPO(ActorCriticAlgoBase):
             lastgaelam = 0
 
             for t in reversed(range(self._env_timesteps)):
-                if t == self._env_timesteps - 1:
-                    # handling last transition in env batch
-                    nextnonterminal = 1.0 - self._env.get_last_terminations().to(self._dtype)
-                    nextvalues = self._agent.get_value(self._env.get_last_obs()).reshape(-1, 1)
-                else:
-                    nextnonterminal = 1.0 - self._dones[t + 1]
-                    nextvalues = self._values[t + 1]
-                # temporal difference error computation
-                actual_reward_discounted = self._rewards[t] + self._discount_factor * nextvalues * nextnonterminal
+                # loop over state transitions
+                nextnonterminal = 1.0 - self._dones[t]
+    
+                # temporal difference error computation (if next obs is a terminal state, no rewards are available in
+                # the future)
+                actual_reward_discounted = self._rewards[t] + self._discount_factor * self._next_values[t] * nextnonterminal
                 td_error = actual_reward_discounted - self._values[t] # meas. - est. reward
 
                 # compute advantages using the Generalized Advantage Estimation (GAE) 
@@ -77,8 +84,6 @@ class CleanPPO(ActorCriticAlgoBase):
 
             # estimated cumulative rewards from each time step to the end of the episode
             self._returns[:, :] = self._advantages + self._values
-
-        self._gae_dt = time.perf_counter() - self._bootstrap_dt
 
     def _improve_policy(self):
 
@@ -180,5 +185,3 @@ class CleanPPO(ActorCriticAlgoBase):
             if self._target_kl is not None and approx_kl > self._target_kl:
 
                 break
-
-        self._policy_update_dt = time.perf_counter() - self._gae_dt

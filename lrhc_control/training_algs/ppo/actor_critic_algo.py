@@ -455,9 +455,9 @@ class ActorCriticAlgoBase():
                 f"{self._elapsed_min[self._it_counter-1].item()/60 * 1/self._it_counter * (self._iterations_n-self._it_counter)} hours\n" + \
                 f"Average episodic reward across all environments: {self._episodic_rewards_env_avrg[self._it_counter-1, :, :].item()}\n" + \
                 f"Average episodic rewards across all environments {self._reward_names_str}: {self._episodic_sub_rewards_env_avrg[self._it_counter-1, :]}\n" + \
-                f"Current rollout fps: {self._env_step_fps[self._it_counter-1].item()}\n, time for rollout {self._rollout_dt[self._it_counter-1].item()} s" + \
+                f"Current rollout fps: {self._env_step_fps[self._it_counter-1].item()}, time for rollout {self._rollout_dt[self._it_counter-1].item()} s" + \
                 f"Time to compute bootstrap {self._gae_dt[self._it_counter-1].item()} s\n" + \
-                f"Current policy update fps: {self._policy_update_fps[self._it_counter-1].item(), time for rollout {self._policy_update_dt[self._it_counter-1].item()} s}\n"
+                f"Current policy update fps: {self._policy_update_fps[self._it_counter-1].item()}, time for rollout {self._policy_update_dt[self._it_counter-1].item()} s\n"
             Journal.log(self.__class__.__name__,
                 "_post_step",
                 info,
@@ -532,7 +532,7 @@ class ActorCriticAlgoBase():
         self._env_episode_n_steps = self._env.n_steps_per_episode()
         self._total_timesteps = self._iterations_n * (self._env_timesteps * self._num_envs)
         self._batch_size =int(self._num_envs * self._env_timesteps)
-        self._num_minibatches = 2 * self._env.n_envs()
+        self._num_minibatches = self._env.n_envs()
         self._minibatch_size = int(self._batch_size // self._num_minibatches)
 
         self._base_learning_rate = 3e-3
@@ -608,6 +608,11 @@ class ActorCriticAlgoBase():
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device) 
+        self._values = torch.full(size=(self._env_timesteps, self._num_envs, 1),
+                        fill_value=0,
+                        dtype=self._dtype,
+                        device=self._torch_device)
+            
         self._actions = torch.full(size=(self._env_timesteps, self._num_envs, self._actions_dim),
                         fill_value=0,
                         dtype=self._dtype,
@@ -616,6 +621,20 @@ class ActorCriticAlgoBase():
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device)
+        self._action_entropies = torch.full(size=(self._env_timesteps, self._num_envs, 1),
+                        fill_value=0,
+                        dtype=self._dtype,
+                        device=self._torch_device)
+
+        self._next_obs = torch.full(size=(self._env_timesteps, self._num_envs, self._obs_dim),
+                        fill_value=0,
+                        dtype=self._dtype,
+                        device=self._torch_device) 
+        self._next_values = torch.full(size=(self._env_timesteps, self._num_envs, 1),
+                        fill_value=0,
+                        dtype=self._dtype,
+                        device=self._torch_device)
+
         self._rewards = torch.full(size=(self._env_timesteps, self._num_envs, 1),
                         fill_value=0,
                         dtype=self._dtype,
@@ -624,10 +643,7 @@ class ActorCriticAlgoBase():
                         fill_value=False,
                         dtype=self._dtype,
                         device=self._torch_device)
-        self._values = torch.full(size=(self._env_timesteps, self._num_envs, 1),
-                        fill_value=0,
-                        dtype=self._dtype,
-                        device=self._torch_device)
+        
         self._advantages = torch.full(size=(self._env_timesteps, self._num_envs, 1),
                         fill_value=0,
                         dtype=self._dtype,
