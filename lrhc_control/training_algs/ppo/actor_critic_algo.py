@@ -454,7 +454,10 @@ class ActorCriticAlgoBase():
                 f"Estimated remaining training time: " + \
                 f"{self._elapsed_min[self._it_counter-1].item()/60 * 1/self._it_counter * (self._iterations_n-self._it_counter)} hours\n" + \
                 f"Average episodic reward across all environments: {self._episodic_rewards_env_avrg[self._it_counter-1, :, :].item()}\n" + \
-                f"Average episodic rewards across all environments {self._reward_names_str}: {self._episodic_sub_rewards_env_avrg[self._it_counter-1, :]}\n"
+                f"Average episodic rewards across all environments {self._reward_names_str}: {self._episodic_sub_rewards_env_avrg[self._it_counter-1, :]}\n" + \
+                f"Current rollout fps: {self._env_step_fps[self._it_counter-1].item()}\n, time for rollout {self._rollout_dt[self._it_counter-1].item()} s" + \
+                f"Time to compute bootstrap {self._gae_dt[self._it_counter-1].item()} s\n" + \
+                f"Current policy update fps: {self._policy_update_fps[self._it_counter-1].item(), time for rollout {self._policy_update_dt[self._it_counter-1].item()} s}\n"
             Journal.log(self.__class__.__name__,
                 "_post_step",
                 info,
