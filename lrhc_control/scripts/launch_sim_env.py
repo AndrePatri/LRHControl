@@ -33,6 +33,7 @@ if __name__ == '__main__':
     parser.add_argument('--cpu_pipeline', action='store_true', help='Whether to use the cpu pipeline (greatly increases GPU RX data)')
     parser.add_argument('--jnt_imp_cntrl_deb', action='store_true', help='Whether to debug jnt imp control on shared mem (requires frequent copies from GPU to CPU')
     parser.add_argument('--headless', action='store_true', help='Whether to run simulation in headless mode')
+    parser.add_argument('--comment', type=str, help='Any useful comment associated with this run',default="")
 
     args = parser.parse_args()
 
@@ -88,8 +89,8 @@ if __name__ == '__main__':
     # GPU buffers settings
     # sim_params["gpu_max_rigid_contact_count"] = 512 * 1024
     # sim_params["gpu_max_rigid_patch_count"] = 80 * 1024
-    # sim_params["gpu_found_lost_pairs_capacity"] = 1024
-    # sim_params["gpu_found_lost_aggregate_pairs_capacity"] = 1024
+    sim_params["gpu_found_lost_pairs_capacity"] = 2048
+    sim_params["gpu_found_lost_aggregate_pairs_capacity"] = 2048
     # sim_params["gpu_total_aggregate_pairs_capacity"] = 1024
     # sim_params["gpu_max_soft_body_contacts"] = 1024 * 1024
     # sim_params["gpu_max_particle_contacts"] = 1024 * 1024

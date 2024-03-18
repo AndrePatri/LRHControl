@@ -129,9 +129,10 @@ class ActorCriticAlgoBase():
                 save_code=True,
                 dir=self._drop_dir
             )
-            wandb.watch(self._agent.critic)
-            wandb.watch(self._agent.actor_mean)
-
+            wandb.watch(self._agent, log="all")
+            # wandb.watch(self._agent.actor_mean, log="all")
+            # wandb.watch(self.actor_logstd, log="all")
+            
         self._torch_device = torch.device("cuda" if torch.cuda.is_available() and self._use_gpu else "cpu")
 
         self._agent.to(self._torch_device) # move agent to target device
@@ -528,7 +529,7 @@ class ActorCriticAlgoBase():
         self._env_episode_n_steps = self._env.n_steps_per_episode()
         self._total_timesteps = self._iterations_n * (self._env_timesteps * self._num_envs)
         self._batch_size =int(self._num_envs * self._env_timesteps)
-        self._num_minibatches = self._env.n_envs()
+        self._num_minibatches = 2 * self._env.n_envs()
         self._minibatch_size = int(self._batch_size // self._num_minibatches)
 
         self._base_learning_rate = 3e-3
