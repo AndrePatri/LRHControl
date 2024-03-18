@@ -284,6 +284,7 @@ class ActorCriticAlgoBase():
             # other data
             hf.create_dataset('rollout_dt', data=self._rollout_dt.numpy())
             hf.create_dataset('env_step_fps', data=self._env_step_fps.numpy())
+            hf.create_dataset('env_step_rt_factor', data=self._env_step_rt_factor.numpy())
             hf.create_dataset('gae_dt', data=self._gae_dt.numpy())
             hf.create_dataset('policy_update_dt', data=self._policy_update_dt.numpy())
             hf.create_dataset('policy_update_fps', data=self._policy_update_fps.numpy())
@@ -372,6 +373,7 @@ class ActorCriticAlgoBase():
         self._learning_rates[self._it_counter-1] = self._learning_rate_now
 
         self._env_step_fps[self._it_counter-1] = self._batch_size / self._rollout_dt[self._it_counter-1]
+        self._env_step_rt_factor[self._it_counter-1] = self._env_step_fps[self._it_counter-1] * self._hyperparameters["control_clust_dt"]
         self._policy_update_fps[self._it_counter-1] = self._update_epochs * self._num_minibatches / self._policy_update_dt[self._it_counter-1]
 
         self._log_info()
@@ -412,6 +414,7 @@ class ActorCriticAlgoBase():
                 "return_dt",
                 "policy_improv_dt",
                 "env_step_fps",
+                "env_step_rt_factor"
                 "policy_improv_fps",
                 "elapsed_min"
                 ]
@@ -424,6 +427,7 @@ class ActorCriticAlgoBase():
                 self._gae_dt[self._it_counter-1].item(),
                 self._policy_update_dt[self._it_counter-1].item(),
                 self._env_step_fps[self._it_counter-1].item(),
+                self._env_step_rt_factor[self._it_counter-1].item(),
                 self._policy_update_fps[self._it_counter-1].item(),
                 self._elapsed_min[self._it_counter-1].item()
                 ]
@@ -455,7 +459,8 @@ class ActorCriticAlgoBase():
                 f"{self._elapsed_min[self._it_counter-1].item()/60 * 1/self._it_counter * (self._iterations_n-self._it_counter)} hours\n" + \
                 f"Average episodic reward across all environments: {self._episodic_rewards_env_avrg[self._it_counter-1, :, :].item()}\n" + \
                 f"Average episodic rewards across all environments {self._reward_names_str}: {self._episodic_sub_rewards_env_avrg[self._it_counter-1, :]}\n" + \
-                f"Current rollout fps: {self._env_step_fps[self._it_counter-1].item()}, time for rollout {self._rollout_dt[self._it_counter-1].item()} s" + \
+                f"Current rollout fps: {self._env_step_fps[self._it_counter-1].item()}, time for rollout {self._rollout_dt[self._it_counter-1].item()}\n" + \
+                f"Current rollout rt factor: {self._env_step_rt_factor[self._it_counter-1].item()}\n" + \
                 f"Time to compute bootstrap {self._gae_dt[self._it_counter-1].item()} s\n" + \
                 f"Current policy update fps: {self._policy_update_fps[self._it_counter-1].item()}, time for rollout {self._policy_update_dt[self._it_counter-1].item()} s\n"
             Journal.log(self.__class__.__name__,
@@ -472,6 +477,8 @@ class ActorCriticAlgoBase():
                     dtype=torch.float32, fill_value=-1.0, device="cpu")
         self._rollout_t = -1.0
         self._env_step_fps = torch.full((self._iterations_n, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._env_step_rt_factor = torch.full((self._iterations_n, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
 
         self._gae_t = -1.0
@@ -517,24 +524,25 @@ class ActorCriticAlgoBase():
         self._obs_dim = self._env.obs_dim()
         self._actions_dim = self._env.actions_dim()
 
-        self._run_name = "DummyRun"
+        self._run_name = "DefaultRun" # default
+        self._env_name = self._env.name()
+        self._env_episode_n_steps = self._env.n_steps_per_episode()
 
         self._use_gpu = self._env.using_gpu()
         self._torch_device = torch.device("cpu") # defaults to cpu
         self._torch_deterministic = True
 
         self._save_model = True
-        self._env_name = self._env.name()
 
-        self._iterations_n = 500
-        self._env_timesteps = 256
-
-        self._env_episode_n_steps = self._env.n_steps_per_episode()
+        # main algo settings
+        self._iterations_n = 500 # number of ppo iterations
+        self._batch_size_nom = 24576 
+        self._num_minibatches = 96
+        self._minibatch_size = int(self._batch_size_nom // self._num_minibatches)
+        self._env_timesteps = int(self._batch_size_nom / self._num_envs)
+        self._batch_size = self._env_timesteps * self._num_envs
         self._total_timesteps = self._iterations_n * (self._env_timesteps * self._num_envs)
-        self._batch_size =int(self._num_envs * self._env_timesteps)
-        self._num_minibatches = self._env.n_envs()
-        self._minibatch_size = int(self._batch_size // self._num_minibatches)
-
+        
         self._base_learning_rate = 3e-3
         self._learning_rate_now = self._base_learning_rate
         self._anneal_lr = True
@@ -568,6 +576,7 @@ class ActorCriticAlgoBase():
         self._hyperparameters["total policy updates to be performed"] = self._update_epochs * self._num_minibatches * self._iterations_n
         self._hyperparameters["total_timesteps to be simulated"] = self._total_timesteps
         self._hyperparameters["batch_size"] = self._batch_size
+        self._hyperparameters["batch_size_nom"] = self._batch_size_nom
         self._hyperparameters["minibatch_size"] = self._minibatch_size
         self._hyperparameters["total_timesteps"] = self._total_timesteps
         self._hyperparameters["base_learning_rate"] = self._base_learning_rate
@@ -584,14 +593,14 @@ class ActorCriticAlgoBase():
 
         # small debug log
         info = f"\nUsing \n" + \
+            f"batch_size_nominal {self._batch_size_nom}\n" + \
             f"batch_size {self._batch_size}\n" + \
-            f"minibatch_size {self._minibatch_size}\n" + \
             f"num_minibatches {self._num_minibatches}\n" + \
-            f"n steps per env. episode {self._env_episode_n_steps}\n" + \
-            f"n steps per env. rollout {self._env_timesteps}\n" + \
-            f"iterations_n {self._iterations_n}\n" + \
+            f"minibatch_size {self._minibatch_size}\n" + \
             f"per-batch update_epochs {self._update_epochs}\n" + \
-            f"per-epoch policy updates {self._num_minibatches}\n" + \
+            f"iterations_n {self._iterations_n}\n" + \
+            f"n steps per env. rollout {self._env_timesteps}\n" + \
+            f"n steps per env. episode {self._env_episode_n_steps}\n" + \
             f"total policy updates to be performed {self._update_epochs * self._num_minibatches * self._iterations_n}\n" + \
             f"total_timesteps to be simulated {self._total_timesteps}\n"
         Journal.log(self.__class__.__name__,

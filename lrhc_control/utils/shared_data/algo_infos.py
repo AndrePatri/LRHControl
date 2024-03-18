@@ -54,6 +54,7 @@ class DynamicRLAlgorithmNames:
                 "return_dt",
                 "policy_improv_dt",
                 "env_step_fps",
+                "env_step_rt_factor",
                 "policy_improv_fps",
                 "elapsed_min"
                 ]

@@ -1,8 +1,8 @@
 from lrhc_control.envs.heightchange_env import LRhcHeightChange
 
-from lrhc_control.training_algs.ppo.clean_ppo import CleanPPO
+# from lrhc_control.training_algs.ppo.clean_ppo import CleanPPO
 # from lrhc_control.training_algs.ppo.mem_eff_ppo import MemEffPPO
-# from lrhc_control.training_algs.ppo.ppo import PPO
+from lrhc_control.training_algs.ppo.ppo import PPO
 
 from control_cluster_bridge.utilities.shared_data.sim_data import SharedSimInfo
 
@@ -54,7 +54,7 @@ if __name__ == "__main__":
     for i in range(len(sim_info_keys)):
         sim_data[sim_info_keys[i]] = sim_info_data[i]
     
-    ppo = CleanPPO(env=env, debug=True, seed=args.seed)
+    ppo = PPO(env=env, debug=True, seed=args.seed)
     ppo.setup(run_name=args.run_name, 
         verbose=True,
         drop_dir_name=args.drop_dir,
