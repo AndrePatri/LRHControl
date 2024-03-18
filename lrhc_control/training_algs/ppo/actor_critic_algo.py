@@ -414,7 +414,7 @@ class ActorCriticAlgoBase():
                 "return_dt",
                 "policy_improv_dt",
                 "env_step_fps",
-                "env_step_rt_factor"
+                "env_step_rt_factor",
                 "policy_improv_fps",
                 "elapsed_min"
                 ]
@@ -538,10 +538,10 @@ class ActorCriticAlgoBase():
         self._iterations_n = 500 # number of ppo iterations
         self._batch_size_nom = 24576 
         self._num_minibatches = 96
-        self._minibatch_size = int(self._batch_size_nom // self._num_minibatches)
         self._env_timesteps = int(self._batch_size_nom / self._num_envs)
         self._batch_size = self._env_timesteps * self._num_envs
-        self._total_timesteps = self._iterations_n * (self._env_timesteps * self._num_envs)
+        self._minibatch_size = int(self._batch_size // self._num_minibatches)
+        self._total_timesteps = self._iterations_n * self._batch_size
         
         self._base_learning_rate = 3e-3
         self._learning_rate_now = self._base_learning_rate

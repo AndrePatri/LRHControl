@@ -37,7 +37,7 @@ class PPO(ActorCriticAlgoBase):
             # sample actions from latest policy (actor) and state value from latest value function (critic)
             with torch.no_grad(): # no need for gradient computation
                 action, logprob, entropies = self._agent.get_action(self._obs[transition])
-            self._values[transition] = self._agent.get_value(self._obs[transition]).reshape(-1, 1)
+                self._values[transition] = self._agent.get_value(self._obs[transition]).reshape(-1, 1)
             self._actions[transition] = action.reshape(-1, 1)
             self._logprobs[transition] = logprob.reshape(-1, 1)
             self._action_entropies[transition] = entropies.reshape(-1, 1)
@@ -48,13 +48,10 @@ class PPO(ActorCriticAlgoBase):
             self._next_obs[transition] = self._env.get_next_obs() # state after env step (get_next_obs
             # holds the current obs even in case of resets; it includes both terminal and 
             # truncation states)
-            self._next_values[transition] = self._agent.get_value(self._next_obs[transition]).reshape(-1, 1)
+            with torch.no_grad(): # no need for gradient computation
+                self._next_values[transition] = self._agent.get_value(self._next_obs[transition]).reshape(-1, 1)
             self._rewards[transition] = self._env.get_rewards()
-            self._dones[transition] = torch.logical_or(self._env.get_terminations())
-            # self._dones[transition] = torch.logical_or(self._env.get_terminations(), 
-            #                             self._env.get_truncations()) # note: this is not
-            # correct in theory -> truncations should not be treated as terminations. But introducing
-            # this error (underestimates values of truncation states) makes code cleaner (clearnrl does this)
+            self._dones[transition] = self._env.get_terminations()
 
             if not env_step_ok:
                 return False
