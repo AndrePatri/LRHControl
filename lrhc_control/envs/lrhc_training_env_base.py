@@ -765,8 +765,8 @@ class LRhcTrainingEnvBase():
                     "_check_controllers_registered",
                     exception,
                     LogType.EXCEP,
-                    throw_when_excep = True)
-                            
+                    throw_when_excep = False)
+                return False
             return True
                 
     def _check_truncations(self):

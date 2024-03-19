@@ -21,7 +21,7 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         actions_dim = 1
 
         n_steps_episode = 4096
-        n_steps_task_rand = 64 # randomize agent refs every n steps
+        n_steps_task_rand = 128 # randomize agent refs every n steps
 
         env_name = "LRhcHeightChange"
 
@@ -31,7 +31,7 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
 
         self._epsi = 1e-6
         
-        self._h_error_weight = 2
+        self._h_error_weight = 3
         self._cnstr_viol_weight = 1
 
         self._h_error_scale = 2
