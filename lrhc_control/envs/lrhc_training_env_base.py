@@ -726,7 +726,8 @@ class LRhcTrainingEnvBase():
                 wait: bool = False):
 
         if wait:
-            n_connected_controllers = 0
+            self._rhc_status.controllers_counter.synch_all(read=True, wait=True)
+            n_connected_controllers = self._rhc_status.controllers_counter.torch_view[0, 0].item()
             while not (n_connected_controllers == self._n_envs):
                 
                 warn = f"Expected {self._n_envs} controllers to be active during training, " + \

@@ -459,10 +459,10 @@ class ActorCriticAlgoBase():
                 f"{self._elapsed_min[self._it_counter-1].item()/60 * 1/self._it_counter * (self._iterations_n-self._it_counter)} hours\n" + \
                 f"Average episodic reward across all environments: {self._episodic_rewards_env_avrg[self._it_counter-1, :, :].item()}\n" + \
                 f"Average episodic rewards across all environments {self._reward_names_str}: {self._episodic_sub_rewards_env_avrg[self._it_counter-1, :]}\n" + \
-                f"Current rollout fps: {self._env_step_fps[self._it_counter-1].item()}, time for rollout {self._rollout_dt[self._it_counter-1].item()}\n" + \
+                f"Current rollout fps: {self._env_step_fps[self._it_counter-1].item()}, time for rollout {self._rollout_dt[self._it_counter-1].item()} s\n" + \
                 f"Current rollout rt factor: {self._env_step_rt_factor[self._it_counter-1].item()}\n" + \
                 f"Time to compute bootstrap {self._gae_dt[self._it_counter-1].item()} s\n" + \
-                f"Current policy update fps: {self._policy_update_fps[self._it_counter-1].item()}, time for rollout {self._policy_update_dt[self._it_counter-1].item()} s\n"
+                f"Current policy update fps: {self._policy_update_fps[self._it_counter-1].item()}, time for policy updates {self._policy_update_dt[self._it_counter-1].item()} s\n"
             Journal.log(self.__class__.__name__,
                 "_post_step",
                 info,
@@ -536,7 +536,7 @@ class ActorCriticAlgoBase():
 
         # main algo settings
         self._iterations_n = 500 # number of ppo iterations
-        self._batch_size_nom = 24576 
+        self._batch_size_nom = 12288 # 24576
         self._num_minibatches = 96
         self._env_timesteps = int(self._batch_size_nom / self._num_envs)
         self._batch_size = self._env_timesteps * self._num_envs
