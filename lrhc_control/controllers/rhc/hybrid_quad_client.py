@@ -13,6 +13,7 @@ class HybridQuadrupedClusterClient(LRhcClusterClient):
             robot_pkg_name: str,
             cluster_size: int,
             set_affinity: bool = False,
+            use_mp_fork: bool = False,
             isolated_cores_only: bool = False,
             core_ids_override_list: List[int] = None,
             verbose: bool = False,
@@ -28,6 +29,7 @@ class HybridQuadrupedClusterClient(LRhcClusterClient):
                         robot_pkg_name = robot_pkg_name,
                         cluster_size=cluster_size,
                         set_affinity = set_affinity,
+                        use_mp_fork = use_mp_fork,
                         isolated_cores_only = isolated_cores_only,
                         core_ids_override_list = core_ids_override_list,
                         verbose = verbose)

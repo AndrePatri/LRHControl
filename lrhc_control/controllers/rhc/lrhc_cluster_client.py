@@ -15,6 +15,7 @@ class LRhcClusterClient(ControlClusterClient):
             robot_pkg_name: str, # robot description ros package name (used to make descr. files available to controllers)
             cluster_size: int,
             set_affinity: bool = False,
+            use_mp_fork: bool = False,
             isolated_cores_only: bool = False,
             core_ids_override_list: List[int] = None,
             verbose: bool = False,
@@ -40,6 +41,7 @@ class LRhcClusterClient(ControlClusterClient):
                         cluster_size=cluster_size,
                         isolated_cores_only = isolated_cores_only,
                         set_affinity = set_affinity,
+                        use_mp_fork = use_mp_fork,
                         core_ids_override_list = core_ids_override_list,
                         verbose = verbose)
     

@@ -27,6 +27,7 @@ if __name__ == "__main__":
     parser.add_argument('--open_loop', action='store_true', help='whether use RHC controllers in open loop mode')
     parser.add_argument('--i_cores_only', action='store_true', help='whether use isolated cores only for RHC controllers')
     parser.add_argument('--set_rhc_affinity', action='store_true', help='whether to set the affinity of each rhc controller to a specific core')
+    parser.add_argument('--mp_fork', action='store_true', help='whether to mutliprocess fork context')
     parser.add_argument('--c_start_idx', type=int, 
             help='start index for cores over which RHC controllers will be distributed',
             default=0)
@@ -36,10 +37,17 @@ if __name__ == "__main__":
     parser.add_argument('--comment', type=str, help='Any useful comment associated with this run',default="")
 
     args = parser.parse_args()
-
+    
+    if args.mp_fork: # this needs to be in the main
+        mp.set_start_method('fork')
+    else:
+        mp.set_start_method('spawn')
+        # mp.set_start_method('forkserver')
+    
     # Set CPU affinity if cores are provided
     if args.cores:
         set_affinity(args.cores)
+
     namespace = args.ns
     cluster_size = args.size
     verbose = False
@@ -54,6 +62,7 @@ if __name__ == "__main__":
                                         cluster_size=cluster_size,
                                         open_loop = args.open_loop,
                                         set_affinity = args.set_rhc_affinity,
+                                        use_mp_fork = args.mp_fork,
                                         isolated_cores_only = args.i_cores_only, 
                                         core_ids_override_list = core_ids_override_list,
                                         verbose=verbose) # this blocks until connection with the client is established
