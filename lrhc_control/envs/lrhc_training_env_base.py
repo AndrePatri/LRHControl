@@ -530,6 +530,7 @@ class LRhcTrainingEnvBase():
     def _attach_to_shared_mem(self):
 
         # runs shared mem clients for getting observation and setting RHC commands
+    
         self._robot_state = RobotState(namespace=self._namespace,
                                 is_server=False, 
                                 with_gpu_mirror=self._use_gpu,
@@ -564,7 +565,7 @@ class LRhcTrainingEnvBase():
                                 n_contacts=self._robot_state.n_contacts(),
                                 contact_names=self._robot_state.contact_names(),
                                 q_remapping=None,
-                                with_gpu_mirror=True,
+                                with_gpu_mirror=self._use_gpu,
                                 force_reconnection=True,
                                 safe=False,
                                 verbose=self._verbose,

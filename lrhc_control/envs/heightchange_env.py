@@ -17,7 +17,7 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
             use_gpu: bool = True,
             dtype: torch.dtype = torch.float32):
 
-        obs_dim = 3
+        obs_dim = 4
         actions_dim = 1
 
         n_steps_episode = 4096
@@ -32,10 +32,12 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         self._epsi = 1e-6
         
         self._h_error_weight = 3
-        self._cnstr_viol_weight = 1
+        self._rhc_cnstr_viol_weight = 1
+        self._rhc_cost_weight = 1
 
         self._h_error_scale = 2
-        self._cnstr_viol_scale = 1
+        self._rhc_cost_scale = 10
+        self._rhc_cnstr_viol_scale = 1
 
         self._h_cmd_offset = 0.0
         self._h_cmd_scale = 1.0
@@ -102,14 +104,14 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         robot_h = self._robot_state.root_state.get_p(gpu=self._use_gpu)[:, 2:3]
         h_error = torch.abs((h_ref - robot_h))
 
-        # rhc penalties
-        # rhc_cost = self._rhc_status.rhc_cost.get_torch_view(gpu=self._use_gpu)
-        # rhc_fail_penalty = self._rhc_status.fails.get_torch_view(gpu=self._use_gpu)
-
+        # RHC-related rewards
+        rhc_cost = self._rhc_status.rhc_cost.get_torch_view(gpu=self._use_gpu)
         rewards = self._rewards.get_torch_view(gpu=self._use_gpu)
+
         rewards[:, 0:1] = 1.0 - self._h_error_weight * h_error.mul_(self._h_error_scale).clamp(-self._reward_clamp_thresh, self._reward_clamp_thresh) 
-        rewards[:, 1:2] = 1.0 - self._cnstr_viol_weight * self._squashed_cnstr_viol()
-        
+        rewards[:, 1:2] = 1.0 - self._rhc_cnstr_viol_weight * self._squashed_rhc_cnstr_viol()
+        rewards[:, 2:3] = 1.0 - self._rhc_cost_weight * self._squashed_rhc_cost()
+
         tot_rewards = self._tot_rewards.get_torch_view(gpu=self._use_gpu)
         tot_rewards[:, :] = torch.sum(rewards, dim=1, keepdim=True)
 
@@ -119,19 +121,24 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         # assigns obs to obs_tensor
         agent_h_ref = self._agent_refs.rob_refs.root_state.get_p(gpu=self._use_gpu)[:, 2:3] # getting z ref
         robot_h = self._robot_state.root_state.get_p(gpu=self._use_gpu)[:, 2:3]
-        # rhc_cost = self._rhc_status.rhc_cost.get_torch_view(gpu=self._use_gpu)
-        rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_view(gpu=self._use_gpu)
 
         obs_tensor[:, 0:1] = robot_h
         obs_tensor[:, 1:2] = agent_h_ref
-        obs_tensor[:, 2:3] = self._squashed_cnstr_viol()
+        obs_tensor[:, 2:3] = self._squashed_rhc_cnstr_viol()
+        obs_tensor[:, 3:4] = self._squashed_rhc_cost()
 
-    def _squashed_cnstr_viol(self):
+    def _squashed_rhc_cnstr_viol(self):
 
         rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_view(gpu=self._use_gpu)
 
-        return rhc_const_viol.mul_(self._cnstr_viol_scale).clamp(-self._reward_clamp_thresh, self._reward_clamp_thresh) 
-        
+        return rhc_const_viol.mul_(self._rhc_cnstr_viol_scale).clamp(-self._reward_clamp_thresh, self._reward_clamp_thresh) 
+    
+    def _squashed_rhc_cost(self):
+
+        rhc_cost = self._rhc_status.rhc_constr_viol.get_torch_view(gpu=self._use_gpu)
+
+        return rhc_cost.mul_(self._rhc_cost_scale).clamp(-self._reward_clamp_thresh, self._reward_clamp_thresh) 
+    
     def _randomize_refs(self,
                 env_indxs: torch.Tensor = None):
         
@@ -157,6 +164,7 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         obs_names[0] = "robot_h"
         obs_names[1] = "agent_h_ref"
         obs_names[2] = "rhc_const_viol"
+        obs_names[3] = "rhc_cost"
 
         return obs_names
 
@@ -170,11 +178,11 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
 
     def _get_rewards_names(self):
 
-        reward_names = [""] * 2
+        n_rewards = 3
+        reward_names = [""] * n_rewards
 
         reward_names[0] = "h_error"
-        # reward_names[1] = "rhc_cost"
         reward_names[1] = "rhc_const_viol"
-        # reward_names[3] = "rhc_fail_penalty"
+        reward_names[2] = "rhc_cost"
 
         return reward_names
