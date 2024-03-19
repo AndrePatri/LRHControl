@@ -26,6 +26,7 @@ if __name__ == "__main__":
     parser.add_argument('--force_cores', action='store_true', help='whether to force RHC controller affinity')
     parser.add_argument('--open_loop', action='store_true', help='whether use RHC controllers in open loop mode')
     parser.add_argument('--i_cores_only', action='store_true', help='whether use isolated cores only for RHC controllers')
+    parser.add_argument('--set_rhc_affinity', action='store_true', help='whether to set the affinity of each rhc controller to a specific core')
     parser.add_argument('--c_start_idx', type=int, 
             help='start index for cores over which RHC controllers will be distributed',
             default=0)
@@ -52,8 +53,8 @@ if __name__ == "__main__":
                                         robot_pkg_name=args.robot_pkg_name,
                                         cluster_size=cluster_size,
                                         open_loop = args.open_loop,
+                                        set_affinity = args.set_rhc_affinity,
                                         isolated_cores_only = args.i_cores_only, 
-                                        use_only_physical_cores = False,
                                         core_ids_override_list = core_ids_override_list,
                                         verbose=verbose) # this blocks until connection with the client is established
 

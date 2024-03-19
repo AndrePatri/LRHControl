@@ -14,8 +14,8 @@ class LRhcClusterClient(ControlClusterClient):
             namespace: str, 
             robot_pkg_name: str, # robot description ros package name (used to make descr. files available to controllers)
             cluster_size: int,
+            set_affinity: bool = False,
             isolated_cores_only: bool = False,
-            use_only_physical_cores: bool = False,
             core_ids_override_list: List[int] = None,
             verbose: bool = False,
             codegen_base_dirname: str = "CodeGen"):
@@ -39,7 +39,7 @@ class LRhcClusterClient(ControlClusterClient):
         super().__init__(namespace = namespace, 
                         cluster_size=cluster_size,
                         isolated_cores_only = isolated_cores_only,
-                        use_only_physical_cores = use_only_physical_cores,
+                        set_affinity = set_affinity,
                         core_ids_override_list = core_ids_override_list,
                         verbose = verbose)
     

@@ -12,8 +12,8 @@ class HybridQuadrupedClusterClient(LRhcClusterClient):
             namespace: str, 
             robot_pkg_name: str,
             cluster_size: int,
+            set_affinity: bool = False,
             isolated_cores_only: bool = False,
-            use_only_physical_cores: bool = False,
             core_ids_override_list: List[int] = None,
             verbose: bool = False,
             open_loop: bool = True):
@@ -27,8 +27,8 @@ class HybridQuadrupedClusterClient(LRhcClusterClient):
         super().__init__(namespace = namespace, 
                         robot_pkg_name = robot_pkg_name,
                         cluster_size=cluster_size,
+                        set_affinity = set_affinity,
                         isolated_cores_only = isolated_cores_only,
-                        use_only_physical_cores = use_only_physical_cores,
                         core_ids_override_list = core_ids_override_list,
                         verbose = verbose)
     

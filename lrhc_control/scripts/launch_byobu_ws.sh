@@ -129,7 +129,7 @@ source_mamba_env
 execute_command "source $WS_ROOT/setup.bash"
 increase_file_limits_locally
 clear_terminal
-prepare_command "reset && python launch_control_cluster.py --ns {} --robot_pkg_name {} --size {} "
+prepare_command "reset && python launch_control_cluster.py --ns {} --robot_pkg_name {} --size {} --set_rhc_affinity"
 
 split_h
 execute_command "cd ${WORKING_DIR}"
