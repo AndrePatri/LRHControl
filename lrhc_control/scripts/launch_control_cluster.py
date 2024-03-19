@@ -57,8 +57,6 @@ if __name__ == "__main__":
                                         isolated_cores_only = args.i_cores_only, 
                                         core_ids_override_list = core_ids_override_list,
                                         verbose=verbose) # this blocks until connection with the client is established
-
-    control_cluster_client.pre_init() # pre-initialization steps
         
     control_cluster_client.run() # spawns the controllers on separate processes
 

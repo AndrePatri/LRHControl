@@ -36,7 +36,7 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         self._rhc_cost_weight = 1
 
         self._h_error_scale = 2
-        self._rhc_cost_scale = 10
+        self._rhc_cost_scale = 100
         self._rhc_cnstr_viol_scale = 1
 
         self._h_cmd_offset = 0.0
