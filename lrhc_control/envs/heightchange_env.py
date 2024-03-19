@@ -105,7 +105,6 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         h_error = torch.abs((h_ref - robot_h))
 
         # RHC-related rewards
-        rhc_cost = self._rhc_status.rhc_cost.get_torch_view(gpu=self._use_gpu)
         rewards = self._rewards.get_torch_view(gpu=self._use_gpu)
 
         rewards[:, 0:1] = 1.0 - self._h_error_weight * h_error.mul_(self._h_error_scale).clamp(-self._reward_clamp_thresh, self._reward_clamp_thresh) 
@@ -135,7 +134,7 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
     
     def _squashed_rhc_cost(self):
 
-        rhc_cost = self._rhc_status.rhc_constr_viol.get_torch_view(gpu=self._use_gpu)
+        rhc_cost = self._rhc_status.rhc_cost.get_torch_view(gpu=self._use_gpu)
 
         return rhc_cost.mul_(self._rhc_cost_scale).clamp(-self._reward_clamp_thresh, self._reward_clamp_thresh) 
     
