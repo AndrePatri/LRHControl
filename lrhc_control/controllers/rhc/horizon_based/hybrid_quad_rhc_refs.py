@@ -88,10 +88,10 @@ class HybridQuadRhcRefs(RhcRefs):
             
             # updates data from shared mem
             self.rob_refs.synch_from_shared_mem()
-            self.phase_id.synch_all(read=True, wait=True)
-            self.contact_flags.synch_all(read=True, wait=True)
+            self.phase_id.synch_all(read=True, retry=True)
+            self.contact_flags.synch_all(read=True, retry=True)
 
-            phase_id = self.phase_id.read_wait(row_index=self.robot_index,
+            phase_id = self.phase_id.read_retry(row_index=self.robot_index,
                                 col_index=0)[0]
 
             # contact phases
@@ -101,7 +101,7 @@ class HybridQuadRhcRefs(RhcRefs):
 
                     # we assume timelines of the same amount at each rhc instant (only checking one contact)
 
-                    contact_flags = self.contact_flags.torch_view[self.robot_index, :]
+                    contact_flags = self.contact_flags.get_torch_view()[self.robot_index, :]
 
                     is_contact = contact_flags.flatten().tolist() 
 
@@ -234,16 +234,16 @@ class HybridQuadRhcRefs(RhcRefs):
             
             # resets shared mem
 
-            self.contact_flags.torch_view[self.robot_index, :] = torch.full((1, self.n_contacts), True)
-            self.phase_id.torch_view[self.robot_index, :] = -1 # defaults to custom phase id
+            self.contact_flags.get_torch_view()[self.robot_index, :] = torch.full((1, self.n_contacts), True)
+            self.phase_id.get_torch_view()[self.robot_index, :] = -1 # defaults to custom phase id
             self.rob_refs.root_state.set_p(robot_idxs=self.robot_index_torch, p = torch.from_numpy(p_ref))
             self.rob_refs.root_state.set_q(robot_idxs=self.robot_index_torch, q = torch.from_numpy(q_ref))
 
-            self.contact_flags.synch_wait(row_index=self.robot_index, col_index=0, n_rows=1, n_cols=self.contact_flags.n_cols,
+            self.contact_flags.synch_retry(row_index=self.robot_index, col_index=0, n_rows=1, n_cols=self.contact_flags.n_cols,
                                     read=False)
-            self.phase_id.synch_wait(row_index=self.robot_index, col_index=0, n_rows=1, n_cols=self.phase_id.n_cols,
+            self.phase_id.synch_retry(row_index=self.robot_index, col_index=0, n_rows=1, n_cols=self.phase_id.n_cols,
                                     read=False)
-            self.rob_refs.root_state.synch_wait(row_index=self.robot_index, col_index=0, n_rows=1, n_cols=self.rob_refs.root_state.n_cols,
+            self.rob_refs.root_state.synch_retry(row_index=self.robot_index, col_index=0, n_rows=1, n_cols=self.rob_refs.root_state.n_cols,
                                     read=False)
 
             # should also empty the timeline for stepping phases

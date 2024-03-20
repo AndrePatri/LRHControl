@@ -9,7 +9,7 @@ import numpy as np
 
 from SharsorIPCpp.PySharsorIPC import dtype
 
-from SharsorIPCpp.PySharsor.wrappers.shared_data_view import SharedDataView
+from SharsorIPCpp.PySharsor.wrappers.shared_data_view import SharedTWrapper
 from SharsorIPCpp.PySharsorIPC import VLevel
 from SharsorIPCpp.PySharsorIPC import LogType
 from SharsorIPCpp.PySharsorIPC import Journal
@@ -184,7 +184,7 @@ class RhcToViz2Bridge:
         self._check_selector()
 
         # env selector
-        self.env_index = SharedDataView(namespace = self.namespace,
+        self.env_index = SharedTWrapper(namespace = self.namespace,
                 basename = "EnvSelector",
                 is_server = False, 
                 verbose = True, 
@@ -271,9 +271,9 @@ class RhcToViz2Bridge:
         
         success = False
 
-        self.env_index.synch_all(read=True, wait=True)
+        self.env_index.synch_all(read=True, retry=True)
 
-        self._current_index = self.env_index.torch_view[0, 0].item()
+        self._current_index = self.env_index.get_torch_view()[0, 0].item()
 
         if self._current_index in self._robot_indexes:
 
@@ -341,7 +341,7 @@ class RhcToViz2Bridge:
         self.rhc_jntnames_pub.publish(String(data=self.jnt_names_rhc_encoded))
 
         # publish rhc_q
-        rhc_q = self.rhc_internal_clients[self._current_index].q.numpy_view[:, :].flatten()
+        rhc_q = self.rhc_internal_clients[self._current_index].q.get_numpy_view()[:, :].flatten()
 
         root_p_robot = self.robot_state.root_state.get_p(robot_idxs=self._current_index)
         root_q_robot = self.robot_state.root_state.get_q(robot_idxs=self._current_index) # with remapping

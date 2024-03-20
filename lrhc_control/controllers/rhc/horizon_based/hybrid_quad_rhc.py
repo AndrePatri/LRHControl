@@ -10,8 +10,6 @@ from SharsorIPCpp.PySharsorIPC import Journal, LogType
 
 import numpy as np
 
-import torch
-
 import os
 import shutil
 
@@ -34,7 +32,7 @@ class HybridQuadRhc(RHController):
             verbose = False, 
             debug = False, 
             profile_all = False,
-            array_dtype = torch.float32, 
+            array_dtype = np.float32, 
             publish_sol = False,
             debug_sol = True, # whether to publish rhc rebug data,
             solver_deb_prints = False
@@ -300,22 +298,19 @@ class HybridQuadRhc(RHController):
         
         # wrapping joint q commands between 2pi and -2pi
         # (to be done for the simulator)
-        return torch.tensor(self._ti.solution['q'][7:, 1], 
-                        dtype=self.array_dtype).reshape(1,  
-                                        self.robot_cmds.n_jnts()).fmod(2 * torch.pi)
+        return np.fmod(self._ti.solution['q'][7:, 1]).reshape(1,  
+                                        self.robot_cmds.n_jnts())
     
     def _get_cmd_jnt_v_from_sol(self):
 
-        return torch.tensor(self._ti.solution['v'][6:, 1], 
-                        dtype=self.array_dtype).reshape(1,  
+        return self._ti.solution['v'][6:, 1].reshape(1,  
                                         self.robot_cmds.n_jnts())
 
     def _get_cmd_jnt_eff_from_sol(self):
         
         efforts_on_first_node = self._ti.eval_efforts_on_first_node()
 
-        return torch.tensor(efforts_on_first_node[6:, 0], 
-                        dtype=self.array_dtype).reshape(1,  
+        return efforts_on_first_node[6:, 0].reshape(1,  
                                         self.robot_cmds.n_jnts())
     
     def _get_rhc_cost(self):
@@ -330,49 +325,24 @@ class HybridQuadRhc(RHController):
 
         return self._ti.solution["n_iter2sol"]
     
-    def _assemble_meas_robot_state(self, 
-                        to_numpy: bool = False):
+    def _assemble_meas_robot_state(self):
         
-        if to_numpy:
-
-            return torch.cat((self.robot_state.root_state.get_p(self.controller_index), 
-                    self.robot_state.root_state.get_q(self.controller_index), 
-                    self.robot_state.jnts_state.get_q(self.controller_index), 
-                    self.robot_state.root_state.get_v(self.controller_index), 
-                    self.robot_state.root_state.get_omega(self.controller_index), 
-                    self.robot_state.jnts_state.get_v(self.controller_index)), 
-                    dim=1
-                    ).numpy().T
-        
-        else:
-
-            return torch.cat((self.robot_state.root_state.get_p(self.controller_index), 
-                    self.robot_state.root_state.get_q(self.controller_index), 
-                    self.robot_state.jnts_state.get_q(self.controller_index), 
-                    self.robot_state.root_state.get_v(self.controller_index), 
-                    self.robot_state.root_state.get_omega(self.controller_index), 
-                    self.robot_state.jnts_state.get_v(self.controller_index)), 
-                    dim=1
-                    ).T
+        return np.concatenate((self.robot_state.root_state.get_p(self.controller_index), 
+                self.robot_state.root_state.get_q(self.controller_index), 
+                self.robot_state.jnts_state.get_q(self.controller_index), 
+                self.robot_state.root_state.get_v(self.controller_index), 
+                self.robot_state.root_state.get_omega(self.controller_index), 
+                self.robot_state.jnts_state.get_v(self.controller_index)), 
+                axis=1
+                ).T
     
-    def _assemble_meas_robot_configuration(self, 
-                        to_numpy: bool = False):
-
-        if to_numpy:
+    def _assemble_meas_robot_configuration(self):
             
-            return torch.cat((self.robot_state.root_state.get_p(self.controller_index), 
-                    self.robot_state.root_state.get_q(self.controller_index), 
-                    self.robot_state.jnts_state.get_q(self.controller_index)), 
-                    dim=1
-                    ).numpy().T
-        
-        else:
-
-            return torch.cat((self.robot_state.root_state.get_p(self.controller_index), 
-                    self.robot_state.root_state.get_q(self.controller_index), 
-                    self.robot_state.jnts_state.get_q(self.controller_index)), 
-                    dim=1
-                    ).T
+        return np.concatenate((self.robot_state.root_state.get_p(self.controller_index), 
+                self.robot_state.root_state.get_q(self.controller_index), 
+                self.robot_state.jnts_state.get_q(self.controller_index)), 
+                dim=1
+                ).T
     
     def _update_open_loop(self):
 

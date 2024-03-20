@@ -149,7 +149,7 @@ class LRhcTrainingEnvBase():
     
     def _init_step(self):
         
-        self._check_controllers_registered(wait=True)
+        self._check_controllers_registered(retry=True)
 
         self._activate_rhc_controllers()
 
@@ -172,11 +172,11 @@ class LRhcTrainingEnvBase():
             self._tot_rewards.synch_mirror(from_gpu=True)
             self._rewards.synch_mirror(from_gpu=True)
 
-        self._obs.synch_all(read=False, wait=True) # copies data on CPU shared mem
-        self._next_obs.synch_all(read=False, wait=True)
-        self._actions.synch_all(read=False, wait=True) 
-        self._tot_rewards.synch_all(read=False, wait=True)
-        self._rewards.synch_all(read=False, wait=True)
+        self._obs.synch_all(read=False, retry=True) # copies data on CPU shared mem
+        self._next_obs.synch_all(read=False, retry=True)
+        self._actions.synch_all(read=False, retry=True) 
+        self._tot_rewards.synch_all(read=False, retry=True)
+        self._rewards.synch_all(read=False, retry=True)
     
     def _remote_sim_step(self):
 
@@ -199,7 +199,7 @@ class LRhcTrainingEnvBase():
         reset_reqs = self._remote_reset_req.get_torch_view()
         reset_reqs[:, :] = reset_mask # remotely reset envs for which 
         # the episode is terminated
-        self._remote_reset_req.synch_all(read=False, wait=True)
+        self._remote_reset_req.synch_all(read=False, retry=True)
 
         self._send_remote_reset_req()
     
@@ -216,13 +216,13 @@ class LRhcTrainingEnvBase():
     def step(self, 
             action):
 
-        rhc_ok = self._check_controllers_registered(wait=False) # does not make sense to run training
+        rhc_ok = self._check_controllers_registered(retry=False) # does not make sense to run training
         # if we lost some controllers
 
         actions = self._actions.get_torch_view(gpu=self._use_gpu)
         actions[:, :] = action # writes actions
         
-        self._apply_actions_to_rhc() # apply agent actions to rhc controller
+        # self._apply_actions_to_rhc() # apply agent actions to rhc controller
 
         ok_sim_step = self._remote_sim_step() # blocking
 
@@ -638,24 +638,24 @@ class LRhcTrainingEnvBase():
         
     def _activate_rhc_controllers(self):
 
-        self._rhc_status.activation_state.torch_view[:, :] = True
+        self._rhc_status.activation_state.get_torch_view()[:, :] = True
 
-        self._rhc_status.activation_state.synch_all(read=False, wait=True) # activates all controllers
+        self._rhc_status.activation_state.synch_all(read=False, retry=True) # activates all controllers
     
     def _synch_obs(self,
             gpu=True):
 
         # read from shared memory on CPU
         # root link state
-        self._robot_state.root_state.synch_all(read = True, wait = True)
+        self._robot_state.root_state.synch_all(read = True, retry = True)
         # refs for root link
-        self._rhc_refs.rob_refs.root_state.synch_all(read = True, wait = True)
+        self._rhc_refs.rob_refs.root_state.synch_all(read = True, retry = True)
         # rhc cost
-        self._rhc_status.rhc_cost.synch_all(read = True, wait = True)
+        self._rhc_status.rhc_cost.synch_all(read = True, retry = True)
         # rhc constr. violations
-        self._rhc_status.rhc_constr_viol.synch_all(read = True, wait = True)
+        self._rhc_status.rhc_constr_viol.synch_all(read = True, retry = True)
         # failure states
-        self._rhc_status.fails.synch_all(read = True, wait = True)
+        self._rhc_status.fails.synch_all(read = True, retry = True)
 
         if gpu:
 
@@ -676,7 +676,7 @@ class LRhcTrainingEnvBase():
             # copies latest refs from GPU to CPU shared mem for debugging
             self._agent_refs.rob_refs.root_state.synch_mirror(from_gpu=True) 
 
-        self._agent_refs.rob_refs.root_state.synch_all(read=False, wait = True) # write on shared mem
+        self._agent_refs.rob_refs.root_state.synch_all(read=False, retry = True) # write on shared mem
 
     def _clamp_obs(self, 
             obs: torch.Tensor):
@@ -724,11 +724,11 @@ class LRhcTrainingEnvBase():
             throw_when_excep = True)
     
     def _check_controllers_registered(self, 
-                wait: bool = False):
+                retry: bool = False):
 
-        if wait:
-            self._rhc_status.controllers_counter.synch_all(read=True, wait=True)
-            n_connected_controllers = self._rhc_status.controllers_counter.torch_view[0, 0].item()
+        if retry:
+            self._rhc_status.controllers_counter.synch_all(read=True, retry=True)
+            n_connected_controllers = self._rhc_status.controllers_counter.get_torch_view()[0, 0].item()
             while not (n_connected_controllers == self._n_envs):
                 
                 warn = f"Expected {self._n_envs} controllers to be active during training, " + \
@@ -742,8 +742,8 @@ class LRhcTrainingEnvBase():
                 nsecs = int(2 * 1000000000)
                 PerfSleep.thread_sleep(nsecs) 
 
-                self._rhc_status.controllers_counter.synch_all(read=True, wait=True)
-                n_connected_controllers = self._rhc_status.controllers_counter.torch_view[0, 0].item()
+                self._rhc_status.controllers_counter.synch_all(read=True, retry=True)
+                n_connected_controllers = self._rhc_status.controllers_counter.get_torch_view()[0, 0].item()
 
             info = f"All {n_connected_controllers} controllers connected!"
             Journal.log(self.__class__.__name__,
@@ -756,8 +756,8 @@ class LRhcTrainingEnvBase():
         
         else:
 
-            self._rhc_status.controllers_counter.synch_all(read=True, wait=True)
-            n_connected_controllers = self._rhc_status.controllers_counter.torch_view[0, 0].item()
+            self._rhc_status.controllers_counter.synch_all(read=True, retry=True)
+            n_connected_controllers = self._rhc_status.controllers_counter.get_torch_view()[0, 0].item()
             
             if not (n_connected_controllers == self._n_envs):
                 exception = f"Expected {self._n_envs} controllers to be active during training, " + \
@@ -782,7 +782,7 @@ class LRhcTrainingEnvBase():
             # from GPU to CPU 
             self._truncations.synch_mirror(from_gpu=True) 
 
-        self._truncations.synch_all(read=False, wait = True) # writes on shared mem
+        self._truncations.synch_all(read=False, retry = True) # writes on shared mem
     
     def _check_terminations(self):
 
@@ -794,7 +794,7 @@ class LRhcTrainingEnvBase():
             # from GPU to CPU 
             self._terminations.synch_mirror(from_gpu=True) 
         
-        self._terminations.synch_all(read=False, wait = True) # writes on shared mem
+        self._terminations.synch_all(read=False, retry = True) # writes on shared mem
 
     @abstractmethod
     def _apply_actions_to_rhc(self):

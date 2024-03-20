@@ -484,7 +484,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                 throw_when_excep = True)
             
         reset_requests = self._remote_reset_requests[robot_name]
-        reset_requests.synch_all(read=True, wait=True) # read reset requests from shared mem
+        reset_requests.synch_all(read=True, retry=True) # read reset requests from shared mem
         to_be_reset = reset_requests.to_be_reset()
         if to_be_reset is not None:
             self.reset(env_indxs=to_be_reset,
@@ -514,13 +514,9 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
 
         null_action = torch.zeros((self.task.num_envs, n_jnts), 
                         dtype=self.task.torch_dtype)
-
-        rhc_cmds.jnts_state.set_q(q = homing, gpu = self.using_gpu)
-
-        rhc_cmds.jnts_state.set_v(v = null_action, gpu = self.using_gpu)
-
-        rhc_cmds.jnts_state.set_eff(eff = null_action, gpu = self.using_gpu)
-
+        rhc_cmds.jnts_state.set(data=homing, data_type="q", gpu=self.using_gpu)
+        rhc_cmds.jnts_state.set(data=null_action, data_type="v", gpu=self.using_gpu)
+        rhc_cmds.jnts_state.set(data=null_action, data_type="eff", gpu=self.using_gpu)
         rhc_cmds.synch_to_shared_mem() # write init to shared mem
 
     def _step_world(self):
@@ -591,48 +587,32 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
         # floating base
         relative_pos = self.task.root_p_rel(robot_name=robot_name,
                                             env_idxs=env_indxs)
+        
+        rhc_state = control_cluster.get_state()
+        rhc_state.root_state.set(data=relative_pos, 
+                            data_type="p", robot_idxs = env_indxs, gpu=self.using_gpu)
 
-        control_cluster.get_state().root_state.set_p(p = relative_pos,
-                                                            robot_idxs = env_indxs,
-                                                            gpu = self.using_gpu) # we only set the relative position
-        # w.r.t. the initial spawning pose
-        control_cluster.get_state().root_state.set_q(q = self.task.root_q(robot_name=robot_name,
-                                                                                            env_idxs=env_indxs),
-                                                                robot_idxs = env_indxs,
-                                                                gpu = self.using_gpu)
-        # control_cluster.get_state().root_state.set_q(q = self.task.root_q_rel(robot_name=robot_name,
-        #                                                                                     env_idxs=env_indxs),
-        #                                                         robot_idxs = env_indxs,
-        #                                                         gpu = self.using_gpu)
-
-        control_cluster.get_state().root_state.set_v(v=self.task.root_v(robot_name=robot_name,
-                                                                                            env_idxs=env_indxs),
-                                                                robot_idxs = env_indxs,
-                                                                gpu = self.using_gpu) 
-        # control_cluster.get_state().root_state.set_v(v=self.task.root_v_rel(robot_name=robot_name,
-        #                                                                                     env_idxs=env_indxs),
-        #                                                         robot_idxs = env_indxs,
-        #                                                         gpu = self.using_gpu) 
-
-        control_cluster.get_state().root_state.set_omega(gpu = self.using_gpu,
-                                                                    robot_idxs = env_indxs,
-                                                                    omega=self.task.root_omega(robot_name=robot_name,
-                                                                                            env_idxs=env_indxs)) 
-        # control_cluster.get_state().root_state.set_omega(gpu = self.using_gpu,
-        #                                                             robot_idxs = env_indxs,
-        #                                                             omega=self.task.root_omega_rel(robot_name=robot_name,
-        #                                                                                     env_idxs=env_indxs)) 
+        rhc_state.root_state.set(data=self.task.root_q(robot_name=robot_name,
+                                                    env_idxs=env_indxs), 
+                            data_type="q", robot_idxs = env_indxs, gpu=self.using_gpu)
+        rhc_state.root_state.set(data=self.task.root_v(robot_name=robot_name,
+                                                env_idxs=env_indxs), 
+                            data_type="v", robot_idxs = env_indxs, gpu=self.using_gpu)
+        rhc_state.root_state.set(data=self.task.root_omega(robot_name=robot_name,
+                                                            env_idxs=env_indxs), 
+                            data_type="omega", robot_idxs = env_indxs, gpu=self.using_gpu)
 
         # joints
-        control_cluster.get_state().jnts_state.set_q(q=self.task.jnts_q(robot_name=robot_name,
-                                                                                            env_idxs=env_indxs), 
-                                                                    robot_idxs = env_indxs,
-                                                                    gpu = self.using_gpu)
-
-        control_cluster.get_state().jnts_state.set_v(v=self.task.jnts_v(robot_name=robot_name,
-                                                                                            env_idxs=env_indxs),
-                                                                    robot_idxs = env_indxs,
-                                                                    gpu = self.using_gpu) 
+        rhc_state.jnts_state.set(data=self.task.jnts_q(robot_name=robot_name,
+                                                    env_idxs=env_indxs), 
+                                data_type="q", 
+                                robot_idxs = env_indxs,
+                                gpu=self.using_gpu)
+        rhc_state.jnts_state.set(q=self.task.jnts_v(robot_name=robot_name,
+                                                env_idxs=env_indxs), 
+                                data_type="v", 
+                                robot_idxs = env_indxs,
+                                gpu=self.using_gpu) 
 
         # Updating contact state for selected contact links
         self._update_contact_state(robot_name=robot_name,

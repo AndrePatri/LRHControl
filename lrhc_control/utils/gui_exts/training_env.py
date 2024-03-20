@@ -307,15 +307,15 @@ class TrainingEnvData(SharedDataWindow):
             algo_data = self.shared_data_clients[10].get().flatten()
 
             self.shared_data_clients[1].synch_from_shared_mem()
-            self.shared_data_clients[2].rob_refs.root_state.synch_all(read=True, wait=True)
-            self.shared_data_clients[3].synch_all(read=True, wait=True) # observations
-            self.shared_data_clients[4].synch_all(read=True, wait=True)
-            self.shared_data_clients[5].synch_all(read=True, wait=True)
-            self.shared_data_clients[6].synch_all(read=True, wait=True)
+            self.shared_data_clients[2].rob_refs.root_state.synch_all(read=True, retry=True)
+            self.shared_data_clients[3].synch_all(read=True, retry=True) # observations
+            self.shared_data_clients[4].synch_all(read=True, retry=True)
+            self.shared_data_clients[5].synch_all(read=True, retry=True)
+            self.shared_data_clients[6].synch_all(read=True, retry=True)
 
-            self.shared_data_clients[7].synch_all(read=True, wait=True)
-            self.shared_data_clients[8].synch_all(read=True, wait=True)
-            self.shared_data_clients[9].counter().synch_all(read=True, wait=True)
+            self.shared_data_clients[7].synch_all(read=True, retry=True)
+            self.shared_data_clients[8].synch_all(read=True, retry=True)
+            self.shared_data_clients[9].counter().synch_all(read=True, retry=True)
 
             self.rt_plotters[0].rt_plot_widget.update(env_data)
             self.rt_plotters[1].rt_plot_widget.update(algo_data)

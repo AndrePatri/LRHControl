@@ -1,4 +1,4 @@
-from SharsorIPCpp.PySharsor.wrappers.shared_data_view import SharedDataView
+from SharsorIPCpp.PySharsor.wrappers.shared_data_view import SharedTWrapper
 from SharsorIPCpp.PySharsorIPC import StringTensorServer, StringTensorClient
 from SharsorIPCpp.PySharsorIPC import VLevel
 from SharsorIPCpp.PySharsorIPC import dtype as sharsor_dtype, toNumpyDType
@@ -10,7 +10,7 @@ from control_cluster_bridge.utilities.shared_data.abstractions import SharedData
 from typing import Dict, Union, List
 import numpy as np
 
-class NamedSharedDataView(SharedDataView):
+class NamedSharedTWrapper(SharedTWrapper):
 
     def __init__(self,
                 namespace: str,

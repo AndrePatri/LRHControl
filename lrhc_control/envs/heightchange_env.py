@@ -95,7 +95,7 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
 
             self._rhc_refs.rob_refs.root_state.synch_mirror(from_gpu=self._use_gpu) # write from gpu to cpu mirror
 
-        self._rhc_refs.rob_refs.root_state.synch_all(read=False, wait=True) # write mirror to shared mem
+        self._rhc_refs.rob_refs.root_state.synch_all(read=False, retry=True) # write mirror to shared mem
 
     def _compute_rewards(self):
         

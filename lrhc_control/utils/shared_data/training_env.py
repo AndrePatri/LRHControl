@@ -1,4 +1,4 @@
-from SharsorIPCpp.PySharsor.wrappers.shared_data_view import SharedDataView
+from SharsorIPCpp.PySharsor.wrappers.shared_data_view import SharedTWrapper
 from SharsorIPCpp.PySharsorIPC import StringTensorServer, StringTensorClient
 from SharsorIPCpp.PySharsorIPC import VLevel
 from SharsorIPCpp.PySharsorIPC import dtype as sharsor_dtype, toNumpyDType
@@ -7,7 +7,7 @@ from SharsorIPCpp.PySharsorIPC import LogType
 
 from control_cluster_bridge.utilities.shared_data.abstractions import SharedDataBase
 
-from lrhc_control.utils.shared_data.base_data import NamedSharedDataView
+from lrhc_control.utils.shared_data.base_data import NamedSharedTWrapper
 
 from typing import Dict, Union, List
 
@@ -16,7 +16,7 @@ import torch
 
 # Training env info
 
-class TrainingEnvDebData(SharedDataView):
+class TrainingEnvDebData(SharedTWrapper):
                  
     def __init__(self,
         namespace = "",
@@ -183,7 +183,7 @@ class SharedTrainingEnvInfo(SharedDataBase):
                     LogType.EXCEP,
                     throw_when_excep = True)
             
-            self.shared_train_env_data.synch_all(read=True, wait=True)
+            self.shared_train_env_data.synch_all(read=True, retry=True)
         
         self.param_values = np.full((len(self.param_keys), 1), 
                                 fill_value=np.nan, 
@@ -201,7 +201,7 @@ class SharedTrainingEnvInfo(SharedDataBase):
                 self.param_values[dyn_info_size + i, 0] = \
                     self.training_env_params_dict[self.param_keys[dyn_info_size + i]]
                                         
-            self.shared_train_env_data.write_wait(row_index=0,
+            self.shared_train_env_data.write_retry(row_index=0,
                                     col_index=0,
                                     data=self.param_values)
             
@@ -241,7 +241,7 @@ class SharedTrainingEnvInfo(SharedDataBase):
                 
                 self.param_values[idx, 0] = val[i]
                 
-                self.shared_train_env_data.write_wait(data=self.param_values[idx, 0],
+                self.shared_train_env_data.write_retry(data=self.param_values[idx, 0],
                                 row_index=idx, col_index=0) 
             
         elif isinstance(dyn_info_name, str):
@@ -250,18 +250,18 @@ class SharedTrainingEnvInfo(SharedDataBase):
 
             self.param_values[idx, 0] = val
         
-            self.shared_train_env_data.write_wait(data=self.param_values[idx, 0],
+            self.shared_train_env_data.write_retry(data=self.param_values[idx, 0],
                                 row_index=idx, col_index=0) 
     
     def synch(self):
 
-        self.shared_train_env_data.synch_all(read=True, wait = True)
+        self.shared_train_env_data.synch_all(read=True, retry = True)
     
     def get(self):
 
         self.synch()
 
-        return self.shared_train_env_data.numpy_view.copy()
+        return self.shared_train_env_data.get_numpy_view().copy()
     
     def close(self):
 
@@ -279,7 +279,7 @@ class SharedTrainingEnvInfo(SharedDataBase):
 
 # training info
 
-class Rewards(NamedSharedDataView):
+class Rewards(NamedSharedTWrapper):
 
     def __init__(self,
             namespace: str,
@@ -312,7 +312,7 @@ class Rewards(NamedSharedDataView):
                     with_gpu_mirror=with_gpu_mirror,
                     fill_value=fill_value)
 
-class TotRewards(NamedSharedDataView):
+class TotRewards(NamedSharedTWrapper):
 
     def __init__(self,
             namespace: str,
@@ -344,7 +344,7 @@ class TotRewards(NamedSharedDataView):
                     with_gpu_mirror=with_gpu_mirror,
                     fill_value=fill_value)
         
-class Observations(NamedSharedDataView):
+class Observations(NamedSharedTWrapper):
 
     def __init__(self,
             namespace: str,
@@ -377,7 +377,7 @@ class Observations(NamedSharedDataView):
                     with_gpu_mirror=with_gpu_mirror,
                     fill_value=fill_value)
 
-class NextObservations(NamedSharedDataView):
+class NextObservations(NamedSharedTWrapper):
 
     def __init__(self,
             namespace: str,
@@ -410,7 +410,7 @@ class NextObservations(NamedSharedDataView):
                     with_gpu_mirror=with_gpu_mirror,
                     fill_value=fill_value)
 
-class Actions(NamedSharedDataView):
+class Actions(NamedSharedTWrapper):
 
     def __init__(self,
             namespace: str,
@@ -443,7 +443,7 @@ class Actions(NamedSharedDataView):
                     with_gpu_mirror=with_gpu_mirror,
                     fill_value=fill_value)
         
-class Terminations(SharedDataView):
+class Terminations(SharedTWrapper):
 
     def __init__(self,
             namespace: str,
@@ -475,7 +475,7 @@ class Terminations(SharedDataView):
 
         self.to_zero()
 
-class Truncations(SharedDataView):
+class Truncations(SharedTWrapper):
 
     def __init__(self,
             namespace: str,
@@ -509,7 +509,7 @@ class Truncations(SharedDataView):
 
 class SimpleCounters(SharedDataBase):
     
-    class StepCounter(SharedDataView):
+    class StepCounter(SharedTWrapper):
 
         def __init__(self,
                 namespace: str,
@@ -570,7 +570,7 @@ class SimpleCounters(SharedDataBase):
             self._step_counter.synch_mirror(from_gpu=True)
 
         # copy from cpu to shared memory
-        self._step_counter.synch_all(read=False, wait=True)
+        self._step_counter.synch_all(read=False, retry=True)
 
     def is_running(self):
 

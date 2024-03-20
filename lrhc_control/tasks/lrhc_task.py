@@ -8,6 +8,10 @@ from typing import List
 import numpy as np
 import torch
 
+from SharsorIPCpp.PySharsorIPC import LogType
+from SharsorIPCpp.PySharsorIPC import Journal
+from SharsorIPCpp.PySharsorIPC import VLevel
+
 class LRHcIsaacTask(IsaacTask):
     
     def __init__(self, 
@@ -39,7 +43,9 @@ class LRHcIsaacTask(IsaacTask):
             use_diff_velocities = True,
             override_art_controller = False,
             dtype = torch.float64,
-            debug_mode_jnt_imp = False) -> None:
+            debug_enabled = False) -> None:
+
+        self._debug_enabled = debug_enabled
 
         if cloning_offset is None:
         
@@ -82,12 +88,11 @@ class LRHcIsaacTask(IsaacTask):
                     self_collide = [False] * len(robot_names), 
                     fix_base = [False] * len(robot_names),
                     merge_fixed = [True] * len(robot_names),
-                    debug_mode_jnt_imp = debug_mode_jnt_imp)
+                    enable_jnt_imp_cntrl_profiling = self._debug_enabled,
+                    enable_jnt_imp_db_mode = self._debug_enabled)
         
         self.use_diff_velocities = use_diff_velocities
         
-        self._debug_mode_jnt_imp = debug_mode_jnt_imp
-
         self.startup_jnt_stiffness = startup_jnt_stiffness
         self.startup_jnt_damping = startup_jnt_damping
         self.startup_wheel_stiffness = startup_wheel_stiffness
@@ -103,8 +108,6 @@ class LRHcIsaacTask(IsaacTask):
             
             robot_name = self.robot_names[i]
 
-            from SharsorIPCpp.PySharsorIPC import VLevel
-
             self.jnt_imp_cntrl_shared_data[robot_name] = JntImpCntrlData(is_server = True, 
                                             n_envs = self.num_envs, 
                                             n_jnts = self.robot_n_dofs[robot_name],
@@ -112,65 +115,56 @@ class LRHcIsaacTask(IsaacTask):
                                             namespace = robot_name, 
                                             verbose = True, 
                                             force_reconnection = True,
-                                            vlevel = VLevel.V2)
-
+                                            vlevel = VLevel.V2,
+                                            use_gpu=self.using_gpu,
+                                            safe=True)
             self.jnt_imp_cntrl_shared_data[robot_name].run()
 
     def _update_jnt_imp_cntrl_shared_data(self):
 
-        if self._debug_mode_jnt_imp:
+        if self._debug_enabled:
             
             for i in range(0, len(self.robot_names)):
             
                 robot_name = self.robot_names[i]
 
                 success = True
-
-                # updating all the jnt impedance data - > this introduces some overhead. 
+                # updating all the jnt impedance data - > this may introduce a significant overhead,
+                # on CPU and, if using GPU, also there 
                 # disable this with debug_mode_jnt_imp when debugging is not necessary
-                success = self.jnt_imp_cntrl_shared_data[robot_name].pos_err_view.write(
-                    self.jnt_imp_controllers[robot_name].pos_err(), 0, 0
-                    ) and success
-                success = self.jnt_imp_cntrl_shared_data[robot_name].vel_err_view.write(
-                    self.jnt_imp_controllers[robot_name].vel_err(), 0, 0
-                    ) and success
-                success = self.jnt_imp_cntrl_shared_data[robot_name].pos_gains_view.write(
-                    self.jnt_imp_controllers[robot_name].pos_gains(), 0, 0
-                    ) and success
-                success = self.jnt_imp_cntrl_shared_data[robot_name].vel_gains_view.write(
-                    self.jnt_imp_controllers[robot_name].vel_gains(), 0, 0
-                    ) and success
-                success = self.jnt_imp_cntrl_shared_data[robot_name].eff_ff_view.write(
-                    self.jnt_imp_controllers[robot_name].eff_ref(), 0, 0
-                    ) and success
-                success = self.jnt_imp_cntrl_shared_data[robot_name].pos_view.write(
-                    self.jnt_imp_controllers[robot_name].pos(), 0, 0
-                    ) and success
-                success = self.jnt_imp_cntrl_shared_data[robot_name].pos_ref_view.write(
-                    self.jnt_imp_controllers[robot_name].pos_ref(), 0, 0
-                    ) and success
-                success = self.jnt_imp_cntrl_shared_data[robot_name].vel_view.write(
-                    self.jnt_imp_controllers[robot_name].vel(), 0, 0
-                    ) and success
-                success = self.jnt_imp_cntrl_shared_data[robot_name].vel_ref_view.write(
-                    self.jnt_imp_controllers[robot_name].vel_ref(), 0, 0
-                    ) and success
-                success = self.jnt_imp_cntrl_shared_data[robot_name].eff_view.write(
-                    self.jnt_imp_controllers[robot_name].eff(), 0, 0
-                    ) and success
-                success = self.jnt_imp_cntrl_shared_data[robot_name].imp_eff_view.write(
-                    self.jnt_imp_controllers[robot_name].imp_eff(), 0, 0
-                    ) and success
+                imp_data = self.jnt_imp_cntrl_shared_data[robot_name].imp_data_view
 
-                if not success:
-                    
-                    message = f"[{self.__class__.__name__}]" + \
-                        f"[{self._journal.status}]" + \
-                        ": Could not update all jnt. imp. controller info on shared memory," + \
-                        " probably because the data was already owned at the time of writing. Data might be lost"
-
-                    print(message)
+                # set data
+                imp_data.set(name="pos_err",
+                        data=self.jnt_imp_controllers[robot_name].pos_err())
+                imp_data.set(name="vel_err",
+                        data=self.jnt_imp_controllers[robot_name].vel_err())
+                imp_data.set(name="pos_gains",
+                        data=self.jnt_imp_controllers[robot_name].pos_gains())
+                imp_data.set(name="vel_gains",
+                        data=self.jnt_imp_controllers[robot_name].vel_gains())
+                imp_data.set(name="eff_ff",
+                        data=self.jnt_imp_controllers[robot_name].eff_ref())
+                imp_data.set(name="pos",
+                        data=self.jnt_imp_controllers[robot_name].pos())
+                imp_data.set(name="pos_ref",
+                        data=self.jnt_imp_controllers[robot_name].pos_ref())
+                imp_data.set(name="vel",
+                        data=self.jnt_imp_controllers[robot_name].vel())
+                imp_data.set(name="vel_ref",
+                        data=self.jnt_imp_controllers[robot_name].vel_ref())
+                imp_data.set(name="eff",
+                        data=self.jnt_imp_controllers[robot_name].eff())
+                imp_data.set(name="imp_eff",
+                        data=self.jnt_imp_controllers[robot_name].imp_eff())
     
+                # copy from GPU to CPU if using gpu
+                if self.using_gpu:
+                    imp_data.synch_mirror(from_gpu=True)
+
+                # write copies to shared memory
+                imp_data.synch_all(read=False, retry=False)
+                        
     def post_reset(self):
 
         pass
@@ -187,54 +181,51 @@ class LRHcIsaacTask(IsaacTask):
                         actions: RhcCmds = None,
                         env_indxs: torch.Tensor = None):
 
-        if env_indxs is not None:
-
+        if env_indxs is not None and self._debug_enabled:
             if not isinstance(env_indxs, torch.Tensor):
-                    
-                msg = "Provided env_indxs should be a torch tensor of indexes!"
-            
-                raise Exception(f"[{self.__class__.__name__}]" + f"[{self._journal.exception}]: " + msg)
-        
+                error = "Provided env_indxs should be a torch tensor of indexes!"
+                Journal.log(self.__class__.__name__,
+                    "_step_jnt_imp_control",
+                    error,
+                    LogType.EXCEP,
+                    True)
+            if self.using_gpu and \
+                not self.torch_device.type == torch.device("cuda"):
+                error = "Provided env_indxs should be on GPU!"
+                Journal.log(self.__class__.__name__,
+                    "_step_jnt_imp_control",
+                    error,
+                    LogType.EXCEP,
+                    True)
+            else:
+                if not self.torch_device.type == torch.device("cpu"):
+                    error = "Provided env_indxs should be on CPU!"
+                    Journal.log(self.__class__.__name__,
+                        "_step_jnt_imp_control",
+                        error,
+                        LogType.EXCEP,
+                        True)
+                
         # always updated imp. controller internal state (jnt imp control is supposed to be
         # always running)
-        success = self.jnt_imp_controllers[robot_name].update_state(pos = self.jnts_q(robot_name=robot_name), 
-                                                    vel = self.jnts_v(robot_name=robot_name),
-                                                    eff = None # not needed by jnt imp control
-                                                    )
-        
-        if not all(success):
-            
-            print(success)
+        self.jnt_imp_controllers[robot_name].update_state(pos = self.jnts_q(robot_name=robot_name), 
+                    vel = self.jnts_v(robot_name=robot_name))
 
-            exception = "Could not update the whole joint impedance state!!"
-            
-            raise Exception(exception)
-
-        if actions is not None:
-            
+        if actions is not None and env_indxs is not None:
             # if new actions are received, also update references
-
-            if env_indxs is not None:
+            # (only use actions if env_indxs is provided)
                 
-                # only use actions if env_indxs is provided
-                success = self.jnt_imp_controllers[robot_name].set_refs(
-                                            pos_ref = actions.jnts_state.get_q(gpu=self.using_gpu)[env_indxs, :], 
-                                            vel_ref = actions.jnts_state.get_v(gpu=self.using_gpu)[env_indxs, :], 
-                                            eff_ref = actions.jnts_state.get_eff(gpu=self.using_gpu)[env_indxs, :],
-                                            robot_indxs = env_indxs)
+            self.jnt_imp_controllers[robot_name].set_refs(
+                    pos_ref = actions.jnts_state.get_q(gpu=self.using_gpu)[env_indxs, :], 
+                    vel_ref = actions.jnts_state.get_v(gpu=self.using_gpu)[env_indxs, :], 
+                    eff_ref = actions.jnts_state.get_eff(gpu=self.using_gpu)[env_indxs, :],
+                    robot_indxs = env_indxs)
 
-            if not all(success):
-            
-                print(success)
-
-                exception = "Could not update jnt imp refs!!"
-                
-                raise Exception(exception)
-        
         # # jnt imp. controller actions are always applied
         self.jnt_imp_controllers[robot_name].apply_cmds()
 
-        self._update_jnt_imp_cntrl_shared_data() # only if debug_mode_jnt_imp is enabled
+        if self._debug_enabled:
+            self._update_jnt_imp_cntrl_shared_data() # only if debug_mode_jnt_imp is enabled
         
     def pre_physics_step(self, 
             robot_name: str, 

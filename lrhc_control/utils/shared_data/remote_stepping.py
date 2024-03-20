@@ -1,4 +1,4 @@
-from SharsorIPCpp.PySharsor.wrappers.shared_data_view import SharedDataView
+from SharsorIPCpp.PySharsor.wrappers.shared_data_view import SharedTWrapper
 from SharsorIPCpp.PySharsorIPC import VLevel
 from SharsorIPCpp.PySharsorIPC import dtype
 from SharsorIPCpp.PySharsorIPC import Producer, Consumer
@@ -83,7 +83,7 @@ class RemoteResetClnt(Consumer):
             verbose=verbose,
             vlevel=vlevel)
         
-class RemoteResetRequest(SharedDataView):
+class RemoteResetRequest(SharedTWrapper):
 
         def __init__(self,
                 namespace: str,

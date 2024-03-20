@@ -31,7 +31,7 @@ if __name__ == '__main__':
     parser.add_argument('--remote_stepping', action='store_true', 
                 help='Whether to use remote stepping for cluster triggering (to be set during training)')
     parser.add_argument('--cpu_pipeline', action='store_true', help='Whether to use the cpu pipeline (greatly increases GPU RX data)')
-    parser.add_argument('--jnt_imp_cntrl_deb', action='store_true', help='Whether to debug jnt imp control on shared mem (requires frequent copies from GPU to CPU')
+    parser.add_argument('--debug_mode', action='store_true', help='Whether to enable debug mode (may introduce significant overhead)')
     parser.add_argument('--headless', action='store_true', help='Whether to run simulation in headless mode')
     parser.add_argument('--comment', type=str, help='Any useful comment associated with this run',default="")
 
@@ -48,7 +48,6 @@ if __name__ == '__main__':
     headless = args.headless
     enable_livestream = False
     enable_viewport = False
-    env_debug = True
 
     # simulation parameters
     sim_params = {}
@@ -118,7 +117,7 @@ if __name__ == '__main__':
             sim_device = 0,
             enable_livestream=enable_livestream, 
             enable_viewport=enable_viewport,
-            debug = env_debug) # create environment
+            debug = args.debug_mode) # create environment
 
     # now we can import the task (not before, since Omni plugins are loaded 
     # upon environment initialization)
@@ -151,7 +150,7 @@ if __name__ == '__main__':
             device = device, 
             use_diff_velocities = False, # whether to differentiate velocities numerically
             dtype=dtype_torch,
-            debug_mode_jnt_imp = args.jnt_imp_cntrl_deb) # writes jnt imp. controller info on shared mem (overhead)
+            debug_enabled = args.debug_mode) # writes jnt imp. controller info on shared mem (overhead)
             # and profiles it
 
     env.set_task(task, 
@@ -160,8 +159,8 @@ if __name__ == '__main__':
             use_remote_stepping = [args.remote_stepping],
             n_pre_training_steps = 10, # n of env steps before connecting to training client
             sim_params = sim_params, 
-            cluster_client_verbose=True, 
-            cluster_client_debug=True,
+            cluster_client_verbose=args.debug_mode, 
+            cluster_client_debug=args.debug_mode,
             verbose=True, 
             vlevel=VLevel.V2) # add the task to the environment 
     # (includes spawning robots and launching the cluster client for the controllers)
@@ -174,7 +173,7 @@ if __name__ == '__main__':
     sim_params["headless"] = headless
     sim_params["enable_livestream"] = enable_livestream
     sim_params["enable_viewport"] = enable_viewport
-    sim_params["env_debug"] = env_debug
+    sim_params["debug_enabled"] = args.debug_mode
     shared_sim_infos = []
     for i in range(len(robot_names)):
         shared_sim_infos.append(SharedSimInfo(

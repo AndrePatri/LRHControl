@@ -36,7 +36,7 @@ class HybridQuadTask(LRHcIsaacTask):
             use_diff_velocities = True,
             override_art_controller = False,
             dtype: torch.dtype = torch.float32,
-            debug_mode_jnt_imp = False):
+            debug_enabled = False):
         
         self.hybrid_quad_rob_name = robot_name
         self.hybrid_quad_robot_pkg_name = robot_pkg_name
@@ -74,7 +74,7 @@ class HybridQuadTask(LRHcIsaacTask):
                 override_art_controller=override_art_controller,
                 use_diff_velocities=use_diff_velocities,
                 dtype=dtype,
-                debug_mode_jnt_imp=debug_mode_jnt_imp)
+                debug_enabled=debug_enabled)
 
     def _xrdf_cmds(self):
 
