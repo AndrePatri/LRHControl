@@ -63,6 +63,8 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
 
     def _pre_physics_step(self):
         
+        self.task.get_states() # gets data from simulation (jnt imp control always needs updated state)
+
         for i in range(len(self.robot_names)):
             
             robot_name = self.robot_names[i]
@@ -71,9 +73,14 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
             just_activated = None
             just_deactivated = None                
             failed = None
+            
             # 1) this runs @cluster_dt: wait + retrieve latest solution
             if control_cluster.is_cluster_instant(self.cluster_step_counters[robot_name]) and \
                     self._init_steps_done:
+                
+                control_cluster.pre_trigger() # performs pre-trigger steps, like retrieving
+                # values of some rhc flags on shared memory
+
                 if not self._is_first_trigger[robot_name]: # first trigger we don't wait (there has been no trigger)
                     control_cluster.wait_for_solution() # this is blocking
                     if self.debug:
@@ -92,12 +99,14 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                         # activate inactive controllers
                         control_cluster.activate_controllers(idxs=control_cluster.get_inactive_controllers())
 
+            active = control_cluster.get_active_controllers(gpu=self.using_gpu)
             # 2) this runs at @simulation dt i.e. the highest possible rate,
             # using the latest available RHC actions
+            print("AAAAAAAAA")
+            print(active)
             self.task.pre_physics_step(robot_name = robot_name, 
                         actions = control_cluster.get_actions(),
                         env_indxs = active)
-
             # 3) this runs at @cluster_dt: trigger cluster solution
             if control_cluster.is_cluster_instant(self.cluster_step_counters[robot_name]) and \
                     self._init_steps_done:
@@ -108,10 +117,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                         self._is_first_trigger[robot_name] = False
                 if self._use_remote_stepping[i]:
                         self._wait_for_remote_step_req(robot_name=robot_name)
-                control_cluster.pre_trigger() # performs pre-trigger steps, like retrieving
-                # values of some rhc flags on shared memory
                 # handling controllers transition to running state
-                active = control_cluster.get_active_controllers(gpu=self.using_gpu)
                 just_activated = control_cluster.get_just_activated(gpu=self.using_gpu) 
                 just_deactivated = control_cluster.get_just_deactivated(gpu=self.using_gpu)
                 if just_activated is not None: # transition of some controllers from not active -> active

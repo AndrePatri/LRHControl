@@ -107,7 +107,6 @@ class LRHcIsaacTask(IsaacTask):
         for i in range(0, len(self.robot_names)):
             
             robot_name = self.robot_names[i]
-
             self.jnt_imp_cntrl_shared_data[robot_name] = JntImpCntrlData(is_server = True, 
                                             n_envs = self.num_envs, 
                                             n_jnts = self.robot_n_dofs[robot_name],
@@ -127,41 +126,47 @@ class LRHcIsaacTask(IsaacTask):
             for i in range(0, len(self.robot_names)):
             
                 robot_name = self.robot_names[i]
-
-                success = True
                 # updating all the jnt impedance data - > this may introduce a significant overhead,
                 # on CPU and, if using GPU, also there 
                 # disable this with debug_mode_jnt_imp when debugging is not necessary
                 imp_data = self.jnt_imp_cntrl_shared_data[robot_name].imp_data_view
-
                 # set data
-                imp_data.set(name="pos_err",
-                        data=self.jnt_imp_controllers[robot_name].pos_err())
-                imp_data.set(name="vel_err",
-                        data=self.jnt_imp_controllers[robot_name].vel_err())
-                imp_data.set(name="pos_gains",
-                        data=self.jnt_imp_controllers[robot_name].pos_gains())
-                imp_data.set(name="vel_gains",
-                        data=self.jnt_imp_controllers[robot_name].vel_gains())
-                imp_data.set(name="eff_ff",
-                        data=self.jnt_imp_controllers[robot_name].eff_ref())
-                imp_data.set(name="pos",
-                        data=self.jnt_imp_controllers[robot_name].pos())
-                imp_data.set(name="pos_ref",
-                        data=self.jnt_imp_controllers[robot_name].pos_ref())
-                imp_data.set(name="vel",
-                        data=self.jnt_imp_controllers[robot_name].vel())
-                imp_data.set(name="vel_ref",
-                        data=self.jnt_imp_controllers[robot_name].vel_ref())
-                imp_data.set(name="eff",
-                        data=self.jnt_imp_controllers[robot_name].eff())
-                imp_data.set(name="imp_eff",
-                        data=self.jnt_imp_controllers[robot_name].imp_eff())
-    
+                imp_data.set(data_type="pos_err",
+                        data=self.jnt_imp_controllers[robot_name].pos_err(),
+                        gpu=self.using_gpu)
+                imp_data.set(data_type="vel_err",
+                        data=self.jnt_imp_controllers[robot_name].vel_err(),
+                        gpu=self.using_gpu)
+                imp_data.set(data_type="pos_gains",
+                        data=self.jnt_imp_controllers[robot_name].pos_gains(),
+                        gpu=self.using_gpu)
+                imp_data.set(data_type="vel_gains",
+                        data=self.jnt_imp_controllers[robot_name].vel_gains(),
+                        gpu=self.using_gpu)
+                imp_data.set(data_type="eff_ff",
+                        data=self.jnt_imp_controllers[robot_name].eff_ref(),
+                        gpu=self.using_gpu)
+                imp_data.set(data_type="pos",
+                        data=self.jnt_imp_controllers[robot_name].pos(),
+                        gpu=self.using_gpu)
+                imp_data.set(data_type="pos_ref",
+                        data=self.jnt_imp_controllers[robot_name].pos_ref(),
+                        gpu=self.using_gpu)
+                imp_data.set(data_type="vel",
+                        data=self.jnt_imp_controllers[robot_name].vel(),
+                        gpu=self.using_gpu)
+                imp_data.set(data_type="vel_ref",
+                        data=self.jnt_imp_controllers[robot_name].vel_ref(),
+                        gpu=self.using_gpu)
+                imp_data.set(data_type="eff",
+                        data=self.jnt_imp_controllers[robot_name].eff(),
+                        gpu=self.using_gpu)
+                imp_data.set(data_type="imp_eff",
+                        data=self.jnt_imp_controllers[robot_name].imp_eff(),
+                        gpu=self.using_gpu)
                 # copy from GPU to CPU if using gpu
                 if self.using_gpu:
                     imp_data.synch_mirror(from_gpu=True)
-
                 # write copies to shared memory
                 imp_data.synch_all(read=False, retry=False)
                         
