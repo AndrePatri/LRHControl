@@ -85,10 +85,10 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         
         agent_action = self.get_actions()
 
-        rhc_latest_ref = self._rhc_refs.rob_refs.root_state.get_p(gpu=self._use_gpu)
+        rhc_latest_ref = self._rhc_refs.rob_refs.root_state.get(data_type="p", gpu=self._use_gpu)
         rhc_latest_ref[:, 2:3] = agent_action * self._h_cmd_scale + self._h_cmd_offset # overwrite z ref
         
-        self._rhc_refs.rob_refs.root_state.set_p(p=rhc_latest_ref,
+        self._rhc_refs.rob_refs.root_state.set(data_type="p", data=rhc_latest_ref,
                                             gpu=self._use_gpu) # write refs
 
         if self._use_gpu:
@@ -100,8 +100,8 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
     def _compute_rewards(self):
         
         # task error
-        h_ref = self._agent_refs.rob_refs.root_state.get_p(gpu=self._use_gpu)[:, 2:3] # getting target z ref
-        robot_h = self._robot_state.root_state.get_p(gpu=self._use_gpu)[:, 2:3]
+        h_ref = self._agent_refs.rob_refs.root_state.get(data_type="p", gpu=self._use_gpu)[:, 2:3] # getting target z ref
+        robot_h = self._robot_state.root_state.get(data_type="p",gpu=self._use_gpu)[:, 2:3]
         h_error = torch.abs((h_ref - robot_h))
 
         # RHC-related rewards
@@ -118,8 +118,8 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
                 obs_tensor: torch.Tensor):
         
         # assigns obs to obs_tensor
-        agent_h_ref = self._agent_refs.rob_refs.root_state.get_p(gpu=self._use_gpu)[:, 2:3] # getting z ref
-        robot_h = self._robot_state.root_state.get_p(gpu=self._use_gpu)[:, 2:3]
+        agent_h_ref = self._agent_refs.rob_refs.root_state.get(data_type="p",gpu=self._use_gpu)[:, 2:3] # getting z ref
+        robot_h = self._robot_state.root_state.get(data_type="p",gpu=self._use_gpu)[:, 2:3]
 
         obs_tensor[:, 0:1] = robot_h
         obs_tensor[:, 1:2] = agent_h_ref
@@ -143,15 +143,15 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         
         if env_indxs is None:
 
-            agent_p_ref_current = self._agent_refs.rob_refs.root_state.get_p(gpu=self._use_gpu)
+            agent_p_ref_current = self._agent_refs.rob_refs.root_state.get(data_type="p",gpu=self._use_gpu)
             agent_p_ref_current[:, 2:3] = (self._href_ub-self._href_lb) * torch.rand_like(agent_p_ref_current[:, 2:3]) + self._href_lb # randomize h ref
 
         else:
 
-            agent_p_ref_current = self._agent_refs.rob_refs.root_state.get_p(gpu=self._use_gpu)
+            agent_p_ref_current = self._agent_refs.rob_refs.root_state.get(data_type="p",gpu=self._use_gpu)
             agent_p_ref_current[env_indxs, 2:3] = (self._href_ub-self._href_lb) * torch.rand_like(agent_p_ref_current[env_indxs, 2:3]) + self._href_lb
 
-        self._agent_refs.rob_refs.root_state.set_p(p=agent_p_ref_current,
+        self._agent_refs.rob_refs.root_state.set(data_type="p", data=agent_p_ref_current,
                                             gpu=self._use_gpu)
 
         self._synch_refs(gpu=self._use_gpu)

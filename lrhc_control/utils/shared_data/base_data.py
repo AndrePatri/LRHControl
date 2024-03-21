@@ -73,6 +73,7 @@ class NamedSharedTWrapper(SharedTWrapper):
                 dtype=dtype,
                 force_reconnection=force_reconnection,
                 with_gpu_mirror=with_gpu_mirror,
+                with_torch_view=True,
                 fill_value = fill_value)
 
     def run(self):

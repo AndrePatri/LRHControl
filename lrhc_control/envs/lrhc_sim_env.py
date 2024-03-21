@@ -161,8 +161,8 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
             robot_name = self.robot_names[i]
             self.cluster_step_counters[robot_name] += 1
 
-            if self._use_remote_stepping[i] and self._init_steps_done:
-                self._signal_sim_env_is_ready(robot_name=robot_name) # signal sim is ready
+            # if self._use_remote_stepping[i] and self._init_steps_done:
+            #     self._signal_sim_env_is_ready(robot_name=robot_name) # signal sim is ready
            
             if self.debug:
                 self.debug_data["cluster_sol_time"][robot_name] = \

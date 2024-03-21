@@ -41,6 +41,7 @@ class AgentRefs(SharedDataBase):
                 contact_names=contact_names,
                 q_remapping=q_remapping,
                 with_gpu_mirror=with_gpu_mirror,
+                with_torch_view=True,
                 force_reconnection=force_reconnection,
                 safe=safe,
                 verbose=verbose,

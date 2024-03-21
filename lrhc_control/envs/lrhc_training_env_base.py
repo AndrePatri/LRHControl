@@ -123,7 +123,7 @@ class LRhcTrainingEnvBase():
         self._init_terminations()
         self._init_truncations()
         
-        self._wait_for_sim_env()
+        # self._wait_for_sim_env()
 
         self._init_step()
 
@@ -156,7 +156,6 @@ class LRhcTrainingEnvBase():
         for i in range(self._n_preinit_steps): # perform some
             # dummy remote env stepping to make sure to have meaningful 
             # initializations (doesn't increment step counter)
-                    
             self._remote_sim_step() # 1 remote sim. step
             self._send_remote_reset_req() # fake reset request 
 
@@ -181,7 +180,6 @@ class LRhcTrainingEnvBase():
     def _remote_sim_step(self):
 
         self._remote_stepper.trigger() # triggers simulation + RHC
-
         if not self._remote_stepper.wait_ack_from(1, self._timeout):
             Journal.log(self.__class__.__name__,
             "_remote_sim_step",
@@ -222,7 +220,7 @@ class LRhcTrainingEnvBase():
         actions = self._actions.get_torch_view(gpu=self._use_gpu)
         actions[:, :] = action # writes actions
         
-        # self._apply_actions_to_rhc() # apply agent actions to rhc controller
+        self._apply_actions_to_rhc() # apply agent actions to rhc controller
 
         ok_sim_step = self._remote_sim_step() # blocking
 
@@ -533,23 +531,26 @@ class LRhcTrainingEnvBase():
     
         self._robot_state = RobotState(namespace=self._namespace,
                                 is_server=False, 
-                                with_gpu_mirror=self._use_gpu,
                                 safe=self._safe_shared_mem,
                                 verbose=self._verbose,
-                                vlevel=self._vlevel)
+                                vlevel=self._vlevel,
+                                with_gpu_mirror=self._use_gpu,
+                                with_torch_view=True)
         
         self._rhc_refs = RhcRefs(namespace=self._namespace,
                             is_server=False,
-                            with_gpu_mirror=self._use_gpu,
                             safe=self._safe_shared_mem,
                             verbose=self._verbose,
-                            vlevel=self._vlevel)
+                            vlevel=self._vlevel,
+                            with_gpu_mirror=self._use_gpu,
+                            with_torch_view=True)
 
         self._rhc_status = RhcStatus(namespace=self._namespace,
                                 is_server=False,
-                                with_gpu_mirror=self._use_gpu,
                                 verbose=self._verbose,
-                                vlevel=self._vlevel)
+                                vlevel=self._vlevel,
+                                with_gpu_mirror=self._use_gpu,
+                                with_torch_view=True)
         
         self._robot_state.run()
         self._rhc_refs.run()

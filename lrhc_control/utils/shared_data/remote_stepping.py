@@ -106,6 +106,8 @@ class RemoteResetRequest(SharedTWrapper):
                 safe = safe, # boolean operations are atomdic on 64 bit systems
                 dtype=dtype.Bool,
                 force_reconnection=force_reconnection,
+                with_gpu_mirror=False,
+                with_torch_view=True,
                 fill_value = False)
         
         def to_be_reset(self):

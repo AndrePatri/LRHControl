@@ -469,6 +469,7 @@ class Terminations(SharedTWrapper):
                 dtype=sharsor_dtype.Bool,
                 force_reconnection=force_reconnection,
                 with_gpu_mirror=with_gpu_mirror,
+                with_torch_view=True,
                 fill_value = fill_value)
 
     def reset(self):
@@ -501,6 +502,7 @@ class Truncations(SharedTWrapper):
                 dtype=sharsor_dtype.Bool,
                 force_reconnection=force_reconnection,
                 with_gpu_mirror=with_gpu_mirror,
+                with_torch_view=True,
                 fill_value = fill_value)
 
     def reset(self):
@@ -534,6 +536,7 @@ class SimpleCounters(SharedDataBase):
                     dtype=sharsor_dtype.Int,
                     force_reconnection=force_reconnection,
                     with_gpu_mirror=with_gpu_mirror,
+                    with_torch_view=True,
                     fill_value = fill_value)
     
     def __init__(self,
