@@ -350,7 +350,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
             
         reset_requests = self._remote_reset_requests[robot_name]
         reset_requests.synch_all(read=True, retry=True) # read reset requests from shared mem
-        to_be_reset = reset_requests.to_be_reset()
+        to_be_reset = reset_requests.to_be_reset(gpu=self.using_gpu)
         if to_be_reset is not None:
             self.reset(env_indxs=to_be_reset,
                 robot_names=[robot_name],
