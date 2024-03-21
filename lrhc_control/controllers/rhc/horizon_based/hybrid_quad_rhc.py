@@ -33,7 +33,6 @@ class HybridQuadRhc(RHController):
             debug = False, 
             profile_all = False,
             array_dtype = np.float32, 
-            publish_sol = False,
             debug_sol = True, # whether to publish rhc rebug data,
             solver_deb_prints = False
             ):
@@ -57,8 +56,6 @@ class HybridQuadRhc(RHController):
 
         self._custom_timer_start = time.perf_counter()
         self._profile_all = profile_all
-
-        self.publish_sol = publish_sol
 
         self.robot_name = robot_name
         
@@ -86,8 +83,6 @@ class HybridQuadRhc(RHController):
 
         self.rhc_costs={}
         self.rhc_constr={}
-
-        self.rhc2shared_bridge = None
     
     def _get_quat_remap(self):
 
@@ -403,17 +398,6 @@ class HybridQuadRhc(RHController):
         robot_state = self._assemble_meas_robot_state()
         self._prb.setInitialState(x0=
                         robot_state)
-    
-    def _publish_rhc_sol_data(self):
-
-        # self.rhc2shared_bridge.update(q_opt=self._ti.solution['q'], 
-        #                         q_robot=self._assemble_meas_robot_configuration())
-
-        a = 1
-        
-    def _publish_rob_state_data(self):
-
-        a = 2
         
     def _solve(self):
         
@@ -507,11 +491,6 @@ class HybridQuadRhc(RHController):
                                 exception,
                                 LogType.EXCEP,
                                 throw_when_excep = False)
-        
-        if self.publish_sol:
-
-            self._publish_rhc_sol_data() 
-            self._publish_rob_state_data()
 
         if self._debug_sol:
             

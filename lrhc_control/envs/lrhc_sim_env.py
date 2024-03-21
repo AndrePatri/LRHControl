@@ -102,8 +102,6 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
             active = control_cluster.get_active_controllers(gpu=self.using_gpu)
             # 2) this runs at @simulation dt i.e. the highest possible rate,
             # using the latest available RHC actions
-            print("AAAAAAAAA")
-            print(active)
             self.task.pre_physics_step(robot_name = robot_name, 
                         actions = control_cluster.get_actions(),
                         env_indxs = active)

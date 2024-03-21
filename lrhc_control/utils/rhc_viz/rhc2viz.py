@@ -259,7 +259,7 @@ class RhcToVizBridge:
 
         self.env_index.synch_all(read=True, retry=True)
 
-        self._current_index = self.env_index.get_torch_view()[0, 0].item()
+        self._current_index = self.env_index.get_numpy_view()[0, 0].item()
 
         if self._current_index in self._robot_indexes:
 
@@ -327,14 +327,10 @@ class RhcToVizBridge:
         # publish rhc_q
         rhc_q = self.rhc_internal_clients[self._current_index].q.get_numpy_view()[:, :].flatten()
 
-        root_p_robot = self.robot_state.root_state.get_p(robot_idxs=self._current_index)
-        root_q_robot = self.robot_state.root_state.get_q(robot_idxs=self._current_index) # with remapping
+        root_q_robot = self.robot_state.root_state.get(data_type="q_full",robot_idxs=self._current_index)
+        jnts_q_robot = self.robot_state.jnts_state.get(data_type="q")[self._current_index, :]
 
-        root_q_full = np.concatenate((root_p_robot, root_q_robot), axis=1).flatten()
-
-        jnts_q_robot = self.robot_state.jnts_state.get_q()[self._current_index, :]
-
-        robot_q = np.concatenate((root_q_full, jnts_q_robot), axis=0)
+        robot_q = np.concatenate((root_q_robot, jnts_q_robot), axis=0)
 
         if not self._contains_nan(rhc_q):
 

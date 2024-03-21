@@ -194,16 +194,16 @@ class LRHcIsaacTask(IsaacTask):
                     error,
                     LogType.EXCEP,
                     True)
-            if self.using_gpu and \
-                not self.torch_device.type == torch.device("cuda"):
-                error = "Provided env_indxs should be on GPU!"
-                Journal.log(self.__class__.__name__,
-                    "_step_jnt_imp_control",
-                    error,
-                    LogType.EXCEP,
-                    True)
+            if self.using_gpu:
+                if not env_indxs.device.type == "cuda":
+                        error = "Provided env_indxs should be on GPU!"
+                        Journal.log(self.__class__.__name__,
+                        "_step_jnt_imp_control",
+                        error,
+                        LogType.EXCEP,
+                        True)
             else:
-                if not self.torch_device.type == torch.device("cpu"):
+                if not env_indxs.device.type == "cpu":
                     error = "Provided env_indxs should be on CPU!"
                     Journal.log(self.__class__.__name__,
                         "_step_jnt_imp_control",
@@ -220,9 +220,9 @@ class LRHcIsaacTask(IsaacTask):
             # if new actions are received, also update references
             # (only use actions if env_indxs is provided)
             self.jnt_imp_controllers[robot_name].set_refs(
-                    pos_ref = actions.jnts_state.get_q(gpu=self.using_gpu)[env_indxs, :], 
-                    vel_ref = actions.jnts_state.get_v(gpu=self.using_gpu)[env_indxs, :], 
-                    eff_ref = actions.jnts_state.get_eff(gpu=self.using_gpu)[env_indxs, :],
+                    pos_ref = actions.jnts_state.get(data_type="q", gpu=self.using_gpu)[env_indxs, :], 
+                    vel_ref = actions.jnts_state.get(data_type="v", gpu=self.using_gpu)[env_indxs, :], 
+                    eff_ref = actions.jnts_state.get(data_type="eff", gpu=self.using_gpu)[env_indxs, :],
                     robot_indxs = env_indxs)
 
         # # jnt imp. controller actions are always applied

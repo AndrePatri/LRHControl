@@ -57,7 +57,6 @@ class HybridQuadrupedClusterClient(LRhcClusterClient):
                 verbose = self.verbose, 
                 debug = True,
                 solver_deb_prints = False,
-                profile_all = True,
-                publish_sol=True)
+                profile_all = True)
 
         return controller 
