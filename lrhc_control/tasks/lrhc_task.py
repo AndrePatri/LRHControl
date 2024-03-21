@@ -214,7 +214,6 @@ class LRHcIsaacTask(IsaacTask):
         if actions is not None and env_indxs is not None:
             # if new actions are received, also update references
             # (only use actions if env_indxs is provided)
-                
             self.jnt_imp_controllers[robot_name].set_refs(
                     pos_ref = actions.jnts_state.get_q(gpu=self.using_gpu)[env_indxs, :], 
                     vel_ref = actions.jnts_state.get_v(gpu=self.using_gpu)[env_indxs, :], 
