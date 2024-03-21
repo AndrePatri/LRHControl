@@ -9,7 +9,6 @@ from control_cluster_bridge.utilities.shared_data.rhc_data import RhcStatus
 from lrhc_control.utils.shared_data.remote_stepping import RemoteStepperSrvr
 from lrhc_control.utils.shared_data.remote_stepping import RemoteResetSrvr
 from lrhc_control.utils.shared_data.remote_stepping import RemoteResetRequest
-from lrhc_control.utils.shared_data.remote_stepping import SimEnvReadyClnt
 
 from lrhc_control.utils.shared_data.agent_refs import AgentRefs
 from lrhc_control.utils.shared_data.training_env import SharedTrainingEnvInfo
@@ -86,7 +85,6 @@ class LRhcTrainingEnvBase():
         self._remote_stepper = None
         self._remote_resetter = None
         self._remote_reset_req = None
-        self._sim_env_ready = None
 
         self._agent_refs = None
 
@@ -591,10 +589,6 @@ class LRhcTrainingEnvBase():
                                             vlevel=self._vlevel,
                                             safe=True)
         self._remote_reset_req.run()
-        self._sim_env_ready = SimEnvReadyClnt(namespace=self._namespace, 
-                                        verbose=self._verbose,
-                                        vlevel=self._vlevel)
-        self._sim_env_ready.run()
 
         # episode steps counters (for detecting episode truncations for 
         # time limits) 
@@ -700,29 +694,6 @@ class LRhcTrainingEnvBase():
                 LogType.EXCEP,
                 throw_when_excep = throw)
             print(tensor)
-
-    def _wait_for_sim_env(self):
-        
-        Journal.log(self.__class__.__name__,
-            "_wait_for_sim_env",
-            "Waiting for remote sim env to be ready...",
-            LogType.INFO,
-            throw_when_excep = True)
-    
-        # check remote sim env is ready
-        if not self._sim_env_ready.wait(self._timeout):
-            Journal.log(self.__class__.__name__,
-                "_wait_for_sim_env",
-                "Remote sim. env not ready within timeout!!",
-                LogType.EXCEP,
-                throw_when_excep = True)
-        self._sim_env_ready.ack()
-    
-        Journal.log(self.__class__.__name__,
-            "_wait_for_sim_env",
-            "Remote sim. env ready.",
-            LogType.INFO,
-            throw_when_excep = True)
     
     def _check_controllers_registered(self, 
                 retry: bool = False):

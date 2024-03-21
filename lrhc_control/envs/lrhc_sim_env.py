@@ -3,7 +3,6 @@ from omni_robo_gym.envs.isaac_env import IsaacSimEnv
 from lrhc_control.controllers.rhc.lrhc_cluster_server import LRhcClusterServer
 from lrhc_control.utils.shared_data.remote_stepping import RemoteStepperClnt
 from lrhc_control.utils.shared_data.remote_stepping import RemoteResetClnt
-from lrhc_control.utils.shared_data.remote_stepping import SimEnvReadySrvr
 from lrhc_control.utils.shared_data.remote_stepping import RemoteResetRequest
 
 from SharsorIPCpp.PySharsorIPC import VLevel, Journal, LogType
@@ -59,7 +58,6 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
         self._remote_steppers = {}
         self._remote_resetters = {}
         self._remote_reset_requests = {}
-        self._sim_env_ready = {}
 
     def _pre_physics_step(self):
         
@@ -283,17 +281,11 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                                                                     vlevel=vlevel, 
                                                                     force_reconnection=True, 
                                                                     safe=False)
-                self._sim_env_ready[robot_name] = SimEnvReadySrvr(namespace=robot_name,
-                                                            verbose=verbose,
-                                                            vlevel=vlevel,
-                                                            force_reconnection=True)
                 self._remote_steppers[robot_name].run()
                 self._remote_resetters[robot_name].run()
                 self._remote_reset_requests[robot_name].run()
-                self._sim_env_ready[robot_name].run()
             else:
                 self._remote_steppers[robot_name] = None
-                self._sim_env_ready[robot_name] = None
                 self._remote_reset_requests[robot_name] = None
                 self._remote_resetters[robot_name] = None
              
@@ -333,21 +325,10 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                 self._remote_reset_requests[self.robot_names[i]].close()
                 self._remote_resetters[self.robot_names[i]].close()
                 self._remote_steppers[self.robot_names[i]].close()
-                self._sim_env_ready[self.robot_names[i]].close()
         self.task.close() # performs closing steps for task
         super().close() # this has to be called last 
         # so that isaac's simulation is closed properly
-    
-    def _signal_sim_env_is_ready(self,
-                            robot_name: str):
-        self._sim_env_ready[robot_name].trigger() # signal training client sim is ready
-        if not self._sim_env_ready[robot_name].wait_ack_from(1, self._timeout):
-            Journal.log(self.__class__.__name__,
-                "_signal_sim_env_is_ready",
-                "Could not ack sim ready reception!",
-                LogType.EXCEP,
-                throw_when_excep = True)
-    
+
     def _wait_for_remote_step_req(self,
                             robot_name: str):
         if not self._remote_steppers[robot_name].wait(self._timeout):

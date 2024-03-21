@@ -30,32 +30,6 @@ class RemoteStepperClnt(Consumer):
             basename="RemoteStep",
             verbose=verbose,
             vlevel=vlevel)
-    
-class SimEnvReadySrvr(Producer):
-    
-    def __init__(self,
-            namespace: str,
-            verbose: bool = False,
-            vlevel: VLevel = VLevel.V0,
-            force_reconnection: bool = False):
-
-        super().__init__(namespace=namespace,
-            basename="SimEnvReady",
-            verbose=verbose,
-            vlevel=vlevel,
-            force_reconnection=force_reconnection)
-
-class SimEnvReadyClnt(Consumer):
-    
-    def __init__(self,
-            namespace: str,
-            verbose: bool = False,
-            vlevel: VLevel = VLevel.V0):
-
-        super().__init__(namespace=namespace,
-            basename="SimEnvReady",
-            verbose=verbose,
-            vlevel=vlevel)
 
 class RemoteResetSrvr(Producer):
     
