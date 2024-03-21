@@ -608,7 +608,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                                 data_type="q", 
                                 robot_idxs = env_indxs,
                                 gpu=self.using_gpu)
-        rhc_state.jnts_state.set(q=self.task.jnts_v(robot_name=robot_name,
+        rhc_state.jnts_state.set(data=self.task.jnts_v(robot_name=robot_name,
                                                 env_idxs=env_indxs), 
                                 data_type="v", 
                                 robot_idxs = env_indxs,

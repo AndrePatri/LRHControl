@@ -298,7 +298,7 @@ class HybridQuadRhc(RHController):
         
         # wrapping joint q commands between 2pi and -2pi
         # (to be done for the simulator)
-        return np.fmod(self._ti.solution['q'][7:, 1]).reshape(1,  
+        return np.fmod(self._ti.solution['q'][7:, 1], 2*np.pi).reshape(1,  
                                         self.robot_cmds.n_jnts())
     
     def _get_cmd_jnt_v_from_sol(self):
@@ -327,22 +327,24 @@ class HybridQuadRhc(RHController):
     
     def _assemble_meas_robot_state(self):
         
-        return np.concatenate((self.robot_state.root_state.get_p(self.controller_index), 
-                self.robot_state.root_state.get_q(self.controller_index), 
-                self.robot_state.jnts_state.get_q(self.controller_index), 
-                self.robot_state.root_state.get_v(self.controller_index), 
-                self.robot_state.root_state.get_omega(self.controller_index), 
-                self.robot_state.jnts_state.get_v(self.controller_index)), 
-                axis=1
-                ).T
-    
+        p = self.robot_state.root_state.get(data_type="p", robot_idxs=self.controller_index).reshape(-1, 1)
+        q_root = self.robot_state.root_state.get(data_type="q", robot_idxs=self.controller_index).reshape(-1, 1)
+        q_jnts = self.robot_state.jnts_state.get(data_type="q", robot_idxs=self.controller_index).reshape(-1, 1)
+        v_root = self.robot_state.root_state.get(data_type="v", robot_idxs=self.controller_index).reshape(-1, 1)
+        omega = self.robot_state.root_state.get(data_type="omega", robot_idxs=self.controller_index).reshape(-1, 1)
+        v_jnts = self.robot_state.jnts_state.get(data_type="v", robot_idxs=self.controller_index).reshape(-1, 1)
+
+        return np.concatenate((p, q_root, q_jnts, v_root, omega, v_jnts),
+                axis=0)
+
     def _assemble_meas_robot_configuration(self):
-            
-        return np.concatenate((self.robot_state.root_state.get_p(self.controller_index), 
-                self.robot_state.root_state.get_q(self.controller_index), 
-                self.robot_state.jnts_state.get_q(self.controller_index)), 
-                dim=1
-                ).T
+        
+        p = self.robot_state.root_state.get(data_type="p", robot_idxs=self.controller_index).reshape(-1, 1)
+        q_root = self.robot_state.root_state.get(data_type="q", robot_idxs=self.controller_index).reshape(-1, 1)
+        q_jnts = self.robot_state.jnts_state.get(data_type="q", robot_idxs=self.controller_index).reshape(-1, 1)
+
+        return np.concatenate((p, q_root, q_jnts),
+                axis=10)
     
     def _update_open_loop(self):
 
@@ -398,14 +400,14 @@ class HybridQuadRhc(RHController):
         self._prb.getInput().setInitialGuess(uig)
 
         # sets state on node 0 from measurements
-        robot_state = self._assemble_meas_robot_state(to_numpy=True)
+        robot_state = self._assemble_meas_robot_state()
         self._prb.setInitialState(x0=
                         robot_state)
     
     def _publish_rhc_sol_data(self):
 
         # self.rhc2shared_bridge.update(q_opt=self._ti.solution['q'], 
-        #                         q_robot=self._assemble_meas_robot_configuration(to_numpy=True))
+        #                         q_robot=self._assemble_meas_robot_configuration())
 
         a = 1
         
