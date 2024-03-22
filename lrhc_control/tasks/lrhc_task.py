@@ -40,23 +40,17 @@ class LRHcIsaacTask(IsaacTask):
             contact_prims = None,
             contact_offsets = None,
             sensor_radii = None,
-            use_diff_velocities = True,
+            use_diff_velocities = False,
             override_art_controller = False,
             dtype = torch.float64,
             debug_enabled = False) -> None:
 
-        self._debug_enabled = debug_enabled
-
         if cloning_offset is None:
-        
             cloning_offset = np.array([[0.0, 0.0, 0.0]] * num_envs)
         
         if contact_prims is None:
-
             contact_prims = {}
-
             for i in range(len(robot_names)):
-                
                 contact_prims[robot_names[i]] = [] # no contact sensors
 
         # trigger __init__ of parent class
@@ -88,10 +82,8 @@ class LRHcIsaacTask(IsaacTask):
                     self_collide = [False] * len(robot_names), 
                     fix_base = [False] * len(robot_names),
                     merge_fixed = [True] * len(robot_names),
-                    enable_jnt_imp_cntrl_profiling = self._debug_enabled,
-                    enable_jnt_imp_db_mode = self._debug_enabled)
-        
-        self.use_diff_velocities = use_diff_velocities
+                    use_diff_velocities = use_diff_velocities,
+                    debug_enabled = debug_enabled) 
         
         self.startup_jnt_stiffness = startup_jnt_stiffness
         self.startup_jnt_damping = startup_jnt_damping

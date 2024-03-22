@@ -58,7 +58,6 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
         self._remote_resetters = {}
         self._remote_reset_requests = {}
         
-
     def _pre_physics_step(self):
         
         self.task.get_states() # gets data from simulation (jnt imp control always needs updated state)
