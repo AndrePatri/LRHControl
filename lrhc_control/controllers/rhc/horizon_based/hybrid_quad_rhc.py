@@ -113,7 +113,7 @@ class HybridQuadRhc(RHController):
         self._ti = TaskInterface(prb=self._prb, 
                             model=self._model, 
                             max_solver_iter=self.max_solver_iter,
-                            debug = self._debug, 
+                            debug = self._verbose, 
                             codegen_workdir = self._codegen_dir)
         
         self._ti.setTaskFromYaml(self.config_path)
