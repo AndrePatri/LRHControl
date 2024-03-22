@@ -17,7 +17,7 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
             use_gpu: bool = True,
             dtype: torch.dtype = torch.float32):
 
-        obs_dim = 4
+        obs_dim = 3
         actions_dim = 1
 
         n_steps_episode = 4096
@@ -32,19 +32,18 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         self._epsi = 1e-6
         
         self._h_error_weight = 3
-        self._rhc_cnstr_viol_weight = 1
-        self._rhc_cost_weight = 1
-
         self._h_error_scale = 2
-        self._rhc_cost_scale = 500
-        self._rhc_cnstr_viol_scale = 1
-
         self._h_cmd_offset = 0.0
         self._h_cmd_scale = 1.0
-
         self._href_lb = 0.3
         self._href_ub = 0.8
-        
+
+        self._rhc_cnstr_viol_weight = 1
+        self._rhc_cnstr_viol_scale = 1
+
+        self._rhc_cost_weight = 1
+        self._rhc_cost_scale = 1
+
         self._this_child_path = os.path.abspath(__file__)
 
         self._reward_clamp_thresh = 1
@@ -109,7 +108,7 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
 
         rewards[:, 0:1] = 1.0 - self._h_error_weight * h_error.mul_(self._h_error_scale).clamp(-self._reward_clamp_thresh, self._reward_clamp_thresh) 
         rewards[:, 1:2] = 1.0 - self._rhc_cnstr_viol_weight * self._squashed_rhc_cnstr_viol()
-        rewards[:, 2:3] = 1.0 - self._rhc_cost_weight * self._squashed_rhc_cost()
+        # rewards[:, 2:3] = 1.0 - self._rhc_cost_weight * self._squashed_rhc_cost()
 
         tot_rewards = self._tot_rewards.get_torch_view(gpu=self._use_gpu)
         tot_rewards[:, :] = torch.sum(rewards, dim=1, keepdim=True)
@@ -124,7 +123,7 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         obs_tensor[:, 0:1] = robot_h
         obs_tensor[:, 1:2] = agent_h_ref
         obs_tensor[:, 2:3] = self._squashed_rhc_cnstr_viol()
-        obs_tensor[:, 3:4] = self._squashed_rhc_cost()
+        # obs_tensor[:, 3:4] = self._squashed_rhc_cost()
 
     def _squashed_rhc_cnstr_viol(self):
 
@@ -163,7 +162,7 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         obs_names[0] = "robot_h"
         obs_names[1] = "agent_h_ref"
         obs_names[2] = "rhc_const_viol"
-        obs_names[3] = "rhc_cost"
+        # obs_names[3] = "rhc_cost"
 
         return obs_names
 
@@ -177,11 +176,11 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
 
     def _get_rewards_names(self):
 
-        n_rewards = 3
+        n_rewards = 2
         reward_names = [""] * n_rewards
 
         reward_names[0] = "h_error"
         reward_names[1] = "rhc_const_viol"
-        reward_names[2] = "rhc_cost"
+        # reward_names[2] = "rhc_cost"
 
         return reward_names
