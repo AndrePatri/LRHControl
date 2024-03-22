@@ -48,7 +48,6 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
         self._trigger_sol = {}
         self._wait_sol = {}
         self._cluster_dt = {}
-
         # remote simulation
         self._timeout = 60000
         self._init_steps_done = False
@@ -58,6 +57,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
         self._remote_steppers = {}
         self._remote_resetters = {}
         self._remote_reset_requests = {}
+        
 
     def _pre_physics_step(self):
         
@@ -246,7 +246,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
             else:
                 n_contact_sensors = -1
                 contact_names = None
-
+                
             self.cluster_servers[robot_name] = LRhcClusterServer(cluster_size=task.num_envs, 
                         cluster_dt=self._cluster_dt[robot_name], 
                         control_dt=task.integration_dt(), 
