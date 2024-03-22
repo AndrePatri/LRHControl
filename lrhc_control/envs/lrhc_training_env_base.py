@@ -184,9 +184,7 @@ class LRhcTrainingEnvBase():
             "Remote sim. env step ack not received within timeout",
             LogType.EXCEP,
             throw_when_excep = False)
-        
             return False
-
         return True
 
     def _remote_reset(self,
@@ -197,7 +195,7 @@ class LRhcTrainingEnvBase():
         # the episode is terminated
         self._remote_reset_req.synch_all(read=False, retry=True)
 
-        self._send_remote_reset_req()
+        return self._send_remote_reset_req()
     
     def _send_remote_reset_req(self):
 
@@ -207,7 +205,9 @@ class LRhcTrainingEnvBase():
                 "_post_step",
                 "Remote reset did not complete within the prescribed timeout!",
                 LogType.EXCEP,
-                throw_when_excep = True)
+                throw_when_excep = False)
+            return False
+        return True
 
     def step(self, 
             action):
@@ -229,12 +229,14 @@ class LRhcTrainingEnvBase():
 
         self._compute_rewards()
 
-        self._post_step() # post step operations
+        post_step_ok = self._post_step() # post step operations
 
-        return rhc_ok and ok_sim_step
+        return rhc_ok and ok_sim_step and post_step_ok
     
     def _post_step(self):
         
+        post_step_ok = True
+
         self._episode_counter.increment() # first increment counters
         self._randomization_counter.increment()
         self.randomize_refs(env_indxs=self._randomization_counter.time_limits_reached().flatten()) # randomize 
@@ -257,7 +259,7 @@ class LRhcTrainingEnvBase():
         # episode termination
 
         # (remotely) reset envs for which episode is finished
-        self._remote_reset(reset_mask=episode_finished)
+        rm_reset_ok = self._remote_reset(reset_mask=episode_finished)
         
         # read again observations in case some env was reset
         self._synch_obs(gpu=self._use_gpu) # if some env was reset, we use _obs
@@ -270,6 +272,8 @@ class LRhcTrainingEnvBase():
         # reset counter if either terminated
         if self._is_debug:
             self._debug() # copies db data on shared memory
+        
+        return rm_reset_ok
 
     def randomize_refs(self,
                 env_indxs: torch.Tensor = None):
@@ -685,7 +689,6 @@ class LRhcTrainingEnvBase():
                 tensor: torch.Tensor,
                 name: str, 
                 throw: bool = False):
-            
         if not torch.isfinite(tensor).all().item():
             exception = f"Found nonfinite elements in {name} tensor!!"
             Journal.log(self.__class__.__name__,
@@ -702,7 +705,6 @@ class LRhcTrainingEnvBase():
             self._rhc_status.controllers_counter.synch_all(read=True, retry=True)
             n_connected_controllers = self._rhc_status.controllers_counter.get_torch_view()[0, 0].item()
             while not (n_connected_controllers == self._n_envs):
-                
                 warn = f"Expected {self._n_envs} controllers to be active during training, " + \
                     f"but got {n_connected_controllers}. Will wait for all to be connected..."
                 Journal.log(self.__class__.__name__,
@@ -710,27 +712,20 @@ class LRhcTrainingEnvBase():
                     warn,
                     LogType.WARN,
                     throw_when_excep = False)
-                
                 nsecs = int(2 * 1000000000)
                 PerfSleep.thread_sleep(nsecs) 
-
                 self._rhc_status.controllers_counter.synch_all(read=True, retry=True)
                 n_connected_controllers = self._rhc_status.controllers_counter.get_torch_view()[0, 0].item()
-
             info = f"All {n_connected_controllers} controllers connected!"
             Journal.log(self.__class__.__name__,
                 "_check_controllers_registered",
                 info,
                 LogType.INFO,
                 throw_when_excep = False)
-            
             return True
-        
         else:
-
             self._rhc_status.controllers_counter.synch_all(read=True, retry=True)
             n_connected_controllers = self._rhc_status.controllers_counter.get_torch_view()[0, 0].item()
-            
             if not (n_connected_controllers == self._n_envs):
                 exception = f"Expected {self._n_envs} controllers to be active during training, " + \
                     f"but got {n_connected_controllers}. Aborting..."
@@ -738,8 +733,7 @@ class LRhcTrainingEnvBase():
                     "_check_controllers_registered",
                     exception,
                     LogType.EXCEP,
-                    throw_when_excep = False)
-                return False
+                    throw_when_excep = True)
             return True
                 
     def _check_truncations(self):

@@ -28,13 +28,9 @@ class HybridQuadRhc(RHController):
             dt: float = 0.02,
             max_solver_iter = 1, # defaults to rt-iteration
             open_loop: bool = True,
-            enable_replay = False, 
+            array_dtype = np.float32,
             verbose = False, 
-            debug = False, 
-            profile_all = False,
-            array_dtype = np.float32, 
-            debug_sol = True, # whether to publish rhc rebug data,
-            solver_deb_prints = False
+            debug = False
             ):
 
         self._open_loop = open_loop
@@ -52,15 +48,11 @@ class HybridQuadRhc(RHController):
     
         self.max_solver_iter = max_solver_iter
         
-        self._solver_deb_prints = solver_deb_prints
-
         self._custom_timer_start = time.perf_counter()
         self._profile_all = profile_all
 
         self.robot_name = robot_name
         
-        self._enable_replay = enable_replay
-
         self.config_path = config_path
 
         self.urdf_path = urdf_path
@@ -79,15 +71,13 @@ class HybridQuadRhc(RHController):
                         verbose = verbose, 
                         debug = debug,
                         array_dtype = array_dtype,
-                        debug_sol = debug_sol)
+                        debug_sol = debug)
 
         self.rhc_costs={}
         self.rhc_constr={}
     
     def _get_quat_remap(self):
-
         # overrides parent
-
         return [1, 2, 3, 0] # mapping from robot quat. to Horizon's quaternion convention
     
     def _init_problem(self):
@@ -124,7 +114,7 @@ class HybridQuadRhc(RHController):
         self._ti = TaskInterface(prb=self._prb, 
                             model=self._model, 
                             max_solver_iter=self.max_solver_iter,
-                            debug = self._solver_deb_prints, 
+                            debug = self._dev, 
                             verbose = self._verbose,
                             codegen_verbose = False,
                             codegen_workdir = self._codegen_dir)
