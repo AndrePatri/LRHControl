@@ -196,7 +196,8 @@ class HybridQuadRhcRefs(RhcRefs):
 
             self.rob_refs.root_state.set(data_type="p", data=p_ref, robot_idxs=self.robot_index_np)
             self.rob_refs.root_state.set(data_type="q", data=q_ref, robot_idxs=self.robot_index_np)
-
+            self.rob_refs.root_state.set(data_type="twist", data=np.zeros((1, 6)), robot_idxs=self.robot_index_np)
+                                           
             self.contact_flags.synch_retry(row_index=self.robot_index, col_index=0, n_rows=1, n_cols=self.contact_flags.n_cols,
                                     read=False)
             self.phase_id.synch_retry(row_index=self.robot_index, col_index=0, n_rows=1, n_cols=self.phase_id.n_cols,
