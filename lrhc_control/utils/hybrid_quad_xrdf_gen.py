@@ -6,7 +6,7 @@ def get_xrdf_cmds_isaac(robot_pkg_name: str = None,
         cmds = {}
         cmds_aux = []
         
-        xrdf_cmd_vals = [True, False, False, False, False, False]
+        xrdf_cmd_vals = [False, False, False, False, False, False]
 
         wheels = "true" if xrdf_cmd_vals[0] else "false"
         upper_body = "true" if xrdf_cmd_vals[1] else "false"
