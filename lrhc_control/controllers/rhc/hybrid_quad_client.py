@@ -47,7 +47,6 @@ class HybridQuadrupedClusterClient(LRhcClusterClient):
                 urdf_path=self._urdf_path, 
                 srdf_path=self._srdf_path,
                 config_path = self._paths.CONFIGPATH,
-                cluster_size=self.cluster_size,
                 robot_name=self._namespace,
                 codegen_dir=self.codegen_dir() + f"/{self._codegen_dir_name}Rhc{idx}",
                 n_nodes=31, 

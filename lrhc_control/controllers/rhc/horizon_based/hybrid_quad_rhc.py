@@ -21,7 +21,6 @@ class HybridQuadRhc(RHController):
             srdf_path: str,
             urdf_path: str,
             config_path: str,
-            cluster_size: int, # needed by shared mem manager
             robot_name: str, # used for shared memory namespaces
             codegen_dir: str, 
             n_nodes:float = 25,
