@@ -23,6 +23,7 @@ if __name__ == "__main__":
     parser.add_argument('--robot_pkg_name', type=str, help='Robot description package name')
     parser.add_argument('--size', type=int, help='cluster size')
     parser.add_argument('--verbose', action='store_true', help='run in verbose mode')
+    parser.add_argument('--enable_debug', action='store_true', help='enable debug mode for cluster client and all controllers')
     parser.add_argument('--force_cores', action='store_true', help='whether to force RHC controller affinity')
     parser.add_argument('--open_loop', action='store_true', help='whether use RHC controllers in open loop mode')
     parser.add_argument('--i_cores_only', action='store_true', help='whether use isolated cores only for RHC controllers')
@@ -50,9 +51,6 @@ if __name__ == "__main__":
 
     namespace = args.ns
     cluster_size = args.size
-    verbose = False
-    if args.verbose:
-        verbose = True
     core_ids_override_list = None
     if args.force_cores:
         core_ids_override_list = list(range(args.c_start_idx, args.c_end_idx + 1))
@@ -65,7 +63,8 @@ if __name__ == "__main__":
                                         use_mp_fork = args.mp_fork,
                                         isolated_cores_only = args.i_cores_only, 
                                         core_ids_override_list = core_ids_override_list,
-                                        verbose=verbose) # this blocks until connection with the client is established
+                                        verbose=args.verbose,
+                                        debug=args.enable_debug) # this blocks until connection with the client is established
         
     control_cluster_client.run() # spawns the controllers on separate processes
 

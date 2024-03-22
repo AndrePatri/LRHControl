@@ -19,6 +19,7 @@ class LRhcClusterClient(ControlClusterClient):
             isolated_cores_only: bool = False,
             core_ids_override_list: List[int] = None,
             verbose: bool = False,
+            debug: bool = False,
             codegen_base_dirname: str = "CodeGen"):
 
         self._temp_path = "/tmp/" + f"{self.__class__.__name__}" + f"_{robot_pkg_name}"
@@ -43,7 +44,8 @@ class LRhcClusterClient(ControlClusterClient):
                         set_affinity = set_affinity,
                         use_mp_fork = use_mp_fork,
                         core_ids_override_list = core_ids_override_list,
-                        verbose = verbose)
+                        verbose = verbose,
+                        debug = debug)
     
     def codegen_dir(self):
 
@@ -56,7 +58,7 @@ class LRhcClusterClient(ControlClusterClient):
                         "generating SRDF",
                         LogType.STAT,
                         throw_when_excep = True)
-    
+
         # we generate the URDF where the Kyon description package is located
         import rospkg
         rospackage = rospkg.RosPack()

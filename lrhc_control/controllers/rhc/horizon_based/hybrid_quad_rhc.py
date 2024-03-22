@@ -28,7 +28,7 @@ class HybridQuadRhc(RHController):
             dt: float = 0.02,
             max_solver_iter = 1, # defaults to rt-iteration
             open_loop: bool = True,
-            array_dtype = np.float32,
+            dtype = np.float32,
             verbose = False, 
             debug = False
             ):
@@ -48,8 +48,11 @@ class HybridQuadRhc(RHController):
     
         self.max_solver_iter = max_solver_iter
         
-        self._custom_timer_start = time.perf_counter()
-        self._profile_all = profile_all
+        self._timer_start = time.perf_counter()
+        self._prb_update_time = time.perf_counter()
+        self._phase_shift_time = time.perf_counter()
+        self._task_ref_update_time = time.perf_counter()
+        self._rti_time = time.perf_counter()
 
         self.robot_name = robot_name
         
@@ -58,20 +61,16 @@ class HybridQuadRhc(RHController):
         self.urdf_path = urdf_path
         # read urdf and srdf files
         with open(self.urdf_path, 'r') as file:
-
             self.urdf = file.read()
-
         self._base_init = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0])
 
-        super().__init__(cluster_size = cluster_size,
-                        srdf_path = srdf_path,
+        super().__init__(srdf_path = srdf_path,
                         n_nodes = n_nodes,
                         dt = dt,
                         namespace = self.robot_name,
+                        dtype = dtype,
                         verbose = verbose, 
-                        debug = debug,
-                        array_dtype = array_dtype,
-                        debug_sol = debug)
+                        debug = debug)
 
         self.rhc_costs={}
         self.rhc_constr={}
@@ -114,9 +113,7 @@ class HybridQuadRhc(RHController):
         self._ti = TaskInterface(prb=self._prb, 
                             model=self._model, 
                             max_solver_iter=self.max_solver_iter,
-                            debug = self._dev, 
-                            verbose = self._verbose,
-                            codegen_verbose = False,
+                            debug = self._debug, 
                             codegen_workdir = self._codegen_dir)
         
         self._ti.setTaskFromYaml(self.config_path)
@@ -388,210 +385,146 @@ class HybridQuadRhc(RHController):
         robot_state = self._assemble_meas_robot_state()
         self._prb.setInitialState(x0=
                         robot_state)
-        
+    
     def _solve(self):
         
-        # problem update
-
-        if self._profile_all:
-
-            self._custom_timer_start = time.perf_counter()
-
+        if self._debug:
+            return self._db_solve()
+        else:
+            return self._min_solve()
+        
+    def _min_solve(self):
+        # minimal solve version -> no debug 
         if self._open_loop:
-
             self._update_open_loop() # updates the TO ig and 
             # initial conditions using data from the solution itself
+        else: 
+            self._update_closed_loop() # updates the TO ig and 
+            # initial conditions using robot measurements
+    
+        self._pm.shift() # shifts phases of one dt
+        self.rhc_refs.step() # updates rhc references
+        # with the latests available data on shared memory
+            
+        try:
+            converged = self._ti.rti() # solves the problem
+            self.sol_counter = self.sol_counter + 1
+            return True
+        except Exception as e:
+            return False
+    
+    def _db_solve(self):
 
+        self._timer_start = time.perf_counter()
+
+        if self._open_loop:
+            self._update_open_loop() # updates the TO ig and 
+            # initial conditions using data from the solution itself
         else: 
             self._update_closed_loop() # updates the TO ig and 
             # initial conditions using robot measurements
         
-        if self._profile_all:
-
-            self._profiling_data_dict["problem_update_dt"] = time.perf_counter() - self._custom_timer_start
-
-        if self._profile_all:
-
-            self._custom_timer_start = time.perf_counter()
-
+        self._prb_update_time = time.perf_counter() 
         self._pm.shift() # shifts phases of one dt
-        
-        if self._profile_all:
-
-            self._profiling_data_dict["phases_shift_dt"] = time.perf_counter() - self._custom_timer_start
-
-
-        if self._profile_all:
-
-            self._custom_timer_start = time.perf_counter()
-
+        self._phase_shift_time = time.perf_counter() 
         self.rhc_refs.step() # updates rhc references
-        # with the latests available data on shared memory
-
-        if self._profile_all:
-
-            self._profiling_data_dict["task_ref_update"] = time.perf_counter() - self._custom_timer_start
-
-        # check what happend as soon as we try to step on the 1st controller
-        # if self.controller_index == 0:
-
-        #     if any((self.rhc_task_refs.phase_id.get_contacts().numpy() < 0.5).flatten().tolist() ):
+        self._task_ref_update_time = time.perf_counter() 
             
-        #         self.step_counter = self.step_counter + 1
-
-        #         print("OOOOOOOOOO I am trying to steppppppp")
-        #         print("RHC control index:" + str(self.step_counter))
-
-            # self.horizon_anal.printParameters(elem="f_wheel_1_ref")
-            # self.horizon_anal.printParameters(elem="f_wheel_2_ref")
-            # self.horizon_anal.printParameters(elem="f_wheel_3_ref")
-            # self.horizon_anal.printParameters(elem="f_wheel_4_ref")
-            # self.horizon_anal.printVariables(elem="f_ball_1")
-            # self.horizon_anal.printParameters(elem="f_wheel_1")
-            # self.horizon_anal.printParameters(elem="f_wheel_1")
-            # self.horizon_anal.printParameters(elem="f_wheel_1")
-
-            # self.horizon_anal.print()
-
         try:
-            
-            if self._profile_all:
-
-                self._custom_timer_start = time.perf_counter()
-
-            result = self._ti.rti() # solves the problem
-            
-            if self._profile_all:
-
-                self._profiling_data_dict["rti_solve_dt"] = time.perf_counter() - self._custom_timer_start
-
+            converged = self._ti.rti() # solves the problem
+            self._rti_time = time.perf_counter() 
             self.sol_counter = self.sol_counter + 1
-
+            self._update_db_data()
             return True
-        
         except Exception as e:
-            
             if self._verbose:
-
                 exception = f"Rti() for controller {self.controller_index} failed" + \
                 f" with exception{type(e).__name__}"
-                
                 Journal.log(self.__class__.__name__,
-                                "solve",
-                                exception,
-                                LogType.EXCEP,
-                                throw_when_excep = False)
+                    "solve",
+                    exception,
+                    LogType.EXCEP,
+                    throw_when_excep = False)
+            self._update_db_data()
+            return False
+        
+    def _update_db_data(self):
 
-        if self._debug_sol:
-            
-            # we update cost and constr. dictionaries
-            self.rhc_costs.update(self._ti.solver_rti.getCostsValues())
-            self.rhc_constr.update(self._ti.solver_rti.getConstraintsValues())
-
-        return False
+        self._profiling_data_dict["problem_update_dt"] = self._prb_update_time - self._timer_start
+        self._profiling_data_dict["phases_shift_dt"] = self._phase_shift_time - self._prb_update_time
+        self._profiling_data_dict["task_ref_update"] = self._task_ref_update_time - self._phase_shift_time
+        self._profiling_data_dict["rti_solve_dt"] = self._rti_time - self._task_ref_update_time
+        self.rhc_costs.update(self._ti.solver_rti.getCostsValues())
+        self.rhc_constr.update(self._ti.solver_rti.getConstraintsValues())
 
     def _reset(self):
         
         # reset task interface (ig, solvers, etc..) + 
         # phase manager
         self._gm.reset()
-
         # we also re-initialize contact timelines
         # self._init_contact_timelines()
-
         # resets rhc references
         if self.rhc_refs is not None:
-
             self.rhc_refs.reset(p_ref=np.atleast_2d(self._base_init)[:, 0:3], 
-                            q_ref=np.atleast_2d(self._base_init)[:, 3:7]
-                            )
+                        q_ref=np.atleast_2d(self._base_init)[:, 3:7]
+                        )
 
     def _get_cost_data(self):
         
         cost_dict = self._ti.solver_rti.getCostsValues()
-        
         cost_names = list(cost_dict.keys())
-
         cost_dims = [1] * len(cost_names) # costs are always scalar
-
         return cost_names, cost_dims
     
     def _get_constr_data(self):
         
         constr_dict = self._ti.solver_rti.getConstraintsValues()
-
         constr_names = list(constr_dict.keys())
-
         constr_dims = [-1] * len(constr_names)
-
         i = 0
         for constr in constr_dict:
-
             constr_val = constr_dict[constr]
-        
             constr_shape = constr_val.shape
-            
             constr_dims[i] = constr_shape[0]
-
             i+=1
-
         return constr_names, constr_dims
     
     def _get_q_from_sol(self):
-
         return self._ti.solution['q']
 
     def _get_v_from_sol(self):
-
         # to be overridden by child class
-
         return self._ti.solution['v']
     
     def _get_a_from_sol(self):
-
         # to be overridden by child class
-        
         return self._ti.solution['a']
     
     def _get_a_dot_from_sol(self):
-
         # to be overridden by child class
-        
         return None
     
     def _get_f_from_sol(self):
-
         # to be overridden by child class
-        
         contact_names = self.robot_state.contact_names()
-
         try: 
-            
             data = [self._ti.solution["f_" + key] for key in contact_names]
-
             return np.concatenate(data, axis=0)
-
         except:
-
             return None
-
         return None
     
     def _get_f_dot_from_sol(self):
-
         # to be overridden by child class
-        
         return None
     
     def _get_eff_from_sol(self):
-
         # to be overridden by child class
-        
         return None
     
     def _get_cost_from_sol(self,
                     cost_name: str):
-
         return self.rhc_costs[cost_name]
     
     def _get_constr_from_sol(self,
