@@ -26,7 +26,6 @@ class GaitManager:
         # self.zmp_timeline = self.phase_manager.getTimelines()['zmp_timeline']
 
     def reset(self):
-
         # self.phase_manager.clear()
         self.task_interface.reset()
 
@@ -40,37 +39,15 @@ class GaitManager:
                 phase_i.addPhase(phase_i.getRegisteredPhase(f'flight_{contact_name}_short'))
 
     def cycle(self, cycle_list: List[bool]):
-        # how do I know that the stance phase is called stance_{c} or flight_{c}?
-
         for flag_contact, contact_name in zip(cycle_list, self.contact_phases.keys()):
-
             phase_i = self.contact_phases[contact_name]
-
             if flag_contact == True:
-
                 phase_i.addPhase(phase_i.getRegisteredPhase(f'stance_{contact_name}'))
-
             else:
-
                 phase_i.addPhase(phase_i.getRegisteredPhase(f'flight_{contact_name}'))
 
     def step(self, swing_contact: List[str]):
-
-        cycle_list = []
-        is_contact = True
-
-        for i in range(0, len(swing_contact)):
-            
-            if swing_contact[i] in self.contact_phases.keys():
-
-                is_contact = False
-
-            else:
-                
-                is_contact = True
-
-            cycle_list.append(is_contact)
-        
+        cycle_list = [True if contact_name != swing_contact else False for contact_name in self.contact_phases.keys()]
         self.cycle(cycle_list)
 
     def trot_jumped(self):

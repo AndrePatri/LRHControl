@@ -68,7 +68,6 @@ class LRhcClusterClient(ControlClusterClient):
         
         cmds = self._xrdf_cmds()
         if cmds is None:
-
             cmds = []
         
         import subprocess
@@ -76,7 +75,6 @@ class LRhcClusterClient(ControlClusterClient):
 
             xacro_cmd = ["xacro"] + [xacro_path] + cmds + ["-o"] + [self._srdf_path]
             xacro_gen = subprocess.check_call(xacro_cmd)
-
             Journal.log(self.__class__.__name__,
                         "_generate_srdf",
                         "generated SRDF",

@@ -236,8 +236,6 @@ class HybridQuadRhc(RHController):
                     verbose=self._verbose,
                     vlevel=VLevel.V2)
         
-        self._base_init
-
         rhc_refs.run()
 
         rhc_refs.rob_refs.set_jnts_remapping(jnts_remapping=self._to_controller)
