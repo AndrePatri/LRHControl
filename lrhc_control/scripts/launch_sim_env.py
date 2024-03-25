@@ -139,7 +139,7 @@ if __name__ == '__main__':
             default_jnt_damping=50.0, 
             default_wheel_stiffness = 0.0,
             default_wheel_damping=10.0,
-            startup_jnt_stiffness = 200.0,
+            startup_jnt_stiffness = 400.0,
             startup_jnt_damping = 50.0,
             startup_wheel_stiffness = 0.0,
             startup_wheel_damping=10.0,
