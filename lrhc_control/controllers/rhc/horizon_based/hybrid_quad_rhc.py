@@ -112,7 +112,8 @@ class HybridQuadRhc(RHController):
         self._ti = TaskInterface(prb=self._prb, 
                             model=self._model, 
                             max_solver_iter=self.max_solver_iter,
-                            debug = self._verbose, 
+                            debug = self._debug,
+                            verbose = self._verbose, 
                             codegen_workdir = self._codegen_dir)
         
         self._ti.setTaskFromYaml(self.config_path)
@@ -124,7 +125,7 @@ class HybridQuadRhc(RHController):
 
         self._tg = trajectoryGenerator.TrajectoryGenerator()
 
-        self._pm = pymanager.PhaseManager(self._n_intervals)
+        self._pm = pymanager.PhaseManager(self._n_nodes)
 
         # adding timelines
         self._init_contact_timelines()
@@ -523,5 +524,4 @@ class HybridQuadRhc(RHController):
     
     def _get_constr_from_sol(self,
                     constr_name: str):
-        
         return self.rhc_constr[constr_name]
