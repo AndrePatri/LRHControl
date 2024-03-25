@@ -31,10 +31,10 @@ class BaybladeEnv(LRhcTrainingEnvBase):
 
         self._epsi = 1e-6
         
-        self._yaw_twist_weight = 3
-        self._yaw_twist_scale = 2
-        self._yaw_twist_lb = -0.5 #  [rad/s]
-        self._yaw_twist_ub = 0.5
+        self._yaw_twist_weight = 1
+        self._yaw_twist_scale = 1
+        self._yaw_twist_lb = -0.1 #  [rad/s]
+        self._yaw_twist_ub = 0.1
 
         self._rhc_cnstr_viol_weight = 1
         self._rhc_cnstr_viol_scale = 1
@@ -86,7 +86,7 @@ class BaybladeEnv(LRhcTrainingEnvBase):
         rhc_latest_p_ref = self._rhc_refs.rob_refs.root_state.get(data_type="p", gpu=self._use_gpu)
         rhc_latest_v_ref = self._rhc_refs.rob_refs.root_state.get(data_type="v", gpu=self._use_gpu)
         rhc_latest_omega_ref = self._rhc_refs.rob_refs.root_state.get(data_type="omega", gpu=self._use_gpu)
-        rhc_latest_contact_ref = self._rhc_refs.
+        rhc_latest_contact_ref = self._rhc_refs.contact_flags.get_torch_view(gpu=self._use_gpu)
 
         # vxy
         rhc_latest_v_ref[:, 0:2] = agent_action[:, 0:2]
@@ -104,6 +104,7 @@ class BaybladeEnv(LRhcTrainingEnvBase):
                                             gpu=self._use_gpu) 
 
         # contact flags
+        rhc_latest_contact_ref[:, :] = (agent_action[:, 6:10] <= 0.5) # keep contact if agent actiom <=5
 
         if self._use_gpu:
             self._rhc_refs.rob_refs.root_state.synch_mirror(from_gpu=self._use_gpu) # write from gpu to cpu mirror
@@ -143,13 +144,11 @@ class BaybladeEnv(LRhcTrainingEnvBase):
     def _squashed_rhc_cnstr_viol(self):
 
         rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_view(gpu=self._use_gpu)
-
         return rhc_const_viol.mul_(self._rhc_cnstr_viol_scale).clamp(-self._reward_clamp_thresh, self._reward_clamp_thresh) 
     
     def _squashed_rhc_cost(self):
 
         rhc_cost = self._rhc_status.rhc_cost.get_torch_view(gpu=self._use_gpu)
-
         return rhc_cost.mul_(self._rhc_cost_scale).clamp(-self._reward_clamp_thresh, self._reward_clamp_thresh) 
     
     def _randomize_refs(self,

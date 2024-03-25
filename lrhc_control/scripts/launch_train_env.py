@@ -1,4 +1,5 @@
 from lrhc_control.envs.heightchange_env import LRhcHeightChange
+from lrhc_control.envs.bayblade_env import BaybladeEnv
 
 # from lrhc_control.training_algs.ppo.clean_ppo import CleanPPO
 # from lrhc_control.training_algs.ppo.mem_eff_ppo import MemEffPPO
@@ -38,7 +39,11 @@ if __name__ == "__main__":
     if args.cores:
         set_affinity(args.cores)
     
-    env = LRhcHeightChange(namespace=args.ns,
+    # env = LRhcHeightChange(namespace=args.ns,
+    #                 verbose=True,
+    #                 vlevel=VLevel.V2,
+    #                 use_gpu=not args.use_cpu)
+    env = BaybladeEnv(namespace=args.ns,
                     verbose=True,
                     vlevel=VLevel.V2,
                     use_gpu=not args.use_cpu)

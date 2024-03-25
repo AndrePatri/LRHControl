@@ -39,7 +39,8 @@ class PPO(ActorCriticAlgoBase):
             with torch.no_grad(): # no need for gradient computation
                 action, logprob, entropies = self._agent.get_action(self._obs[transition])
                 self._values[transition] = self._agent.get_value(self._obs[transition]).reshape(-1, 1)
-            self._actions[transition] = action.reshape(-1, 1)
+            
+            self._actions[transition] = action
             self._logprobs[transition] = logprob.reshape(-1, 1)
             self._action_entropies[transition] = entropies.reshape(-1, 1)
 

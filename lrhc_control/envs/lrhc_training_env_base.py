@@ -565,6 +565,9 @@ class LRhcTrainingEnvBase():
                                 is_server=True,
                                 n_robots=self._n_envs,
                                 n_jnts=self._robot_state.n_jnts(),
+                                n_contacts=self._robot_state.n_contacts(),
+                                contact_names=self._robot_state.contact_names(),
+                                q_remapping=None,
                                 with_gpu_mirror=self._use_gpu,
                                 force_reconnection=True,
                                 safe=False,
@@ -671,10 +674,8 @@ class LRhcTrainingEnvBase():
         if gpu:
             # copies latest refs from GPU to CPU shared mem for debugging
             self._agent_refs.rob_refs.root_state.synch_mirror(from_gpu=True) 
-            self._agent_refs.contact_flags.synch_mirror(from_gpu=True) 
         self._agent_refs.rob_refs.root_state.synch_all(read=False, retry = True) # write on shared mem
-        self._agent_refs.contact_flags.synch_all(read=False, retry = True)
-
+        
     def _clamp_obs(self, 
             obs: torch.Tensor):
 
@@ -731,8 +732,8 @@ class LRhcTrainingEnvBase():
                     "_check_controllers_registered",
                     exception,
                     LogType.EXCEP,
-                    throw_when_excep = True)
-            return True
+                    throw_when_excep = False)
+            return False
                 
     def _check_truncations(self):
 
