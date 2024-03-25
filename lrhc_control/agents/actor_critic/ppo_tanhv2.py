@@ -2,14 +2,40 @@
 import torch.nn as nn
 import torch
 from torch.distributions.normal import Normal
+import torch.nn.functional as F
+
+class MixedTanh(nn.Module):
+    def __init__(self, input_dim: int, 
+            n_tanh_outputs: int,
+            tanh_lb=-1, tanh_ub=1):
+        
+        super().__init__()
+
+        self._tanh_lb = tanh_lb
+        self._tanh_ub = tanh_ub
+
+        self._input_dim = input_dim
+        self._output_dim = input_dim
+        self._n_tanh_outputs = n_tanh_outputs
+        self._n_identity_outputs = self._output_dim - self._n_tanh_outputs
+
+    def forward(self, x):
+        x_identity = x[:, :self._n_identity_outputs]
+        x_tanh = x[:, self._n_identity_outputs:]
+        x_tanh = F.tanh(x_tanh)  # Applying tanh function
+        # Rescale tanh outputs to the specified bounds
+        x_tanh = self._tanh_lb + 0.5 * (x_tanh + 1.0) * (self._tanh_ub - self._tanh_lb)
+        return torch.cat((x_identity, x_tanh), dim=1)
     
 class ActorCriticTanh(nn.Module):
 
     def __init__(self,
             obs_dim: int, 
             actions_dim: int,
+            n_tanh_outputs: int = 0,
             actor_std: float = 0.01, 
-            critic_std: float = 1.0):
+            critic_std: float = 1.0,
+            tanh_lb=-1, tanh_ub=1):
 
         self._actor_std = actor_std
         self._critic_std = critic_std
@@ -18,7 +44,10 @@ class ActorCriticTanh(nn.Module):
             
         self._obs_dim = obs_dim
         self._actions_dim = actions_dim
-            
+        self._n_tanh_outputs = n_tanh_outputs
+        self._tanh_lb = tanh_lb
+        self._tanh_ub = tanh_ub
+
         self.critic = nn.Sequential(
             self._layer_init(nn.Linear(self._obs_dim, 64)),
             nn.Tanh(),
@@ -26,13 +55,26 @@ class ActorCriticTanh(nn.Module):
             nn.Tanh(),
             self._layer_init(nn.Linear(64, 1), std=self._critic_std),
         ) # (stochastic critic)
-        self.actor_mean = nn.Sequential(
-            self._layer_init(nn.Linear(self._obs_dim, 64)),
-            nn.Tanh(),
-            self._layer_init(nn.Linear(64, 64)),
-            nn.Tanh(),
-            self._layer_init(nn.Linear(64, self._actions_dim), std=self._actor_std),
-        ) # (stochastic actor)
+        if self._n_tanh_outputs > 0:
+            self.actor_mean = nn.Sequential(
+                self._layer_init(nn.Linear(self._obs_dim, 64)),
+                nn.Tanh(),
+                self._layer_init(nn.Linear(64, 64)),
+                nn.Tanh(),
+                self._layer_init(nn.Linear(64, self._actions_dim), std=self._actor_std),
+                MixedTanh(input_dim=self._actions_dim, 
+                    n_tanh_outputs=self._actions_dim - self._n_tanh_outputs,
+                    tanh_lb=self._tanh_lb, tanh_ub=self._tanh_ub)
+            ) # (stochastic actor)
+        else:
+            self.actor_mean = nn.Sequential(
+                self._layer_init(nn.Linear(self._obs_dim, 64)),
+                nn.Tanh(),
+                self._layer_init(nn.Linear(64, 64)),
+                nn.Tanh(),
+                self._layer_init(nn.Linear(64, self._actions_dim), std=self._actor_std)
+            ) # (stochastic actor)
+
         self.actor_logstd = nn.Parameter(torch.zeros(1, self._actions_dim))
 
     def get_impl_path(self):

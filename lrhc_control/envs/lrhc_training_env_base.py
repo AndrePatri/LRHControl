@@ -565,9 +565,6 @@ class LRhcTrainingEnvBase():
                                 is_server=True,
                                 n_robots=self._n_envs,
                                 n_jnts=self._robot_state.n_jnts(),
-                                n_contacts=self._robot_state.n_contacts(),
-                                contact_names=self._robot_state.contact_names(),
-                                q_remapping=None,
                                 with_gpu_mirror=self._use_gpu,
                                 force_reconnection=True,
                                 safe=False,
@@ -647,20 +644,20 @@ class LRhcTrainingEnvBase():
         # read from shared memory on CPU
         # root link state
         self._robot_state.root_state.synch_all(read = True, retry = True)
-        # refs for root link
+        # refs for root link and contacts
         self._rhc_refs.rob_refs.root_state.synch_all(read = True, retry = True)
+        self._rhc_refs.contact_flags.synch_all(read = True, retry = True)
         # rhc cost
         self._rhc_status.rhc_cost.synch_all(read = True, retry = True)
         # rhc constr. violations
         self._rhc_status.rhc_constr_viol.synch_all(read = True, retry = True)
         # failure states
         self._rhc_status.fails.synch_all(read = True, retry = True)
-
         if gpu:
-
             # copies data to "mirror" on GPU
             self._robot_state.root_state.synch_mirror(from_gpu=False) # copies shared data on GPU
             self._rhc_refs.rob_refs.root_state.synch_mirror(from_gpu=False)
+            self._rhc_refs.contact_flags.synch_mirror(from_gpu=False)
             self._rhc_status.rhc_cost.synch_mirror(from_gpu=False)
             self._rhc_status.rhc_constr_viol.synch_mirror(from_gpu=False)
             self._rhc_status.fails.synch_mirror(from_gpu=False)
@@ -674,8 +671,9 @@ class LRhcTrainingEnvBase():
         if gpu:
             # copies latest refs from GPU to CPU shared mem for debugging
             self._agent_refs.rob_refs.root_state.synch_mirror(from_gpu=True) 
-
+            self._agent_refs.contact_flags.synch_mirror(from_gpu=True) 
         self._agent_refs.rob_refs.root_state.synch_all(read=False, retry = True) # write on shared mem
+        self._agent_refs.contact_flags.synch_all(read=False, retry = True)
 
     def _clamp_obs(self, 
             obs: torch.Tensor):
