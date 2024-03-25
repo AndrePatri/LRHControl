@@ -352,7 +352,7 @@ class HybridQuadRhc(RHController):
         # open loop update:
         # state on first node is second state 
         # shifted
-        self._prb.setInitialState(x0=xig[:, 1])
+        self._prb.setInitialState(x0=xig[:, 0])
     
     def _update_closed_loop(self):
 
@@ -491,20 +491,17 @@ class HybridQuadRhc(RHController):
         return self._ti.solution['q']
 
     def _get_v_from_sol(self):
-        # to be overridden by child class
         return self._ti.solution['v']
     
     def _get_a_from_sol(self):
-        # to be overridden by child class
         return self._ti.solution['a']
     
     def _get_a_dot_from_sol(self):
-        # to be overridden by child class
         return None
     
     def _get_f_from_sol(self):
         # to be overridden by child class
-        contact_names = self.robot_state.contact_names()
+        contact_names =self._get_contacts() # we use controller-side names
         try: 
             data = [self._ti.solution["f_" + key] for key in contact_names]
             return np.concatenate(data, axis=0)
