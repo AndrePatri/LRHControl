@@ -60,7 +60,7 @@ if __name__ == '__main__':
         sim_params["device"] = "cpu"
     device = sim_params["device"]
     # sim_params["dt"] = 1.0/100.0 # physics_dt?
-    sim_params["physics_dt"] = 1.0/400.0 # physics_dt?
+    sim_params["physics_dt"] = 1.0/1000.0 # physics_dt?
     sim_params["rendering_dt"] = sim_params["physics_dt"]
     sim_params["substeps"] = 1 # number of physics steps to be taken for for each rendering step
     sim_params["gravity"] = np.array([0.0, 0.0, -9.81])
@@ -75,7 +75,7 @@ if __name__ == '__main__':
     # sim_params["friction_correlation_distance"] = 0.025
     # sim_params["enable_sleeping"] = True
     # Per-actor settings ( can override in actor_options )
-    sim_params["solver_position_iteration_count"] = 2 # defaults to 4
+    sim_params["solver_position_iteration_count"] = 4 # defaults to 4
     sim_params["solver_velocity_iteration_count"] = 1 # defaults to 1
     sim_params["sleep_threshold"] = 0.0 # Mass-normalized kinetic energy threshold below which an actor may go to sleep.
     # Allowed range [0, max_float).
@@ -128,7 +128,7 @@ if __name__ == '__main__':
             robot_pkg_name=args.robot_pkg_name,
             integration_dt = sim_params["physics_dt"],
             num_envs = num_envs, 
-            cloning_offset = np.array([[0.0, 0.0, 0.6]] * num_envs), 
+            cloning_offset = np.array([[0.0, 0.0, 0.4]] * num_envs), 
             env_spacing=6,
             spawning_radius=1.0, 
             use_flat_ground=True, 
