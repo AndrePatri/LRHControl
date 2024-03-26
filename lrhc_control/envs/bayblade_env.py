@@ -37,7 +37,7 @@ class BaybladeEnv(LRhcTrainingEnvBase):
         self._reward_clamp_thresh = 1 # rewards will be in [-_reward_clamp_thresh, _reward_clamp_thresh]
 
         self._yaw_twist_weight = 1
-        self._yaw_twist_scale = 1e1
+        self._yaw_twist_scale = 1
 
         self._rhc_cnstr_viol_weight = 1
         self._rhc_cnstr_viol_scale = 1
