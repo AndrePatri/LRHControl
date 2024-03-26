@@ -1,6 +1,6 @@
 from lrhc_control.agents.actor_critic.ppo_tanh import ActorCriticTanh
 from lrhc_control.agents.actor_critic.ppo_lrelu import ActorCriticLRelu
-from lrhc_control.agents.actor_critic.ppo_tanhv2 import ActorCriticTanh
+from lrhc_control.agents.actor_critic.ppo_tanhv2 import ActorCriticThB
 
 from lrhc_control.utils.shared_data.algo_infos import SharedRLAlgorithmInfo
 import torch 
@@ -38,21 +38,21 @@ class ActorCriticAlgoBase():
         self._seed = seed
 
         self._eval = False
-        # self._agent = ActorCriticTanh(obs_dim=self._env.obs_dim(),
-        #                 actions_dim=self._env.actions_dim(),
-        #                 actor_std=0.01,
-        #                 critic_std=1.0)
+        self._agent = ActorCriticTanh(obs_dim=self._env.obs_dim(),
+                        actions_dim=self._env.actions_dim(),
+                        actor_std=0.01,
+                        critic_std=1.0)
         # self._agent = ActorCriticLRelu(obs_dim=self._env.obs_dim(),
         #                 actions_dim=self._env.actions_dim(),
         #                 actor_std=0.01,
         #                 critic_std=1.0)
-        self._agent = ActorCriticTanh(obs_dim=self._env.obs_dim(),
-                        actions_dim=self._env.actions_dim(),
-                        n_tanh_outputs=n_tanh_outputs,
-                        tanh_lb=0,
-                        tanh_ub=1.0,
-                        actor_std=0.01,
-                        critic_std=1.0)
+        # self._agent = ActorCriticThB(obs_dim=self._env.obs_dim(),
+        #                 actions_dim=self._env.actions_dim(),
+        #                 n_tanh_outputs=n_tanh_outputs,
+        #                 tanh_lb=0,
+        #                 tanh_ub=1.0,
+        #                 actor_std=0.01,
+        #                 critic_std=1.0)
         self._debug = debug
 
         self._optimizer = None

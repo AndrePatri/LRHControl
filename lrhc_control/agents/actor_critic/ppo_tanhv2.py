@@ -19,15 +19,16 @@ class MixedTanh(nn.Module):
         self._n_tanh_outputs = n_tanh_outputs
         self._n_identity_outputs = self._output_dim - self._n_tanh_outputs
 
-    def forward(self, x):
-        x_identity = x[:, :self._n_identity_outputs]
-        x_tanh = x[:, self._n_identity_outputs:]
-        x_tanh = F.tanh(x_tanh)  # Applying tanh function
-        # Rescale tanh outputs to the specified bounds
-        x_tanh = self._tanh_lb + 0.5 * (x_tanh + 1.0) * (self._tanh_ub - self._tanh_lb)
-        return torch.cat((x_identity, x_tanh), dim=1)
+    def forward(self, input):
+        identity_part = input[:, :self._n_identity_outputs]
+        aux = F.tanh(input[:, self._n_identity_outputs:]) 
+        tanh_part = self._tanh_lb + 0.5 * (aux + 1.0) * (self._tanh_ub - self._tanh_lb)
+        print("iiiiiiii")
+        print(identity_part)
+        print(tanh_part)
+        return torch.cat((identity_part, tanh_part), dim=1)
     
-class ActorCriticTanh(nn.Module):
+class ActorCriticThB(nn.Module):
 
     def __init__(self,
             obs_dim: int, 
@@ -63,7 +64,7 @@ class ActorCriticTanh(nn.Module):
                 nn.Tanh(),
                 self._layer_init(nn.Linear(64, self._actions_dim), std=self._actor_std),
                 MixedTanh(input_dim=self._actions_dim, 
-                    n_tanh_outputs=self._actions_dim - self._n_tanh_outputs,
+                    n_tanh_outputs=self._n_tanh_outputs,
                     tanh_lb=self._tanh_lb, tanh_ub=self._tanh_ub)
             ) # (stochastic actor)
         else:

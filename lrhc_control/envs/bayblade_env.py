@@ -15,37 +15,36 @@ class BaybladeEnv(LRhcTrainingEnvBase):
             verbose: bool = False,
             vlevel: VLevel = VLevel.V1,
             use_gpu: bool = True,
-            dtype: torch.dtype = torch.float32):
+            dtype: torch.dtype = torch.float32,
+            debug: bool = True):
 
-        obs_dim = 3 # [yaw_twist, yaw_twist_ref, rhc_cnstr, ..]
+        obs_dim = 4 # [yaw_twist, yaw_twist_ref, rhc_cnstr, rhc_cost ..]
         actions_dim = 2 + 1 + 3 + 4 # [vxy_cmd, h_cmd, twist_cmd, dostep_0, dostep_1, dostep_2, dostep_3]
+        # actions_dim = 2 + 1 + 3 # [vxy_cmd, h_cmd, twist_cmd]
 
-        n_steps_episode = 4096
+        n_steps_episode = 512
         n_steps_task_rand = 150 # randomize agent refs every n steps
-
-        env_name = "BaybladeEnvTask"
-
-        debug = True
 
         n_preinit_steps = 1 # one steps of the controllers to properly initialize everything
 
-        self._epsi = 1e-6
-        
+        env_name = "BaybladeEnvTask"
+
+        # tasks settings
+        self._yaw_twist_lb = 0.5 #  [rad/s]
+        self._yaw_twist_ub = 0.5
+
+        # rewards settings
+        self._reward_clamp_thresh = 1 # rewards will be in [-_reward_clamp_thresh, _reward_clamp_thresh]
+
         self._yaw_twist_weight = 1
-        self._yaw_twist_scale = 1
-        self._yaw_twist_lb = -0.1 #  [rad/s]
-        self._yaw_twist_ub = 0.1
+        self._yaw_twist_scale = 1e1
 
         self._rhc_cnstr_viol_weight = 1
         self._rhc_cnstr_viol_scale = 1
 
         self._rhc_cost_weight = 1
-        self._rhc_cost_scale = 1
+        self._rhc_cost_scale = 1e-1
 
-        self._this_child_path = os.path.abspath(__file__)
-
-        self._reward_clamp_thresh = 1
-        
         super().__init__(namespace=namespace,
                     obs_dim=obs_dim,
                     actions_dim=actions_dim,
@@ -58,6 +57,18 @@ class BaybladeEnv(LRhcTrainingEnvBase):
                     use_gpu=use_gpu,
                     dtype=dtype,
                     debug=debug)
+
+        # overriding actions scalings and offsets (by default 1.0 and 0.0)
+        self._actions_offsets[:, 0:2] = 0.0 # vxy_cmd 
+        self._actions_scalings[:, 0:2] = 0.05 # 0.05
+        self._actions_offsets[:, 2] = 0.6 # h_cmd
+        self._actions_scalings[:, 2] = 0.025 # 0.025
+        self._actions_offsets[:, 3:6] = 0.0 # vxy_cmd 
+        self._actions_scalings[:, 3:6] = 0.05 # 0.05
+        self._actions_offsets[:, 6:10] = 1.0 # stepping flags 
+        self._actions_scalings[:, 6:10] =  0.1 # 0.1
+        
+        self._this_child_path = os.path.abspath(__file__)
 
     def get_file_paths(self):
 
@@ -104,7 +115,7 @@ class BaybladeEnv(LRhcTrainingEnvBase):
                                             gpu=self._use_gpu) 
 
         # contact flags
-        rhc_latest_contact_ref[:, :] = (agent_action[:, 6:10] <= 0.5) # keep contact if agent actiom <=5
+        rhc_latest_contact_ref[:, :] = agent_action[:, 6:10] > 0.5 # keep contact if agent actiom <=5
 
         if self._use_gpu:
             self._rhc_refs.rob_refs.root_state.synch_mirror(from_gpu=self._use_gpu) # write from gpu to cpu mirror
@@ -124,7 +135,7 @@ class BaybladeEnv(LRhcTrainingEnvBase):
 
         rewards[:, 0:1] = 1.0 - self._yaw_twist_weight * omega_err.mul_(self._yaw_twist_scale).clamp(-self._reward_clamp_thresh, self._reward_clamp_thresh) 
         rewards[:, 1:2] = 1.0 - self._rhc_cnstr_viol_weight * self._squashed_rhc_cnstr_viol()
-        # rewards[:, 2:3] = 1.0 - self._rhc_cost_weight * self._squashed_rhc_cost()
+        rewards[:, 2:3] = 1.0 - self._rhc_cost_weight * self._squashed_rhc_cost()
 
         tot_rewards = self._tot_rewards.get_torch_view(gpu=self._use_gpu)
         tot_rewards[:, :] = torch.sum(rewards, dim=1, keepdim=True)
@@ -139,7 +150,7 @@ class BaybladeEnv(LRhcTrainingEnvBase):
         obs_tensor[:, 0:1] = robot_yaw_twist
         obs_tensor[:, 1:2] = agent_omega_ref
         obs_tensor[:, 2:3] = self._squashed_rhc_cnstr_viol()
-        # obs_tensor[:, 3:4] = self._squashed_rhc_cost()
+        obs_tensor[:, 3:4] = self._squashed_rhc_cost()
 
     def _squashed_rhc_cnstr_viol(self):
 
@@ -171,7 +182,7 @@ class BaybladeEnv(LRhcTrainingEnvBase):
         obs_names[0] = "yaw_twist"
         obs_names[1] = "agent_yaw_twist_ref"
         obs_names[2] = "rhc_const_viol"
-        # obs_names[3] = "rhc_cost"
+        obs_names[3] = "rhc_cost"
 
         return obs_names
 
@@ -185,20 +196,20 @@ class BaybladeEnv(LRhcTrainingEnvBase):
         action_names[3] = "roll_twist_cmd"
         action_names[4] = "pitch_twist_cmd"
         action_names[5] = "yaw_twist_cmd"
-        action_names[6] = "dostep_0"
-        action_names[7] = "dostep_1"
-        action_names[8] = "dostep_2"
-        action_names[9] = "dostep_3"
+        action_names[6] = "contact_0"
+        action_names[7] = "contact_1"
+        action_names[8] = "contact_2"
+        action_names[9] = "contact_3"
 
         return action_names
 
     def _get_rewards_names(self):
 
-        n_rewards = 2
+        n_rewards = 3
         reward_names = [""] * n_rewards
 
         reward_names[0] = "twist_error"
         reward_names[1] = "rhc_const_viol"
-        # reward_names[2] = "rhc_cost"
+        reward_names[2] = "rhc_cost"
 
         return reward_names

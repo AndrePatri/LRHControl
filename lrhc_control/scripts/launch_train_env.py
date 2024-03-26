@@ -46,7 +46,8 @@ if __name__ == "__main__":
     env = BaybladeEnv(namespace=args.ns,
                     verbose=True,
                     vlevel=VLevel.V2,
-                    use_gpu=not args.use_cpu)
+                    use_gpu=not args.use_cpu,
+                    debug=True)
 
     # getting some sim info for debugging
     sim_data = {}

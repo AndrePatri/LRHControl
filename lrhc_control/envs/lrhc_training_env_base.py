@@ -97,6 +97,8 @@ class LRhcTrainingEnvBase():
         self._obs = None
         self._next_obs = None
         self._actions = None
+        self._actions_offsets = None
+        self._actions_scalings = None
         self._tot_rewards = None
         self._rewards = None
         self._terminations = None
@@ -215,9 +217,11 @@ class LRhcTrainingEnvBase():
         rhc_ok = self._check_controllers_registered(retry=False) # does not make sense to run training
         # if we lost some controllers
 
+        self._apply_scaling_to_actions(action) # in place scaling and offset of actions
         actions = self._actions.get_torch_view(gpu=self._use_gpu)
         actions[:, :] = action # writes actions
         
+
         self._apply_actions_to_rhc() # apply agent actions to rhc controller
 
         ok_sim_step = self._remote_sim_step() # blocking
@@ -432,6 +436,13 @@ class LRhcTrainingEnvBase():
         
     def _init_actions(self, actions_dim: int):
         
+        device = "cuda" if self._use_gpu else "cpu"
+        # action scalings to be applied to agent's output
+        self._actions_offsets = torch.full((self._n_envs, actions_dim), dtype=self._dtype, device=device,
+                                        fill_value=0.0) 
+        self._actions_scalings = torch.full((self._n_envs, actions_dim), dtype=self._dtype, device=device,
+                                        fill_value=1.0) 
+
         self._actions = Actions(namespace=self._namespace,
                             n_envs=self._n_envs,
                             action_dim=self._actions_dim,
@@ -684,6 +695,10 @@ class LRhcTrainingEnvBase():
 
         obs.clamp_(-self._obs_threshold, self._obs_threshold)
     
+    def _apply_scaling_to_actions(self, actions):
+
+        actions.mul_(self._actions_scalings).add_(self._actions_offsets)
+
     def _check_finite(self, 
                 tensor: torch.Tensor,
                 name: str, 
@@ -733,7 +748,8 @@ class LRhcTrainingEnvBase():
                     exception,
                     LogType.EXCEP,
                     throw_when_excep = False)
-            return False
+                return False
+            return True
                 
     def _check_truncations(self):
 
