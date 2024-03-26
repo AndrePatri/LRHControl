@@ -41,8 +41,10 @@ class LRhcTrainingEnvBase():
             namespace: str,
             obs_dim: int,
             actions_dim: int,
-            n_steps_episode: int,
-            n_steps_task_rand: int,
+            n_steps_episode_lb: int,
+            n_steps_episode_ub: int,
+            n_steps_task_rand_lb: int,
+            n_steps_task_rand_ub: int,
             env_name: str = "",
             n_preinit_steps: int = 0,
             verbose: bool = False,
@@ -57,8 +59,12 @@ class LRhcTrainingEnvBase():
         
         self._closed = False
 
-        self._n_steps_episode = n_steps_episode
-        self._n_steps_task_rand = n_steps_task_rand
+        self._n_steps_episode_lb = n_steps_episode_lb # episodes durations will be randomized between
+        self._n_steps_episode_ub = n_steps_episode_ub # this bounds to remove temporal correlations
+        # in batch data
+
+        self._n_steps_task_rand_lb = n_steps_task_rand_lb
+        self._n_steps_task_rand_ub = n_steps_task_rand_ub
 
         self._namespace = namespace
         self._with_gpu_mirror = True
@@ -137,7 +143,7 @@ class LRhcTrainingEnvBase():
     
     def n_steps_per_episode(self):
 
-        return self._n_steps_episode
+        return self._n_steps_episode_lb, self._n_steps_episode_ub
     
     def get_file_paths(self):
         empty_list = []
@@ -221,8 +227,7 @@ class LRhcTrainingEnvBase():
         actions = self._actions.get_torch_view(gpu=self._use_gpu)
         actions[:, :] = action # writes actions
         
-
-        self._apply_actions_to_rhc() # apply agent actions to rhc controller
+        # self._apply_actions_to_rhc() # apply agent actions to rhc controller
 
         ok_sim_step = self._remote_sim_step() # blocking
 
@@ -239,8 +244,6 @@ class LRhcTrainingEnvBase():
     
     def _post_step(self):
         
-        post_step_ok = True
-
         self._episode_counter.increment() # first increment counters
         self._randomization_counter.increment()
         self.randomize_refs(env_indxs=self._randomization_counter.time_limits_reached().flatten()) # randomize 
@@ -257,8 +260,8 @@ class LRhcTrainingEnvBase():
         self._episodic_rewards_getter.update(step_reward = self._rewards.get_torch_view(gpu=False),
                             is_done = episode_finished.cpu())
                                         
-        self._episode_counter.reset(to_be_reset=episode_finished)
-        self._randomization_counter.reset(to_be_reset=episode_finished)
+        self._episode_counter.reset(to_be_reset=episode_finished, randomize_limits=True) # reset and randomize ep duration 
+        self._randomization_counter.reset(to_be_reset=episode_finished, randomize_limits=True)
         self.randomize_refs(env_indxs=episode_finished.flatten()) # randomize refs also upon
         # episode termination
 
@@ -609,7 +612,8 @@ class LRhcTrainingEnvBase():
         # time limits) 
         self._episode_counter = EpisodesCounter(namespace=self._namespace,
                             n_envs=self._n_envs,
-                            n_steps_limit=self._n_steps_episode,
+                            n_steps_lb=self._n_steps_episode_lb,
+                            n_steps_ub=self._n_steps_episode_ub,
                             is_server=True,
                             verbose=self._verbose,
                             vlevel=self._vlevel,
@@ -617,10 +621,10 @@ class LRhcTrainingEnvBase():
                             force_reconnection=True,
                             with_gpu_mirror=False) # handles step counter through episodes and through envs
         self._episode_counter.run()
-        self._episode_counter.reset()
         self._randomization_counter = TaskRandCounter(namespace=self._namespace,
                             n_envs=self._n_envs,
-                            n_steps_limit=self._n_steps_task_rand,
+                            n_steps_lb=self._n_steps_task_rand_ub,
+                            n_steps_ub=self._n_steps_task_rand_lb,
                             is_server=True,
                             verbose=self._verbose,
                             vlevel=self._vlevel,
@@ -628,7 +632,6 @@ class LRhcTrainingEnvBase():
                             force_reconnection=True,
                             with_gpu_mirror=False) # handles step counter through episodes and through envs
         self._randomization_counter.run()
-        self._randomization_counter.reset()
 
         # debug data servers
         traing_env_param_dict = {}
@@ -758,11 +761,9 @@ class LRhcTrainingEnvBase():
         # time unlimited episodes, using time limits just for diversifying 
         # experience
         truncations[:, :] = self._episode_counter.time_limits_reached() 
-
         if self._use_gpu:
             # from GPU to CPU 
             self._truncations.synch_mirror(from_gpu=True) 
-
         self._truncations.synch_all(read=False, retry = True) # writes on shared mem
     
     def _check_terminations(self):

@@ -22,8 +22,10 @@ class BaybladeEnv(LRhcTrainingEnvBase):
         actions_dim = 2 + 1 + 3 + 4 # [vxy_cmd, h_cmd, twist_cmd, dostep_0, dostep_1, dostep_2, dostep_3]
         # actions_dim = 2 + 1 + 3 # [vxy_cmd, h_cmd, twist_cmd]
 
-        n_steps_episode = 512
-        n_steps_task_rand = 150 # randomize agent refs every n steps
+        n_steps_episode_lb = 128 # episode length
+        n_steps_episode_ub = 1024
+        n_steps_task_rand_lb = 128 # agent refs randomization freq
+        n_steps_task_rand_ub = 512
 
         n_preinit_steps = 1 # one steps of the controllers to properly initialize everything
 
@@ -48,8 +50,10 @@ class BaybladeEnv(LRhcTrainingEnvBase):
         super().__init__(namespace=namespace,
                     obs_dim=obs_dim,
                     actions_dim=actions_dim,
-                    n_steps_episode=n_steps_episode,
-                    n_steps_task_rand=n_steps_task_rand,
+                    n_steps_episode_lb=n_steps_episode_lb,
+                    n_steps_episode_ub=n_steps_episode_ub,
+                    n_steps_task_rand_lb=n_steps_task_rand_lb,
+                    n_steps_task_rand_ub=n_steps_task_rand_ub,
                     env_name=env_name,
                     n_preinit_steps=n_preinit_steps,
                     verbose=verbose,

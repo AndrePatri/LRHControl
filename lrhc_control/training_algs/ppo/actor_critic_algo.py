@@ -534,7 +534,7 @@ class ActorCriticAlgoBase():
 
         self._run_name = "DefaultRun" # default
         self._env_name = self._env.name()
-        self._env_episode_n_steps = self._env.n_steps_per_episode()
+        self._env_episode_n_steps_lb, self._env_episode_n_steps_ub = self._env.n_steps_per_episode()
 
         self._use_gpu = self._env.using_gpu()
         self._torch_device = torch.device("cpu") # defaults to cpu
@@ -577,7 +577,8 @@ class ActorCriticAlgoBase():
         self._hyperparameters["n_iterations"] = self._iterations_n
         self._hyperparameters["n_policy_updates_per_batch"] = self._update_epochs * self._num_minibatches
         self._hyperparameters["n_policy_updates_when_done"] = self._n_policy_updates_to_be_done
-        self._hyperparameters["n steps per env. episode"] = self._env_episode_n_steps
+        self._hyperparameters["n steps per env. episode lb"] = self._env_episode_n_steps_lb
+        self._hyperparameters["n steps per env. episode ub"] = self._env_episode_n_steps_ub
         self._hyperparameters["n steps per env. rollout"] = self._env_timesteps
         self._hyperparameters["per-batch update_epochs"] = self._update_epochs
         self._hyperparameters["per-epoch policy updates"] = self._num_minibatches
@@ -608,7 +609,8 @@ class ActorCriticAlgoBase():
             f"per-batch update_epochs {self._update_epochs}\n" + \
             f"iterations_n {self._iterations_n}\n" + \
             f"n steps per env. rollout {self._env_timesteps}\n" + \
-            f"n steps per env. episode {self._env_episode_n_steps}\n" + \
+            f"max n steps per env. episode {self._env_episode_n_steps_ub}\n" + \
+            f"min n steps per env. episode {self._env_episode_n_steps_lb}\n" + \
             f"total policy updates to be performed {self._update_epochs * self._num_minibatches * self._iterations_n}\n" + \
             f"total_timesteps to be simulated {self._total_timesteps}\n"
         Journal.log(self.__class__.__name__,

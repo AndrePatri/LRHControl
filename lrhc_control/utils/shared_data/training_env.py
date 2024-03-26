@@ -542,7 +542,8 @@ class SimpleCounters(SharedDataBase):
     def __init__(self,
                 namespace: str,
                 basename: str,
-                n_steps_limit: int = None,
+                n_steps_lb: int,
+                n_steps_ub: int,
                 n_envs: int = None, 
                 is_server = False, 
                 verbose: bool = False, 
@@ -553,7 +554,11 @@ class SimpleCounters(SharedDataBase):
 
         self._using_gpu = with_gpu_mirror
 
-        self._n_steps_limit = n_steps_limit # reset counters every n steps
+        self._n_steps = torch.full((n_envs, 1), dtype=torch.int, device="cpu", fill_value=n_steps_ub)
+        self._n_steps_lb = n_steps_lb
+        self._n_steps_ub = n_steps_ub
+
+        self._n_envs = n_envs
 
         self._step_counter = self.StepCounter(namespace = namespace,
                     basename = basename,
@@ -568,10 +573,8 @@ class SimpleCounters(SharedDataBase):
     def _write(self):
 
         if self._using_gpu:
-
             # copy from gpu to cpu
             self._step_counter.synch_mirror(from_gpu=True)
-
         # copy from cpu to shared memory
         self._step_counter.synch_all(read=False, retry=True)
 
@@ -603,6 +606,8 @@ class SimpleCounters(SharedDataBase):
 
         self._step_counter.run()
 
+        self.reset()
+
     def close(self):
 
         self._step_counter.close()
@@ -611,28 +616,29 @@ class SimpleCounters(SharedDataBase):
 
         # to be called after increment or decrement 
 
-        return (self.get() % self._n_steps_limit) == 0
+        return (self.get() % self._n_steps) == 0
     
     def reset(self,
-            to_be_reset: torch.Tensor = None):
+            to_be_reset: torch.Tensor = None,
+            randomize_limits: bool = True):
 
         if to_be_reset is None:
-
             # resets all counters
-            
             self.get().zero_()
-        
+            if randomize_limits: # randomize counter durations upon resets
+                self._n_steps[:, :] = torch.randint(self._n_steps_lb, self._n_steps_ub, (self._n_envs, 1))
         else:
-
             self.get()[to_be_reset.squeeze(), :] = 0
-            
+            if randomize_limits:
+                self._n_steps[to_be_reset.squeeze(), :] = torch.randint(self._n_steps_lb, self._n_steps_ub, (to_be_reset.shape[0], 1))
         self._write()
 
 class EpisodesCounter(SimpleCounters):
 
     def __init__(self,
                 namespace: str,
-                n_steps_limit: int = None,
+                n_steps_lb: int,
+                n_steps_ub: int,
                 n_envs: int = None, 
                 is_server = False, 
                 verbose: bool = False, 
@@ -645,7 +651,8 @@ class EpisodesCounter(SimpleCounters):
 
         super().__init__(namespace=namespace,
                 basename=basename,
-                n_steps_limit=n_steps_limit,
+                n_steps_lb=n_steps_lb,
+                n_steps_ub=n_steps_ub,
                 n_envs=n_envs, 
                 is_server=is_server, 
                 verbose=verbose, 
@@ -658,7 +665,8 @@ class TaskRandCounter(SimpleCounters):
 
     def __init__(self,
                 namespace: str,
-                n_steps_limit: int = None,
+                n_steps_lb: int,
+                n_steps_ub: int,
                 n_envs: int = None, 
                 is_server = False, 
                 verbose: bool = False, 
@@ -671,7 +679,8 @@ class TaskRandCounter(SimpleCounters):
 
         super().__init__(namespace=namespace,
                 basename=basename,
-                n_steps_limit=n_steps_limit,
+                n_steps_lb=n_steps_lb,
+                n_steps_ub=n_steps_ub,
                 n_envs=n_envs, 
                 is_server=is_server, 
                 verbose=verbose, 
