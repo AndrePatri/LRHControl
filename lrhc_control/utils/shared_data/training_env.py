@@ -626,13 +626,15 @@ class SimpleCounters(SharedDataBase):
             # resets all counters
             self.get().zero_()
             if randomize_limits: # randomize counter durations upon resets
-                self._n_steps[:, :] = torch.randint(low=self._n_steps_lb, high=self._n_steps_ub, size=(self._n_envs, 1))
+                self._n_steps[:, :] = torch.randint(low=self._n_steps_lb, high=self._n_steps_ub, size=(self._n_envs, 1),
+                                            dtype=torch.int32)
         else:
             to_be_reset = to_be_reset.squeeze()
             n_to_be_reset = torch.sum(to_be_reset).item()
             self.get()[to_be_reset, :] = 0
             if randomize_limits:
-                self._n_steps[to_be_reset, :] = torch.randint(low=self._n_steps_lb, high=self._n_steps_ub, size=(n_to_be_reset, 1))
+                self._n_steps[to_be_reset, :] = torch.randint(low=self._n_steps_lb, high=self._n_steps_ub, size=(n_to_be_reset, 1),
+                                            dtype=torch.int32)
         self._write()
 
 class EpisodesCounter(SimpleCounters):
