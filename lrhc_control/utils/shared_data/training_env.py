@@ -558,7 +558,7 @@ class SimpleCounters(SharedDataBase):
         self._n_steps_ub = n_steps_ub
 
         self._is_server = is_server
-        
+
         if self._is_server and ((self._n_steps_lb is None) or (self._n_steps_ub is None)):
             exception = "Lower and upper step bounds have to be specified when in server mode!!!"
             Journal.log(self.__class__.__name__,
@@ -615,7 +615,7 @@ class SimpleCounters(SharedDataBase):
 
         self._step_counter.run()
         if self._is_server:
-            self._n_steps = torch.full((n_envs, 1), dtype=torch.int, device="cpu", fill_value=self._n_steps_ub)
+            self._n_steps = torch.full((self._n_envs, 1), dtype=torch.int, device="cpu", fill_value=self._n_steps_ub)
             self.reset()
 
     def close(self):
