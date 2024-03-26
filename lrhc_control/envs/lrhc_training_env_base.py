@@ -623,8 +623,8 @@ class LRhcTrainingEnvBase():
         self._episode_counter.run()
         self._randomization_counter = TaskRandCounter(namespace=self._namespace,
                             n_envs=self._n_envs,
-                            n_steps_lb=self._n_steps_task_rand_ub,
-                            n_steps_ub=self._n_steps_task_rand_lb,
+                            n_steps_lb=self._n_steps_task_rand_lb,
+                            n_steps_ub=self._n_steps_task_rand_ub,
                             is_server=True,
                             verbose=self._verbose,
                             vlevel=self._vlevel,
