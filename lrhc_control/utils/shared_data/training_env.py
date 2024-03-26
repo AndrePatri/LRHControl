@@ -542,8 +542,8 @@ class SimpleCounters(SharedDataBase):
     def __init__(self,
                 namespace: str,
                 basename: str,
-                n_steps_lb: int,
-                n_steps_ub: int,
+                n_steps_lb: int = None,
+                n_steps_ub: int = None,
                 n_envs: int = None, 
                 is_server = False, 
                 verbose: bool = False, 
@@ -554,9 +554,18 @@ class SimpleCounters(SharedDataBase):
 
         self._using_gpu = with_gpu_mirror
 
-        self._n_steps = torch.full((n_envs, 1), dtype=torch.int, device="cpu", fill_value=n_steps_ub)
         self._n_steps_lb = n_steps_lb
         self._n_steps_ub = n_steps_ub
+
+        self._is_server = is_server
+        
+        if self._is_server and ((self._n_steps_lb is None) or (self._n_steps_ub is None)):
+            exception = "Lower and upper step bounds have to be specified when in server mode!!!"
+            Journal.log(self.__class__.__name__,
+                "run()",
+                exception,
+                LogType.EXCEP,
+                throw_when_excep = True)
 
         self._n_envs = n_envs
 
@@ -605,8 +614,9 @@ class SimpleCounters(SharedDataBase):
     def run(self):
 
         self._step_counter.run()
-
-        self.reset()
+        if self._is_server:
+            self._n_steps = torch.full((n_envs, 1), dtype=torch.int, device="cpu", fill_value=self._n_steps_ub)
+            self.reset()
 
     def close(self):
 
@@ -641,8 +651,8 @@ class EpisodesCounter(SimpleCounters):
 
     def __init__(self,
                 namespace: str,
-                n_steps_lb: int,
-                n_steps_ub: int,
+                n_steps_lb: int = None,
+                n_steps_ub: int = None,
                 n_envs: int = None, 
                 is_server = False, 
                 verbose: bool = False, 
@@ -669,8 +679,8 @@ class TaskRandCounter(SimpleCounters):
 
     def __init__(self,
                 namespace: str,
-                n_steps_lb: int,
-                n_steps_ub: int,
+                n_steps_lb: int = None,
+                n_steps_ub: int = None,
                 n_envs: int = None, 
                 is_server = False, 
                 verbose: bool = False, 
