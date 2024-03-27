@@ -42,10 +42,10 @@ class LinVelEnv(LRhcTrainingEnvBase):
         self._task_scale = 1
 
         self._rhc_cnstr_viol_weight = 1
-        self._rhc_cnstr_viol_scale = 1
+        self._rhc_cnstr_viol_scale = 0.1
 
         self._rhc_cost_weight = 1
-        self._rhc_cost_scale = 0.02
+        self._rhc_cost_scale = 0.0001
 
         super().__init__(namespace=namespace,
                     obs_dim=obs_dim,
