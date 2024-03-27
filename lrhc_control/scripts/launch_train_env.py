@@ -1,5 +1,6 @@
 from lrhc_control.envs.heightchange_env import LRhcHeightChange
 from lrhc_control.envs.bayblade_env import BaybladeEnv
+from lrhc_control.envs.linvel_env import LinVelEnv
 
 # from lrhc_control.training_algs.ppo.clean_ppo import CleanPPO
 # from lrhc_control.training_algs.ppo.mem_eff_ppo import MemEffPPO
@@ -44,12 +45,16 @@ if __name__ == "__main__":
     #                 verbose=True,
     #                 vlevel=VLevel.V2,
     #                 use_gpu=not args.use_cpu)
-    env = BaybladeEnv(namespace=args.ns,
+    # env = BaybladeEnv(namespace=args.ns,
+    #                 verbose=True,
+    #                 vlevel=VLevel.V2,
+    #                 use_gpu=not args.use_cpu,
+    #                 debug=True)
+    env = LinVelEnv(namespace=args.ns,
                     verbose=True,
                     vlevel=VLevel.V2,
                     use_gpu=not args.use_cpu,
                     debug=True)
-
     # getting some sim info for debugging
     sim_data = {}
     sim_info_shared = SharedSimInfo(namespace=args.ns,

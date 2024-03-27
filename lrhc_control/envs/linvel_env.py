@@ -8,7 +8,7 @@ from SharsorIPCpp.PySharsorIPC import LogType
 
 import os
 
-class BaybladeEnv(LRhcTrainingEnvBase):
+class LinVelEnv(LRhcTrainingEnvBase):
 
     def __init__(self,
             namespace: str,
@@ -29,23 +29,23 @@ class BaybladeEnv(LRhcTrainingEnvBase):
 
         n_preinit_steps = 1 # one steps of the controllers to properly initialize everything
 
-        env_name = "BaybladeEnvTask"
+        env_name = "LinVelTrackTask"
 
         # tasks settings
-        self._yaw_twist_lb = 0.5 #  [rad/s]
-        self._yaw_twist_ub = 0.5
+        self._lin_vel_lb = 0.5 #  [rad/s]
+        self._lin_vel_ub = 0.5
 
         # rewards settings
         self._reward_clamp_thresh = 1 # rewards will be in [-_reward_clamp_thresh, _reward_clamp_thresh]
 
-        self._yaw_twist_weight = 5
-        self._yaw_twist_scale = 1
+        self._task_weight = 1
+        self._task_scale = 1
 
         self._rhc_cnstr_viol_weight = 1
         self._rhc_cnstr_viol_scale = 1
 
         self._rhc_cost_weight = 1
-        self._rhc_cost_scale = 1e-1
+        self._rhc_cost_scale = 0.1
 
         super().__init__(namespace=namespace,
                     obs_dim=obs_dim,
@@ -130,16 +130,16 @@ class BaybladeEnv(LRhcTrainingEnvBase):
     def _compute_rewards(self):
         
         # task error
-        omega_ref = self._agent_refs.rob_refs.root_state.get(data_type="omega", gpu=self._use_gpu)[:, 2:3] # getting target twist ref
-        robot_omega = self._robot_state.root_state.get(data_type="omega",gpu=self._use_gpu)[:, 2:3]
-        omega_err = torch.abs((omega_ref - robot_omega))
+        task_ref = self._agent_refs.rob_refs.root_state.get(data_type="v", gpu=self._use_gpu)[:, 0:1] # getting target twist ref
+        task_meas = self._robot_state.root_state.get(data_type="v",gpu=self._use_gpu)[:, 0:1]
+        task_err = torch.abs((task_ref - task_meas))
 
         # RHC-related rewards
         rewards = self._rewards.get_torch_view(gpu=self._use_gpu)
 
-        rewards[:, 0:1] = self._yaw_twist_weight * (1.0 - (self._yaw_twist_scale * omega_err).clamp(-self._reward_clamp_thresh, self._reward_clamp_thresh))
-        rewards[:, 1:2] = self._rhc_cnstr_viol_weight * (1.0 - self._squashed_rhc_cnstr_viol())
-        rewards[:, 2:3] = self._rhc_cost_weight * (1.0 -  self._squashed_rhc_cost())
+        rewards[:, 0:1] = self._task_weight * (1.0 - (self._task_scale * task_err).clamp(-self._reward_clamp_thresh, self._reward_clamp_thresh))
+        rewards[:, 1:2] = - self._rhc_cnstr_viol_weight * self._squashed_rhc_cnstr_viol()
+        rewards[:, 2:3] = - self._rhc_cost_weight * self._squashed_rhc_cost()
 
         tot_rewards = self._tot_rewards.get_torch_view(gpu=self._use_gpu)
         tot_rewards[:, :] = torch.sum(rewards, dim=1, keepdim=True)
@@ -147,12 +147,12 @@ class BaybladeEnv(LRhcTrainingEnvBase):
     def _fill_obs(self,
                 obs_tensor: torch.Tensor):
         
-        # assigns obs to obs_tensor
-        agent_omega_ref = self._agent_refs.rob_refs.root_state.get(data_type="omega",gpu=self._use_gpu)[:, 2:3] # getting z omega (local)
-        robot_yaw_twist = self._robot_state.root_state.get(data_type="omega",gpu=self._use_gpu)[:, 2:3] # getting meas. z omega (abs)
+        # assigns obs to obs_tensos
+        agent_task_ref = self._agent_refs.rob_refs.root_state.get(data_type="v",gpu=self._use_gpu)[:, 0:1] 
+        robot_task_meas = self._robot_state.root_state.get(data_type="v",gpu=self._use_gpu)[:, 0:1] 
 
-        obs_tensor[:, 0:1] = robot_yaw_twist
-        obs_tensor[:, 1:2] = agent_omega_ref
+        obs_tensor[:, 0:1] = robot_task_meas
+        obs_tensor[:, 1:2] = agent_task_ref
         obs_tensor[:, 2:3] = self._squashed_rhc_cnstr_viol()
         obs_tensor[:, 3:4] = self._squashed_rhc_cost()
 
@@ -167,22 +167,22 @@ class BaybladeEnv(LRhcTrainingEnvBase):
     def _randomize_refs(self,
                 env_indxs: torch.Tensor = None):
         
-        agent_omega_ref_current = self._agent_refs.rob_refs.root_state.get(data_type="omega",gpu=self._use_gpu)
+        agent_vel_ref_current = self._agent_refs.rob_refs.root_state.get(data_type="v",gpu=self._use_gpu)
         if env_indxs is None:
-            agent_omega_ref_current[:, 2:3] = (self._yaw_twist_ub-self._yaw_twist_lb) * torch.rand_like(agent_omega_ref_current[:, 2:3]) + self._yaw_twist_lb # randomize twist ref
+            agent_vel_ref_current[:, 0:1] = (self._lin_vel_ub-self._lin_vel_lb) * torch.rand_like(agent_vel_ref_current[:, 0:1]) + self._lin_vel_lb # randomize lin vel ref
         else:
-            agent_omega_ref_current[env_indxs, 2:3] = (self._yaw_twist_ub-self._yaw_twist_lb) * torch.rand_like(agent_omega_ref_current[env_indxs, 2:3]) + self._yaw_twist_lb # randomize twist ref
-        self._agent_refs.rob_refs.root_state.set(data_type="omega", data=agent_omega_ref_current,
-                                            gpu=self._use_gpu)
+            agent_vel_ref_current[env_indxs, 0:1] = (self._lin_vel_ub-self._lin_vel_lb) * torch.rand_like(agent_vel_ref_current[env_indxs, 0:1]) + self._lin_vel_lb # randomize twist ref
 
+        self._agent_refs.rob_refs.root_state.set(data_type="v", data=agent_vel_ref_current,
+                                            gpu=self._use_gpu)
         self._synch_refs(gpu=self._use_gpu)
     
     def _get_obs_names(self):
 
         obs_names = [""] * self.obs_dim()
 
-        obs_names[0] = "yaw_twist"
-        obs_names[1] = "agent_yaw_twist_ref"
+        obs_names[0] = "lin_vel_x"
+        obs_names[1] = "agent_lin_vel_x_ref"
         obs_names[2] = "rhc_const_viol"
         obs_names[3] = "rhc_cost"
 
@@ -210,7 +210,7 @@ class BaybladeEnv(LRhcTrainingEnvBase):
         n_rewards = 3
         reward_names = [""] * n_rewards
 
-        reward_names[0] = "twist_error"
+        reward_names[0] = "task_error"
         reward_names[1] = "rhc_const_viol"
         reward_names[2] = "rhc_cost"
 

@@ -76,7 +76,7 @@ if __name__ == '__main__':
     # sim_params["enable_sleeping"] = True
     # Per-actor settings ( can override in actor_options )
     sim_params["solver_position_iteration_count"] = 4 # defaults to 4
-    sim_params["solver_velocity_iteration_count"] = 1 # defaults to 1
+    sim_params["solver_velocity_iteration_count"] = 2 # defaults to 1
     sim_params["sleep_threshold"] = 0.0 # Mass-normalized kinetic energy threshold below which an actor may go to sleep.
     # Allowed range [0, max_float).
     sim_params["stabilization_threshold"] = 1e-5
@@ -128,7 +128,7 @@ if __name__ == '__main__':
             robot_pkg_name=args.robot_pkg_name,
             integration_dt = sim_params["physics_dt"],
             num_envs = num_envs, 
-            cloning_offset = np.array([[0.0, 0.0, 0.4]] * num_envs), 
+            cloning_offset = np.array([[0.0, 0.0, 0.55]] * num_envs), 
             env_spacing=6,
             spawning_radius=1.0, 
             use_flat_ground=True, 
