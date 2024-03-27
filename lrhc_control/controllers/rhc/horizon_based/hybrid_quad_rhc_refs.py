@@ -152,47 +152,12 @@ class HybridQuadRhcRefs(RhcRefs):
             q_ref: np.ndarray):
 
         if self.is_running():
-            if (not isinstance(p_ref, np.ndarray) or \
-                not isinstance(q_ref, np.ndarray)):
-                exception = f"p_ref and q_ref should be numpy arrays!"
-                Journal.log(self.__class__.__name__,
-                    "reset",
-                    exception,
-                    LogType.EXCEP,
-                    throw_when_excep = True)
-            if (not len(p_ref.shape) == 2) or \
-                (not len(q_ref.shape) == 2):
-                exception = f"p_ref and q_ref should be 2D ndarrays"
-                Journal.log(self.__class__.__name__,
-                    "reset",
-                    exception,
-                    LogType.EXCEP,
-                    throw_when_excep = True)
-            if (not p_ref.shape[0] == 1) or \
-                (not q_ref.shape[0] == 1):
-                exception = f"First dim. of p_ref and q_ref should be 1D"
-                Journal.log(self.__class__.__name__,
-                    "reset",
-                    exception,
-                    LogType.EXCEP,
-                    throw_when_excep = True)
-            if (not p_ref.shape[1]== 3) or \
-                (not q_ref.shape[1] == 4):
-                exception = f"Second dim. of either p_ref or q_ref is not consinstent." + \
-                                "it should be, respectively, 3 and 4 \(quaternion\)"
-                Journal.log(self.__class__.__name__,
-                    "reset",
-                    exception,
-                    LogType.EXCEP,
-                    throw_when_excep = True)
-            
+
             # resets shared mem
-
-            contact_flags = self.contact_flags.get_numpy_view()
-            phase_id = self.phase_id.get_numpy_view()
-
-            contact_flags[self.robot_index, :] = np.full((1, self.n_contacts), dtype=np.bool_, fill_value=True)
-            phase_id[self.robot_index, :] = -1 # defaults to custom phase id
+            contact_flags_current = self.contact_flags.get_numpy_view()
+            phase_id_current = self.phase_id.get_numpy_view()
+            contact_flags_current[self.robot_index, :] = np.full((1, self.n_contacts), dtype=np.bool_, fill_value=True)
+            phase_id_current[self.robot_index, :] = -1 # defaults to custom phase id
 
             self.rob_refs.root_state.set(data_type="p", data=p_ref, robot_idxs=self.robot_index_np)
             self.rob_refs.root_state.set(data_type="q", data=q_ref, robot_idxs=self.robot_index_np)
