@@ -64,13 +64,13 @@ class LinVelEnv(LRhcTrainingEnvBase):
 
         # overriding actions scalings and offsets (by default 1.0 and 0.0)
         self._actions_offsets[:, 0:2] = 0.0 # vxy_cmd 
-        self._actions_scalings[:, 0:2] = 0.1 # 0.05
+        self._actions_scalings[:, 0:2] = 0.2 # 0.05
         self._actions_offsets[:, 2] = 0.6 # h_cmd
-        self._actions_scalings[:, 2] = 0.05 # 0.025
+        self._actions_scalings[:, 2] = 0.1 # 0.025
         self._actions_offsets[:, 3:6] = 0.0 # omega_cmd 
-        self._actions_scalings[:, 3:6] = 0.1 # 0.05
+        self._actions_scalings[:, 3:6] = 0.2 # 0.05
         self._actions_offsets[:, 6:10] = 1.0 # stepping flags 
-        self._actions_scalings[:, 6:10] =  0.2 # 0.1
+        self._actions_scalings[:, 6:10] =  0.4 # 0.1
         
         self._this_child_path = os.path.abspath(__file__)
 
