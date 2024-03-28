@@ -775,7 +775,6 @@ class LRhcTrainingEnvBase():
         if self._use_gpu:
             # from GPU to CPU 
             self._terminations.synch_mirror(from_gpu=True) 
-        
         self._terminations.synch_all(read=False, retry = True) # writes on shared mem
 
     @abstractmethod
