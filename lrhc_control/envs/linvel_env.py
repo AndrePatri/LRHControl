@@ -18,7 +18,7 @@ class LinVelEnv(LRhcTrainingEnvBase):
             dtype: torch.dtype = torch.float32,
             debug: bool = True):
 
-        obs_dim = 8 # [lin_v, lin_v_meas, rhc_cnstr, rhc_cost ..]
+        obs_dim = 14 # [twist, twist_ref, rhc_cnstr, rhc_cost ..]
         actions_dim = 2 + 1 + 3 + 4 # [vxy_cmd, h_cmd, twist_cmd, dostep_0, dostep_1, dostep_2, dostep_3]
         # actions_dim = 2 + 1 + 3 # [vxy_cmd, h_cmd, twist_cmd]
 
@@ -119,7 +119,7 @@ class LinVelEnv(LRhcTrainingEnvBase):
                                             gpu=self._use_gpu) 
 
         # contact flags
-        rhc_latest_contact_ref[:, :] = agent_action[:, 6:10] > 0.5 # keep contact if agent actiom <=5
+        rhc_latest_contact_ref[:, :] = agent_action[:, 6:10] > 0.5 # keep contact if agent actiom > 0.5
 
         if self._use_gpu:
             self._rhc_refs.rob_refs.root_state.synch_mirror(from_gpu=self._use_gpu) # write from gpu to cpu mirror
@@ -130,9 +130,9 @@ class LinVelEnv(LRhcTrainingEnvBase):
     def _compute_rewards(self):
         
         # task error
-        task_ref = self._agent_refs.rob_refs.root_state.get(data_type="v", gpu=self._use_gpu)
-        task_meas = self._robot_state.root_state.get(data_type="v",gpu=self._use_gpu)
-        task_err = torch.norm(task_ref - task_meas, p=1, dim=1, keepdim=True) # sum of the absolute values of the elements
+        task_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist", gpu=self._use_gpu)
+        task_meas = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu)
+        task_err = torch.norm(task_ref - task_meas, p=2, dim=1, keepdim=True) # sum of the absolute values of the elements
         # RHC-related rewards
         rewards = self._rewards.get_torch_view(gpu=self._use_gpu)
 
@@ -147,12 +147,12 @@ class LinVelEnv(LRhcTrainingEnvBase):
                 obs_tensor: torch.Tensor):
         
         # assigns obs to obs_tensos
-        robot_task_meas = self._robot_state.root_state.get(data_type="v",gpu=self._use_gpu)
-        agent_task_ref = self._agent_refs.rob_refs.root_state.get(data_type="v",gpu=self._use_gpu)
-        obs_tensor[:, 0:3] = robot_task_meas
-        obs_tensor[:, 3:6] = agent_task_ref
-        obs_tensor[:, 6:7] = self._squashed_rhc_cnstr_viol()
-        obs_tensor[:, 7:8] = self._squashed_rhc_cost()
+        robot_task_meas = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu)
+        agent_task_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu)
+        obs_tensor[:, 0:6] = robot_task_meas
+        obs_tensor[:, 6:12] = agent_task_ref
+        obs_tensor[:, 12:13] = self._squashed_rhc_cnstr_viol()
+        obs_tensor[:, 13:14] = self._squashed_rhc_cost()
 
     def _squashed_rhc_cnstr_viol(self):
         rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_view(gpu=self._use_gpu)
@@ -165,17 +165,15 @@ class LinVelEnv(LRhcTrainingEnvBase):
     def _randomize_refs(self,
                 env_indxs: torch.Tensor = None):
         
-        agent_vel_ref_current = self._agent_refs.rob_refs.root_state.get(data_type="v",gpu=self._use_gpu)
+        agent_twist_ref_current = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu)
         if env_indxs is None:
-            agent_vel_ref_current[:, 0:1] = (self._lin_vel_ub-self._lin_vel_lb) * torch.rand_like(agent_vel_ref_current[:, 0:1]) + self._lin_vel_lb # randomize lin vel ref
-            agent_vel_ref_current[:, 1:2] = 0
-            agent_vel_ref_current[:, 2:3] = 0
+            agent_twist_ref_current[:, :] = 0 # to twist by default
+            agent_twist_ref_current[:, 0:1] = (self._lin_vel_ub-self._lin_vel_lb) * torch.rand_like(agent_twist_ref_current[:, 0:1]) + self._lin_vel_lb # randomize lin vel ref
         else:
-            agent_vel_ref_current[env_indxs, 0:1] = (self._lin_vel_ub-self._lin_vel_lb) * torch.rand_like(agent_vel_ref_current[env_indxs, 0:1]) + self._lin_vel_lb # randomize twist ref
-            agent_vel_ref_current[env_indxs, 1:2] = 0
-            agent_vel_ref_current[env_indxs, 2:3] = 0
+            agent_twist_ref_current[env_indxs, :] = 0 # to twist by default
+            agent_twist_ref_current[env_indxs, 0:1] = (self._lin_vel_ub-self._lin_vel_lb) * torch.rand_like(agent_twist_ref_current[env_indxs, 0:1]) + self._lin_vel_lb # randomize twist ref
 
-        self._agent_refs.rob_refs.root_state.set(data_type="v", data=agent_vel_ref_current,
+        self._agent_refs.rob_refs.root_state.set(data_type="twist", data=agent_twist_ref_current,
                                             gpu=self._use_gpu)
         self._synch_refs(gpu=self._use_gpu)
     
@@ -186,11 +184,17 @@ class LinVelEnv(LRhcTrainingEnvBase):
         obs_names[0] = "lin_vel_x"
         obs_names[1] = "lin_vel_y"
         obs_names[2] = "lin_vel_z"
-        obs_names[3] = "lin_vel_x_ref"
-        obs_names[4] = "lin_vel_y_ref"
-        obs_names[5] = "lin_vel_z_ref"
-        obs_names[6] = "rhc_const_viol"
-        obs_names[7] = "rhc_cost"
+        obs_names[3] = "omega_x"
+        obs_names[4] = "omega_y"
+        obs_names[5] = "omega_z"
+        obs_names[6] = "lin_vel_x_ref"
+        obs_names[7] = "lin_vel_y_ref"
+        obs_names[8] = "lin_vel_z_ref"
+        obs_names[9] = "omega_x_ref"
+        obs_names[10] = "omega_y_ref"
+        obs_names[11] = "omega_z_ref"
+        obs_names[12] = "rhc_const_viol"
+        obs_names[13] = "rhc_cost"
 
         return obs_names
 
