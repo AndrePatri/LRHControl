@@ -112,7 +112,7 @@ class LRhcTrainingEnvBase():
 
         self._episodic_rewards_getter = None
 
-        self._obs_threshold = 1 # used for clipping observations
+        self._obs_threshold = 1e2 # used for clipping observations
 
         self._base_info = {}
         self._base_info["final_info"] = None

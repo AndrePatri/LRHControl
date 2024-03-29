@@ -18,12 +18,12 @@ class LinVelEnv(LRhcTrainingEnvBase):
             dtype: torch.dtype = torch.float32,
             debug: bool = True):
 
-        obs_dim = 14 # [twist, twist_ref, rhc_cnstr, rhc_cost ..]
+        obs_dim = 13 # [twist, twist_ref, rhc_cnstr, rhc_cost ..]
         actions_dim = 2 + 1 + 3 + 4 # [vxy_cmd, h_cmd, twist_cmd, dostep_0, dostep_1, dostep_2, dostep_3]
         # actions_dim = 2 + 1 + 3 # [vxy_cmd, h_cmd, twist_cmd]
 
-        n_steps_episode_lb = 128 # episode length
-        n_steps_episode_ub = 1024
+        n_steps_episode_lb = 512 # episode length
+        n_steps_episode_ub = 2048
         n_steps_task_rand_lb = 128 # agent refs randomization freq
         n_steps_task_rand_ub = 512
 
@@ -32,11 +32,11 @@ class LinVelEnv(LRhcTrainingEnvBase):
         env_name = "LinVelTrackTask"
 
         # tasks settings
-        self._lin_vel_lb = 0.5 #  [rad/s]
-        self._lin_vel_ub = 0.5
+        self._lin_vel_lb = 1.0 #  [rad/s]
+        self._lin_vel_ub = 1.0
 
         # rewards settings
-        self._reward_clamp_thresh = 1 # rewards will be in [-_reward_clamp_thresh, _reward_clamp_thresh]
+        self._reward_clamp_thresh = 1e2 # rewards will be in [-_reward_clamp_thresh, _reward_clamp_thresh]
 
         self._task_weight = 1
         self._task_scale = 1
@@ -64,13 +64,13 @@ class LinVelEnv(LRhcTrainingEnvBase):
 
         # overriding actions scalings and offsets (by default 1.0 and 0.0)
         self._actions_offsets[:, 0:2] = 0.0 # vxy_cmd 
-        self._actions_scalings[:, 0:2] = 1.0 # 0.05
-        self._actions_offsets[:, 2] = 0.0 # h_cmd
-        self._actions_scalings[:, 2] = 1.0 # 0.025
+        self._actions_scalings[:, 0:2] = 0.05 # 0.05
+        self._actions_offsets[:, 2] = 0.6 # h_cmd
+        self._actions_scalings[:, 2] = 0.025 # 0.025
         self._actions_offsets[:, 3:6] = 0.0 # omega_cmd 
-        self._actions_scalings[:, 3:6] = 1.0 # 0.05
-        self._actions_offsets[:, 6:10] = 0.0 # stepping flags 
-        self._actions_scalings[:, 6:10] =  1.0 # 0.1
+        self._actions_scalings[:, 3:6] = 0.05 # 0.05
+        self._actions_offsets[:, 6:10] = 1.0 # stepping flags 
+        self._actions_scalings[:, 6:10] =  0.1 # 0.1
         
         self._this_child_path = os.path.abspath(__file__)
 
@@ -138,7 +138,7 @@ class LinVelEnv(LRhcTrainingEnvBase):
 
         rewards[:, 0:1] = self._task_weight * (1.0 - (self._task_scale * task_err).clamp(-self._reward_clamp_thresh, self._reward_clamp_thresh))
         rewards[:, 1:2] = - self._rhc_cnstr_viol_weight * self._squashed_rhc_cnstr_viol()
-        rewards[:, 2:3] = - self._rhc_cost_weight * self._squashed_rhc_cost()
+        # rewards[:, 2:3] = - self._rhc_cost_weight * self._squashed_rhc_cost()
 
         tot_rewards = self._tot_rewards.get_torch_view(gpu=self._use_gpu)
         tot_rewards[:, :] = torch.sum(rewards, dim=1, keepdim=True)
@@ -152,7 +152,7 @@ class LinVelEnv(LRhcTrainingEnvBase):
         obs_tensor[:, 0:6] = robot_task_meas
         obs_tensor[:, 6:12] = agent_task_ref
         obs_tensor[:, 12:13] = self._squashed_rhc_cnstr_viol()
-        obs_tensor[:, 13:14] = self._squashed_rhc_cost()
+        # obs_tensor[:, 13:14] = self._squashed_rhc_cost()
 
     def _squashed_rhc_cnstr_viol(self):
         rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_view(gpu=self._use_gpu)
@@ -194,7 +194,7 @@ class LinVelEnv(LRhcTrainingEnvBase):
         obs_names[10] = "omega_y_ref"
         obs_names[11] = "omega_z_ref"
         obs_names[12] = "rhc_const_viol"
-        obs_names[13] = "rhc_cost"
+        # obs_names[13] = "rhc_cost"
 
         return obs_names
 
@@ -217,11 +217,11 @@ class LinVelEnv(LRhcTrainingEnvBase):
 
     def _get_rewards_names(self):
 
-        n_rewards = 3
+        n_rewards = 2
         reward_names = [""] * n_rewards
 
         reward_names[0] = "task_error"
         reward_names[1] = "rhc_const_viol"
-        reward_names[2] = "rhc_cost"
+        # reward_names[2] = "rhc_cost"
 
         return reward_names
