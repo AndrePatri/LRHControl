@@ -1,6 +1,6 @@
 from lrhc_control.envs.linvel_in_place_env import InPlaceVelTrack
 from lrhc_control.envs.linvel_env import LinVelEnv
-
+from lrhc_control.envs.heightchange_baseline_env import LRhcHeightChange
 # from lrhc_control.training_algs.ppo.clean_ppo import CleanPPO
 # from lrhc_control.training_algs.ppo.mem_eff_ppo import MemEffPPO
 from lrhc_control.training_algs.ppo.ppo import PPO
@@ -40,11 +40,16 @@ if __name__ == "__main__":
     if args.cores:
         set_affinity(args.cores)
     
-    env = InPlaceVelTrack(namespace=args.ns,
+    env = LRhcHeightChange(namespace=args.ns,
                     verbose=True,
                     vlevel=VLevel.V2,
                     use_gpu=not args.use_cpu,
                     debug=True)
+    # env = InPlaceVelTrack(namespace=args.ns,
+    #                 verbose=True,
+    #                 vlevel=VLevel.V2,
+    #                 use_gpu=not args.use_cpu,
+    #                 debug=True)
     # env = LinVelEnv(namespace=args.ns,
     #                 verbose=True,
     #                 vlevel=VLevel.V2,

@@ -36,12 +36,10 @@ class PPO(ActorCriticAlgoBase):
 
             # sample actions from latest policy (actor) and state value from latest value function (critic)
             with torch.no_grad(): # no need for gradient computation
-                action, logprob, entropies = self._agent.get_action(self._obs[transition])
+                action, logprob, _ = self._agent.get_action(self._obs[transition])
                 self._values[transition] = self._agent.get_value(self._obs[transition]).reshape(-1, 1)
-            
             self._actions[transition] = action
             self._logprobs[transition] = logprob.reshape(-1, 1)
-            self._action_entropies[transition] = entropies.reshape(-1, 1)
 
             # perform a step of the (vectorized) env and retrieve 
             env_step_ok = self._env.step(action)
@@ -56,7 +54,6 @@ class PPO(ActorCriticAlgoBase):
 
             if not env_step_ok:
                 return False
-            
         
         return True
     
@@ -80,7 +77,7 @@ class PPO(ActorCriticAlgoBase):
                 # compute advantages using the Generalized Advantage Estimation (GAE) 
                 self._advantages[t] = lastgaelam = td_error + self._discount_factor * self._gae_lambda * nextnonterminal * lastgaelam
 
-            # estimated cumulative rewards from each time step to the end of the episode
+            #   cumulative rewards from each time step to the end of the episode
             self._returns[:, :] = self._advantages + self._values
 
     def _improve_policy(self):
@@ -160,7 +157,6 @@ class PPO(ActorCriticAlgoBase):
                 self._optimizer.step() # update actor's (policy) parameters
             
             if self._target_kl is not None and approx_kl > self._target_kl:
-
                 break
         
         y_pred, y_true = batched_values.cpu(), batched_returns.cpu()

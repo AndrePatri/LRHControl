@@ -535,14 +535,14 @@ class ActorCriticAlgoBase():
 
         # main algo settings
         self._iterations_n = 1500 # number of ppo iterations
-        self._batch_size_nom = 24576 # 24576
+        self._batch_size_nom = 8192 # 24576
         self._num_minibatches = 32
         self._env_timesteps = int(self._batch_size_nom / self._num_envs)
         self._batch_size = self._env_timesteps * self._num_envs
         self._minibatch_size = int(self._batch_size // self._num_minibatches)
         self._total_timesteps = self._iterations_n * self._batch_size
         
-        self._base_learning_rate = 3e-3
+        self._base_learning_rate = 3e-4
         self._learning_rate_now = self._base_learning_rate
         self._anneal_lr = True
         self._discount_factor = 0.99
@@ -628,10 +628,6 @@ class ActorCriticAlgoBase():
                         dtype=self._dtype,
                         device=self._torch_device)
         self._logprobs = torch.full(size=(self._env_timesteps, self._num_envs, 1),
-                        fill_value=0,
-                        dtype=self._dtype,
-                        device=self._torch_device)
-        self._action_entropies = torch.full(size=(self._env_timesteps, self._num_envs, 1),
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device)
