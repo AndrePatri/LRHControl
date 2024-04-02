@@ -31,8 +31,7 @@ class ActorCriticAlgoBase():
     def __init__(self,
             env, 
             debug = False,
-            seed: int = 1,
-            n_tanh_outputs: int = 0):
+            seed: int = 1):
 
         self._env = env 
         self._seed = seed
@@ -42,17 +41,7 @@ class ActorCriticAlgoBase():
                         actions_dim=self._env.actions_dim(),
                         actor_std=0.01,
                         critic_std=1.0)
-        # self._agent = ActorCriticLRelu(obs_dim=self._env.obs_dim(),
-        #                 actions_dim=self._env.actions_dim(),
-        #                 actor_std=0.01,
-        #                 critic_std=1.0)
-        # self._agent = ActorCriticThB(obs_dim=self._env.obs_dim(),
-        #                 actions_dim=self._env.actions_dim(),
-        #                 n_tanh_outputs=n_tanh_outputs,
-        #                 tanh_lb=0,
-        #                 tanh_ub=1.0,
-        #                 actor_std=0.01,
-        #                 critic_std=1.0)
+        
         self._debug = debug
 
         self._optimizer = None
@@ -547,7 +536,7 @@ class ActorCriticAlgoBase():
         # main algo settings
         self._iterations_n = 1500 # number of ppo iterations
         self._batch_size_nom = 24576 # 24576
-        self._num_minibatches = 4
+        self._num_minibatches = 32
         self._env_timesteps = int(self._batch_size_nom / self._num_envs)
         self._batch_size = self._env_timesteps * self._num_envs
         self._minibatch_size = int(self._batch_size // self._num_minibatches)
@@ -555,7 +544,7 @@ class ActorCriticAlgoBase():
         
         self._base_learning_rate = 3e-3
         self._learning_rate_now = self._base_learning_rate
-        self._anneal_lr = False
+        self._anneal_lr = True
         self._discount_factor = 0.99
         self._gae_lambda = 0.95
         

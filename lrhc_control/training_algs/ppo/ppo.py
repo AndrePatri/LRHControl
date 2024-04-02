@@ -21,8 +21,7 @@ class PPO(ActorCriticAlgoBase):
 
         super().__init__(env=env, 
                     debug=debug,
-                    seed=seed,
-                    n_tanh_outputs=4)
+                    seed=seed)
 
         self._this_child_path = os.path.abspath(__file__) # overrides parent
 
