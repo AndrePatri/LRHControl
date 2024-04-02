@@ -63,7 +63,8 @@ class ActorCriticAlgoBase():
         self._drop_dir = None
         self._dbinfo_drop_dir = None
         self._model_path = None
-
+        
+        self._policy_update_db_data_dict =  {}
         self._hyperparameters = {}
         
         self._episodic_reward_getter = self._env.ep_reward_getter()
@@ -452,7 +453,8 @@ class ActorCriticAlgoBase():
                       self._episodic_sub_rewards_env_avrg[self._it_counter-1, i] for i in range(len(self._reward_names))})
             wandb_d.update({f"sub_reward/{self._reward_names[i]}":
                       wandb.Histogram(self._episodic_sub_rewards.numpy()[self._it_counter-1, :, i:i+1]) for i in range(len(self._reward_names))})
-            
+            wandb_d.update(self._policy_update_db_data_dict)
+        
             # write debug info to shared memory    
             wandb.log(wandb_d),
 

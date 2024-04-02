@@ -106,26 +106,7 @@ class PPO(ActorCriticAlgoBase):
 
                 end = start + self._minibatch_size
                 minibatch_inds = shuffled_batch_indxs[start:end]
-            
-                # nan_mask = torch.isnan(batched_obs[minibatch_inds])
-                # max_value = torch.max(batched_obs[minibatch_inds]).item()
-                # min_value = torch.min(batched_obs[minibatch_inds]).item()
-                # nan_mask2 = torch.isnan(batched_actions[minibatch_inds])
-                # max_value2 = torch.max(batched_actions[minibatch_inds]).item()
-                # min_value2 = torch.min(batched_actions[minibatch_inds]).item()
-                # print("Epoch")
-                # print(epoch)
-                # print("obs nans")
-                # print(torch.sum(nan_mask).item())
-                # print("obs max/min")
-                # print(max_value)
-                # print(min_value)
-                # print("actions nans")
-                # print(torch.sum(nan_mask2).item())
-                # print("actions max/min")
-                # print(max_value2)
-                # print(min_value2)
-
+        
                 _, newlogprob, entropy, newvalue = self._agent.get_action_and_value(
                                                                     batched_obs[minibatch_inds], 
                                                                     batched_actions[minibatch_inds])
@@ -134,13 +115,11 @@ class PPO(ActorCriticAlgoBase):
                 # under the current policy and the probability of taking the same action under the policy 
 
                 with torch.no_grad():
-
                     # calculate approximate KL divergence http://joschu.net/blog/kl-approx.html
                     # The KL (Kullback-Leibler) divergence is a measure of how one probability 
                     # distribution diverges from a second, expected probability distribution
                     # in PPO, this is used as a regularization term in the objective function
-
-                    # old_approx_kl = (-logratio).mean()
+                    old_approx_kl = (-logratio).mean()
                     approx_kl = ((ratio - 1) - logratio).mean()
                     clipfracs += [((ratio - 1.0).abs() > self._clip_coef).float().mean().item()]
 
@@ -184,3 +163,15 @@ class PPO(ActorCriticAlgoBase):
             if self._target_kl is not None and approx_kl > self._target_kl:
 
                 break
+        
+        y_pred, y_true = batched_values.cpu(), batched_returns.cpu()
+        var_y = torch.var(y_true)
+        explained_var = torch.nan if var_y == 0 else 1 - torch.var(y_true - y_pred) / var_y
+
+        self._policy_update_db_data_dict.update({"losses/value_loss": v_loss.item(),
+                                        "losses/policy_loss": pg_loss.item(),
+                                        "losses/entropy": entropy_loss.item(),
+                                        "losses/old_approx_kl": old_approx_kl.item(),
+                                        "losses/approx_kl": approx_kl.item(),
+                                        "losses/clipfrac": torch.mean(torch.tensor(clipfracs)),
+                                        "losses/explained_variance": explained_var}) 
