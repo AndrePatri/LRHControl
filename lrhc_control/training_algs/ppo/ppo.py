@@ -120,7 +120,7 @@ class PPO(ActorCriticAlgoBase):
                     clipfracs += [((ratio - 1.0).abs() > self._clip_coef).float().mean().item()]
 
                 minibatch_advantages = batched_advantages[minibatch_inds]
-                if self._norm_adv: # normalizing advantages if requires
+                if self._norm_adv: # normalizing advantages if required
                     minibatch_advantages = (minibatch_advantages - minibatch_advantages.mean()) / (minibatch_advantages.std() + 1e-8)
 
                 # Policy loss
@@ -163,7 +163,8 @@ class PPO(ActorCriticAlgoBase):
         var_y = torch.var(y_true)
         explained_var = torch.nan if var_y == 0 else 1 - torch.var(y_true - y_pred) / var_y
 
-        self._policy_update_db_data_dict.update({"losses/value_loss": v_loss.item(),
+        self._policy_update_db_data_dict.update({"losses/tot_loss": loss.item(),
+                                        "losses/value_loss": v_loss.item(),
                                         "losses/policy_loss": pg_loss.item(),
                                         "losses/entropy": entropy_loss.item(),
                                         "losses/old_approx_kl": old_approx_kl.item(),
