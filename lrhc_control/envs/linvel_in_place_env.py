@@ -114,7 +114,6 @@ class InPlaceVelTrack(LRhcTrainingEnvBase):
         self._rhc_refs.rob_refs.root_state.set(data_type="omega", data=rhc_latest_omega_ref,
                                             gpu=self._use_gpu) 
 
-
         if self._use_gpu:
             self._rhc_refs.rob_refs.root_state.synch_mirror(from_gpu=self._use_gpu) # write from gpu to cpu mirror
         self._rhc_refs.rob_refs.root_state.synch_all(read=False, retry=True) # write mirror to shared mem

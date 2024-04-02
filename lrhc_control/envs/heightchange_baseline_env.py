@@ -79,10 +79,11 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
 
     def _apply_actions_to_rhc(self):
         
-        agent_action = self.get_last_actions()
+        agent_action = self.get_actions()
 
         rhc_latest_p_ref = self._rhc_refs.rob_refs.root_state.get(data_type="p", gpu=self._use_gpu)
-        rhc_latest_p_ref[:, 2:3] = agent_action[:, 2:3]
+        rhc_latest_p_ref[:, 2:3] = agent_action
+
         self._rhc_refs.rob_refs.root_state.set(data_type="p", data=rhc_latest_p_ref,
                                             gpu=self._use_gpu)
         if self._use_gpu:
@@ -107,19 +108,15 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         tot_rewards = self._tot_rewards.get_torch_view(gpu=self._use_gpu)
         tot_rewards[:, :] = torch.sum(rewards, dim=1, keepdim=True)
 
-    def _get_observations(self):
-                
-        self._synch_obs(gpu=self._use_gpu)
-            
+    def _fill_obs(self,
+            obs_tensor: torch.Tensor):
+                            
         agent_h_ref = self._agent_refs.rob_refs.root_state.get(data_type="p", gpu=self._use_gpu)[:, 2:3] # getting z ref
         robot_h = self._robot_state.root_state.get(data_type="p", gpu=self._use_gpu)[:, 2:3]
         # rhc_cost = self._rhc_status.rhc_cost.get_torch_view(gpu=self._use_gpu)
-        rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_view(gpu=self._use_gpu)
-
-        obs = self._obs.get_torch_view(gpu=self._use_gpu)
-        obs[:, 0:1] = robot_h
-        obs[:, 1:2] = agent_h_ref
-        obs[:, 2:3] = self._squashed_cnstr_viol()
+        obs_tensor[:, 0:1] = robot_h
+        obs_tensor[:, 1:2] = agent_h_ref
+        obs_tensor[:, 2:3] = self._squashed_cnstr_viol()
 
     def _squashed_cnstr_viol(self):
         rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_view(gpu=self._use_gpu)
