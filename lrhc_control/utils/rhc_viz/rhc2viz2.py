@@ -3,6 +3,8 @@ from rhcviz.utils.namings import NamingConventions
 from rhcviz.utils.string_list_encoding import StringArray
 
 from control_cluster_bridge.utilities.shared_data.rhc_data import RobotState
+from control_cluster_bridge.utilities.shared_data.rhc_data import RhcRefs
+
 from control_cluster_bridge.utilities.shared_data.rhc_data import RhcInternal
 
 import numpy as np
@@ -69,6 +71,12 @@ class RhcToViz2Bridge:
                                                                         namespace=self.namespace),
                                             qos_profile=self._qos_settings)
 
+        self.rhc_refs_pub = self.node.create_publisher(Float64MultiArray, 
+                                            self.ros_names.rhc_refs_topicname(basename=self.rhcviz_basename, 
+                                                                        namespace=self.namespace),
+                                            qos_profile=self._qos_settings)
+
+
         self.robot_q_pub = self.node.create_publisher(Float64MultiArray, 
                                             self.ros_names.robot_q_topicname(basename=self.rhcviz_basename, 
                                                                     namespace=self.namespace),
@@ -90,6 +98,7 @@ class RhcToViz2Bridge:
 
         self.rhc_internal_clients = None
         self.robot_state = None
+        self.rhc_refs = None
 
         self._current_index = 0
 
@@ -174,9 +183,17 @@ class RhcToViz2Bridge:
                                 verbose=True,
                                 vlevel=VLevel.V2)
         self.robot_state.set_q_remapping(q_remapping=[1, 2, 3, 0]) # remapping from w, i, j, k
-        # to rviz conventions (i, k, k, w)
-
         self.robot_state.run()
+        # to rviz conventions (i, k, k, w)
+        self.rhc_refs = RhcRefs(namespace=self.namespace,
+                                is_server=False,
+                                with_gpu_mirror=False,
+                                safe=False,
+                                verbose=True,
+                                vlevel=VLevel.V2)
+        self.rhc_refs.rob_refs.set_q_remapping(q_remapping=[1, 2, 3, 0]) # remapping from w, i, j, k
+        # to rviz conventions (i, k, k, w)
+        self.rhc_refs.run()
 
         self.cluster_size = self.robot_state.n_robots()
         self.jnt_names_robot = self.robot_state.jnt_names()
@@ -196,18 +213,15 @@ class RhcToViz2Bridge:
         
         rhc_internal_config = RhcInternal.Config(is_server=False, 
                         enable_q=True)
-        
         # rhc internal data
         self.rhc_internal_clients = []
         for i in range(len(self._robot_indexes)):
-            
             self.rhc_internal_clients.append(RhcInternal(config=rhc_internal_config,
                                                 namespace=self.namespace,
                                                 rhc_index=self._robot_indexes[i],
                                                 verbose=True,
                                                 vlevel=VLevel.V2,
                                                 safe=False))
-            
             self.rhc_internal_clients[self._robot_indexes[i]].run()
            
         # publishing joint names on topic 
@@ -281,6 +295,7 @@ class RhcToViz2Bridge:
             
                 # read from shared memory
                 self.robot_state.synch_from_shared_mem()
+                self.rhc_refs.rob_refs.synch_from_shared_mem()
                 self.rhc_internal_clients[self._current_index].synch(read=True)
 
                 self._publish()
@@ -309,9 +324,9 @@ class RhcToViz2Bridge:
                     self.rhc_internal_clients[i].close() # closes servers
 
             if not self.robot_state is None:
-
                 self.robot_state.close()
-            
+            if not self.rhc_refs is None:
+                self.rhc_refs.close()
             self._is_running = False
     
     def _sporadic_log(self,
@@ -348,22 +363,27 @@ class RhcToViz2Bridge:
 
         robot_q = np.concatenate((root_q_robot, jnts_q_robot), axis=0)
 
+        # rhc refs
+        rhc_ref_pose = self.rhc_refs.rob_refs.root_state.get(data_type="q_full",robot_idxs=self._current_index)
+        rhc_ref_twist= self.rhc_refs.rob_refs.root_state.get(data_type="twist",robot_idxs=self._current_index)
+        rhc_refs = np.concatenate((rhc_ref_pose, rhc_ref_twist), axis=0)
+
         if not self._contains_nan(rhc_q):
-
             self.rhc_q_pub.publish(Float64MultiArray(data=rhc_q))
-
         else:
-
             self._sporadic_log(calling_methd="_publish", 
                         msg="rhc q data contains some NaN. That data will not be published")
             
         # publish robot_q
-        
         if not self._contains_nan(robot_q):
-
             self.robot_q_pub.publish(Float64MultiArray(data=robot_q))
-        
         else:
-
+            self._sporadic_log(calling_methd="_publish", 
+                        msg="robot q data contains some NaN. That data will not be published")
+        
+        # publish rhc_refs
+        if not self._contains_nan(robot_q):
+            self.rhc_refs_pub.publish(Float64MultiArray(data=rhc_refs))
+        else:
             self._sporadic_log(calling_methd="_publish", 
                         msg="robot q data contains some NaN. That data will not be published")
