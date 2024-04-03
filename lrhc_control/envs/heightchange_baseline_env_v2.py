@@ -30,7 +30,16 @@ class LRhcHeightChangeV2(LRhcTrainingEnvBase):
 
         env_name = "LRhcHeightChangeV2"
         
+        device = "cuda" if use_gpu else "cpu"
         self._task_weight = 1
+        self._task_err_weights = torch.full((1, 6), dtype=dtype, device=device,
+                            fill_value=0.0) 
+        self._task_err_weights[0, 0] = 0.01
+        self._task_err_weights[0, 1] = 0.01
+        self._task_err_weights[0, 2] = 1.0
+        self._task_err_weights[0, 3] = 0.01
+        self._task_err_weights[0, 4] = 0.01
+        self._task_err_weights[0, 5] = 0.01
         self._task_scale = 2
 
         self._rhc_cnstr_viol_weight = 1
@@ -117,14 +126,15 @@ class LRhcHeightChangeV2(LRhcTrainingEnvBase):
         task_meas = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu)
         robot_h = self._robot_state.root_state.get(data_type="p", gpu=self._use_gpu)[:, 2:3]
         task_meas[:, 2:3] = robot_h
-        task_err = torch.norm(task_ref - task_meas, p=2, dim=1, keepdim=True)
+        task_error = (task_ref - task_meas) * self._task_err_weights
+        task_err_norm = torch.norm(task_error, p=2, dim=1, keepdim=True)
                                       
         # rhc penalties
         # rhc_cost = self._rhc_status.rhc_cost.get_torch_view(gpu=self._use_gpu)
         # rhc_fail_penalty = self._rhc_status.fails.get_torch_view(gpu=self._use_gpu)
 
         rewards = self._rewards.get_torch_view(gpu=self._use_gpu)
-        rewards[:, 0:1] = self._task_weight * (1.0 - (self._task_scale * task_err).clamp(-self._reward_clamp_thresh, self._reward_clamp_thresh))
+        rewards[:, 0:1] = self._task_weight * (1.0 - (self._task_scale * task_err_norm).clamp(-self._reward_clamp_thresh, self._reward_clamp_thresh))
         rewards[:, 1:2] = self._rhc_cnstr_viol_weight * (1.0 - self._squashed_rhc_cnstr_viol())
         
         tot_rewards = self._tot_rewards.get_torch_view(gpu=self._use_gpu)
