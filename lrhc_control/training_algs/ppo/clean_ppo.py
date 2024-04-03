@@ -30,21 +30,21 @@ class CleanPPO(ActorCriticAlgoBase):
         n_timesteps: int):
 
         # collect data from current policy over a number of timesteps
-        for step in range(n_timesteps):
+        for transition in range(n_timesteps):
             
-            self._dones[step] = torch.logical_or(self._env.get_terminations(), 
+            self._dones[transition] = torch.logical_or(self._env.get_terminations(), 
                                         self._env.get_truncations()) # note: this is not
             # correct in theory -> truncations should not be treated as terminations. But introducing
             # this error (underestimates values of truncation states) makes code cleaner (clearnrl does this)
-
-            self._obs[step] = self._env.get_obs()
+            self._obs[transition] = self._env.get_obs() # also accounts for resets when envs are 
+            # either terminated or truncated
 
             # sample actions from latest policy (actor) and state value from latest value function (critic)
             with torch.no_grad(): # no need for gradients computation
-                action, logprob, _, value = self._agent.get_action_and_value(self._obs[step])
-                self._values[step] = value.reshape(-1, 1)
-            self._actions[step] = action.reshape(-1, 1)
-            self._logprobs[step] = logprob.reshape(-1, 1)
+                action, logprob, _, value = self._agent.get_action_and_value(self._obs[transition])
+                self._values[transition] = value.reshape(-1, 1)
+            self._actions[transition] = action.reshape(-1, 1)
+            self._logprobs[transition] = logprob.reshape(-1, 1)
             
             # perform a step of the (vectorized) env and retrieve 
             env_step_ok = self._env.step(action)
@@ -52,7 +52,7 @@ class CleanPPO(ActorCriticAlgoBase):
             if not env_step_ok:
                 return False
             # retrieve new observations, rewards and termination/truncation states
-            self._rewards[step] = self._env.get_rewards()
+            self._rewards[transition] = self._env.get_rewards()
         
         return True
     
@@ -107,25 +107,6 @@ class CleanPPO(ActorCriticAlgoBase):
                 end = start + self._minibatch_size
                 minibatch_inds = shuffled_batch_indxs[start:end]
             
-                # nan_mask = torch.isnan(batched_obs[minibatch_inds])
-                # max_value = torch.max(batched_obs[minibatch_inds]).item()
-                # min_value = torch.min(batched_obs[minibatch_inds]).item()
-                # nan_mask2 = torch.isnan(batched_actions[minibatch_inds])
-                # max_value2 = torch.max(batched_actions[minibatch_inds]).item()
-                # min_value2 = torch.min(batched_actions[minibatch_inds]).item()
-                # print("Epoch")
-                # print(epoch)
-                # print("obs nans")
-                # print(torch.sum(nan_mask).item())
-                # print("obs max/min")
-                # print(max_value)
-                # print(min_value)
-                # print("actions nans")
-                # print(torch.sum(nan_mask2).item())
-                # print("actions max/min")
-                # print(max_value2)
-                # print(min_value2)
-
                 _, newlogprob, entropy, newvalue = self._agent.get_action_and_value(
                                                                     batched_obs[minibatch_inds], 
                                                                     batched_actions[minibatch_inds])
@@ -134,13 +115,11 @@ class CleanPPO(ActorCriticAlgoBase):
                 # under the current policy and the probability of taking the same action under the policy 
 
                 with torch.no_grad():
-
                     # calculate approximate KL divergence http://joschu.net/blog/kl-approx.html
                     # The KL (Kullback-Leibler) divergence is a measure of how one probability 
                     # distribution diverges from a second, expected probability distribution
                     # in PPO, this is used as a regularization term in the objective function
-
-                    # old_approx_kl = (-logratio).mean()
+                    old_approx_kl = (-logratio).mean()
                     approx_kl = ((ratio - 1) - logratio).mean()
                     clipfracs += [((ratio - 1.0).abs() > self._clip_coef).float().mean().item()]
 
@@ -182,5 +161,17 @@ class CleanPPO(ActorCriticAlgoBase):
                 self._optimizer.step() # update actor's (policy) parameters
             
             if self._target_kl is not None and approx_kl > self._target_kl:
-
                 break
+
+        y_pred, y_true = batched_values.cpu(), batched_returns.cpu()
+        var_y = torch.var(y_true)
+        explained_var = torch.nan if var_y == 0 else 1 - torch.var(y_true - y_pred) / var_y
+
+        self._policy_update_db_data_dict.update({"losses/tot_loss": loss.item(),
+                                        "losses/value_loss": self._val_f_coeff * v_loss.item(),
+                                        "losses/policy_loss": pg_loss.item(),
+                                        "losses/entropy": - self._entropy_coeff * entropy_loss.item(),
+                                        "losses/old_approx_kl": old_approx_kl.item(),
+                                        "losses/approx_kl": approx_kl.item(),
+                                        "losses/clipfrac": torch.mean(torch.tensor(clipfracs)),
+                                        "losses/explained_variance": explained_var}) 
