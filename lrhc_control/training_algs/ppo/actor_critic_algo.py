@@ -225,17 +225,13 @@ class ActorCriticAlgoBase():
             if self._save_model:
                 
                 info = f"Saving model and other data to {self._model_path}"
-
                 Journal.log(self.__class__.__name__,
                     "done",
                     info,
                     LogType.INFO,
                     throw_when_excep = True)
-
                 torch.save(self._agent.state_dict(), self._model_path)
-
                 info = f"Done."
-
                 Journal.log(self.__class__.__name__,
                     "done",
                     info,
@@ -243,9 +239,8 @@ class ActorCriticAlgoBase():
                     throw_when_excep = True)
             
             self._dump_dbinfo_to_file()
-
+            
             if self._shared_algo_data is not None:
-
                 self._shared_algo_data.close() # close shared memory
 
             self._env.close()
@@ -279,7 +274,7 @@ class ActorCriticAlgoBase():
             hf.create_dataset('episodic_sub_rewards_env_avrg', data=self._episodic_sub_rewards_env_avrg.numpy())
             hf.create_dataset('episodic_rewards_env_avrg', data=self._episodic_rewards_env_avrg.numpy())
 
-            # other data
+            # profiling data
             hf.create_dataset('rollout_dt', data=self._rollout_dt.numpy())
             hf.create_dataset('env_step_fps', data=self._env_step_fps.numpy())
             hf.create_dataset('env_step_rt_factor', data=self._env_step_rt_factor.numpy())
@@ -291,6 +286,16 @@ class ActorCriticAlgoBase():
             hf.create_dataset('n_policy_updates', data=self._n_policy_updates.numpy())
             hf.create_dataset('elapsed_min', data=self._elapsed_min.numpy())
             hf.create_dataset('learn_rates', data=self._learning_rates.numpy())
+
+            # ppo iterations db data
+            hf.create_dataset('tot_loss', data=self._tot_loss.numpy())
+            hf.create_dataset('value_loss', data=self._value_loss.numpy())
+            hf.create_dataset('policy_loss', data=self._policy_loss.numpy())
+            hf.create_dataset('entropy_loss', data=self._entropy_loss.numpy())
+            hf.create_dataset('old_approx_kl', data=self._old_approx_kl.numpy())
+            hf.create_dataset('approx_kl', data=self._approx_kl.numpy())
+            hf.create_dataset('clipfrac', data=self._clipfrac.numpy())
+            hf.create_dataset('explained_variance', data=self._explained_variance.numpy())
 
         info = f"done."
         Journal.log(self.__class__.__name__,
@@ -472,6 +477,7 @@ class ActorCriticAlgoBase():
 
         # initalize some debug data
 
+        # rollout phase
         self._rollout_dt = torch.full((self._iterations_n, 1), 
                     dtype=torch.float32, fill_value=-1.0, device="cpu")
         self._rollout_t = -1.0
@@ -479,11 +485,13 @@ class ActorCriticAlgoBase():
                     dtype=torch.float32, fill_value=0.0, device="cpu")
         self._env_step_rt_factor = torch.full((self._iterations_n, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
-
+        
+        # gae computation
         self._gae_t = -1.0
         self._gae_dt = torch.full((self._iterations_n, 1), 
                     dtype=torch.float32, fill_value=-1.0, device="cpu")
 
+        # ppo iteration
         self._policy_update_t = -1.0
         self._policy_update_dt = torch.full((self._iterations_n, 1), 
                     dtype=torch.float32, fill_value=-1.0, device="cpu")
@@ -500,10 +508,11 @@ class ActorCriticAlgoBase():
                     dtype=torch.float32, fill_value=0, device="cpu")
         self._learning_rates = torch.full((self._iterations_n, 1), 
                     dtype=torch.float32, fill_value=0, device="cpu")
+        
+        # reward db data
         tot_ep_rew_shape = self._episodic_reward_getter.get_total().shape
         subrep_ewards_shape = self._episodic_reward_getter.get().shape
         subrep_ewards_avrg_shape = self._episodic_reward_getter.get_env_avrg().shape
-
         self._reward_names = self._episodic_reward_getter.reward_names()
         self._reward_names_str = "[" + ', '.join(self._reward_names) + "]"
         self._episodic_rewards = torch.full((self._iterations_n, tot_ep_rew_shape[0], tot_ep_rew_shape[1]), 
@@ -514,6 +523,24 @@ class ActorCriticAlgoBase():
                                         dtype=torch.float32, fill_value=0.0, device="cpu")
         self._episodic_sub_rewards_env_avrg = torch.full((self._iterations_n, subrep_ewards_avrg_shape[0]), 
                                         dtype=torch.float32, fill_value=0.0, device="cpu")
+
+        # ppo iteration db data
+        self._tot_loss = torch.full((self._iterations_n, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._value_loss = torch.full((self._iterations_n, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._policy_loss = torch.full((self._iterations_n, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._entropy_loss = torch.full((self._iterations_n, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._old_approx_kl = torch.full((self._iterations_n, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._approx_kl = torch.full((self._iterations_n, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._clipfrac = torch.full((self._iterations_n, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._explained_variance = torch.full((self._iterations_n, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
 
     def _init_params(self):
 
@@ -550,7 +577,7 @@ class ActorCriticAlgoBase():
         
         self._update_epochs = 10
         self._norm_adv = True
-        self._clip_coef = 0.95
+        self._clip_coef = 0.8
         self._clip_vloss = True
         self._entropy_coeff = 0.0 # 0.01
         self._val_f_coeff = 0.5

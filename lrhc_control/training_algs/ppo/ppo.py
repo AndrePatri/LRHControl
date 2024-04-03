@@ -158,16 +158,24 @@ class PPO(ActorCriticAlgoBase):
             
             if self._target_kl is not None and approx_kl > self._target_kl:
                 break
-        
+            
+        # ppo-iteration db data
         y_pred, y_true = batched_values.cpu(), batched_returns.cpu()
         var_y = torch.var(y_true)
         explained_var = torch.nan if var_y == 0 else 1 - torch.var(y_true - y_pred) / var_y
-
-        self._policy_update_db_data_dict.update({"losses/tot_loss": loss.item(),
-                                        "losses/value_loss": self._val_f_coeff * v_loss.item(),
-                                        "losses/policy_loss": pg_loss.item(),
-                                        "losses/entropy": - self._entropy_coeff * entropy_loss.item(),
-                                        "losses/old_approx_kl": old_approx_kl.item(),
-                                        "losses/approx_kl": approx_kl.item(),
-                                        "losses/clipfrac": torch.mean(torch.tensor(clipfracs)),
-                                        "losses/explained_variance": explained_var}) 
+        self._tot_loss[self._it_counter, 0] = loss
+        self._value_loss[self._it_counter, 0] = self._val_f_coeff * v_loss
+        self._policy_loss[self._it_counter, 0] = pg_loss
+        self._entropy_loss[self._it_counter, 0] = - self._entropy_coeff * entropy_loss
+        self._old_approx_kl[self._it_counter, 0] = old_approx_kl
+        self._approx_kl[self._it_counter, 0] = approx_kl
+        self._clipfrac[self._it_counter, 0] = torch.mean(torch.tensor(clipfracs))
+        self._explained_variance[self._it_counter, 0] = explained_var
+        self._policy_update_db_data_dict.update({"losses/tot_loss": self._tot_loss[self._it_counter, 0].item(),
+                                        "losses/value_loss": self._value_loss[self._it_counter, 0].item(),
+                                        "losses/policy_loss": self._policy_loss[self._it_counter, 0].item(),
+                                        "losses/entropy": self._entropy_loss[self._it_counter, 0].item(),
+                                        "losses/old_approx_kl": self._old_approx_kl[self._it_counter, 0].item(),
+                                        "losses/approx_kl": self._approx_kl[self._it_counter, 0].item(),
+                                        "losses/clipfrac": self._clipfrac[self._it_counter, 0].item(),
+                                        "losses/explained_variance": self._explained_variance[self._it_counter, 0].item()}) 
