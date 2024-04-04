@@ -709,7 +709,7 @@ class LRhcTrainingEnvBase():
         if self._is_debug:
             self._check_finite(obs, "observations", False)
 
-        obs.clamp_(-self._obs_threshold_lb, self._obs_threshold_ub)
+        obs.clamp_(self._obs_threshold_lb, self._obs_threshold_ub)
     
     def _clip_rewards(self, 
             rewards: torch.Tensor):
@@ -717,7 +717,7 @@ class LRhcTrainingEnvBase():
         if self._is_debug:
             self._check_finite(rewards, "rewards", False)
 
-        rewards.clamp_(-self._reward_thresh_lb, self._reward_thresh_ub)
+        rewards.clamp_(self._reward_thresh_lb, self._reward_thresh_ub)
 
     def _apply_scaling_to_actions(self, actions):
 
