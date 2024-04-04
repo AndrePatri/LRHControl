@@ -2,38 +2,62 @@
 import torch.nn as nn
 import torch
 from torch.distributions.normal import Normal
-    
+
+from lrhc_control.utils.nn.normalization_utils import RunningNormalizer 
+
 class ActorCriticTanh(nn.Module):
 
     def __init__(self,
             obs_dim: int, 
             actions_dim: int,
             actor_std: float = 0.01, 
-            critic_std: float = 1.0):
+            critic_std: float = 1.0,
+            norm_obs: bool = True):
 
         self._actor_std = actor_std
         self._critic_std = critic_std
         
+        self._normalize_obs = norm_obs
+
         super().__init__()
             
         self._obs_dim = obs_dim
         self._actions_dim = actions_dim
-            
-        self.critic = nn.Sequential(
-            self._layer_init(nn.Linear(self._obs_dim, 64)),
-            nn.Tanh(),
-            self._layer_init(nn.Linear(64, 64)),
-            nn.Tanh(),
-            self._layer_init(nn.Linear(64, 1), std=self._critic_std),
-        ) # (stochastic critic)
-        self.actor_mean = nn.Sequential(
-            self._layer_init(nn.Linear(self._obs_dim, 64)),
-            nn.Tanh(),
-            self._layer_init(nn.Linear(64, 64)),
-            nn.Tanh(),
-            self._layer_init(nn.Linear(64, self._actions_dim), std=self._actor_std),
-        ) # (stochastic actor)
-        self.actor_logstd = nn.Parameter(torch.zeros(1, self._actions_dim))
+        
+        if self._normalize_obs:
+            self.critic = nn.Sequential(
+                RunningNormalizer((self._obs_dim, 1), dtype=torch.float32, epsilon=1e-8, device="cuda"),
+                self._layer_init(nn.Linear(self._obs_dim, 64)),
+                nn.Tanh(),
+                self._layer_init(nn.Linear(64, 64)),
+                nn.Tanh(),
+                self._layer_init(nn.Linear(64, 1), std=self._critic_std),
+            ) # (stochastic critic)
+            self.actor_mean = nn.Sequential(
+                RunningNormalizer((self._obs_dim, 1), dtype=torch.float32, epsilon=1e-8, device="cuda"),
+                self._layer_init(nn.Linear(self._obs_dim, 64)),
+                nn.Tanh(),
+                self._layer_init(nn.Linear(64, 64)),
+                nn.Tanh(),
+                self._layer_init(nn.Linear(64, self._actions_dim), std=self._actor_std),
+            ) # (stochastic actor)
+            self.actor_logstd = nn.Parameter(torch.zeros(1, self._actions_dim))
+        else:
+            self.critic = nn.Sequential(
+                self._layer_init(nn.Linear(self._obs_dim, 64)),
+                nn.Tanh(),
+                self._layer_init(nn.Linear(64, 64)),
+                nn.Tanh(),
+                self._layer_init(nn.Linear(64, 1), std=self._critic_std),
+            ) # (stochastic critic)
+            self.actor_mean = nn.Sequential(
+                self._layer_init(nn.Linear(self._obs_dim, 64)),
+                nn.Tanh(),
+                self._layer_init(nn.Linear(64, 64)),
+                nn.Tanh(),
+                self._layer_init(nn.Linear(64, self._actions_dim), std=self._actor_std),
+            ) # (stochastic actor)
+            self.actor_logstd = nn.Parameter(torch.zeros(1, self._actions_dim))
 
     def get_impl_path(self):
 
