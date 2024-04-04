@@ -1,4 +1,4 @@
-from lrhc_control.envs.linvel_in_place_env import InPlaceVelTrack
+from lrhc_control.envs.linvel_in_place_env import LinVelInPlaceTrack
 from lrhc_control.envs.linvel_env import LinVelEnv
 from lrhc_control.envs.heightchange_baseline_env import LRhcHeightChange
 from lrhc_control.envs.heightchange_baseline_env_v2 import LRhcHeightChangeV2
@@ -47,16 +47,16 @@ if __name__ == "__main__":
     #                 vlevel=VLevel.V2,
     #                 use_gpu=not args.use_cpu,
     #                 debug=True)
-    env = LRhcHeightChangeV2(namespace=args.ns,
-                    verbose=True,
-                    vlevel=VLevel.V2,
-                    use_gpu=not args.use_cpu,
-                    debug=True)
-    # env = InPlaceVelTrack(namespace=args.ns,
+    # env = LRhcHeightChangeV2(namespace=args.ns,
     #                 verbose=True,
     #                 vlevel=VLevel.V2,
     #                 use_gpu=not args.use_cpu,
     #                 debug=True)
+    env = LinVelInPlaceTrack(namespace=args.ns,
+                    verbose=True,
+                    vlevel=VLevel.V2,
+                    use_gpu=not args.use_cpu,
+                    debug=True)
     # env = LinVelEnv(namespace=args.ns,
     #                 verbose=True,
     #                 vlevel=VLevel.V2,

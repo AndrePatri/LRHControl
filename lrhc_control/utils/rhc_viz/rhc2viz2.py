@@ -4,8 +4,8 @@ from rhcviz.utils.string_list_encoding import StringArray
 
 from control_cluster_bridge.utilities.shared_data.rhc_data import RobotState
 from control_cluster_bridge.utilities.shared_data.rhc_data import RhcRefs
-
 from control_cluster_bridge.utilities.shared_data.rhc_data import RhcInternal
+from lrhc_control.utils.shared_data.agent_refs import AgentRefs
 
 import numpy as np
 
@@ -36,9 +36,12 @@ class RhcToViz2Bridge:
             namespace: str, 
             verbose = False,
             rhcviz_basename = "RHCViz",
-            robot_selector: List = [0, None]):
+            robot_selector: List = [0, None],
+            with_agent_refs = False):
 
         self._robot_selector = robot_selector
+
+        self._with_agent_refs = with_agent_refs
 
         self.verbose = verbose
 
@@ -76,7 +79,12 @@ class RhcToViz2Bridge:
                                                                         namespace=self.namespace),
                                             qos_profile=self._qos_settings)
 
-
+        if self._with_agent_refs:
+            self.hl_refs_pub = self.node.create_publisher(Float64MultiArray, 
+                                            self.ros_names.hl_refs_topicname(basename=self.rhcviz_basename, 
+                                                                        namespace=self.namespace),
+                                            qos_profile=self._qos_settings)
+            
         self.robot_q_pub = self.node.create_publisher(Float64MultiArray, 
                                             self.ros_names.robot_q_topicname(basename=self.rhcviz_basename, 
                                                                     namespace=self.namespace),
@@ -99,6 +107,7 @@ class RhcToViz2Bridge:
         self.rhc_internal_clients = None
         self.robot_state = None
         self.rhc_refs = None
+        self.agent_refs = None
 
         self._current_index = 0
 
@@ -194,6 +203,15 @@ class RhcToViz2Bridge:
         self.rhc_refs.rob_refs.set_q_remapping(q_remapping=[1, 2, 3, 0]) # remapping from w, i, j, k
         # to rviz conventions (i, k, k, w)
         self.rhc_refs.run()
+
+        if self._with_agent_refs:
+            self.agent_refs = AgentRefs(namespace=self.namespace,
+                                is_server=False,
+                                with_gpu_mirror=False,
+                                safe=False,
+                                verbose=True,
+                                vlevel=VLevel.V2)
+            self.agent_refs.run()
 
         self.cluster_size = self.robot_state.n_robots()
         self.jnt_names_robot = self.robot_state.jnt_names()
@@ -296,6 +314,8 @@ class RhcToViz2Bridge:
                 # read from shared memory
                 self.robot_state.synch_from_shared_mem()
                 self.rhc_refs.rob_refs.synch_from_shared_mem()
+                if self._with_agent_refs:
+                    self.agent_refs.rob_refs.synch_from_shared_mem()
                 self.rhc_internal_clients[self._current_index].synch(read=True)
 
                 self._publish()
@@ -368,6 +388,12 @@ class RhcToViz2Bridge:
         rhc_ref_twist= self.rhc_refs.rob_refs.root_state.get(data_type="twist",robot_idxs=self._current_index)
         rhc_refs = np.concatenate((rhc_ref_pose, rhc_ref_twist), axis=0)
 
+        # high lev refs
+        if self._with_agent_refs:
+            hl_ref_pose = self.agent_refs.rob_refs.root_state.get(data_type="q_full",robot_idxs=self._current_index)
+            hl_ref_twist= self.agent_refs.rob_refs.root_state.get(data_type="twist",robot_idxs=self._current_index)
+            hl_refs = np.concatenate((hl_ref_pose, hl_ref_twist), axis=0)
+
         if not self._contains_nan(rhc_q):
             self.rhc_q_pub.publish(Float64MultiArray(data=rhc_q))
         else:
@@ -382,8 +408,16 @@ class RhcToViz2Bridge:
                         msg="robot q data contains some NaN. That data will not be published")
         
         # publish rhc_refs
-        if not self._contains_nan(robot_q):
+        if not self._contains_nan(rhc_refs):
             self.rhc_refs_pub.publish(Float64MultiArray(data=rhc_refs))
         else:
             self._sporadic_log(calling_methd="_publish", 
-                        msg="robot q data contains some NaN. That data will not be published")
+                        msg="rhc refs data contains some NaN. That data will not be published")
+        
+        # publish hl_refs
+        if self._with_agent_refs:
+            if not self._contains_nan(hl_refs):
+                self.hl_refs_pub.publish(Float64MultiArray(data=hl_refs))
+            else:
+                self._sporadic_log(calling_methd="_publish", 
+                            msg="high-level refs data contains some NaN. That data will not be published")

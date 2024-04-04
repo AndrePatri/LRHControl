@@ -19,6 +19,7 @@ if __name__ == '__main__':
     parser.add_argument('--debug', action='store_true', help='Enable debug mode, default is False')
     parser.add_argument('--verbose', action='store_true', help='Enable verbose mode, default is True')
     parser.add_argument('--ros2', action='store_true', help='Enable ROS 2 mode')
+    parser.add_argument('--with_agent_refs', action='store_true', help='also forward agent refs to rhcviz')
 
     args = parser.parse_args()
 
@@ -47,6 +48,7 @@ if __name__ == '__main__':
         bridge = RhcToViz2Bridge(namespace=args.ns, 
                         verbose=verbose,
                         rhcviz_basename="RHCViz", 
-                        robot_selector=[0, None])
+                        robot_selector=[0, None],
+                        with_agent_refs=args.with_agent_refs)
 
     bridge.run(update_dt=update_dt)
