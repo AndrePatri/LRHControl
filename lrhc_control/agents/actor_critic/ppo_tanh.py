@@ -26,7 +26,7 @@ class ActorCriticTanh(nn.Module):
         
         if self._normalize_obs:
             self.critic = nn.Sequential(
-                RunningNormalizer((self._obs_dim, 1), dtype=torch.float32, epsilon=1e-8, device="cuda"),
+                RunningNormalizer((self._obs_dim,), dtype=torch.float32, epsilon=1e-8, device="cuda"),
                 self._layer_init(nn.Linear(self._obs_dim, 64)),
                 nn.Tanh(),
                 self._layer_init(nn.Linear(64, 64)),
@@ -34,7 +34,7 @@ class ActorCriticTanh(nn.Module):
                 self._layer_init(nn.Linear(64, 1), std=self._critic_std),
             ) # (stochastic critic)
             self.actor_mean = nn.Sequential(
-                RunningNormalizer((self._obs_dim, 1), dtype=torch.float32, epsilon=1e-8, device="cuda"),
+                RunningNormalizer((self._obs_dim,), dtype=torch.float32, epsilon=1e-8, device="cuda"),
                 self._layer_init(nn.Linear(self._obs_dim, 64)),
                 nn.Tanh(),
                 self._layer_init(nn.Linear(64, 64)),

@@ -40,7 +40,8 @@ class ActorCriticAlgoBase():
         self._agent = ActorCriticTanh(obs_dim=self._env.obs_dim(),
                         actions_dim=self._env.actions_dim(),
                         actor_std=0.01,
-                        critic_std=1.0)
+                        critic_std=1.0,
+                        norm_obs=True)
         
         self._debug = debug
 

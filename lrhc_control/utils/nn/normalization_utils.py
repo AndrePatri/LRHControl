@@ -1,7 +1,6 @@
 from typing import Tuple, Union
 
 import torch as th
-import lr_gym.utils.dbg.ggLog as ggLog
 
 class RunningMeanStd(object):
     def __init__(self, tensor_size, torch_device, dtype, epsilon: float = 1e-8):
@@ -76,7 +75,7 @@ class RunningMeanStd(object):
             self.var.copy_(new_var)
             self.count.copy_(new_count)
         else:
-            ggLog.warn(f"Detected nan/inf in mean/std tracker, skipping")
+            print(f"Detected nan/inf in mean/std tracker, skipping")
 
 
 
