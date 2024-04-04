@@ -41,16 +41,16 @@ if __name__ == "__main__":
     if args.cores:
         set_affinity(args.cores)
     
-    env = LRhcHeightChange(namespace=args.ns,
-                    verbose=True,
-                    vlevel=VLevel.V2,
-                    use_gpu=not args.use_cpu,
-                    debug=True)
-    # env = LinVelInPlaceTrack(namespace=args.ns,
+    # env = LRhcHeightChange(namespace=args.ns,
     #                 verbose=True,
     #                 vlevel=VLevel.V2,
     #                 use_gpu=not args.use_cpu,
     #                 debug=True)
+    env = LinVelInPlaceTrack(namespace=args.ns,
+                    verbose=True,
+                    vlevel=VLevel.V2,
+                    use_gpu=not args.use_cpu,
+                    debug=True)
     # env = LinVelEnv(namespace=args.ns,
     #                 verbose=True,
     #                 vlevel=VLevel.V2,

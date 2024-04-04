@@ -53,8 +53,10 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
                     dtype=dtype,
                     debug=debug)
 
-        self._reward_thresh = 1 # overrides parent's defaults
-        self._obs_threshold = 10
+        self._reward_thresh_lb = -1 # used for clipping rewards
+        self._obs_threshold_lb = -10 # used for clipping observations
+        self._reward_thresh_ub = 1 # overrides parent's defaults
+        self._obs_threshold_ub = 10
 
         self._actions_offsets[:, :] = 0.0 # vxy_cmd 
         self._actions_scalings[:, :] = 1.0 # 0.05

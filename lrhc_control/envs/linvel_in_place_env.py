@@ -44,7 +44,7 @@ class LinVelInPlaceTrack(LRhcTrainingEnvBase):
         self._task_err_weights[0, 5] = 0.0001
         
         self._rhc_cnstr_viol_weight = 1
-        self._rhc_cnstr_viol_scale = 1
+        self._rhc_cnstr_viol_scale = 0.1
 
         self._linvel_lb = torch.full((1, 3), dtype=dtype, device=device,
                             fill_value=-0.8) 
@@ -74,8 +74,10 @@ class LinVelInPlaceTrack(LRhcTrainingEnvBase):
                     dtype=dtype,
                     debug=debug)
 
-        self._reward_thresh = 1 # overrides parent's defaults
-        self._obs_threshold = 10
+        self._reward_thresh_lb = 0 # used for clipping rewards
+        self._obs_threshold_lb = -10 # used for clipping observations
+        self._reward_thresh_ub = 1 # overrides parent's defaults
+        self._obs_threshold_ub = 10
 
         self._actions_offsets[:, :] = 0.0 # vxy_cmd 
         self._actions_scalings[:, :] = 1.0 # 0.05

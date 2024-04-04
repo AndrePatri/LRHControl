@@ -112,8 +112,10 @@ class LRhcTrainingEnvBase():
 
         self._episodic_rewards_getter = None
 
-        self._reward_thresh = 1 # used for clipping rewards
-        self._obs_threshold = 10 # used for clipping observations
+        self._reward_thresh_lb = 0 # used for clipping rewards
+        self._obs_threshold_lb = -10 # used for clipping observations
+        self._reward_thresh_ub = 1 # overrides parent's defaults
+        self._obs_threshold_ub = 10
 
         self._base_info = {}
         self._base_info["final_info"] = None
@@ -707,7 +709,7 @@ class LRhcTrainingEnvBase():
         if self._is_debug:
             self._check_finite(obs, "observations", False)
 
-        obs.clamp_(-self._obs_threshold, self._obs_threshold)
+        obs.clamp_(-self._obs_threshold_lb, self._obs_threshold_ub)
     
     def _clip_rewards(self, 
             rewards: torch.Tensor):
@@ -715,7 +717,7 @@ class LRhcTrainingEnvBase():
         if self._is_debug:
             self._check_finite(rewards, "rewards", False)
 
-        rewards.clamp_(-self._reward_thresh, self._reward_thresh)
+        rewards.clamp_(-self._reward_thresh_lb, self._reward_thresh_ub)
 
     def _apply_scaling_to_actions(self, actions):
 
