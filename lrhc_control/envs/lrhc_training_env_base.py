@@ -732,7 +732,7 @@ class LRhcTrainingEnvBase():
                 exception,
                 LogType.EXCEP,
                 throw_when_excep = throw)
-            print(tensor)
+            # print(tensor)
     
     def _check_controllers_registered(self, 
                 retry: bool = False):

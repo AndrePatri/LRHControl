@@ -97,7 +97,7 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
         # task error
         h_ref = obs[:, 1:2]
         robot_h = obs[:, 0:1]
-        cnstr_viol = obs[:, 16:17]
+        cnstr_viol = obs[:, 2:3]
 
         h_error = torch.abs((h_ref - robot_h))
 
