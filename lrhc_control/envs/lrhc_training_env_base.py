@@ -112,7 +112,8 @@ class LRhcTrainingEnvBase():
 
         self._episodic_rewards_getter = None
 
-        self._obs_threshold = 1e2 # used for clipping observations
+        self._reward_thresh = 10 # used for clipping rewards
+        self._obs_threshold = 10 # used for clipping observations
 
         self._base_info = {}
         self._base_info["final_info"] = None
@@ -234,9 +235,10 @@ class LRhcTrainingEnvBase():
         self._synch_obs(gpu=self._use_gpu) # read obs from shared mem
         next_obs = self._next_obs.get_torch_view(gpu=self._use_gpu)
         self._fill_obs(next_obs)
-        self._clamp_obs(next_obs) # to avoid explosions
+        self._clip_obs(next_obs) # good practice
 
-        self._compute_rewards()
+        self._compute_sub_rewards(next_obs)
+        self._assemble_rewards() # includes rewards clipping
 
         post_step_ok = self._post_step() # post step operations
 
@@ -274,13 +276,22 @@ class LRhcTrainingEnvBase():
         # state right after stepping
         obs = self._obs.get_torch_view(gpu=self._use_gpu)
         self._fill_obs(obs)
-        self._clamp_obs(obs)
+        self._clip_obs(obs)
 
         # reset counter if either terminated
         if self._is_debug:
             self._debug() # copies db data on shared memory
         
         return rm_reset_ok
+
+    def _assemble_rewards(self):
+
+        tot_rewards = self._tot_rewards.get_torch_view(gpu=self._use_gpu)
+        sub_rewards = self._rewards.get_torch_view(gpu=self._use_gpu)
+
+        self._clip_rewards(sub_rewards) # clipping rewards in a range
+
+        tot_rewards[:, :] = torch.sum(sub_rewards, dim=1, keepdim=True)
 
     def randomize_refs(self,
                 env_indxs: torch.Tensor = None):
@@ -308,8 +319,8 @@ class LRhcTrainingEnvBase():
         next_obs = self._next_obs.get_torch_view(gpu=self._use_gpu)
         self._fill_obs(obs) # initialize observations 
         self._fill_obs(next_obs) # and next obs
-        self._clamp_obs(obs) # to avoid bad things
-        self._clamp_obs(next_obs)
+        self._clip_obs(obs) # to avoid bad things
+        self._clip_obs(next_obs)
 
     def close(self):
         
@@ -690,7 +701,7 @@ class LRhcTrainingEnvBase():
             self._agent_refs.rob_refs.root_state.synch_mirror(from_gpu=True) 
         self._agent_refs.rob_refs.root_state.synch_all(read=False, retry = True) # write on shared mem
         
-    def _clamp_obs(self, 
+    def _clip_obs(self, 
             obs: torch.Tensor):
 
         if self._is_debug:
@@ -698,6 +709,14 @@ class LRhcTrainingEnvBase():
 
         obs.clamp_(-self._obs_threshold, self._obs_threshold)
     
+    def _clip_rewards(self, 
+            rewards: torch.Tensor):
+
+        if self._is_debug:
+            self._check_finite(rewards, "rewards", False)
+
+        rewards.clamp_(-self._reward_thresh, self._reward_thresh)
+
     def _apply_scaling_to_actions(self, actions):
 
         actions.mul_(self._actions_scalings).add_(self._actions_offsets)
@@ -783,7 +802,8 @@ class LRhcTrainingEnvBase():
         pass
 
     @abstractmethod
-    def _compute_rewards(self):
+    def _compute_sub_rewards(self,
+            obs_tensor: torch.Tensor):
         
         pass
 

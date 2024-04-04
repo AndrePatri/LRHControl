@@ -36,7 +36,7 @@ class LinVelEnv(LRhcTrainingEnvBase):
         self._lin_vel_ub = 1.0
 
         # rewards settings
-        self._reward_clamp_thresh = 1e2 # rewards will be in [-_reward_clamp_thresh, _reward_clamp_thresh]
+        self._reward_thresh = 1e2 # rewards will be in [-_reward_thresh, _reward_thresh]
 
         self._task_weight = 1
         self._task_scale = 1
@@ -127,7 +127,7 @@ class LinVelEnv(LRhcTrainingEnvBase):
         self._rhc_refs.rob_refs.root_state.synch_all(read=False, retry=True) # write mirror to shared mem
         self._rhc_refs.contact_flags.synch_all(read=False, retry=True)
 
-    def _compute_rewards(self):
+    def _compute_sub_rewards(self):
         
         # task error
         task_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist", gpu=self._use_gpu)
@@ -136,7 +136,7 @@ class LinVelEnv(LRhcTrainingEnvBase):
         # RHC-related rewards
         rewards = self._rewards.get_torch_view(gpu=self._use_gpu)
 
-        rewards[:, 0:1] = self._task_weight * (1.0 - (self._task_scale * task_err).clamp(-self._reward_clamp_thresh, self._reward_clamp_thresh))
+        rewards[:, 0:1] = self._task_weight * (1.0 - (self._task_scale * task_err).clamp(-self._reward_thresh, self._reward_thresh))
         rewards[:, 1:2] = - self._rhc_cnstr_viol_weight * self._squashed_rhc_cnstr_viol()
         # rewards[:, 2:3] = - self._rhc_cost_weight * self._squashed_rhc_cost()
 
@@ -156,11 +156,11 @@ class LinVelEnv(LRhcTrainingEnvBase):
 
     def _squashed_rhc_cnstr_viol(self):
         rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_view(gpu=self._use_gpu)
-        return (self._rhc_cnstr_viol_scale * rhc_const_viol).clamp(-self._reward_clamp_thresh, self._reward_clamp_thresh) 
+        return (self._rhc_cnstr_viol_scale * rhc_const_viol).clamp(-self._reward_thresh, self._reward_thresh) 
     
     def _squashed_rhc_cost(self):
         rhc_cost = self._rhc_status.rhc_cost.get_torch_view(gpu=self._use_gpu)
-        return (self._rhc_cost_scale * rhc_cost).clamp(-self._reward_clamp_thresh, self._reward_clamp_thresh) 
+        return (self._rhc_cost_scale * rhc_cost).clamp(-self._reward_thresh, self._reward_thresh) 
     
     def _randomize_refs(self,
                 env_indxs: torch.Tensor = None):
