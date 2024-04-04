@@ -31,17 +31,17 @@ class LRhcHeightChangeV2(LRhcTrainingEnvBase):
         env_name = "LRhcHeightChangeV2"
         
         device = "cuda" if use_gpu else "cpu"
-        self._task_weight = 1
+        self._task_weight = 2
+        self._task_scale = 1
         self._task_err_weights = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.0) 
-        self._task_err_weights[0, 0] = 0.01
-        self._task_err_weights[0, 1] = 0.01
+        self._task_err_weights[0, 0] = 0.001
+        self._task_err_weights[0, 1] = 0.001
         self._task_err_weights[0, 2] = 1.0
-        self._task_err_weights[0, 3] = 0.01
-        self._task_err_weights[0, 4] = 0.01
-        self._task_err_weights[0, 5] = 0.01
-        self._task_scale = 2
-
+        self._task_err_weights[0, 3] = 0.001
+        self._task_err_weights[0, 4] = 0.001
+        self._task_err_weights[0, 5] = 0.001
+        
         self._rhc_cnstr_viol_weight = 1
         self._rhc_cnstr_viol_scale = 1
 
