@@ -112,7 +112,7 @@ class LRhcTrainingEnvBase():
 
         self._episodic_rewards_getter = None
 
-        self._reward_thresh = 10 # used for clipping rewards
+        self._reward_thresh = 1 # used for clipping rewards
         self._obs_threshold = 10 # used for clipping observations
 
         self._base_info = {}

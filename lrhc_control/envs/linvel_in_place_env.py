@@ -74,7 +74,7 @@ class LinVelInPlaceTrack(LRhcTrainingEnvBase):
                     dtype=dtype,
                     debug=debug)
 
-        self._reward_thresh = 10 # overrides parent's defaults
+        self._reward_thresh = 1 # overrides parent's defaults
         self._obs_threshold = 10
 
         self._actions_offsets[:, :] = 0.0 # vxy_cmd 
