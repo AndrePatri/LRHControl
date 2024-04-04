@@ -44,7 +44,7 @@ class LinVelInPlaceTrack(LRhcTrainingEnvBase):
         self._task_err_weights[0, 5] = 0.0001
         
         self._rhc_cnstr_viol_weight = 1
-        self._rhc_cnstr_viol_scale = 0.1
+        self._rhc_cnstr_viol_scale = 0.005
 
         self._linvel_lb = torch.full((1, 3), dtype=dtype, device=device,
                             fill_value=-0.8) 
