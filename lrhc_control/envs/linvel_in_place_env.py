@@ -200,7 +200,7 @@ class LinVelInPlaceTrack(LRhcTrainingEnvBase):
         obs_names[14] = "omega_y_ref"
         obs_names[15] = "omega_z_ref"
         obs_names[16] = "rhc_const_viol"
-        obs_names[16] = "rhc_cost"
+        obs_names[17] = "rhc_cost"
 
         return obs_names
 

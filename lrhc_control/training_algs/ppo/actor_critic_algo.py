@@ -83,10 +83,13 @@ class ActorCriticAlgoBase():
             model_path: str = None,
             n_evals: int = None,
             n_timesteps_per_eval: int = None,
-            comment: str = ""):
+            comment: str = "",
+            dump_checkpoints: bool = False):
 
         self._verbose = verbose
 
+        self._dump_checkpoints = dump_checkpoints
+        
         self._eval = eval
 
         self._run_name = run_name
@@ -274,8 +277,8 @@ class ActorCriticAlgoBase():
             info,
             LogType.INFO,
             throw_when_excep = True)
-        # torch.save(self._agent.state_dict(), path) # saves whole agent state
-        torch.save(self._agent.parameters(), path) # only save agent parameters
+        torch.save(self._agent.state_dict(), path) # saves whole agent state
+        # torch.save(self._agent.parameters(), path) # only save agent parameters
         info = f"Done."
         Journal.log(self.__class__.__name__,
             "done",
@@ -438,7 +441,7 @@ class ActorCriticAlgoBase():
         if self._it_counter == self._iterations_n:
             self.done()
         else:
-            if self._it_counter % self._m_checkpoint_freq == 0:
+            if self._dump_checkpoints and (self._it_counter % self._m_checkpoint_freq == 0):
                 self._save_model(is_checkpoint=True)
             
     def _should_have_called_setup(self):
@@ -624,7 +627,7 @@ class ActorCriticAlgoBase():
         
         self._update_epochs = 10
         self._norm_adv = True
-        self._clip_coef = 0.4
+        self._clip_coef = 0.3
         self._clip_vloss = True
         self._entropy_coeff = 0.0 # 0.01
         self._val_f_coeff = 0.5

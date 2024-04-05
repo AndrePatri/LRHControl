@@ -35,7 +35,6 @@ if __name__ == '__main__':
         namespace=args.ns, 
         basename="RHCViz", 
         rate = 100,
-        cpu_cores = [0],
         use_only_collisions=False,
         nodes_perc = args.nodes_perc       
         )

@@ -28,6 +28,7 @@ if __name__ == "__main__":
     parser.add_argument('--run_name', type=str, help='Name of training run', default="LRHCTraining")
     parser.add_argument('--ns', type=str, help='Namespace to be used for shared memory')
     parser.add_argument('--drop_dir', type=str, help='Directory root where all run data will be dumped')
+    parser.add_argument('--dump_checkpoints', action='store_true', help='Whether to dummp model checkpoints during training')
     parser.add_argument('--eval', action='store_true', help='If set, evaluates policy instead of training')
     parser.add_argument('--n_evals', type=int, help='N. of rollouts on which eval is performed', default=None)
     parser.add_argument('--n_timesteps', type=int, help='N. timesteps for each rollout', default=None)
@@ -78,7 +79,8 @@ if __name__ == "__main__":
         eval=args.eval,
         model_path=args.mpath,
         n_evals=args.n_evals,
-        n_timesteps_per_eval=args.n_timesteps)
+        n_timesteps_per_eval=args.n_timesteps,
+        dump_checkpoints=args.dump_checkpoints)
 
     try:
         while not ppo.is_done():
