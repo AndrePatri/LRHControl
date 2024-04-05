@@ -8,7 +8,7 @@ from SharsorIPCpp.PySharsorIPC import LogType
 
 import os
 
-class LinVelInPlaceTrack(LRhcTrainingEnvBase):
+class LinVelTrack(LRhcTrainingEnvBase):
 
     def __init__(self,
             namespace: str,
@@ -28,7 +28,7 @@ class LinVelInPlaceTrack(LRhcTrainingEnvBase):
 
         n_preinit_steps = 1 # one steps of the controllers to properly initialize everything
 
-        env_name = "LinVelInPlaceTrack"
+        env_name = "LinVelTrack"
         
         device = "cuda" if use_gpu else "cpu"
 
@@ -47,7 +47,7 @@ class LinVelInPlaceTrack(LRhcTrainingEnvBase):
         self._rhc_cnstr_viol_scale = 1
 
         self._rhc_cost_weight = 1
-        self._rhc_cost_scale = 1e-2
+        self._rhc_cost_scale = 1e-5
 
         self._linvel_lb = torch.full((1, 3), dtype=dtype, device=device,
                             fill_value=-0.8) 
@@ -78,9 +78,9 @@ class LinVelInPlaceTrack(LRhcTrainingEnvBase):
                     debug=debug)
 
         self._reward_thresh_lb = 0 # used for clipping rewards
-        self._obs_threshold_lb = -1e2 # used for clipping observations
+        self._obs_threshold_lb = -1e3 # used for clipping observations
         self._reward_thresh_ub = 1 # overrides parent's defaults
-        self._obs_threshold_ub = 1e2
+        self._obs_threshold_ub = 1e3
 
         self._actions_offsets[:, :] = 0.0 # default to no offset and scaling
         self._actions_scalings[:, :] = 1.0 
