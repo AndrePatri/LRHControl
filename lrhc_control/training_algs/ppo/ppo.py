@@ -25,18 +25,17 @@ class PPO(ActorCriticAlgoBase):
 
         self._this_child_path = os.path.abspath(__file__) # overrides parent
 
-    def _play(self,
-        n_timesteps: int):
+    def _play(self):
 
         # collect data from current policy over a number of timesteps
-        for transition in range(n_timesteps):
+        for transition in range(self._rollout_timesteps):
 
             self._obs[transition] = self._env.get_obs() # also accounts for resets when envs are 
             # either terminated or truncated
 
             # sample actions from latest policy (actor) and state value from latest value function (critic)
             with torch.no_grad(): # no need for gradient computation
-                action, logprob, _ = self._agent.get_action(self._obs[transition])
+                action, logprob, _ = self._agent.get_action(self._obs[transition], only_mean=self._eval) # when evaluating, use only mean
                 self._values[transition] = self._agent.get_value(self._obs[transition]).reshape(-1, 1)
             self._actions[transition] = action
             self._logprobs[transition] = logprob.reshape(-1, 1)
@@ -65,7 +64,7 @@ class PPO(ActorCriticAlgoBase):
             self._advantages.zero_() # reset advantages
             lastgaelam = 0
 
-            for t in reversed(range(self._env_timesteps)):
+            for t in reversed(range(self._rollout_timesteps)):
                 # loop over state transitions
                 nextnonterminal = 1.0 - self._dones[t]
     

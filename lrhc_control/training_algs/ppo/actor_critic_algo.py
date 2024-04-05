@@ -51,7 +51,7 @@ class ActorCriticAlgoBase():
         
         self._run_name = None
         self._drop_dir = None
-        self._dbinfo_drop_dir = None
+        self._dbinfo_drop_fname = None
         self._model_path = None
         
         self._policy_update_db_data_dict =  {}
@@ -84,6 +84,8 @@ class ActorCriticAlgoBase():
             verbose: bool = False,
             drop_dir_name: str = None,
             eval: bool = False,
+            model_path: str = None,
+            n_eval_timesteps: int = None,
             comment: str = ""):
 
         self._verbose = verbose
@@ -98,11 +100,27 @@ class ActorCriticAlgoBase():
         # numeric values
         self._hyperparameters.update(custom_args)
 
+        # load model if necessary 
+        if self._eval: # load pretrained model
+            if model_path is None:
+                Journal.log(self.__class__.__name__,
+                    "setup",
+                    f"When eval is True, a model_path should be provided!!",
+                    LogType.EXCEP,
+                    throw_when_excep = True)
+            elif n_eval_timesteps is None:
+                Journal.log(self.__class__.__name__,
+                    "setup",
+                    f"When eval is True, n_eval_timesteps should be provided!!",
+                    LogType.EXCEP,
+                    throw_when_excep = True)
+            else:
+                self._model_path = model_path
+                self._rollout_timesteps = n_eval_timesteps # overrides 
+            self._load_model(self._model_path)
+
         # create dump directory + copy important files for debug
         self._init_drop_dir(drop_dir_name)
-
-        if self._eval: # load pretrained model
-            self._load_model(self._model_path)
             
         # seeding + deterministic behavior for reproducibility
         self._set_all_deterministic()
@@ -110,7 +128,7 @@ class ActorCriticAlgoBase():
         if (self._debug):
             
             torch.autograd.set_detect_anomaly(self._debug)
-            job_type = "evaluation" if eval else "training"
+            job_type = "evaluation" if self._eval else "training"
             wandb.init(
                 project="LRHControl",
                 group=self._run_name,
@@ -136,10 +154,11 @@ class ActorCriticAlgoBase():
 
         self._agent.to(self._torch_device) # move agent to target device
 
-        self._optimizer = optim.Adam(self._agent.parameters(), 
-                                lr=self._base_learning_rate, 
-                                eps=1e-5 # small constant added to the optimization
-                                )
+        if not self._eval:
+            self._optimizer = optim.Adam(self._agent.parameters(), 
+                                    lr=self._base_learning_rate, 
+                                    eps=1e-5 # small constant added to the optimization
+                                    )
         self._init_buffers()
         
         # self._env.reset()
@@ -156,10 +175,13 @@ class ActorCriticAlgoBase():
 
         return self._is_done 
     
+    def model_path(self):
+
+        return self._model_path
+    
     def learn(self):
         
         if not self._setup_done:
-        
             self._should_have_called_setup()
 
         # annealing the learning rate if enabled (may improve convergence)
@@ -174,7 +196,7 @@ class ActorCriticAlgoBase():
 
         self._start_time = time.perf_counter()
 
-        rollout_ok = self._play(self._env_timesteps)
+        rollout_ok = self._play()
         if not rollout_ok:
             return False
         # after rolling out policy, we get the episodic reward for the current policy
@@ -194,18 +216,28 @@ class ActorCriticAlgoBase():
 
         return True
 
-    def eval(self, 
-        n_timesteps: int):
+    def eval(self):
+
+        if not self._setup_done:
+            self._should_have_called_setup()
+
+        self._episodic_reward_getter.reset()
 
         self._start_time = time.perf_counter()
 
-        if not self._setup_done:
-        
-            self._should_have_called_setup()
+        rollout_ok = self._play()
+        if not rollout_ok:
+            return False
+        # after rolling out policy, we get the episodic reward for the current policy
+        self._episodic_rewards[self._it_counter, :, :] = self._episodic_reward_getter.get_total() # total ep. rewards across envs
+        self._episodic_sub_rewards[self._it_counter, :, :] = self._episodic_reward_getter.get() # sub-episodic rewards across envs
+        self._episodic_sub_rewards_env_avrg[self._it_counter, :] = self._episodic_reward_getter.get_env_avrg() # avrg over envs
+        self._episodic_rewards_env_avrg[self._it_counter, :, :] = self._episodic_reward_getter.get_total_env_avrg() # avrg over envs
+        self._rollout_t = time.perf_counter()
 
-        self._play(n_timesteps)
+        self._post_step()
 
-        self._eval_post_step()
+        return True
 
     @abstractmethod
     def _play(self):
@@ -223,9 +255,9 @@ class ActorCriticAlgoBase():
         
         if not self._is_done:
 
-            if self._save_model:
+            if self._save_model and not self._eval:
                 
-                info = f"Saving model and other data to {self._model_path}"
+                info = f"Saving model to {self._model_path}"
                 Journal.log(self.__class__.__name__,
                     "done",
                     info,
@@ -252,14 +284,14 @@ class ActorCriticAlgoBase():
 
         import h5py
 
-        info = f"Dumping debug info at {self._dbinfo_drop_dir}"
+        info = f"Dumping debug info at {self._dbinfo_drop_fname}"
         Journal.log(self.__class__.__name__,
             "_dump_dbinfo_to_file",
             info,
             LogType.INFO,
             throw_when_excep = True)
         
-        with h5py.File(self._dbinfo_drop_dir+".hdf5", 'w') as hf:
+        with h5py.File(self._dbinfo_drop_fname+".hdf5", 'w') as hf:
             # hf.create_dataset('numpy_data', data=numpy_data)
             # Write dictionaries to HDF5 as attributes
             for key, value in self._hyperparameters.items():
@@ -308,7 +340,7 @@ class ActorCriticAlgoBase():
     def _load_model(self,
             model_path: str):
         
-        info = f"Loading model at {self._model_path}"
+        info = f"Loading model at {model_path}"
 
         Journal.log(self.__class__.__name__,
             "_load_model",
@@ -332,30 +364,32 @@ class ActorCriticAlgoBase():
     def _init_drop_dir(self,
                 drop_dir_name: str = None):
 
+        # main drop directory
         if drop_dir_name is None:
             # drop to current directory
             self._drop_dir = "./" + f"{self.__class__.__name__}/" + self._run_name + "/" + self._unique_id
         else:
             self._drop_dir = drop_dir_name + "/" + f"{self.__class__.__name__}/" + self._run_name + "/" + self._unique_id
-
-        self._model_path = self._drop_dir + "/" + self._unique_id + "_model"
-
-        if self._eval: # drop in same directory
-            f = self._drop_dir + "/" + self._unique_id + "_evalrun"
-        
-        self._dbinfo_drop_dir = self._drop_dir + "/" + self._unique_id + "db_info"
-
-        aux_drop_dir = self._drop_dir + "/other"
         os.makedirs(self._drop_dir)
-        os.makedirs(aux_drop_dir)
 
+        # model
+        if not self._eval:
+            self._model_path = self._drop_dir + "/" + self._unique_id + "_model"
+        else: # we copy the model under evaluation to the drop dir
+            shutil.copy(self._model_path, self._drop_dir)
+
+        # debug info
+        self._dbinfo_drop_fname = self._drop_dir + "/" + self._unique_id + "db_info" # extension added later
+
+        # other auxiliary db files
+        aux_drop_dir = self._drop_dir + "/other"
+        os.makedirs(aux_drop_dir)
         filepaths = self._env.get_file_paths() # envs implementation
         filepaths.append(self._this_basepath) # algorithm implementation
         filepaths.append(self._this_child_path)
         filepaths.append(self._agent.get_impl_path()) # agent implementation
         for file in filepaths:
             shutil.copy(file, self._drop_dir)
-
         aux_dirs = self._env.get_aux_dir()
         for aux_dir in aux_dirs:
             shutil.copytree(aux_dir, aux_drop_dir, dirs_exist_ok=True)
@@ -382,18 +416,10 @@ class ActorCriticAlgoBase():
 
         self._log_info()
 
-        if self._it_counter == self._iterations_n:
-
+        if self._it_counter == self._iterations_n and not self._eval: # training
             self.done()
-            
-    def _eval_post_step(self):
-        
-        info = f"Evaluation of policy model {self._model_path} completed. Dropping evaluation info to {self._drop_dir}"
-        Journal.log(self.__class__.__name__,
-            "_post_step",
-            info,
-            LogType.INFO,
-            throw_when_excep = True)
+        else:
+            self.done() # just do a single rollout for evaluation runs
             
     def _should_have_called_setup(self):
 
@@ -565,8 +591,8 @@ class ActorCriticAlgoBase():
         self._iterations_n = 1500 # number of ppo iterations
         self._batch_size_nom = 8192 # 24576
         self._num_minibatches = 8
-        self._env_timesteps = int(self._batch_size_nom / self._num_envs)
-        self._batch_size = self._env_timesteps * self._num_envs
+        self._rollout_timesteps = int(self._batch_size_nom / self._num_envs)
+        self._batch_size = self._rollout_timesteps * self._num_envs
         self._minibatch_size = int(self._batch_size // self._num_minibatches)
         self._total_timesteps = self._iterations_n * self._batch_size
         
@@ -598,7 +624,7 @@ class ActorCriticAlgoBase():
         self._hyperparameters["n_policy_updates_when_done"] = self._n_policy_updates_to_be_done
         self._hyperparameters["n steps per env. episode lb"] = self._env_episode_n_steps_lb
         self._hyperparameters["n steps per env. episode ub"] = self._env_episode_n_steps_ub
-        self._hyperparameters["n steps per env. rollout"] = self._env_timesteps
+        self._hyperparameters["n steps per env. rollout"] = self._rollout_timesteps
         self._hyperparameters["per-batch update_epochs"] = self._update_epochs
         self._hyperparameters["per-epoch policy updates"] = self._num_minibatches
         self._hyperparameters["total policy updates to be performed"] = self._update_epochs * self._num_minibatches * self._iterations_n
@@ -627,7 +653,7 @@ class ActorCriticAlgoBase():
             f"minibatch_size {self._minibatch_size}\n" + \
             f"per-batch update_epochs {self._update_epochs}\n" + \
             f"iterations_n {self._iterations_n}\n" + \
-            f"n steps per env. rollout {self._env_timesteps}\n" + \
+            f"n steps per env. rollout {self._rollout_timesteps}\n" + \
             f"max n steps per env. episode {self._env_episode_n_steps_ub}\n" + \
             f"min n steps per env. episode {self._env_episode_n_steps_lb}\n" + \
             f"total policy updates to be performed {self._update_epochs * self._num_minibatches * self._iterations_n}\n" + \
@@ -642,47 +668,47 @@ class ActorCriticAlgoBase():
 
     def _init_buffers(self):
 
-        self._obs = torch.full(size=(self._env_timesteps, self._num_envs, self._obs_dim),
+        self._obs = torch.full(size=(self._rollout_timesteps, self._num_envs, self._obs_dim),
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device) 
-        self._values = torch.full(size=(self._env_timesteps, self._num_envs, 1),
+        self._values = torch.full(size=(self._rollout_timesteps, self._num_envs, 1),
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device)
             
-        self._actions = torch.full(size=(self._env_timesteps, self._num_envs, self._actions_dim),
+        self._actions = torch.full(size=(self._rollout_timesteps, self._num_envs, self._actions_dim),
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device)
-        self._logprobs = torch.full(size=(self._env_timesteps, self._num_envs, 1),
+        self._logprobs = torch.full(size=(self._rollout_timesteps, self._num_envs, 1),
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device)
 
-        self._next_obs = torch.full(size=(self._env_timesteps, self._num_envs, self._obs_dim),
+        self._next_obs = torch.full(size=(self._rollout_timesteps, self._num_envs, self._obs_dim),
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device) 
-        self._next_values = torch.full(size=(self._env_timesteps, self._num_envs, 1),
+        self._next_values = torch.full(size=(self._rollout_timesteps, self._num_envs, 1),
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device)
 
-        self._rewards = torch.full(size=(self._env_timesteps, self._num_envs, 1),
+        self._rewards = torch.full(size=(self._rollout_timesteps, self._num_envs, 1),
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device)
-        self._dones = torch.full(size=(self._env_timesteps, self._num_envs, 1),
+        self._dones = torch.full(size=(self._rollout_timesteps, self._num_envs, 1),
                         fill_value=False,
                         dtype=self._dtype,
                         device=self._torch_device)
         
-        self._advantages = torch.full(size=(self._env_timesteps, self._num_envs, 1),
+        self._advantages = torch.full(size=(self._rollout_timesteps, self._num_envs, 1),
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device)
-        self._returns = torch.full(size=(self._env_timesteps, self._num_envs, 1),
+        self._returns = torch.full(size=(self._rollout_timesteps, self._num_envs, 1),
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device)

@@ -29,7 +29,8 @@ if __name__ == "__main__":
     parser.add_argument('--ns', type=str, help='Namespace to be used for shared memory')
     parser.add_argument('--drop_dir', type=str, help='Directory root where all run data will be dumped')
     parser.add_argument('--eval', action='store_true', help='If set, evaluates policy instead of training')
-    parser.add_argument('--eval_tsteps', type=int, help='N. timestep to evaluate if eval flag is set', default=1e4)
+    parser.add_argument('--eval_tsteps', type=int, help='N. timestep to evaluate if eval flag is set', default=None)
+    parser.add_argument('--mpath', type=str, help='Model path to be used for policy evaluation',default=None)
     parser.add_argument('--use_cpu', action='store_true', help='If set, all the training (data included) will be perfomed on CPU')
     parser.add_argument('--comment', type=str, help='Any useful comment associated with this run',default="")
     parser.add_argument('--seed', type=int, help='seed', default=1)
@@ -72,7 +73,10 @@ if __name__ == "__main__":
         verbose=True,
         drop_dir_name=args.drop_dir,
         custom_args = sim_data,
-        comment=args.comment)
+        comment=args.comment,
+        eval=args.eval,
+        model_path=args.mpath,
+        n_eval_timesteps=args.eval_tsteps)
     
     if not args.eval:
         try:
@@ -82,4 +86,4 @@ if __name__ == "__main__":
         except KeyboardInterrupt:
             ppo.done() # dumps model in case it's interrupted by user
     else:
-        ppo.eval(n_timesteps=args.eval_tsteps)
+        ppo.eval()
