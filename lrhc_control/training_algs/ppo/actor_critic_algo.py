@@ -267,14 +267,15 @@ class ActorCriticAlgoBase():
 
         path = self._model_path
         if is_checkpoint: # use iteration as id
-            path = path + "_checkpoint" + self._it_counter
+            path = path + "_checkpoint" + str(self._it_counter)
         info = f"Saving model to {path}"
         Journal.log(self.__class__.__name__,
             "done",
             info,
             LogType.INFO,
             throw_when_excep = True)
-        torch.save(self._agent.state_dict(), path)
+        # torch.save(self._agent.state_dict(), path) # saves whole agent state
+        torch.save(self._agent.parameters(), path) # only save agent parameters
         info = f"Done."
         Journal.log(self.__class__.__name__,
             "done",
