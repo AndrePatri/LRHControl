@@ -140,6 +140,11 @@ class SharedRLAlgorithmInfo(SharedDataBase):
 
         pass
     
+    def get_shared_mem(self):
+
+        return [self.shared_data.get_shared_mem(),
+            self.shared_datanames.get_shared_mem()]
+    
     def is_running(self):
 
         return self._is_running

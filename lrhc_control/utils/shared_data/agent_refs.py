@@ -102,6 +102,10 @@ class AgentRefs(SharedDataBase):
 
         self.close()
 
+    def get_shared_mem(self):
+
+        return self.rob_refs.get_shared_mem()
+    
     def is_running(self):
     
         return self._is_runnning

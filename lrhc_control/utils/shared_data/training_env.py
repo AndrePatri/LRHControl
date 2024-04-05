@@ -147,6 +147,11 @@ class SharedTrainingEnvInfo(SharedDataBase):
 
         return self._is_running
     
+    def get_shared_mem(self):
+
+        return [self.shared_train_env_data.get_shared_mem(),
+            self.shared_train_env_datanames.get_shared_mem()]
+    
     def run(self):
         
         self.shared_train_env_datanames.run()
@@ -587,6 +592,10 @@ class SimpleCounters(SharedDataBase):
         # copy from cpu to shared memory
         self._step_counter.synch_all(read=False, retry=True)
 
+    def get_shared_mem(self):
+
+        return [self._step_counter.get_shared_mem()]
+    
     def is_running(self):
 
         return self._step_counter.is_running()
