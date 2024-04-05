@@ -262,25 +262,32 @@ class ActorCriticAlgoBase():
     def _improve_policy(self):
         pass
 
+    def _save_model(self,
+            is_checkpoint: bool = False):
+
+        path = self._model_path
+        if is_checkpoint: # use iteration as id
+            path = path + "_checkpoint" + self._it_counter
+        info = f"Saving model to {path}"
+        Journal.log(self.__class__.__name__,
+            "done",
+            info,
+            LogType.INFO,
+            throw_when_excep = True)
+        torch.save(self._agent.state_dict(), path)
+        info = f"Done."
+        Journal.log(self.__class__.__name__,
+            "done",
+            info,
+            LogType.INFO,
+            throw_when_excep = True)
+                    
     def done(self):
         
         if not self._is_done:
 
-            if self._save_model and not self._eval:
-                
-                info = f"Saving model to {self._model_path}"
-                Journal.log(self.__class__.__name__,
-                    "done",
-                    info,
-                    LogType.INFO,
-                    throw_when_excep = True)
-                torch.save(self._agent.state_dict(), self._model_path)
-                info = f"Done."
-                Journal.log(self.__class__.__name__,
-                    "done",
-                    info,
-                    LogType.INFO,
-                    throw_when_excep = True)
+            if not self._eval:
+                self._save_model()
             
             self._dump_dbinfo_to_file()
             
@@ -429,6 +436,9 @@ class ActorCriticAlgoBase():
 
         if self._it_counter == self._iterations_n:
             self.done()
+        else:
+            if self._it_counter % self._m_checkpoint_freq == 0:
+                self._save_model(is_checkpoint=True)
             
     def _should_have_called_setup(self):
 
@@ -594,7 +604,7 @@ class ActorCriticAlgoBase():
         self._torch_device = torch.device("cpu") # defaults to cpu
         self._torch_deterministic = True
 
-        self._save_model = True
+        self._m_checkpoint_freq = 50 # n ppo iterations after which a checkpoint model is dumped
 
         # main algo settings
         self._iterations_n = 1500 # number of ppo iterations
