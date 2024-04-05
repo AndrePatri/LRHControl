@@ -89,8 +89,10 @@ class ActorCriticTanh(nn.Module):
             
         return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(x)
     
-    def get_action(self, x):
-
+    def get_action(self, x, 
+                only_mean: bool = False # useful during evaluation
+                ):
+        
         action_mean = self.actor_mean(x)
 
         action_logstd = self.actor_logstd.expand_as(action_mean)
@@ -99,8 +101,11 @@ class ActorCriticTanh(nn.Module):
 
         probs = Normal(action_mean, action_std)
 
-        action = probs.sample()
-            
+        if not only_mean:
+            action = probs.sample()
+        else:
+            action = action_mean
+
         return action, probs.log_prob(action).sum(1), probs.entropy().sum(1)
 
     def _layer_init(self, layer, std=torch.sqrt(torch.tensor(2)), bias_const=0.0):
