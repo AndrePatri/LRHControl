@@ -203,7 +203,6 @@ class RhcToViz2Bridge:
         self.rhc_refs.rob_refs.set_q_remapping(q_remapping=[1, 2, 3, 0]) # remapping from w, i, j, k
         # to rviz conventions (i, k, k, w)
         self.rhc_refs.run()
-
         if self._with_agent_refs:
             self.agent_refs = AgentRefs(namespace=self.namespace,
                                 is_server=False,
