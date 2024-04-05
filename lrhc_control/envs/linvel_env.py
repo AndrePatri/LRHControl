@@ -8,7 +8,7 @@ from SharsorIPCpp.PySharsorIPC import LogType
 
 import os
 
-class LinVelEnv(LRhcTrainingEnvBase):
+class LinVelInPlaceTrack(LRhcTrainingEnvBase):
 
     def __init__(self,
             namespace: str,
@@ -18,35 +18,50 @@ class LinVelEnv(LRhcTrainingEnvBase):
             dtype: torch.dtype = torch.float32,
             debug: bool = True):
 
-        obs_dim = 13 # [twist, twist_ref, rhc_cnstr, rhc_cost ..]
+        obs_dim = 18
         actions_dim = 2 + 1 + 3 + 4 # [vxy_cmd, h_cmd, twist_cmd, dostep_0, dostep_1, dostep_2, dostep_3]
-        # actions_dim = 2 + 1 + 3 # [vxy_cmd, h_cmd, twist_cmd]
 
         n_steps_episode_lb = 512 # episode length
-        n_steps_episode_ub = 2048
-        n_steps_task_rand_lb = 128 # agent refs randomization freq
-        n_steps_task_rand_ub = 512
+        n_steps_episode_ub = 4096
+        n_steps_task_rand_lb = 32 # agent refs randomization freq
+        n_steps_task_rand_ub = 128
 
         n_preinit_steps = 1 # one steps of the controllers to properly initialize everything
 
-        env_name = "LinVelTrackTask"
-
-        # tasks settings
-        self._lin_vel_lb = 1.0 #  [rad/s]
-        self._lin_vel_ub = 1.0
-
-        # rewards settings
-        self._reward_thresh = 1e2 # rewards will be in [-_reward_thresh, _reward_thresh]
+        env_name = "LinVelInPlaceTrack"
+        
+        device = "cuda" if use_gpu else "cpu"
 
         self._task_weight = 1
         self._task_scale = 1
-
+        self._task_err_weights = torch.full((1, 6), dtype=dtype, device=device,
+                            fill_value=0.0) 
+        self._task_err_weights[0, 0] = 1.0
+        self._task_err_weights[0, 1] = 1.0
+        self._task_err_weights[0, 2] = 1.0
+        self._task_err_weights[0, 3] = 0.0001
+        self._task_err_weights[0, 4] = 0.0001
+        self._task_err_weights[0, 5] = 0.0001
+        
         self._rhc_cnstr_viol_weight = 1
-        self._rhc_cnstr_viol_scale = 0.1
+        self._rhc_cnstr_viol_scale = 1
 
         self._rhc_cost_weight = 1
-        self._rhc_cost_scale = 0.0001
+        self._rhc_cost_scale = 1e-2
 
+        self._linvel_lb = torch.full((1, 3), dtype=dtype, device=device,
+                            fill_value=-0.8) 
+        self._linvel_ub = torch.full((1, 3), dtype=dtype, device=device,
+                            fill_value=0.8)
+        self._linvel_lb[0, 0] = -0.8
+        self._linvel_lb[0, 1] = -0.8
+        self._linvel_lb[0, 2] = -0.5
+        self._linvel_ub[0, 0] = 0.8
+        self._linvel_ub[0, 1] = 0.8
+        self._linvel_ub[0, 2] = 0.5
+
+        self._this_child_path = os.path.abspath(__file__)
+        
         super().__init__(namespace=namespace,
                     obs_dim=obs_dim,
                     actions_dim=actions_dim,
@@ -62,17 +77,15 @@ class LinVelEnv(LRhcTrainingEnvBase):
                     dtype=dtype,
                     debug=debug)
 
-        # overriding actions scalings and offsets (by default 1.0 and 0.0)
-        self._actions_offsets[:, 0:2] = 0.0 # vxy_cmd 
-        self._actions_scalings[:, 0:2] = 0.05 # 0.05
-        self._actions_offsets[:, 2] = 0.6 # h_cmd
-        self._actions_scalings[:, 2] = 0.025 # 0.025
-        self._actions_offsets[:, 3:6] = 0.0 # omega_cmd 
-        self._actions_scalings[:, 3:6] = 0.05 # 0.05
+        self._reward_thresh_lb = 0 # used for clipping rewards
+        self._obs_threshold_lb = -1e2 # used for clipping observations
+        self._reward_thresh_ub = 1 # overrides parent's defaults
+        self._obs_threshold_ub = 1e2
+
+        self._actions_offsets[:, :] = 0.0 # default to no offset and scaling
+        self._actions_scalings[:, :] = 1.0 
         self._actions_offsets[:, 6:10] = 1.0 # stepping flags 
         self._actions_scalings[:, 6:10] =  0.1 # 0.1
-        
-        self._this_child_path = os.path.abspath(__file__)
 
     def get_file_paths(self):
 
@@ -98,28 +111,21 @@ class LinVelEnv(LRhcTrainingEnvBase):
         agent_action = self.get_actions() # see _get_action_names() to get 
         # the meaning of each component of this tensor
 
+        rhc_latest_twist_ref = self._rhc_refs.rob_refs.root_state.get(data_type="twist", gpu=self._use_gpu)
         rhc_latest_p_ref = self._rhc_refs.rob_refs.root_state.get(data_type="p", gpu=self._use_gpu)
-        rhc_latest_v_ref = self._rhc_refs.rob_refs.root_state.get(data_type="v", gpu=self._use_gpu)
-        rhc_latest_omega_ref = self._rhc_refs.rob_refs.root_state.get(data_type="omega", gpu=self._use_gpu)
         rhc_latest_contact_ref = self._rhc_refs.contact_flags.get_torch_view(gpu=self._use_gpu)
 
-        # vxy
-        rhc_latest_v_ref[:, 0:2] = agent_action[:, 0:2]
-        self._rhc_refs.rob_refs.root_state.set(data_type="v", data=rhc_latest_v_ref,
-                                            gpu=self._use_gpu) 
-        
-        # h_ref
-        rhc_latest_p_ref[:, 2:3] = agent_action[:, 2:3] # z ref
-        self._rhc_refs.rob_refs.root_state.set(data_type="p", data=rhc_latest_p_ref,
-                                            gpu=self._use_gpu) 
-        
-        # omega_ref
-        rhc_latest_omega_ref[:, :] = agent_action[:, 3:6]
-        self._rhc_refs.rob_refs.root_state.set(data_type="omega", data=rhc_latest_omega_ref,
-                                            gpu=self._use_gpu) 
+        rhc_latest_twist_ref[:, 0:2] = agent_action[:, 0:2] # lin vel cmd
+        rhc_latest_p_ref[:, 2:3] = agent_action[:, 2:3] # h cmds
+        rhc_latest_twist_ref[:, 3:6] = agent_action[:, 3:6] # omega cmd
 
+        self._rhc_refs.rob_refs.root_state.set(data_type="p", data=rhc_latest_p_ref,
+                                            gpu=self._use_gpu)
+        self._rhc_refs.rob_refs.root_state.set(data_type="twist", data=rhc_latest_twist_ref,
+                                            gpu=self._use_gpu) 
+        
         # contact flags
-        rhc_latest_contact_ref[:, :] = agent_action[:, 6:10] > 0.5 # keep contact if agent actiom > 0.5
+        rhc_latest_contact_ref[:, :] = agent_action[:, 6:10] > 0.5 # keep contact if agent action > 0.5
 
         if self._use_gpu:
             self._rhc_refs.rob_refs.root_state.synch_mirror(from_gpu=self._use_gpu) # write from gpu to cpu mirror
@@ -127,51 +133,55 @@ class LinVelEnv(LRhcTrainingEnvBase):
         self._rhc_refs.rob_refs.root_state.synch_all(read=False, retry=True) # write mirror to shared mem
         self._rhc_refs.contact_flags.synch_all(read=False, retry=True)
 
-    def _compute_sub_rewards(self):
+    def _compute_sub_rewards(self,
+                    obs: torch.Tensor):
         
         # task error
-        task_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist", gpu=self._use_gpu)
-        task_meas = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu)
-        task_err = torch.norm(task_ref - task_meas, p=2, dim=1, keepdim=True) # sum of the absolute values of the elements
-        # RHC-related rewards
-        rewards = self._rewards.get_torch_view(gpu=self._use_gpu)
+        task_meas = obs[:, 4:10]
+        task_ref = obs[:, 10:16]
+        cnstr_viol = obs[:, 16:17]
+        rhc_cost = obs[:, 17:18]
 
-        rewards[:, 0:1] = self._task_weight * (1.0 - (self._task_scale * task_err).clamp(-self._reward_thresh, self._reward_thresh))
-        rewards[:, 1:2] = - self._rhc_cnstr_viol_weight * self._squashed_rhc_cnstr_viol()
-        # rewards[:, 2:3] = - self._rhc_cost_weight * self._squashed_rhc_cost()
+        task_error = (task_ref - task_meas) * self._task_err_weights
+        task_err_norm = torch.norm(task_error, p=2, dim=1, keepdim=True)
 
-        tot_rewards = self._tot_rewards.get_torch_view(gpu=self._use_gpu)
-        tot_rewards[:, :] = torch.sum(rewards, dim=1, keepdim=True)
+        sub_rewards = self._rewards.get_torch_view(gpu=self._use_gpu)
+        sub_rewards[:, 0:1] = self._task_weight * (1.0 - (self._task_scale * task_err_norm))
+        sub_rewards[:, 1:2] = self._rhc_cnstr_viol_weight * (1.0 - cnstr_viol)
+        sub_rewards[:, 2:3] = self._rhc_cost_weight * (1.0 - rhc_cost)
 
     def _fill_obs(self,
-                obs_tensor: torch.Tensor):
-        
-        # assigns obs to obs_tensos
-        robot_task_meas = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu)
-        agent_task_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu)
-        obs_tensor[:, 0:6] = robot_task_meas
-        obs_tensor[:, 6:12] = agent_task_ref
-        obs_tensor[:, 12:13] = self._squashed_rhc_cnstr_viol()
-        # obs_tensor[:, 13:14] = self._squashed_rhc_cost()
+            obs_tensor: torch.Tensor):
 
-    def _squashed_rhc_cnstr_viol(self):
+        robot_q_meas = self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
+        robot_twist_meas = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu)
+        agent_twist_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu)
+
+        # rhc_cost = self._rhc_status.rhc_cost.get_torch_view(gpu=self._use_gpu)
+        obs_tensor[:, 0:4] = robot_q_meas # [w, i, j, k] (IsaacSim convention)
+        obs_tensor[:, 4:10] = robot_twist_meas
+        obs_tensor[:, 10:16] = agent_twist_ref
+        obs_tensor[:, 16:17] = self._rhc_const_viol()
+        obs_tensor[:, 17:18] = self._rhc_cost()
+        
+    def _rhc_const_viol(self):
         rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_view(gpu=self._use_gpu)
-        return (self._rhc_cnstr_viol_scale * rhc_const_viol).clamp(-self._reward_thresh, self._reward_thresh) 
+        return self._rhc_cnstr_viol_scale * rhc_const_viol
     
-    def _squashed_rhc_cost(self):
+    def _rhc_cost(self):
         rhc_cost = self._rhc_status.rhc_cost.get_torch_view(gpu=self._use_gpu)
-        return (self._rhc_cost_scale * rhc_cost).clamp(-self._reward_thresh, self._reward_thresh) 
+        return self._rhc_cost_scale * rhc_cost
     
     def _randomize_refs(self,
                 env_indxs: torch.Tensor = None):
         
         agent_twist_ref_current = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu)
         if env_indxs is None:
-            agent_twist_ref_current[:, :] = 0 # to twist by default
-            agent_twist_ref_current[:, 0:1] = (self._lin_vel_ub-self._lin_vel_lb) * torch.rand_like(agent_twist_ref_current[:, 0:1]) + self._lin_vel_lb # randomize lin vel ref
+            agent_twist_ref_current[:, :] = 0 # base should be still
+            agent_twist_ref_current[:, 0:3] = (self._linvel_ub-self._linvel_lb) * torch.rand_like(agent_twist_ref_current[:, 0:3]) + self._linvel_lb # randomize h ref
         else:
-            agent_twist_ref_current[env_indxs, :] = 0 # to twist by default
-            agent_twist_ref_current[env_indxs, 0:1] = (self._lin_vel_ub-self._lin_vel_lb) * torch.rand_like(agent_twist_ref_current[env_indxs, 0:1]) + self._lin_vel_lb # randomize twist ref
+            agent_twist_ref_current[env_indxs, :] = 0 # base should be still
+            agent_twist_ref_current[env_indxs, 0:3] = (self._linvel_ub-self._linvel_lb) * torch.rand_like(agent_twist_ref_current[env_indxs, 0:3]) + self._linvel_lb # randomize h ref
 
         self._agent_refs.rob_refs.root_state.set(data_type="twist", data=agent_twist_ref_current,
                                             gpu=self._use_gpu)
@@ -181,27 +191,30 @@ class LinVelEnv(LRhcTrainingEnvBase):
 
         obs_names = [""] * self.obs_dim()
 
-        obs_names[0] = "lin_vel_x"
-        obs_names[1] = "lin_vel_y"
-        obs_names[2] = "lin_vel_z"
-        obs_names[3] = "omega_x"
-        obs_names[4] = "omega_y"
-        obs_names[5] = "omega_z"
-        obs_names[6] = "lin_vel_x_ref"
-        obs_names[7] = "lin_vel_y_ref"
-        obs_names[8] = "lin_vel_z_ref"
-        obs_names[9] = "omega_x_ref"
-        obs_names[10] = "omega_y_ref"
-        obs_names[11] = "omega_z_ref"
-        obs_names[12] = "rhc_const_viol"
-        # obs_names[13] = "rhc_cost"
+        obs_names[0] = "q_w"
+        obs_names[1] = "q_i"
+        obs_names[2] = "q_j"
+        obs_names[3] = "q_k"
+        obs_names[4] = "lin_vel_x"
+        obs_names[5] = "lin_vel_y"
+        obs_names[6] = "lin_vel_z"
+        obs_names[7] = "omega_x"
+        obs_names[8] = "omega_y"
+        obs_names[9] = "omega_z"
+        obs_names[10] = "lin_vel_x_ref"
+        obs_names[11] = "lin_vel_y_ref"
+        obs_names[12] = "lin_vel_z_ref"
+        obs_names[13] = "omega_x_ref"
+        obs_names[14] = "omega_y_ref"
+        obs_names[15] = "omega_z_ref"
+        obs_names[16] = "rhc_const_viol"
+        obs_names[17] = "rhc_cost"
 
         return obs_names
 
     def _get_action_names(self):
 
         action_names = [""] * self.actions_dim()
-
         action_names[0] = "vx_cmd"
         action_names[1] = "vy_cmd"
         action_names[2] = "h_cmd"
@@ -217,11 +230,11 @@ class LinVelEnv(LRhcTrainingEnvBase):
 
     def _get_rewards_names(self):
 
-        n_rewards = 2
+        n_rewards = 3
         reward_names = [""] * n_rewards
 
         reward_names[0] = "task_error"
         reward_names[1] = "rhc_const_viol"
-        # reward_names[2] = "rhc_cost"
+        reward_names[2] = "rhc_cost"
 
         return reward_names
