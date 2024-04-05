@@ -37,11 +37,7 @@ class ActorCriticAlgoBase():
         self._seed = seed
 
         self._eval = False
-        self._agent = ActorCriticTanh(obs_dim=self._env.obs_dim(),
-                        actions_dim=self._env.actions_dim(),
-                        actor_std=0.01,
-                        critic_std=1.0,
-                        norm_obs=True)
+        self._agent = None 
         
         self._debug = debug
 
@@ -101,6 +97,17 @@ class ActorCriticAlgoBase():
         # numeric values
         self._hyperparameters.update(custom_args)
 
+        self._torch_device = torch.device("cuda" if torch.cuda.is_available() and self._use_gpu else "cpu")
+
+        self._agent = ActorCriticTanh(obs_dim=self._env.obs_dim(),
+                        actions_dim=self._env.actions_dim(),
+                        actor_std=0.01,
+                        critic_std=1.0,
+                        norm_obs=True,
+                        device=self._torch_device,
+                        dtype=self._dtype)
+        # self._agent.to(self._torch_device) # move agent to target device
+
         # load model if necessary 
         if self._eval: # load pretrained model
             if model_path is None:
@@ -157,10 +164,6 @@ class ActorCriticAlgoBase():
             wandb.watch(self._agent, log="all")
             # wandb.watch(self._agent.actor_mean, log="all")
             # wandb.watch(self.actor_logstd, log="all")
-            
-        self._torch_device = torch.device("cuda" if torch.cuda.is_available() and self._use_gpu else "cpu")
-
-        self._agent.to(self._torch_device) # move agent to target device
 
         if not self._eval:
             self._optimizer = optim.Adam(self._agent.parameters(), 
