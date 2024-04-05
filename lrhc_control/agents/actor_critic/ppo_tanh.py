@@ -46,7 +46,7 @@ class ActorCriticTanh(nn.Module):
                 nn.Tanh(),
                 self._layer_init(layer=nn.Linear(64, self._actions_dim), std=self._actor_std, device=self._torch_device,dtype=self._torch_dtype),
             ) # (stochastic actor)
-            self.actor_logstd = nn.Parameter(torch.zeros(1, self._actions_dim))
+            self.actor_logstd = nn.Parameter(torch.zeros(1, self._actions_dim, device=self._torch_device,dtype=self._torch_dtype))
         else:
             self.critic = nn.Sequential(
                 self._layer_init(layer=nn.Linear(self._obs_dim, 64), device=self._torch_device,dtype=self._torch_dtype),
@@ -62,7 +62,7 @@ class ActorCriticTanh(nn.Module):
                 nn.Tanh(),
                 self._layer_init(layer=nn.Linear(64, self._actions_dim), std=self._actor_std, device=self._torch_device,dtype=self._torch_dtype),
             ) # (stochastic actor)
-            self.actor_logstd = nn.Parameter(torch.zeros(1, self._actions_dim))
+            self.actor_logstd = nn.Parameter(torch.zeros(1, self._actions_dim, device=self._torch_device,dtype=self._torch_dtype))
 
     def get_impl_path(self):
 
