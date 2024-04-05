@@ -18,7 +18,7 @@ class LinVelInPlaceTrack(LRhcTrainingEnvBase):
             dtype: torch.dtype = torch.float32,
             debug: bool = True):
 
-        obs_dim = 17
+        obs_dim = 18
         actions_dim = 6
 
         n_steps_episode_lb = 512 # episode length
@@ -45,6 +45,9 @@ class LinVelInPlaceTrack(LRhcTrainingEnvBase):
         
         self._rhc_cnstr_viol_weight = 1
         self._rhc_cnstr_viol_scale = 1
+
+        self._rhc_cost_weight = 1
+        self._rhc_cost_scale = 1e-2
 
         self._linvel_lb = torch.full((1, 3), dtype=dtype, device=device,
                             fill_value=-0.8) 
@@ -129,6 +132,7 @@ class LinVelInPlaceTrack(LRhcTrainingEnvBase):
         task_meas = obs[:, 4:10]
         task_ref = obs[:, 10:16]
         cnstr_viol = obs[:, 16:17]
+        rhc_cost = obs[:, 17:18]
 
         task_error = (task_ref - task_meas) * self._task_err_weights
         task_err_norm = torch.norm(task_error, p=2, dim=1, keepdim=True)
@@ -136,6 +140,7 @@ class LinVelInPlaceTrack(LRhcTrainingEnvBase):
         sub_rewards = self._rewards.get_torch_view(gpu=self._use_gpu)
         sub_rewards[:, 0:1] = self._task_weight * (1.0 - (self._task_scale * task_err_norm))
         sub_rewards[:, 1:2] = self._rhc_cnstr_viol_weight * (1.0 - cnstr_viol)
+        sub_rewards[:, 2:3] = self._rhc_cost_weight * (1.0 - rhc_cost)
 
     def _fill_obs(self,
             obs_tensor: torch.Tensor):
@@ -149,11 +154,16 @@ class LinVelInPlaceTrack(LRhcTrainingEnvBase):
         obs_tensor[:, 4:10] = robot_twist_meas
         obs_tensor[:, 10:16] = agent_twist_ref
         obs_tensor[:, 16:17] = self._rhc_const_viol()
+        obs_tensor[:, 17:18] = self._rhc_cost()
         
     def _rhc_const_viol(self):
         rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_view(gpu=self._use_gpu)
         return self._rhc_cnstr_viol_scale * rhc_const_viol
-        
+    
+    def _rhc_cost(self):
+        rhc_cost = self._rhc_status.rhc_cost.get_torch_view(gpu=self._use_gpu)
+        return self._rhc_cost_scale * rhc_cost
+    
     def _randomize_refs(self,
                 env_indxs: torch.Tensor = None):
         
@@ -190,6 +200,7 @@ class LinVelInPlaceTrack(LRhcTrainingEnvBase):
         obs_names[14] = "omega_y_ref"
         obs_names[15] = "omega_z_ref"
         obs_names[16] = "rhc_const_viol"
+        obs_names[16] = "rhc_cost"
 
         return obs_names
 
@@ -206,11 +217,11 @@ class LinVelInPlaceTrack(LRhcTrainingEnvBase):
 
     def _get_rewards_names(self):
 
-        n_rewards = 2
+        n_rewards = 3
         reward_names = [""] * n_rewards
 
         reward_names[0] = "task_error"
         reward_names[1] = "rhc_const_viol"
-        # reward_names[2] = "rhc_cost"
+        reward_names[2] = "rhc_cost"
 
         return reward_names
