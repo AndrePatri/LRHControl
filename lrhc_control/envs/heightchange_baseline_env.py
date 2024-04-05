@@ -30,8 +30,8 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
 
         env_name = "LRhcHeightChange"
         
-        self._h_error_scale = 2
-        self._cnstr_viol_scale = 1
+        self._h_error_scale = 1
+        self._cnstr_viol_scale = 0.005
 
         self._href_lb = 0.3
         self._href_ub = 0.8
@@ -53,7 +53,7 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
                     dtype=dtype,
                     debug=debug)
 
-        self._reward_thresh_lb = -1 # used for clipping rewards
+        self._reward_thresh_lb = 0 # used for clipping rewards
         self._obs_threshold_lb = -10 # used for clipping observations
         self._reward_thresh_ub = 1 # overrides parent's defaults
         self._obs_threshold_ub = 10
