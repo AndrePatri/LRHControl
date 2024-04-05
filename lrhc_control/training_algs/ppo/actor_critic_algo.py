@@ -85,7 +85,8 @@ class ActorCriticAlgoBase():
             drop_dir_name: str = None,
             eval: bool = False,
             model_path: str = None,
-            n_eval_timesteps: int = None,
+            n_evals: int = None,
+            n_timesteps_per_eval: int = None,
             comment: str = ""):
 
         self._verbose = verbose
@@ -108,15 +109,22 @@ class ActorCriticAlgoBase():
                     f"When eval is True, a model_path should be provided!!",
                     LogType.EXCEP,
                     throw_when_excep = True)
-            elif n_eval_timesteps is None:
+            elif n_timesteps_per_eval is None:
                 Journal.log(self.__class__.__name__,
                     "setup",
-                    f"When eval is True, n_eval_timesteps should be provided!!",
+                    f"When eval is True, n_timesteps_per_eval should be provided!!",
+                    LogType.EXCEP,
+                    throw_when_excep = True)
+            elif n_evals is None:
+                Journal.log(self.__class__.__name__,
+                    "setup",
+                    f"When eval is True, n_evals should be provided!!",
                     LogType.EXCEP,
                     throw_when_excep = True)
             else:
                 self._model_path = model_path
-                self._rollout_timesteps = n_eval_timesteps # overrides 
+                self._rollout_timesteps = int(n_timesteps_per_eval/self._num_envs) # overrides 
+                self._iterations_n = n_evals
             self._load_model(self._model_path)
 
         # create dump directory + copy important files for debug
@@ -416,10 +424,8 @@ class ActorCriticAlgoBase():
 
         self._log_info()
 
-        if self._it_counter == self._iterations_n and not self._eval: # training
+        if self._it_counter == self._iterations_n:
             self.done()
-        else:
-            self.done() # just do a single rollout for evaluation runs
             
     def _should_have_called_setup(self):
 
