@@ -1,6 +1,7 @@
-from lrhc_control.envs.lrhc_training_env_base import LRhcTrainingEnvBase
-
 from lrhc_control.utils.sys_utils import PathsGetter
+from lrhc_control.envs.lrhc_training_env_base import LRhcTrainingEnvBase
+from control_cluster_bridge.utilities.shared_data.rhc_data import RobotState
+
 import torch
 
 from SharsorIPCpp.PySharsorIPC import VLevel
@@ -18,12 +19,25 @@ class LinVelTrack(LRhcTrainingEnvBase):
             dtype: torch.dtype = torch.float32,
             debug: bool = True):
 
-        obs_dim = 18
+        # temporarily creating robot state client to get n jnts
+        robot_state_tmp = RobotState(namespace=namespace,
+                                is_server=False, 
+                                safe=False,
+                                verbose=verbose,
+                                vlevel=vlevel,
+                                with_gpu_mirror=False,
+                                with_torch_view=False)
+        n_jnts = self._robot_state.n_jnts()
+        robot_state_tmp.run()
+        robot_state_tmp.close()
+        
+        obs_dim = 18 + 2 * n_jnts
+
         actions_dim = 2 + 1 + 3 + 4 # [vxy_cmd, h_cmd, twist_cmd, dostep_0, dostep_1, dostep_2, dostep_3]
 
         n_steps_episode_lb = 512 # episode length
         n_steps_episode_ub = 4096
-        n_steps_task_rand_lb = 32 # agent refs randomization freq
+        n_steps_task_rand_lb = 64 # agent refs randomization freq
         n_steps_task_rand_ub = 128
 
         n_preinit_steps = 1 # one steps of the controllers to properly initialize everything
@@ -84,8 +98,8 @@ class LinVelTrack(LRhcTrainingEnvBase):
 
         self._actions_offsets[:, :] = 0.0 # default to no offset and scaling
         self._actions_scalings[:, :] = 1.0 
-        self._actions_offsets[:, 6:10] = 1.0 # stepping flags 
-        self._actions_scalings[:, 6:10] =  0.5 # 0.1
+        self._actions_offsets[:, 6:10] = 0.0 # stepping flags 
+        self._actions_scalings[:, 6:10] =  1.0 # 0.1
 
     def get_file_paths(self):
 
@@ -133,6 +147,31 @@ class LinVelTrack(LRhcTrainingEnvBase):
         self._rhc_refs.rob_refs.root_state.synch_all(read=False, retry=True) # write mirror to shared mem
         self._rhc_refs.contact_flags.synch_all(read=False, retry=True)
 
+    def _fill_obs(self,
+            obs_tensor: torch.Tensor):
+
+        robot_jnt_q_meas = self._robot_state.jnts_state.get(data_type="q",gpu=self._use_gpu)
+        robot_jnt_v_meas = self._robot_state.jnts_state.get(data_type="v",gpu=self._use_gpu)
+        robot_q_meas = self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
+        robot_twist_meas = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu)
+        agent_twist_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu)
+
+        obs_tensor[:, 0:4] = robot_q_meas # [w, i, j, k] (IsaacSim convention)
+        obs_tensor[:, 4:10] = robot_twist_meas
+        obs_tensor[:, 10:10+self._n_jnts] = robot_jnt_q_meas
+        obs_tensor[:, (10+self._n_jnts):(10+2*self._n_jnts)] = robot_jnt_v_meas
+        obs_tensor[:, (10+2*self._n_jnts):((10+2*self._n_jnts)+6)] = agent_twist_ref
+        obs_tensor[:, ((10+2*self._n_jnts)+6):((10+2*self._n_jnts)+6+1)] = self._rhc_const_viol()
+        obs_tensor[:, ((10+2*self._n_jnts)+6+1):((10+2*self._n_jnts)+6+2)] = self._rhc_cost()
+        
+    def _rhc_const_viol(self):
+        rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_view(gpu=self._use_gpu)
+        return self._rhc_cnstr_viol_scale * rhc_const_viol
+    
+    def _rhc_cost(self):
+        rhc_cost = self._rhc_status.rhc_cost.get_torch_view(gpu=self._use_gpu)
+        return self._rhc_cost_scale * rhc_cost
+    
     def _compute_sub_rewards(self,
                     obs: torch.Tensor):
         
@@ -149,29 +188,7 @@ class LinVelTrack(LRhcTrainingEnvBase):
         sub_rewards[:, 0:1] = self._task_weight * (1.0 - (self._task_scale * task_err_norm))
         sub_rewards[:, 1:2] = self._rhc_cnstr_viol_weight * (1.0 - cnstr_viol)
         sub_rewards[:, 2:3] = self._rhc_cost_weight * (1.0 - rhc_cost)
-
-    def _fill_obs(self,
-            obs_tensor: torch.Tensor):
-
-        robot_q_meas = self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
-        robot_twist_meas = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu)
-        agent_twist_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu)
-
-        # rhc_cost = self._rhc_status.rhc_cost.get_torch_view(gpu=self._use_gpu)
-        obs_tensor[:, 0:4] = robot_q_meas # [w, i, j, k] (IsaacSim convention)
-        obs_tensor[:, 4:10] = robot_twist_meas
-        obs_tensor[:, 10:16] = agent_twist_ref
-        obs_tensor[:, 16:17] = self._rhc_const_viol()
-        obs_tensor[:, 17:18] = self._rhc_cost()
         
-    def _rhc_const_viol(self):
-        rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_view(gpu=self._use_gpu)
-        return self._rhc_cnstr_viol_scale * rhc_const_viol
-    
-    def _rhc_cost(self):
-        rhc_cost = self._rhc_status.rhc_cost.get_torch_view(gpu=self._use_gpu)
-        return self._rhc_cost_scale * rhc_cost
-    
     def _randomize_refs(self,
                 env_indxs: torch.Tensor = None):
         
@@ -201,14 +218,19 @@ class LinVelTrack(LRhcTrainingEnvBase):
         obs_names[7] = "omega_x"
         obs_names[8] = "omega_y"
         obs_names[9] = "omega_z"
-        obs_names[10] = "lin_vel_x_ref"
-        obs_names[11] = "lin_vel_y_ref"
-        obs_names[12] = "lin_vel_z_ref"
-        obs_names[13] = "omega_x_ref"
-        obs_names[14] = "omega_y_ref"
-        obs_names[15] = "omega_z_ref"
-        obs_names[16] = "rhc_const_viol"
-        obs_names[17] = "rhc_cost"
+        for i in range(self._n_jnts): # jnt obs (pos):
+            obs_names.append(f"jnt_q{i}")
+        for i in range(self._n_jnts): # jnt obs (vel):
+            obs_names.append(f"jnt_v{i}")
+        restart_idx = 9 + 2 * self._n_jnts
+        obs_names[restart_idx + 1] = "lin_vel_x_ref"
+        obs_names[restart_idx + 2] = "lin_vel_y_ref"
+        obs_names[restart_idx + 3] = "lin_vel_z_ref"
+        obs_names[restart_idx + 4] = "omega_x_ref"
+        obs_names[restart_idx + 5] = "omega_y_ref"
+        obs_names[restart_idx + 6] = "omega_z_ref"
+        obs_names[restart_idx + 7] = "rhc_const_viol"
+        obs_names[restart_idx + 8] = "rhc_cost"
 
         return obs_names
 
