@@ -27,8 +27,8 @@ class LinVelTrack(LRhcTrainingEnvBase):
                                 vlevel=vlevel,
                                 with_gpu_mirror=False,
                                 with_torch_view=False)
-        n_jnts = robot_state_tmp.n_jnts()
         robot_state_tmp.run()
+        n_jnts = robot_state_tmp.n_jnts()
         robot_state_tmp.close()
         
         obs_dim = 18 + 2 * n_jnts
