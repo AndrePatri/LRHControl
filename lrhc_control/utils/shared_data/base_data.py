@@ -112,7 +112,7 @@ class NamedSharedTWrapper(SharedTWrapper):
 
                     exception = f"Col. names list length {len(self._col_names)} " + \
                         f"does not match the number of joints {self.n_cols}"
-
+                
                     Journal.log(self.__class__.__name__,
                         "_write_or_retrieve_names",
                         exception,

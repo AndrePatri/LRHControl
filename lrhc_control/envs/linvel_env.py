@@ -219,9 +219,9 @@ class LinVelTrack(LRhcTrainingEnvBase):
         obs_names[8] = "omega_y"
         obs_names[9] = "omega_z"
         for i in range(self._n_jnts): # jnt obs (pos):
-            obs_names.append(f"jnt_q{i}")
+            obs_names[10 + i] = f"jnt_q{i}"
         for i in range(self._n_jnts): # jnt obs (vel):
-            obs_names.append(f"jnt_v{i}")
+            obs_names[10 + self._n_jnts + i] = f"jnt_v{i}"
         restart_idx = 9 + 2 * self._n_jnts
         obs_names[restart_idx + 1] = "lin_vel_x_ref"
         obs_names[restart_idx + 2] = "lin_vel_y_ref"
