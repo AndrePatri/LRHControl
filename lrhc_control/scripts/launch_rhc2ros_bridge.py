@@ -40,7 +40,8 @@ if __name__ == '__main__':
         bridge = RhcToVizBridge(namespace=args.ns, 
                         verbose=verbose,
                         rhcviz_basename="RHCViz", 
-                        robot_selector=[0, None])
+                        robot_selector=[0, None],
+                        with_agent_refs=args.with_agent_refs)
     else:
 
         from lrhc_control.utils.rhc_viz.rhc2viz2 import RhcToViz2Bridge
