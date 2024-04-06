@@ -176,10 +176,10 @@ class LinVelTrack(LRhcTrainingEnvBase):
                     obs: torch.Tensor):
         
         # task error
-        task_meas = obs[:, 4:10]
-        task_ref = obs[:, 10:16]
-        cnstr_viol = obs[:, 16:17]
-        rhc_cost = obs[:, 17:18]
+        task_meas = obs[:, 4:10] # robot twist meas
+        task_ref = obs[:, (10+2*self._n_jnts):((10+2*self._n_jnts)+6)] # robot hybrid twist refs
+        cnstr_viol = obs[:, ((10+2*self._n_jnts)+6):((10+2*self._n_jnts)+6+1)]
+        rhc_cost = obs[:, ((10+2*self._n_jnts)+6+1):((10+2*self._n_jnts)+6+2)]
 
         task_error = (task_ref - task_meas) * self._task_err_weights
         task_err_norm = torch.norm(task_error, p=2, dim=1, keepdim=True)
