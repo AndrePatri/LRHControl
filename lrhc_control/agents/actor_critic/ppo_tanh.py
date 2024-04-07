@@ -29,39 +29,40 @@ class ActorCriticTanh(nn.Module):
         self._obs_dim = obs_dim
         self._actions_dim = actions_dim
         
-        size = 256
+        size_critic = 256
+        size_actor = 256
         if self._normalize_obs:
             self.critic = nn.Sequential(
                 RunningNormalizer((self._obs_dim,), epsilon=1e-8, device=self._torch_device, dtype=self._torch_dtype),
-                self._layer_init(layer=nn.Linear(self._obs_dim, size),device=self._torch_device,dtype=self._torch_dtype),
+                self._layer_init(layer=nn.Linear(self._obs_dim, size_critic),device=self._torch_device,dtype=self._torch_dtype),
                 nn.Tanh(),
-                self._layer_init(layer=nn.Linear(size, size), device=self._torch_device,dtype=self._torch_dtype),
+                self._layer_init(layer=nn.Linear(size_critic, size_critic), device=self._torch_device,dtype=self._torch_dtype),
                 nn.Tanh(),
-                self._layer_init(layer=nn.Linear(size, 1), std=self._critic_std, device=self._torch_device,dtype=self._torch_dtype),
+                self._layer_init(layer=nn.Linear(size_critic, 1), std=self._critic_std, device=self._torch_device,dtype=self._torch_dtype),
             ) # (stochastic critic)
             self.actor_mean = nn.Sequential(
                 RunningNormalizer((self._obs_dim,), epsilon=1e-8, device=self._torch_device, dtype=self._torch_dtype),
-                self._layer_init(layer=nn.Linear(self._obs_dim, size), device=self._torch_device,dtype=self._torch_dtype),
+                self._layer_init(layer=nn.Linear(self._obs_dim, size_actor), device=self._torch_device,dtype=self._torch_dtype),
                 nn.Tanh(),
-                self._layer_init(layer=nn.Linear(size, size), device=self._torch_device,dtype=self._torch_dtype),
+                self._layer_init(layer=nn.Linear(size_actor, size_actor), device=self._torch_device,dtype=self._torch_dtype),
                 nn.Tanh(),
-                self._layer_init(layer=nn.Linear(size, self._actions_dim), std=self._actor_std, device=self._torch_device,dtype=self._torch_dtype),
+                self._layer_init(layer=nn.Linear(size_actor, self._actions_dim), std=self._actor_std, device=self._torch_device,dtype=self._torch_dtype),
             ) # (stochastic actor)
             self.actor_logstd = nn.Parameter(torch.zeros(1, self._actions_dim, device=self._torch_device,dtype=self._torch_dtype))
         else:
             self.critic = nn.Sequential(
-                self._layer_init(layer=nn.Linear(self._obs_dim, size), device=self._torch_device,dtype=self._torch_dtype),
+                self._layer_init(layer=nn.Linear(self._obs_dim, size_critic), device=self._torch_device,dtype=self._torch_dtype),
                 nn.Tanh(),
-                self._layer_init(layer=nn.Linear(size, size), device=self._torch_device,dtype=self._torch_dtype),
+                self._layer_init(layer=nn.Linear(size_critic, size_critic), device=self._torch_device,dtype=self._torch_dtype),
                 nn.Tanh(),
-                self._layer_init(layer=nn.Linear(size, 1), std=self._critic_std, device=self._torch_device,dtype=self._torch_dtype),
+                self._layer_init(layer=nn.Linear(size_critic, 1), std=self._critic_std, device=self._torch_device,dtype=self._torch_dtype),
             ) # (stochastic critic)
             self.actor_mean = nn.Sequential(
-                self._layer_init(layer=nn.Linear(self._obs_dim, size), device=self._torch_device,dtype=self._torch_dtype),
+                self._layer_init(layer=nn.Linear(self._obs_dim, size_actor), device=self._torch_device,dtype=self._torch_dtype),
                 nn.Tanh(),
-                self._layer_init(layer=nn.Linear(size, size), device=self._torch_device,dtype=self._torch_dtype),
+                self._layer_init(layer=nn.Linear(size_actor, size_actor), device=self._torch_device,dtype=self._torch_dtype),
                 nn.Tanh(),
-                self._layer_init(layer=nn.Linear(size, self._actions_dim), std=self._actor_std, device=self._torch_device,dtype=self._torch_dtype),
+                self._layer_init(layer=nn.Linear(size_actor, self._actions_dim), std=self._actor_std, device=self._torch_device,dtype=self._torch_dtype),
             ) # (stochastic actor)
             self.actor_logstd = nn.Parameter(torch.zeros(1, self._actions_dim, device=self._torch_device,dtype=self._torch_dtype))
 
