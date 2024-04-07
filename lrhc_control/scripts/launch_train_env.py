@@ -1,6 +1,7 @@
 from lrhc_control.envs.linvel_in_place_env import LinVelInPlaceTrack
 from lrhc_control.envs.linvel_env import LinVelTrack
 from lrhc_control.envs.heightchange_baseline_env import LRhcHeightChange
+from lrhc_control.envs.linvel_env_baseline import LinVelTrackBaseline
 
 # from lrhc_control.training_algs.ppo.clean_ppo import CleanPPO
 # from lrhc_control.training_algs.ppo.mem_eff_ppo import MemEffPPO
@@ -54,11 +55,18 @@ if __name__ == "__main__":
     #                 vlevel=VLevel.V2,
     #                 use_gpu=not args.use_cpu,
     #                 debug=True)
-    env = LinVelTrack(namespace=args.ns,
+    env = LinVelTrackBaseline(namespace=args.ns,
                     verbose=True,
                     vlevel=VLevel.V2,
                     use_gpu=not args.use_cpu,
                     debug=True)
+    # env = LinVelTrack(namespace=args.ns,
+    #                 verbose=True,
+    #                 vlevel=VLevel.V2,
+    #                 use_gpu=not args.use_cpu,
+    #                 debug=True)
+    
+    
     # getting some sim info for debugging
     sim_data = {}
     sim_info_shared = SharedSimInfo(namespace=args.ns,
