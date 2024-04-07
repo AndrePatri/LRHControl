@@ -630,7 +630,7 @@ class ActorCriticAlgoBase():
         self._clip_coef = 0.3
         self._clip_vloss = True
         self._entropy_coeff = 0.0 # 0.01
-        self._val_f_coeff = 0.5
+        self._val_f_coeff = 0.01
         self._max_grad_norm = 0.5
         self._target_kl = None
 
