@@ -29,8 +29,8 @@ class ActorCriticTanh(nn.Module):
         self._obs_dim = obs_dim
         self._actions_dim = actions_dim
         
-        size_critic = 256
-        size_actor = 256
+        size_critic = 128
+        size_actor = 64
         if self._normalize_obs:
             self.critic = nn.Sequential(
                 RunningNormalizer((self._obs_dim,), epsilon=1e-8, device=self._torch_device, dtype=self._torch_dtype),
