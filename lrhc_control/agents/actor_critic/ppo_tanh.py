@@ -65,7 +65,18 @@ class ActorCriticTanh(nn.Module):
                 self._layer_init(layer=nn.Linear(size_actor, self._actions_dim), std=self._actor_std, device=self._torch_device,dtype=self._torch_dtype),
             ) # (stochastic actor)
             self.actor_logstd = nn.Parameter(torch.zeros(1, self._actions_dim, device=self._torch_device,dtype=self._torch_dtype))
+    
+    def get_critic_n_params(self):
+        return sum(p.numel() for p in self.critic.parameters())
 
+    def get_actor_n_params(self):
+        actor_mean_size = sum(p.numel() for p in self.actor_mean.parameters())
+        actor_std_size = self._actions_dim
+        return actor_mean_size+actor_std_size
+    
+    def get_n_params(self):
+        return sum(p.numel() for p in self.parameters())
+    
     def get_impl_path(self):
 
         import os 
