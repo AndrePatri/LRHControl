@@ -14,13 +14,14 @@ dependencies:
   - python=3.10
   - pip
   - pytorch == 2.0.1
-  # - cuda-toolkit=11.7
+  - cuda-toolkit=11.7
   - casadi_kin_dyn
   # - pinocchio=2.6.20
   - compilers 
   - cmake
   - make
   - quaternion
+  - yaml-cpp
   - pybind11
   - gtest
   - eigen3
@@ -32,13 +33,17 @@ dependencies:
   - pyqt
   - pyqtgraph
   - poetry
+  # - control_cluster_bridge
+  # - omni_robo_gym
   - pip:
     - flit
-    # - nvidia-cublas-cu11==11.11.3.6
+    - nvidia-cublas-cu11==11.11.3.6
+    - protobuf
+    - matplotlib
     - scipy
-    # - urdf-parser-py
+    - urdf-parser-py
     - multiprocess
     - pynput==1.6.6
-    # - urdf_parser_py
+    - urdf_parser_py
     - psutil
     - wandb
