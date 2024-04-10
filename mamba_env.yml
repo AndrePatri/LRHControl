@@ -14,8 +14,6 @@ dependencies:
   - python=3.10
   - pip
   - pytorch == 2.0.1
-  - torchvision 
-  - torchaudio 
   - cuda-toolkit=11.7
   - casadi_kin_dyn
   # - pinocchio=2.6.20
@@ -23,7 +21,6 @@ dependencies:
   - cmake
   - make
   - quaternion
-  - anaconda-client
   - yaml-cpp
   - pybind11
   - gtest
@@ -41,9 +38,6 @@ dependencies:
   - pip:
     - flit
     - nvidia-cublas-cu11==11.11.3.6
-    - gym
-    - gymnasium
-    - stable_baselines3[extra]
     - protobuf
     - matplotlib
     - scipy
@@ -52,8 +46,4 @@ dependencies:
     - pynput==1.6.6
     - urdf_parser_py
     - psutil
-    - multiprocess
-    - matplotlib
     - wandb
-    - tensorflow
-
