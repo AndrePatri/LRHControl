@@ -31,14 +31,14 @@ class LinVelTrackV2(LRhcTrainingEnvBase):
         n_jnts = robot_state_tmp.n_jnts()
         robot_state_tmp.close()
         
-        obs_dim = 18 + 1 * n_jnts
+        obs_dim = 18 + n_jnts
 
         actions_dim = 2 + 1 + 3 + 4 # [vxy_cmd, h_cmd, twist_cmd, dostep_0, dostep_1, dostep_2, dostep_3]
 
         n_steps_episode_lb = 512 # episode length
         n_steps_episode_ub = 4096
         n_steps_task_rand_lb = 32 # agent refs randomization freq
-        n_steps_task_rand_ub = 128
+        n_steps_task_rand_ub = 4096
 
         n_preinit_steps = 1 # one steps of the controllers to properly initialize everything
 

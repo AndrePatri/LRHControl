@@ -599,8 +599,6 @@ class ActorCriticAlgoBase():
         self._num_envs = self._env.n_envs()
         self._obs_dim = self._env.obs_dim()
         self._actions_dim = self._env.actions_dim()
-        self._critic_size = self._agent.get_critic_n_params()
-        self._actor_size = self._agent.get_actor_n_params()
 
         self._run_name = "DefaultRun" # default
         self._env_name = self._env.name()
@@ -615,7 +613,7 @@ class ActorCriticAlgoBase():
         # main algo settings
         self._iterations_n = 1500 # number of ppo iterations
         self._batch_size_nom = 32768 # 24576
-        self._num_minibatches = 4
+        self._num_minibatches = 8
         self._rollout_timesteps = int(self._batch_size_nom / self._num_envs)
         self._batch_size = self._rollout_timesteps * self._num_envs
         self._minibatch_size = int(self._batch_size // self._num_minibatches)
@@ -642,8 +640,8 @@ class ActorCriticAlgoBase():
         self._hyperparameters["n_envs"] = self._num_envs
         self._hyperparameters["obs_dim"] = self._obs_dim
         self._hyperparameters["actions_dim"] = self._actions_dim
-        self._hyperparameters["critic_size"] = self._critic_size
-        self._hyperparameters["actor_size"] = self._actor_size
+        # self._hyperparameters["critic_size"] = self._critic_size
+        # self._hyperparameters["actor_size"] = self._actor_size
         self._hyperparameters["seed"] = self._seed
         self._hyperparameters["using_gpu"] = self._use_gpu
         self._hyperparameters["n_iterations"] = self._iterations_n
@@ -678,8 +676,6 @@ class ActorCriticAlgoBase():
             f"batch_size {self._batch_size}\n" + \
             f"num_minibatches {self._num_minibatches}\n" + \
             f"minibatch_size {self._minibatch_size}\n" + \
-            f"critic n. params {self._critic_size}" + \
-            f"actor n. params {self._actor_size}" + \
             f"per-batch update_epochs {self._update_epochs}\n" + \
             f"iterations_n {self._iterations_n}\n" + \
             f"n steps per env. rollout {self._rollout_timesteps}\n" + \
@@ -692,14 +688,6 @@ class ActorCriticAlgoBase():
             info,
             LogType.INFO,
             throw_when_excep = True)
-        
-        if (self._critic_size>=self._minibatch_size) or (self._actor_size>=self._minibatch_size):
-            warn = "Minibatch size should be bigger than both the n. params in the critic and the actor for stable learning!!"
-            Journal.log(self.__class__.__name__,
-                "_init_params",
-                warn,
-                LogType.WARN,
-                throw_when_excep = True)
         
         self._it_counter = 0
 

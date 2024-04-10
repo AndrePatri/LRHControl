@@ -8,7 +8,7 @@ from SharsorIPCpp.PySharsorIPC import LogType
 
 import os
 
-class LinVelInPlaceTrack(LRhcTrainingEnvBase):
+class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
     def __init__(self,
             namespace: str,
@@ -19,7 +19,7 @@ class LinVelInPlaceTrack(LRhcTrainingEnvBase):
             debug: bool = True):
 
         obs_dim = 18
-        actions_dim = 6
+        actions_dim = 2 + 1 + 3 + 4 # [vxy_cmd, h_cmd, twist_cmd, dostep_0, dostep_1, dostep_2, dostep_3]
 
         n_steps_episode_lb = 512 # episode length
         n_steps_episode_ub = 4096
@@ -28,7 +28,7 @@ class LinVelInPlaceTrack(LRhcTrainingEnvBase):
 
         n_preinit_steps = 1 # one steps of the controllers to properly initialize everything
 
-        env_name = "LinVelInPlaceTrack"
+        env_name = "LinVelTrack"
         
         device = "cuda" if use_gpu else "cpu"
 
@@ -36,9 +36,9 @@ class LinVelInPlaceTrack(LRhcTrainingEnvBase):
         self._task_scale = 1
         self._task_err_weights = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.0) 
-        self._task_err_weights[0, 0] = 3.0
-        self._task_err_weights[0, 1] = 3.0
-        self._task_err_weights[0, 2] = 3.0
+        self._task_err_weights[0, 0] = 1.0
+        self._task_err_weights[0, 1] = 1.0
+        self._task_err_weights[0, 2] = 1.0
         self._task_err_weights[0, 3] = 0.0001
         self._task_err_weights[0, 4] = 0.0001
         self._task_err_weights[0, 5] = 0.0001
@@ -47,7 +47,7 @@ class LinVelInPlaceTrack(LRhcTrainingEnvBase):
         self._rhc_cnstr_viol_scale = 1
 
         self._rhc_cost_weight = 1
-        self._rhc_cost_scale = 1e-2
+        self._rhc_cost_scale = 1e-5
 
         self._linvel_lb = torch.full((1, 3), dtype=dtype, device=device,
                             fill_value=-0.8) 
@@ -78,12 +78,14 @@ class LinVelInPlaceTrack(LRhcTrainingEnvBase):
                     debug=debug)
 
         self._reward_thresh_lb = 0 # used for clipping rewards
-        self._obs_threshold_lb = -1e2 # used for clipping observations
+        self._obs_threshold_lb = -1e3 # used for clipping observations
         self._reward_thresh_ub = 1 # overrides parent's defaults
-        self._obs_threshold_ub = 1e2
+        self._obs_threshold_ub = 1e3
 
-        self._actions_offsets[:, :] = 0.0 # vxy_cmd 
-        self._actions_scalings[:, :] = 1.0 # 0.05
+        self._actions_offsets[:, :] = 0.0 # default to no offset and scaling
+        self._actions_scalings[:, :] = 1.0 
+        self._actions_offsets[:, 6:10] = 1.0 # stepping flags 
+        self._actions_scalings[:, 6:10] =  0.5 # 0.1
 
     def get_file_paths(self):
 
@@ -111,6 +113,7 @@ class LinVelInPlaceTrack(LRhcTrainingEnvBase):
 
         rhc_latest_twist_ref = self._rhc_refs.rob_refs.root_state.get(data_type="twist", gpu=self._use_gpu)
         rhc_latest_p_ref = self._rhc_refs.rob_refs.root_state.get(data_type="p", gpu=self._use_gpu)
+        rhc_latest_contact_ref = self._rhc_refs.contact_flags.get_torch_view(gpu=self._use_gpu)
 
         rhc_latest_twist_ref[:, 0:2] = agent_action[:, 0:2] # lin vel cmd
         rhc_latest_p_ref[:, 2:3] = agent_action[:, 2:3] # h cmds
@@ -121,9 +124,14 @@ class LinVelInPlaceTrack(LRhcTrainingEnvBase):
         self._rhc_refs.rob_refs.root_state.set(data_type="twist", data=rhc_latest_twist_ref,
                                             gpu=self._use_gpu) 
         
+        # contact flags
+        rhc_latest_contact_ref[:, :] = agent_action[:, 6:10] > 0.5 # keep contact if agent action > 0.5
+
         if self._use_gpu:
             self._rhc_refs.rob_refs.root_state.synch_mirror(from_gpu=self._use_gpu) # write from gpu to cpu mirror
+            self._rhc_refs.contact_flags.synch_mirror(from_gpu=self._use_gpu)
         self._rhc_refs.rob_refs.root_state.synch_all(read=False, retry=True) # write mirror to shared mem
+        self._rhc_refs.contact_flags.synch_all(read=False, retry=True)
 
     def _compute_sub_rewards(self,
                     obs: torch.Tensor):
@@ -213,6 +221,11 @@ class LinVelInPlaceTrack(LRhcTrainingEnvBase):
         action_names[3] = "roll_twist_cmd"
         action_names[4] = "pitch_twist_cmd"
         action_names[5] = "yaw_twist_cmd"
+        action_names[6] = "contact_0"
+        action_names[7] = "contact_1"
+        action_names[8] = "contact_2"
+        action_names[9] = "contact_3"
+
         return action_names
 
     def _get_rewards_names(self):
