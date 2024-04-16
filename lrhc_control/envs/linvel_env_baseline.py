@@ -38,7 +38,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         n_steps_episode_lb = 512 # episode length
         n_steps_episode_ub = 4096
         n_steps_task_rand_lb = 32 # agent refs randomization freq
-        n_steps_task_rand_ub = 4096
+        n_steps_task_rand_ub = 512
 
         n_preinit_steps = 1 # one steps of the controllers to properly initialize everything
 
@@ -57,10 +57,10 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._task_err_weights[0, 4] = 0.0001
         self._task_err_weights[0, 5] = 0.0001
         
-        self._rhc_cnstr_viol_weight = 0.5
-        self._rhc_cnstr_viol_scale = 1
+        self._rhc_cnstr_viol_weight = 1.0
+        self._rhc_cnstr_viol_scale = 1e-1
 
-        self._rhc_cost_weight = 0.5
+        self._rhc_cost_weight = 1.0
         self._rhc_cost_scale = 1e-5
 
         self._linvel_lb = torch.full((1, 3), dtype=dtype, device=device,
