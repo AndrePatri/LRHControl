@@ -117,7 +117,8 @@ byobu new-session -d -s ${BYOBU_WS_NAME} -c ${WORKING_DIR} -n ${BYOBU_WS_NAME} #
 # tab 0
 execute_command "cd ${WORKING_DIR}"
 source_mamba_env
-execute_command "source ~/.local/share/ov/pkg/isaac_sim-2023.1.1/setup_conda_env.sh"
+#execute_command "source ~/.local/share/ov/pkg/isaac_sim-2023.1.1/setup_conda_env.sh"
+execute_command "source /isaac-sim/setup_conda_env.sh"
 execute_command "source $WS_ROOT/setup.bash"
 increase_file_limits_locally 
 clear_terminal
