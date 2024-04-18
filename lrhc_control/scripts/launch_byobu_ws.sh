@@ -130,7 +130,7 @@ source_mamba_env
 execute_command "source $WS_ROOT/setup.bash"
 increase_file_limits_locally
 clear_terminal
-prepare_command "reset && python launch_control_cluster.py --ns {} --robot_pkg_name {} --size {} --set_rhc_affinity"
+prepare_command "reset && python launch_control_cluster.py --enable_debug --ns {} --robot_pkg_name {} --size {}"
 
 split_h
 execute_command "cd ${WORKING_DIR}"
@@ -153,7 +153,7 @@ execute_command "cd ${WORKING_DIR}"
 source_mamba_env
 increase_file_limits_locally
 clear_terminal
-prepare_command "reset && python launch_train_env.py --ns {} --run_name {} --drop_dir {$HOME} --comment "" "
+prepare_command "reset && python launch_train_env.py --ns {} --run_name {} --drop_dir $HOME/results --comment "" "
 
 split_h
 execute_command "cd ${WORKING_DIR}"
