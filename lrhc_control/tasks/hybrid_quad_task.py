@@ -44,8 +44,6 @@ class HybridQuadTask(LRHcIsaacTask):
         robot_names = [self.hybrid_quad_rob_name] * 1
         robot_pkg_names = [self.hybrid_quad_robot_pkg_name] * len(robot_names)
         
-        name = self.__class__.__name__
-
         super().__init__(integration_dt=integration_dt,
                 robot_names=robot_names,
                 robot_pkg_names=robot_pkg_names, 

@@ -26,7 +26,7 @@ if __name__ == '__main__':
     parser.add_argument('--robot_pkg_name', type=str, help='Name of the package for robot description')
     parser.add_argument('--num_envs', type=int)
     parser.add_argument('--cores', nargs='+', type=int, help='List of CPU cores to set 	affinity to')
-    parser.add_argument('--contacts_list', nargs='+', default=["wheel_1", "wheel_2", "wheel_3", "wheel_4"],
+    parser.add_argument('--contacts_list', nargs='+', default=["lower_leg_1", "lower_leg_2", "lower_leg_3", "lower_leg_4"],
                         help='Contact sensor list (needs to mathc an available body)')
     parser.add_argument('--remote_stepping', action='store_true', 
                 help='Whether to use remote stepping for cluster triggering (to be set during training)')
@@ -100,6 +100,7 @@ if __name__ == '__main__':
     # create task
     robot_names = [robot_name]
 
+    # contact sensors
     contact_prims = {} # contact sensors to be added
     contact_prims[robot_name] = args.contacts_list # foot contact sensors
     contact_offsets = {}
@@ -107,7 +108,6 @@ if __name__ == '__main__':
     for i in range(0, len(contact_prims[robot_name])):
         contact_offsets[robot_name][contact_prims[robot_name][i]] = \
             np.array([0.0, 0.0, 0.0])
-        
     sensor_radii = {}
     sensor_radii[robot_name] = {}
     for i in range(0, len(contact_prims[robot_name])):
