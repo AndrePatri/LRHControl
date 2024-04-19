@@ -297,9 +297,19 @@ class HybridQuadRhc(RHController):
 
         return self._ti.solution["opt_cost"]
     
-    def _get_rhc_residual(self):
+    def _get_rhc_constr_viol(self):
 
         return self._ti.solution["residual_norm"]
+    
+    def _get_rhc_nodes_cost(self):
+
+        cost = self._ti.solver_rti.getCostValOnNodes()
+        return cost.reshape((1, -1))
+    
+    def _get_rhc_nodes_constr_viol(self):
+        
+        constr_viol = self._ti.solver_rti.getConstrValOnNodes()
+        return constr_viol.reshape((1, -1))
     
     def _get_rhc_niter_to_sol(self):
 
