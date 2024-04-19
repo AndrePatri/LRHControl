@@ -20,9 +20,12 @@ class LRhcClusterClient(ControlClusterClient):
             core_ids_override_list: List[int] = None,
             verbose: bool = False,
             debug: bool = False,
-            codegen_base_dirname: str = "CodeGen"):
+            codegen_base_dirname: str = "CodeGen",
+            base_dump_dir: str = "/tmp"):
 
-        self._temp_path = "/tmp/" + f"{self.__class__.__name__}" + f"_{robot_pkg_name}"
+        self._base_dump_dir = base_dump_dir
+
+        self._temp_path = base_dump_dir + "/" + f"{self.__class__.__name__}" + f"_{namespace}"
         
         self._codegen_base_dirname = codegen_base_dirname
         self._codegen_basedir = self._temp_path + "/" + self._codegen_base_dirname

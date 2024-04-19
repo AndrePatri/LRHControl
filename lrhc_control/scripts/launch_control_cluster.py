@@ -25,6 +25,7 @@ if __name__ == "__main__":
     parser.add_argument('--open_loop', action='store_true', help='whether use RHC controllers in open loop mode')
     parser.add_argument('--verbose', action='store_true', help='run in verbose mode')
     parser.add_argument('--enable_debug', action='store_true', help='enable debug mode for cluster client and all controllers')
+    parser.add_argument('--dmpdir', type=str, help='directory where data is dumped',default="/root/aux_data")
 
     parser.add_argument('--force_cores', action='store_true', help='whether to force RHC controller affinity')
     parser.add_argument('--i_cores_only', action='store_true', help='whether use isolated cores only for RHC controllers')
@@ -65,7 +66,8 @@ if __name__ == "__main__":
                                         isolated_cores_only = args.i_cores_only, 
                                         core_ids_override_list = core_ids_override_list,
                                         verbose=args.verbose,
-                                        debug=args.enable_debug) # this blocks until connection with the client is established
+                                        debug=args.enable_debug,
+                                        base_dump_dir=args.dmpdir) # this blocks until connection with the client is established
     control_cluster_client.run() # spawns the controllers on separate processes
 
 

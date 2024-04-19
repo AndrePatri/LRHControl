@@ -25,6 +25,7 @@ if __name__ == '__main__':
     parser.add_argument('--robot_name', type=str, help='Alias to be used for the robot and also shared memory')
     parser.add_argument('--robot_pkg_name', type=str, help='Name of the package for robot description')
     parser.add_argument('--num_envs', type=int)
+    parser.add_argument('--dmpdir', type=str, help='directory where data is dumped',default="/root/aux_data")
     parser.add_argument('--cores', nargs='+', type=int, help='List of CPU cores to set 	affinity to')
     parser.add_argument('--contacts_list', nargs='+', default=["lower_leg_1", "lower_leg_2", "lower_leg_3", "lower_leg_4"],
                         help='Contact sensor list (needs to mathc an available body)')
@@ -150,7 +151,8 @@ if __name__ == '__main__':
             device = device, 
             use_diff_velocities = False, # whether to differentiate velocities numerically
             dtype=dtype_torch,
-            debug_enabled = args.enable_debug) # writes jnt imp. controller info on shared mem (overhead)
+            debug_enabled = args.enable_debug,
+            dump_basepath=args.dmpdir) # writes jnt imp. controller info on shared mem (overhead)
             # and profiles it
 
     env.set_task(task, 

@@ -43,7 +43,8 @@ class LRHcIsaacTask(IsaacTask):
             use_diff_velocities = False,
             override_art_controller = False,
             dtype = torch.float64,
-            debug_enabled = False) -> None:
+            debug_enabled = False,
+            dump_basepath: str = "/tmp") -> None:
 
         if cloning_offset is None:
             cloning_offset = np.array([[0.0, 0.0, 0.0]] * num_envs)
@@ -83,7 +84,8 @@ class LRHcIsaacTask(IsaacTask):
                     fix_base = [False] * len(robot_names),
                     merge_fixed = [True] * len(robot_names),
                     use_diff_velocities = use_diff_velocities,
-                    debug_enabled = debug_enabled) 
+                    debug_enabled = debug_enabled,
+                    dump_basepath = dump_basepath) 
         
         self.startup_jnt_stiffness = startup_jnt_stiffness
         self.startup_jnt_damping = startup_jnt_damping

@@ -18,7 +18,8 @@ class HybridQuadrupedClusterClient(LRhcClusterClient):
             core_ids_override_list: List[int] = None,
             verbose: bool = False,
             debug: bool = False,
-            open_loop: bool = True):
+            open_loop: bool = True,
+            base_dump_dir: str = "/tmp"):
         
         self._open_loop = open_loop
 
@@ -34,7 +35,8 @@ class HybridQuadrupedClusterClient(LRhcClusterClient):
                         isolated_cores_only = isolated_cores_only,
                         core_ids_override_list = core_ids_override_list,
                         verbose = verbose,
-                        debug = debug)
+                        debug = debug,
+                        base_dump_dir=base_dump_dir)
     
     def _xrdf_cmds(self):
         cmds = get_xrdf_cmds_horizon(robot_pkg_name = self.robot_pkg_name)
