@@ -18,7 +18,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Multi Robot Visualizer")
     parser.add_argument('--ns', type=str, help='Namespace to be used for cluster shared memory')
     parser.add_argument('--dpath', type=str)
-    parser.add_argument('--nodes_perc', type=int, default=100)
+    parser.add_argument('--nodes_perc', type=int, default=30)
     parser.add_argument('--cores', nargs='+', type=int, help='List of CPU cores to set 	affinity to')
     parser.add_argument('--comment', type=str, help='Any useful comment associated with this run',default="")
 
