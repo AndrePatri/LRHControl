@@ -11,7 +11,7 @@ from SharsorIPCpp.PySharsorIPC import Journal, LogType
 import numpy as np
 
 import os
-import shutil
+# import shutil
 
 import time
 

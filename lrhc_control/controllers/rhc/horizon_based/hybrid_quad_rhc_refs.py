@@ -67,8 +67,8 @@ class HybridQuadRhcRefs(RhcRefs):
                 LogType.EXCEP,
                 throw_when_excep = True)
         contact_names = self.gait_manager.task_interface.model.cmap.keys()
-        if not (self.n_contacts == len(contact_names)):
-            exception = f"N of contacts within problem {len(contact_names)} does not match n of contacts {self.n_contacts}"
+        if not (self.n_contacts() == len(contact_names)):
+            exception = f"N of contacts within problem {len(contact_names)} does not match n of contacts {self.n_contacts()}"
             Journal.log(self.__class__.__name__,
                 "__init__",
                 exception,
@@ -156,7 +156,7 @@ class HybridQuadRhcRefs(RhcRefs):
             # resets shared mem
             contact_flags_current = self.contact_flags.get_numpy_view()
             phase_id_current = self.phase_id.get_numpy_view()
-            contact_flags_current[self.robot_index, :] = np.full((1, self.n_contacts), dtype=np.bool_, fill_value=True)
+            contact_flags_current[self.robot_index, :] = np.full((1, self.n_contacts()), dtype=np.bool_, fill_value=True)
             phase_id_current[self.robot_index, :] = -1 # defaults to custom phase id
 
             self.rob_refs.root_state.set(data_type="p", data=p_ref, robot_idxs=self.robot_index_np)
