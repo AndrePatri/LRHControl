@@ -200,21 +200,30 @@ if __name__ == '__main__':
         rt_factor.update()
 
         for i in range(len(robot_names)):
+            n_steps = env.cluster_step_counters[robot_name]
+            sol_counter = env.cluster_servers[robot_name].solution_counter()
+            trigger_counter = env.cluster_servers[robot_name].trigger_counter()
             shared_sim_infos[i].write(dyn_info_name=["sim_rt_factor", 
                                                 "total_rt_factor", 
                                                 "env_stepping_dt",
                                                 "world_stepping_dt",
                                                 "time_to_get_states_from_sim",
                                                 "cluster_state_update_dt",
-                                                "cluster_sol_time"
-                                                ],
+                                                "cluster_sol_time",
+                                                "n_sim_steps",
+                                                "n_cluster_trigger_steps",
+                                                "n_cluster_sol_steps"],
                                 val=[rt_factor.get(), 
                                     rt_factor.get() * num_envs,
                                     rt_factor.get_avrg_step_time(),
                                     env.debug_data["time_to_step_world"],
                                     env.debug_data["time_to_get_states_from_sim"],
                                     env.debug_data["cluster_state_update_dt"][robot_names[i]],
-                                    env.debug_data["cluster_sol_time"][robot_names[i]]])
+                                    env.debug_data["cluster_sol_time"][robot_names[i]],
+                                    n_steps,
+                                    trigger_counter,
+                                    sol_counter
+                                    ])
 
         # except Exception as e:
             
