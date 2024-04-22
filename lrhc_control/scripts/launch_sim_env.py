@@ -25,6 +25,7 @@ if __name__ == '__main__':
     parser.add_argument('--robot_name', type=str, help='Alias to be used for the robot and also shared memory')
     parser.add_argument('--robot_pkg_name', type=str, help='Name of the package for robot description')
     parser.add_argument('--num_envs', type=int)
+    parser.add_argument('--cluster_dt', type=float, default=0.03, help='dt at which the control cluster runs')
     parser.add_argument('--dmpdir', type=str, help='directory where data is dumped',default="/root/aux_data")
     parser.add_argument('--cores', nargs='+', type=int, help='List of CPU cores to set 	affinity to')
     parser.add_argument('--contacts_list', nargs='+', default=["lower_leg_1", "lower_leg_2", "lower_leg_3", "lower_leg_4"],
@@ -45,7 +46,7 @@ if __name__ == '__main__':
     robot_name = args.robot_name
     dtype_torch = torch.float32
     num_envs = args.num_envs
-    control_clust_dt = 0.03 # [s]. Dt at which RHC controllers run 
+    control_clust_dt = args.cluster_dt # [s]. Dt at which RHC controllers run 
     headless = args.headless
     enable_livestream = False
     enable_viewport = False

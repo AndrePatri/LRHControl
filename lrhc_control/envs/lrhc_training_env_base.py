@@ -585,6 +585,7 @@ class LRhcTrainingEnvBase():
 
         self._n_envs = self._robot_state.n_robots()
         self._n_jnts = self._robot_state.n_jnts()
+        self._n_contacts = self._robot_state.n_contacts()
 
         # run server for agent commands
         self._agent_refs = AgentRefs(namespace=self._namespace,
