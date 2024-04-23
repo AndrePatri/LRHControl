@@ -87,7 +87,7 @@ class RemoteResetRequest(SharedTWrapper):
         def to_be_reset(self,
                 gpu: bool = False):
         
-            idxs = torch.nonzero(self.get_torch_view().flatten())
+            idxs = torch.nonzero(self.get_torch_mirror().flatten())
             if idxs.shape[0] == 0:
                 return None
             else:

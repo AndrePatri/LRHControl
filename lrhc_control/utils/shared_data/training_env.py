@@ -266,7 +266,7 @@ class SharedTrainingEnvInfo(SharedDataBase):
 
         self.synch()
 
-        return self.shared_train_env_data.get_numpy_view().copy()
+        return self.shared_train_env_data.get_numpy_mirror().copy()
     
     def close(self):
 
@@ -614,7 +614,7 @@ class SimpleCounters(SharedDataBase):
 
     def get(self):
 
-        return self._step_counter.get_torch_view(gpu=self._using_gpu)
+        return self._step_counter.get_torch_mirror(gpu=self._using_gpu)
     
     def counter(self):
 

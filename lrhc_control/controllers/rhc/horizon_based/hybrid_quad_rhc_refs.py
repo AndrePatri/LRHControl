@@ -91,7 +91,7 @@ class HybridQuadRhcRefs(RhcRefs):
             if phase_id == -1:
                 if self.gait_manager.contact_phases['ball_1'].getEmptyNodes() > 0: # there are available nodes on the horizon 
                     # we assume timelines of the same amount at each rhc instant (only checking one contact)
-                    contact_flags = self.contact_flags.get_numpy_view()[self.robot_index, :]
+                    contact_flags = self.contact_flags.get_numpy_mirror()[self.robot_index, :]
                     is_contact = contact_flags.flatten().tolist() 
                     # contact if contact_flags[i] > 0.5
                     self.gait_manager.cycle(is_contact)
@@ -154,8 +154,8 @@ class HybridQuadRhcRefs(RhcRefs):
         if self.is_running():
 
             # resets shared mem
-            contact_flags_current = self.contact_flags.get_numpy_view()
-            phase_id_current = self.phase_id.get_numpy_view()
+            contact_flags_current = self.contact_flags.get_numpy_mirror()
+            phase_id_current = self.phase_id.get_numpy_mirror()
             contact_flags_current[self.robot_index, :] = np.full((1, self.n_contacts()), dtype=np.bool_, fill_value=True)
             phase_id_current[self.robot_index, :] = -1 # defaults to custom phase id
 

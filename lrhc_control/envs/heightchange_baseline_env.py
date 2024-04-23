@@ -103,7 +103,7 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
 
         h_error = torch.abs((h_ref - robot_h))
 
-        sub_rewards = self._rewards.get_torch_view(gpu=self._use_gpu)
+        sub_rewards = self._rewards.get_torch_mirror(gpu=self._use_gpu)
         sub_rewards[:, 0:1] = 1.0 - h_error * self._h_error_scale
         sub_rewards[:, 1:2] = 1.0 - cnstr_viol
 
@@ -112,13 +112,13 @@ class LRhcHeightChange(LRhcTrainingEnvBase):
                             
         agent_h_ref = self._agent_refs.rob_refs.root_state.get(data_type="p", gpu=self._use_gpu)[:, 2:3] # getting z ref
         robot_h = self._robot_state.root_state.get(data_type="p", gpu=self._use_gpu)[:, 2:3]
-        # rhc_cost = self._rhc_status.rhc_cost.get_torch_view(gpu=self._use_gpu)
+        # rhc_cost = self._rhc_status.rhc_cost.get_torch_mirror(gpu=self._use_gpu)
         obs_tensor[:, 0:1] = robot_h
         obs_tensor[:, 1:2] = agent_h_ref
         obs_tensor[:, 2:3] = self._rhc_const_viol()
 
     def _rhc_const_viol(self):
-        rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_view(gpu=self._use_gpu)
+        rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_mirror(gpu=self._use_gpu)
         return self._cnstr_viol_scale * rhc_const_viol
            
     def _randomize_refs(self,

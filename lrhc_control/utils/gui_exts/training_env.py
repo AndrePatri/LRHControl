@@ -319,12 +319,12 @@ class TrainingEnvData(SharedDataWindow):
 
             self.rt_plotters[0].rt_plot_widget.update(env_data)
             self.rt_plotters[1].rt_plot_widget.update(algo_data)
-            self.rt_plotters[2].rt_plot_widget.update(np.transpose(self.shared_data_clients[3].get_numpy_view()))
-            self.rt_plotters[3].rt_plot_widget.update(np.transpose(self.shared_data_clients[4].get_numpy_view()))
-            self.rt_plotters[4].rt_plot_widget.update(np.transpose(self.shared_data_clients[5].get_numpy_view()))
-            self.rt_plotters[5].rt_plot_widget.update(np.transpose(self.shared_data_clients[6].get_numpy_view()))
+            self.rt_plotters[2].rt_plot_widget.update(np.transpose(self.shared_data_clients[3].get_numpy_mirror()))
+            self.rt_plotters[3].rt_plot_widget.update(np.transpose(self.shared_data_clients[4].get_numpy_mirror()))
+            self.rt_plotters[4].rt_plot_widget.update(np.transpose(self.shared_data_clients[5].get_numpy_mirror()))
+            self.rt_plotters[5].rt_plot_widget.update(np.transpose(self.shared_data_clients[6].get_numpy_mirror()))
 
-            self.rt_plotters[6].rt_plot_widget.update(np.transpose(self.shared_data_clients[7].get_numpy_view()))
-            self.rt_plotters[7].rt_plot_widget.update(np.transpose(self.shared_data_clients[8].get_numpy_view()))
-            self.rt_plotters[8].rt_plot_widget.update(np.transpose(self.shared_data_clients[9].counter().get_numpy_view()))
+            self.rt_plotters[6].rt_plot_widget.update(np.transpose(self.shared_data_clients[7].get_numpy_mirror()))
+            self.rt_plotters[7].rt_plot_widget.update(np.transpose(self.shared_data_clients[8].get_numpy_mirror()))
+            self.rt_plotters[8].rt_plot_widget.update(np.transpose(self.shared_data_clients[9].counter().get_numpy_mirror()))
 

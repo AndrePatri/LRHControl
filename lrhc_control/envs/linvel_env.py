@@ -127,7 +127,7 @@ class LinVelTrack(LRhcTrainingEnvBase):
 
         rhc_latest_twist_ref = self._rhc_refs.rob_refs.root_state.get(data_type="twist", gpu=self._use_gpu)
         rhc_latest_p_ref = self._rhc_refs.rob_refs.root_state.get(data_type="p", gpu=self._use_gpu)
-        rhc_latest_contact_ref = self._rhc_refs.contact_flags.get_torch_view(gpu=self._use_gpu)
+        rhc_latest_contact_ref = self._rhc_refs.contact_flags.get_torch_mirror(gpu=self._use_gpu)
 
         rhc_latest_twist_ref[:, 0:2] = agent_action[:, 0:2] # lin vel cmd
         rhc_latest_p_ref[:, 2:3] = agent_action[:, 2:3] # h cmds
@@ -165,11 +165,11 @@ class LinVelTrack(LRhcTrainingEnvBase):
         obs_tensor[:, ((10+2*self._n_jnts)+6+1):((10+2*self._n_jnts)+6+2)] = self._rhc_cost()
         
     def _rhc_const_viol(self):
-        rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_view(gpu=self._use_gpu)
+        rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_mirror(gpu=self._use_gpu)
         return self._rhc_cnstr_viol_scale * rhc_const_viol
     
     def _rhc_cost(self):
-        rhc_cost = self._rhc_status.rhc_cost.get_torch_view(gpu=self._use_gpu)
+        rhc_cost = self._rhc_status.rhc_cost.get_torch_mirror(gpu=self._use_gpu)
         return self._rhc_cost_scale * rhc_cost
     
     def _compute_sub_rewards(self,
@@ -184,7 +184,7 @@ class LinVelTrack(LRhcTrainingEnvBase):
         task_error = (task_ref - task_meas) * self._task_err_weights
         task_err_norm = torch.norm(task_error, p=2, dim=1, keepdim=True)
 
-        sub_rewards = self._rewards.get_torch_view(gpu=self._use_gpu)
+        sub_rewards = self._rewards.get_torch_mirror(gpu=self._use_gpu)
         sub_rewards[:, 0:1] = self._task_weight * (1.0 - (self._task_scale * task_err_norm))
         sub_rewards[:, 1:2] = self._rhc_cnstr_viol_weight * (1.0 - cnstr_viol)
         sub_rewards[:, 2:3] = self._rhc_cost_weight * (1.0 - rhc_cost)

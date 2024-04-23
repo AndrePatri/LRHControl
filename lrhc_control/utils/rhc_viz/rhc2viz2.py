@@ -304,7 +304,7 @@ class RhcToViz2Bridge:
 
         self.env_index.synch_all(read=True, retry=True)
 
-        self._current_index = self.env_index.get_numpy_view()[0, 0].item()
+        self._current_index = self.env_index.get_numpy_mirror()[0, 0].item()
 
         if self._current_index in self._robot_indexes:
 
@@ -375,7 +375,7 @@ class RhcToViz2Bridge:
         self.rhc_jntnames_pub.publish(String(data=self.jnt_names_rhc_encoded))
 
         # publish rhc_q
-        rhc_q = self.rhc_internal_clients[self._current_index].q.get_numpy_view()[:, :].flatten()
+        rhc_q = self.rhc_internal_clients[self._current_index].q.get_numpy_mirror()[:, :].flatten()
 
         root_q_robot = self.robot_state.root_state.get(data_type="q_full",robot_idxs=self._current_index)
         jnts_q_robot = self.robot_state.jnts_state.get(data_type="q")[self._current_index, :]
