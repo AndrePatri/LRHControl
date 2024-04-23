@@ -714,8 +714,8 @@ class LRhcTrainingEnvBase():
     def _clip_obs(self, 
             obs: torch.Tensor):
 
-        if self._is_debug:
-            self._check_finite(obs, "observations", False)
+        # if self._is_debug:
+        #     self._check_finite(obs, "observations", False)
 
         torch.nan_to_num(input=obs, out=obs, nan=torch.inf, posinf=None, neginf=None) # prevent nans
 
