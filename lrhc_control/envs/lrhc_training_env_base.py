@@ -717,6 +717,8 @@ class LRhcTrainingEnvBase():
         if self._is_debug:
             self._check_finite(obs, "observations", False)
 
+        torch.nan_to_num(input=obs, out=obs, nan=torch.inf, posinf=None, neginf=None) # prevent nans
+
         obs.clamp_(self._obs_threshold_lb, self._obs_threshold_ub)
     
     def _clip_rewards(self, 
