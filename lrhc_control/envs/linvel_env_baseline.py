@@ -82,12 +82,12 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                             fill_value=-0.8) 
         self._linvel_ub = torch.full((1, 3), dtype=dtype, device=device,
                             fill_value=0.8)
-        self._linvel_lb[0, 0] = 0.5
-        self._linvel_lb[0, 1] = 0.0
-        self._linvel_lb[0, 2] = 0.0
-        self._linvel_ub[0, 0] = 0.5
-        self._linvel_ub[0, 1] = 0.0
-        self._linvel_ub[0, 2] = 0.0
+        self._linvel_lb[0, 0] = -1.0
+        self._linvel_lb[0, 1] = -1.0
+        self._linvel_lb[0, 2] = -0.2
+        self._linvel_ub[0, 0] = 1.0
+        self._linvel_ub[0, 1] = 1.0
+        self._linvel_ub[0, 2] = 0.2
 
         self._this_child_path = os.path.abspath(__file__)
         
