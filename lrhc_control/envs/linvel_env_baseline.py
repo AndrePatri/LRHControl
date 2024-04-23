@@ -71,10 +71,10 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._task_err_weights[0, 5] = 0.0001
         
         self._rhc_cnstr_viol_weight = 1.0
-        self._rhc_cnstr_viol_scale = 1.0 * 1e-3
+        self._rhc_cnstr_viol_scale = 1.0 * 1e-2
 
         self._rhc_cost_weight = 1.0
-        self._rhc_cost_scale = 1e-2 * 1e-3
+        self._rhc_cost_scale = 1e-2 * 1e-2
 
         self._rhc_step_var_scale = 1e-2
 
@@ -106,10 +106,10 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     dtype=dtype,
                     debug=debug)
 
-        self._reward_thresh_lb = -1 # used for clipping rewards
-        self._obs_threshold_lb = -1e3 # used for clipping observations
+        self._reward_thresh_lb = 0 # used for clipping rewards
+        self._obs_threshold_lb = -1e2 # used for clipping observations
         self._reward_thresh_ub = 1 # overrides parent's defaults
-        self._obs_threshold_ub = 1e3
+        self._obs_threshold_ub = 1e2
 
         self._actions_offsets[:, :] = 0.0 # default to no offset and scaling
         self._actions_scalings[:, :] = 1.0 
