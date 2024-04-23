@@ -9,7 +9,7 @@ from SharsorIPCpp.PySharsorIPC import LogType
 
 import os
 
-class LinVelTrackBaseline(LRhcTrainingEnvBase):
+class LinVelTrackBaselineFStepVar(LRhcTrainingEnvBase):
 
     def __init__(self,
             namespace: str,
@@ -44,7 +44,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         robot_state_tmp.close()
         rhc_status_tmp.close()
 
-        obs_dim = 18 + n_jnts + len(self.contact_names) 
+        obs_dim = 18 + n_jnts + self.step_var_dim 
 
         actions_dim = 2 + 1 + 3 + 4 # [vxy_cmd, h_cmd, twist_cmd, dostep_0, dostep_1, dostep_2, dostep_3]
 
@@ -176,7 +176,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         obs_tensor[:, (10+self._n_jnts):((10+self._n_jnts)+6)] = agent_twist_ref
         obs_tensor[:, ((10+self._n_jnts)+6):((10*self._n_jnts)+6+1)] = self._rhc_const_viol()
         obs_tensor[:, ((10+self._n_jnts)+6+1):((10+self._n_jnts)+6+2)] = self._rhc_cost()
-        obs_tensor[:, ((10+self._n_jnts)+6+2):((10+self._n_jnts)+6+2+len(self.contact_names))] = self._rhc_step_var()
+        obs_tensor[:, ((10+self._n_jnts)+6+2):((10+self._n_jnts)+6+2+self.step_var_dim)] = self._rhc_step_var()
         
     def _rhc_const_viol(self):
         # rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_mirror(gpu=self._use_gpu)
@@ -190,12 +190,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
     
     def _rhc_step_var(self):
         step_var = self._rhc_status.rhc_step_var.get_torch_mirror(gpu=self._use_gpu)
-        to_be_cat = []
-        for i in range(len(self.contact_names)):
-            start_idx=i*self.n_nodes
-            end_idx=i*self.n_nodes+self.n_nodes
-            to_be_cat.append(torch.sum(step_var[:, start_idx:end_idx], dim=1, keepdim=True)/self.n_nodes)
-        return self._rhc_step_var_scale * torch.cat(to_be_cat, dim=1) 
+        return self._rhc_step_var_scale * step_var
     
     def _compute_sub_rewards(self,
                     obs: torch.Tensor):
@@ -257,8 +252,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         obs_names[restart_idx + 8] = "rhc_cost"
         i = 0
         for contact in self.contact_names:
-            obs_names[restart_idx + 9 + i] = f"step_var_{contact}"
-            i+=1
+            for dim in range(self.n_nodes):
+                obs_names[restart_idx + 9 + i] = f"step_var_{contact}_n{dim}"
+                i+=1
 
         return obs_names
 
