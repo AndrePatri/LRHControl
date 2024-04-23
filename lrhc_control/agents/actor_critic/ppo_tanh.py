@@ -14,13 +14,15 @@ class ActorCriticTanh(nn.Module):
             critic_std: float = 1.0,
             norm_obs: bool = True,
             device:str="cuda",
-            dtype=torch.float32):
+            dtype=torch.float32,
+            is_eval:bool=False):
 
         self._actor_std = actor_std
         self._critic_std = critic_std
         
         self._normalize_obs = norm_obs
-        
+        self._is_eval = is_eval
+
         self._torch_device = device
         self._torch_dtype = dtype
 
@@ -33,7 +35,7 @@ class ActorCriticTanh(nn.Module):
         size_actor = 64
         if self._normalize_obs:
             self.critic = nn.Sequential(
-                RunningNormalizer((self._obs_dim,), epsilon=1e-8, device=self._torch_device, dtype=self._torch_dtype),
+                RunningNormalizer((self._obs_dim,), epsilon=1e-8, device=self._torch_device, dtype=self._torch_dtype, is_training=not self._is_eval),
                 self._layer_init(layer=nn.Linear(self._obs_dim, size_critic),device=self._torch_device,dtype=self._torch_dtype),
                 nn.Tanh(),
                 self._layer_init(layer=nn.Linear(size_critic, size_critic), device=self._torch_device,dtype=self._torch_dtype),
@@ -41,7 +43,7 @@ class ActorCriticTanh(nn.Module):
                 self._layer_init(layer=nn.Linear(size_critic, 1), std=self._critic_std, device=self._torch_device,dtype=self._torch_dtype),
             ) # (stochastic critic)
             self.actor_mean = nn.Sequential(
-                RunningNormalizer((self._obs_dim,), epsilon=1e-8, device=self._torch_device, dtype=self._torch_dtype),
+                RunningNormalizer((self._obs_dim,), epsilon=1e-8, device=self._torch_device, dtype=self._torch_dtype, is_training=not self._is_eval),
                 self._layer_init(layer=nn.Linear(self._obs_dim, size_actor), device=self._torch_device,dtype=self._torch_dtype),
                 nn.Tanh(),
                 self._layer_init(layer=nn.Linear(size_actor, size_actor), device=self._torch_device,dtype=self._torch_dtype),

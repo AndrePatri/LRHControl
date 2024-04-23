@@ -80,9 +80,9 @@ class RunningMeanStd(object):
 
 
 class RunningNormalizer(th.nn.Module):
-    def __init__(self, shape : Tuple[int,...], dtype, device, epsilon : float = 1e-8):
+    def __init__(self, shape : Tuple[int,...], dtype, device, epsilon : float = 1e-8, is_training: bool=True):
         super().__init__()
-        self._freeze_stats = False
+        self._freeze_stats = not is_training
         self.register_buffer("_epsilon", th.tensor(epsilon, device = device))
         self._running_stats = RunningMeanStd(shape, torch_device=device, dtype=dtype)
         self.register_buffer("vec_running_mean",  self._running_stats.mean)
