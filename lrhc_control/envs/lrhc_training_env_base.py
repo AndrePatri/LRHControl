@@ -199,7 +199,7 @@ class LRhcTrainingEnvBase():
     def _remote_reset(self,
                 reset_mask: torch.Tensor):
 
-        reset_reqs = self._remote_reset_req.get_torch_view()
+        reset_reqs = self._remote_reset_req.get_torch_mirror()
         reset_reqs[:, :] = reset_mask # remotely reset envs for which 
         # the episode is terminated
         self._remote_reset_req.synch_all(read=False, retry=True)
@@ -225,7 +225,7 @@ class LRhcTrainingEnvBase():
         # if we lost some controllers
 
         self._apply_scaling_to_actions(action) # in place scaling and offset of actions
-        actions = self._actions.get_torch_view(gpu=self._use_gpu)
+        actions = self._actions.get_torch_mirror(gpu=self._use_gpu)
         actions[:, :] = action # writes actions
         
         self._apply_actions_to_rhc() # apply agent actions to rhc controller
@@ -233,7 +233,7 @@ class LRhcTrainingEnvBase():
         ok_sim_step = self._remote_sim_step() # blocking
 
         self._synch_obs(gpu=self._use_gpu) # read obs from shared mem
-        next_obs = self._next_obs.get_torch_view(gpu=self._use_gpu)
+        next_obs = self._next_obs.get_torch_mirror(gpu=self._use_gpu)
         self._fill_obs(next_obs)
         self._clip_obs(next_obs) # good practice
 
@@ -254,12 +254,12 @@ class LRhcTrainingEnvBase():
         self._check_truncations() 
         self._check_terminations()
 
-        terminated = self._terminations.get_torch_view(gpu=self._use_gpu)
-        truncated = self._truncations.get_torch_view(gpu=self._use_gpu)
+        terminated = self._terminations.get_torch_mirror(gpu=self._use_gpu)
+        truncated = self._truncations.get_torch_mirror(gpu=self._use_gpu)
         episode_finished = torch.logical_or(terminated,
                                         truncated)
         
-        self._episodic_rewards_getter.update(step_reward = self._rewards.get_torch_view(gpu=False),
+        self._episodic_rewards_getter.update(step_reward = self._rewards.get_torch_mirror(gpu=False),
                             is_done = episode_finished.cpu())
                                         
         self._episode_counter.reset(to_be_reset=episode_finished, randomize_limits=True) # reset and randomize ep duration 
@@ -274,7 +274,7 @@ class LRhcTrainingEnvBase():
         self._synch_obs(gpu=self._use_gpu) # if some env was reset, we use _obs
         # to hold the states, including resets, while _next_obs will always hold the 
         # state right after stepping
-        obs = self._obs.get_torch_view(gpu=self._use_gpu)
+        obs = self._obs.get_torch_mirror(gpu=self._use_gpu)
         self._fill_obs(obs)
         self._clip_obs(obs)
 
@@ -286,8 +286,8 @@ class LRhcTrainingEnvBase():
 
     def _assemble_rewards(self):
 
-        tot_rewards = self._tot_rewards.get_torch_view(gpu=self._use_gpu)
-        sub_rewards = self._rewards.get_torch_view(gpu=self._use_gpu)
+        tot_rewards = self._tot_rewards.get_torch_mirror(gpu=self._use_gpu)
+        sub_rewards = self._rewards.get_torch_mirror(gpu=self._use_gpu)
 
         self._clip_rewards(sub_rewards) # clipping rewards in a range
 
@@ -315,8 +315,8 @@ class LRhcTrainingEnvBase():
         self._randomization_counter.reset()
 
         self._synch_obs(gpu=self._use_gpu) # read obs from shared mem
-        obs = self._obs.get_torch_view(gpu=self._use_gpu)
-        next_obs = self._next_obs.get_torch_view(gpu=self._use_gpu)
+        obs = self._obs.get_torch_mirror(gpu=self._use_gpu)
+        next_obs = self._next_obs.get_torch_mirror(gpu=self._use_gpu)
         self._fill_obs(obs) # initialize observations 
         self._fill_obs(next_obs) # and next obs
         self._clip_obs(obs) # to avoid bad things
@@ -349,27 +349,27 @@ class LRhcTrainingEnvBase():
 
     def get_obs(self):
     
-        return self._obs.get_torch_view(gpu=self._use_gpu)
+        return self._obs.get_torch_mirror(gpu=self._use_gpu)
 
     def get_next_obs(self):
     
-        return self._next_obs.get_torch_view(gpu=self._use_gpu)
+        return self._next_obs.get_torch_mirror(gpu=self._use_gpu)
 
     def get_actions(self):
     
-        return self._actions.get_torch_view(gpu=self._use_gpu)
+        return self._actions.get_torch_mirror(gpu=self._use_gpu)
     
     def get_rewards(self):
 
-        return self._tot_rewards.get_torch_view(gpu=self._use_gpu)
+        return self._tot_rewards.get_torch_mirror(gpu=self._use_gpu)
 
     def get_terminations(self):
         
-        return self._terminations.get_torch_view(gpu=self._use_gpu)
+        return self._terminations.get_torch_mirror(gpu=self._use_gpu)
 
     def get_truncations(self):
                                  
-        return self._truncations.get_torch_view(gpu=self._use_gpu)
+        return self._truncations.get_torch_mirror(gpu=self._use_gpu)
 
     def obs_dim(self):
 
@@ -502,7 +502,7 @@ class LRhcTrainingEnvBase():
         self._rewards.run()
         self._tot_rewards.run()
 
-        self._episodic_rewards_getter = EpisodicRewards(reward_tensor=self._rewards.get_torch_view(),
+        self._episodic_rewards_getter = EpisodicRewards(reward_tensor=self._rewards.get_torch_mirror(),
                                         reward_names=self._get_rewards_names())
     
     def _init_terminations(self):
@@ -664,7 +664,7 @@ class LRhcTrainingEnvBase():
         
     def _activate_rhc_controllers(self):
 
-        self._rhc_status.activation_state.get_torch_view()[:, :] = True
+        self._rhc_status.activation_state.get_torch_mirror()[:, :] = True
 
         self._rhc_status.activation_state.synch_all(read=False, retry=True) # activates all controllers
     
@@ -684,6 +684,10 @@ class LRhcTrainingEnvBase():
         self._rhc_status.rhc_constr_viol.synch_all(read = True, retry = True)
         # failure states
         self._rhc_status.fails.synch_all(read = True, retry = True)
+        # tot cost and cnstr viol on nodes + step variable
+        self._rhc_status.rhc_nodes_cost.synch_all(read = True, retry = True)
+        self._rhc_status.rhc_nodes_constr_viol.synch_all(read = True, retry = True)
+        self._rhc_status.rhc_step_var.synch_all(read = True, retry = True)
         if gpu:
             # copies data to "mirror" on GPU
             self._robot_state.root_state.synch_mirror(from_gpu=False) # copies shared data on GPU
@@ -693,7 +697,9 @@ class LRhcTrainingEnvBase():
             self._rhc_status.rhc_cost.synch_mirror(from_gpu=False)
             self._rhc_status.rhc_constr_viol.synch_mirror(from_gpu=False)
             self._rhc_status.fails.synch_mirror(from_gpu=False)
-
+            self._rhc_status.rhc_nodes_cost.synch_mirror(from_gpu=False)
+            self._rhc_status.rhc_nodes_constr_viol.synch_mirror(from_gpu=False)
+            self._rhc_status.rhc_step_var.synch_mirror(from_gpu=False)
             #torch.cuda.synchronize() # ensuring that all the streams on the GPU are completed \
             # before the CPU continues execution
 
@@ -743,7 +749,7 @@ class LRhcTrainingEnvBase():
 
         if retry:
             self._rhc_status.controllers_counter.synch_all(read=True, retry=True)
-            n_connected_controllers = self._rhc_status.controllers_counter.get_torch_view()[0, 0].item()
+            n_connected_controllers = self._rhc_status.controllers_counter.get_torch_mirror()[0, 0].item()
             while not (n_connected_controllers == self._n_envs):
                 warn = f"Expected {self._n_envs} controllers to be active during training, " + \
                     f"but got {n_connected_controllers}. Will wait for all to be connected..."
@@ -755,7 +761,7 @@ class LRhcTrainingEnvBase():
                 nsecs = int(2 * 1000000000)
                 PerfSleep.thread_sleep(nsecs) 
                 self._rhc_status.controllers_counter.synch_all(read=True, retry=True)
-                n_connected_controllers = self._rhc_status.controllers_counter.get_torch_view()[0, 0].item()
+                n_connected_controllers = self._rhc_status.controllers_counter.get_torch_mirror()[0, 0].item()
             info = f"All {n_connected_controllers} controllers connected!"
             Journal.log(self.__class__.__name__,
                 "_check_controllers_registered",
@@ -765,7 +771,7 @@ class LRhcTrainingEnvBase():
             return True
         else:
             self._rhc_status.controllers_counter.synch_all(read=True, retry=True)
-            n_connected_controllers = self._rhc_status.controllers_counter.get_torch_view()[0, 0].item()
+            n_connected_controllers = self._rhc_status.controllers_counter.get_torch_mirror()[0, 0].item()
             if not (n_connected_controllers == self._n_envs):
                 exception = f"Expected {self._n_envs} controllers to be active during training, " + \
                     f"but got {n_connected_controllers}. Aborting..."
@@ -779,7 +785,7 @@ class LRhcTrainingEnvBase():
                 
     def _check_truncations(self):
 
-        truncations = self._truncations.get_torch_view(gpu=self._use_gpu)
+        truncations = self._truncations.get_torch_mirror(gpu=self._use_gpu)
 
         # time unlimited episodes, using time limits just for diversifying 
         # experience
@@ -791,9 +797,9 @@ class LRhcTrainingEnvBase():
     
     def _check_terminations(self):
 
-        terminations = self._terminations.get_torch_view(gpu=self._use_gpu)
+        terminations = self._terminations.get_torch_mirror(gpu=self._use_gpu)
         # handle episodes termination
-        terminations[:, :] = self._rhc_status.fails.get_torch_view(gpu=self._use_gpu)
+        terminations[:, :] = self._rhc_status.fails.get_torch_mirror(gpu=self._use_gpu)
 
         if self._use_gpu:
             # from GPU to CPU 

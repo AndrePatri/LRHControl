@@ -1,6 +1,6 @@
 from lrhc_control.utils.sys_utils import PathsGetter
 from lrhc_control.envs.lrhc_training_env_base import LRhcTrainingEnvBase
-from control_cluster_bridge.utilities.shared_data.rhc_data import RobotState
+from control_cluster_bridge.utilities.shared_data.rhc_data import RobotState, RhcStatus
 
 import torch
 
@@ -28,10 +28,23 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                                 with_gpu_mirror=False,
                                 with_torch_view=False)
         robot_state_tmp.run()
+        rhc_status_tmp = RhcStatus(is_server=False,
+                        namespace=namespace, 
+                        verbose=verbose, 
+                        vlevel=vlevel,
+                        with_torch_view=False, 
+                        with_gpu_mirror=False)
+        rhc_status_tmp.run()
+
         n_jnts = robot_state_tmp.n_jnts()
+        # n_contacts = robot_state_tmp.n_contacts()
+        self.contact_names = robot_state_tmp.contact_names()
+        self.step_var_dim = rhc_status_tmp.rhc_step_var.tot_dim()
+        self.n_nodes = rhc_status_tmp.n_nodes
         robot_state_tmp.close()
-        
-        obs_dim = 18 + n_jnts
+        rhc_status_tmp.close()
+
+        obs_dim = 18 + n_jnts + self.step_var_dim 
 
         actions_dim = 2 + 1 + 3 + 4 # [vxy_cmd, h_cmd, twist_cmd, dostep_0, dostep_1, dostep_2, dostep_3]
 
@@ -47,7 +60,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         device = "cuda" if use_gpu else "cpu"
 
         self._task_weight = 1
-        self._task_scale = 1
+        self._task_scale = 2
         self._task_err_weights = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.0) 
         self._task_err_weights[0, 0] = 1.0
@@ -58,21 +71,23 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._task_err_weights[0, 5] = 0.0001
         
         self._rhc_cnstr_viol_weight = 1.0
-        self._rhc_cnstr_viol_scale = 1e-1
+        self._rhc_cnstr_viol_scale = 1.0 * 1e-3
 
         self._rhc_cost_weight = 1.0
-        self._rhc_cost_scale = 1e-5
+        self._rhc_cost_scale = 1e-2 * 1e-3
+
+        self._rhc_step_var_scale = 1e-2
 
         self._linvel_lb = torch.full((1, 3), dtype=dtype, device=device,
                             fill_value=-0.8) 
         self._linvel_ub = torch.full((1, 3), dtype=dtype, device=device,
                             fill_value=0.8)
-        self._linvel_lb[0, 0] = -1.5
-        self._linvel_lb[0, 1] = -1.5
-        self._linvel_lb[0, 2] = -0.5
-        self._linvel_ub[0, 0] = 1.5
-        self._linvel_ub[0, 1] = 1.5
-        self._linvel_ub[0, 2] = 0.5
+        self._linvel_lb[0, 0] = 0.5
+        self._linvel_lb[0, 1] = 0.0
+        self._linvel_lb[0, 2] = 0.0
+        self._linvel_ub[0, 0] = 0.5
+        self._linvel_ub[0, 1] = 0.0
+        self._linvel_ub[0, 2] = 0.0
 
         self._this_child_path = os.path.abspath(__file__)
         
@@ -127,7 +142,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         rhc_latest_twist_ref = self._rhc_refs.rob_refs.root_state.get(data_type="twist", gpu=self._use_gpu)
         rhc_latest_p_ref = self._rhc_refs.rob_refs.root_state.get(data_type="p", gpu=self._use_gpu)
-        rhc_latest_contact_ref = self._rhc_refs.contact_flags.get_torch_view(gpu=self._use_gpu)
+        rhc_latest_contact_ref = self._rhc_refs.contact_flags.get_torch_mirror(gpu=self._use_gpu)
 
         rhc_latest_twist_ref[:, 0:2] = agent_action[:, 0:2] # lin vel cmd
         rhc_latest_p_ref[:, 2:3] = agent_action[:, 2:3] # h cmds
@@ -161,14 +176,21 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         obs_tensor[:, (10+self._n_jnts):((10+self._n_jnts)+6)] = agent_twist_ref
         obs_tensor[:, ((10+self._n_jnts)+6):((10*self._n_jnts)+6+1)] = self._rhc_const_viol()
         obs_tensor[:, ((10+self._n_jnts)+6+1):((10+self._n_jnts)+6+2)] = self._rhc_cost()
+        obs_tensor[:, ((10+self._n_jnts)+6+2):((10+self._n_jnts)+6+2+self.step_var_dim)] = self._rhc_step_var()
         
     def _rhc_const_viol(self):
-        rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_view(gpu=self._use_gpu)
-        return self._rhc_cnstr_viol_scale * rhc_const_viol
+        # rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_mirror(gpu=self._use_gpu)
+        rhc_const_viol = self._rhc_status.rhc_nodes_constr_viol.get_torch_mirror(gpu=self._use_gpu)
+        return self._rhc_cnstr_viol_scale * rhc_const_viol[:, 0:1] # just on node 0
     
     def _rhc_cost(self):
-        rhc_cost = self._rhc_status.rhc_cost.get_torch_view(gpu=self._use_gpu)
-        return self._rhc_cost_scale * rhc_cost
+        # rhc_cost = self._rhc_status.rhc_cost.get_torch_mirror(gpu=self._use_gpu)
+        rhc_cost = self._rhc_status.rhc_nodes_cost.get_torch_mirror(gpu=self._use_gpu)
+        return self._rhc_cost_scale * rhc_cost[:, 0:1] # just on node 0
+    
+    def _rhc_step_var(self):
+        step_var = self._rhc_status.rhc_step_var.get_torch_mirror(gpu=self._use_gpu)
+        return self._rhc_step_var_scale * step_var
     
     def _compute_sub_rewards(self,
                     obs: torch.Tensor):
@@ -182,7 +204,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         task_error = (task_ref - task_meas) * self._task_err_weights
         task_err_norm = torch.norm(task_error, p=2, dim=1, keepdim=True)
 
-        sub_rewards = self._rewards.get_torch_view(gpu=self._use_gpu)
+        sub_rewards = self._rewards.get_torch_mirror(gpu=self._use_gpu)
         sub_rewards[:, 0:1] = self._task_weight * (1.0 - (self._task_scale * task_err_norm))
         sub_rewards[:, 1:2] = self._rhc_cnstr_viol_weight * (1.0 - cnstr_viol)
         sub_rewards[:, 2:3] = self._rhc_cost_weight * (1.0 - rhc_cost)
@@ -228,6 +250,11 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         obs_names[restart_idx + 6] = "omega_z_ref"
         obs_names[restart_idx + 7] = "rhc_const_viol"
         obs_names[restart_idx + 8] = "rhc_cost"
+        i = 0
+        for contact in self.contact_names:
+            for dim in range(self.n_nodes):
+                obs_names[restart_idx + 9 + i] = f"step_var_{contact}_n{dim}"
+                i+=1
 
         return obs_names
 
