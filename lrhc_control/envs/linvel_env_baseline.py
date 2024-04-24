@@ -50,7 +50,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         n_steps_episode_lb = 512 # episode length
         n_steps_episode_ub = 4096
-        n_steps_task_rand_lb = 32 # agent refs randomization freq
+        n_steps_task_rand_lb = 128 # agent refs randomization freq
         n_steps_task_rand_ub = 512
 
         n_preinit_steps = 1 # one steps of the controllers to properly initialize everything
@@ -60,21 +60,22 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         device = "cuda" if use_gpu else "cpu"
 
         self._task_weight = 1
-        self._task_scale = 2
+        self._task_scale = 1.0
         self._task_err_weights = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.0) 
         self._task_err_weights[0, 0] = 1.0
         self._task_err_weights[0, 1] = 1.0
-        self._task_err_weights[0, 2] = 1.0
-        self._task_err_weights[0, 3] = 0.0001
-        self._task_err_weights[0, 4] = 0.0001
-        self._task_err_weights[0, 5] = 0.0001
-        
+        self._task_err_weights[0, 2] = 1e-6
+        self._task_err_weights[0, 3] = 1e-6
+        self._task_err_weights[0, 4] = 1e-6
+        self._task_err_weights[0, 5] = 1e-6
+        self._task_err_weights_norm_coeff = torch.sum(self._task_err_weights).item()
+
         self._rhc_cnstr_viol_weight = 1.0
-        self._rhc_cnstr_viol_scale = 1.0 * 1e-2
+        self._rhc_cnstr_viol_scale = 1.0 * 1e-3
 
         self._rhc_cost_weight = 1.0
-        self._rhc_cost_scale = 1e-2 * 1e-2
+        self._rhc_cost_scale = 1e-2 * 1e-3
 
         self._rhc_step_var_scale = 1e-2
 
@@ -84,10 +85,10 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                             fill_value=0.8)
         self._linvel_lb[0, 0] = -1.0
         self._linvel_lb[0, 1] = -1.0
-        self._linvel_lb[0, 2] = -0.2
+        self._linvel_lb[0, 2] = 0.0
         self._linvel_ub[0, 0] = 1.0
         self._linvel_ub[0, 1] = 1.0
-        self._linvel_ub[0, 2] = 0.2
+        self._linvel_ub[0, 2] = 0.0
 
         self._this_child_path = os.path.abspath(__file__)
         
@@ -106,7 +107,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     dtype=dtype,
                     debug=debug)
 
-        self._reward_thresh_lb = 0 # used for clipping rewards
+        self._reward_thresh_lb = -1 # used for clipping rewards
         self._obs_threshold_lb = -1e2 # used for clipping observations
         self._reward_thresh_ub = 1 # overrides parent's defaults
         self._obs_threshold_ub = 1e2
@@ -206,11 +207,14 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         cnstr_viol = obs[:, ((10+self._n_jnts)+6):((10+self._n_jnts)+6+1)]
         rhc_cost = obs[:, ((10+self._n_jnts)+6+1):((10+self._n_jnts)+6+2)]
 
-        task_error = (task_ref - task_meas) * self._task_err_weights
-        task_err_norm = torch.norm(task_error, p=2, dim=1, keepdim=True)
+        epsi=1e-6
+        task_error_perc =  torch.abs((task_ref-task_meas)/(task_ref+epsi)) # error normalized wrt ref
+        task_error_index = torch.sum(self._task_err_weights * task_error_perc, dim=1, keepdim=True) \
+            / self._task_err_weights_norm_coeff # task index is normalized wrt the task weights, so that is bound 
+        # to be in [0, +inf]. A task index of 1 means a 100% average error on the task wrt the reference
 
         sub_rewards = self._rewards.get_torch_mirror(gpu=self._use_gpu)
-        sub_rewards[:, 0:1] = self._task_weight * (1.0 - (self._task_scale * task_err_norm))
+        sub_rewards[:, 0:1] = self._task_weight * (1.0 - task_error_index)
         sub_rewards[:, 1:2] = self._rhc_cnstr_viol_weight * (1.0 - cnstr_viol)
         sub_rewards[:, 2:3] = self._rhc_cost_weight * (1.0 - rhc_cost)
         
