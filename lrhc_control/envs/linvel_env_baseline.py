@@ -115,7 +115,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._actions_offsets[:, :] = 0.0 # default to no offset and scaling
         self._actions_scalings[:, :] = 1.0 
         self._actions_offsets[:, 6:10] = 1.0 # stepping flags 
-        self._actions_scalings[:, 6:10] =  0.5 # 0.1
+        self._actions_scalings[:, 6:10] =  0.25 # 0.1
 
     def get_file_paths(self):
 
