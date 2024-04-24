@@ -77,8 +77,6 @@ class RunningMeanStd(object):
         else:
             print(f"Detected nan/inf in mean/std tracker, skipping")
 
-
-
 class RunningNormalizer(th.nn.Module):
     def __init__(self, shape : Tuple[int,...], dtype, device, epsilon : float = 1e-8, is_training: bool=True):
         super().__init__()

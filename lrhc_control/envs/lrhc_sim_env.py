@@ -331,6 +331,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
     def _wait_for_remote_step_req(self,
                             robot_name: str):
         if not self._remote_steppers[robot_name].wait(self._timeout):
+            self.close()
             Journal.log(self.__class__.__name__,
                 "_wait_for_remote_step_req",
                 "Didn't receive any remote step req within timeout!",
@@ -341,6 +342,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                             robot_name: str):
         
         if not self._remote_resetters[robot_name].wait(self._timeout):
+            self.close()
             Journal.log(self.__class__.__name__,
                 "_process_remote_reset_req",
                 "Didn't receive any remote reset req within timeout!",
