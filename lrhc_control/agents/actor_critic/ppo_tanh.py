@@ -80,33 +80,20 @@ class ActorCriticTanh(nn.Module):
         return sum(p.numel() for p in self.parameters())
     
     def get_impl_path(self):
-
         import os 
-        
         return os.path.abspath(__file__)
 
     def get_value(self, x):
-
         return self.critic(x)
 
     def get_action_and_value(self, x, action=None):
 
         action_mean = self.actor_mean(x)
-
         action_logstd = self.actor_logstd.expand_as(action_mean)
-
         action_std = torch.exp(action_logstd)
-
-        # print("action_mean")
-        # print(torch.isfinite(action_mean).all())
-
-        # print("Log std")
-        # print(torch.isfinite(action_std).all())
         probs = Normal(action_mean, action_std)
-
         if action is None:
             action = probs.sample()
-            
         return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), self.critic(x)
     
     def get_action(self, x, 
@@ -114,31 +101,23 @@ class ActorCriticTanh(nn.Module):
                 ):
         
         action_mean = self.actor_mean(x)
-
         action_logstd = self.actor_logstd.expand_as(action_mean)
-
         action_std = torch.exp(action_logstd)
-
         probs = Normal(action_mean, action_std)
-
         if not only_mean:
             action = probs.sample()
         else:
             action = action_mean
-
         return action, probs.log_prob(action).sum(1), probs.entropy().sum(1)
 
     def _layer_init(self, layer, std=torch.sqrt(torch.tensor(2)), bias_const=0.0,
             device: str = "cuda",
             dtype = torch.float32):
-
         # device
         layer.to(device)
         # dtype
         layer.weight.data.type(dtype)
         layer.bias.data.type(dtype)
-
         torch.nn.init.orthogonal_(layer.weight, std)
         torch.nn.init.constant_(layer.bias, bias_const)
-        
         return layer
