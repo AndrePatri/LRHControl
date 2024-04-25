@@ -59,7 +59,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         
         device = "cuda" if use_gpu else "cpu"
 
-        self._task_weight = 1
+        self._task_weight = 1.0
         self._task_scale = 1.0
         self._task_err_weights = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.0) 
@@ -115,7 +115,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._actions_offsets[:, :] = 0.0 # default to no offset and scaling
         self._actions_scalings[:, :] = 1.0 
         self._actions_offsets[:, 6:10] = 1.0 # stepping flags 
-        self._actions_scalings[:, 6:10] =  0.25 # 0.1
+        self._actions_scalings[:, 6:10] =  0.1 # 0.1
 
     def get_file_paths(self):
 
@@ -181,11 +181,13 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         
     def _rhc_const_viol(self):
         # rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_mirror(gpu=self._use_gpu) # over the whole horizon
+        # return self._rhc_cnstr_viol_scale * rhc_const_viol
         rhc_const_viol = self._rhc_status.rhc_nodes_constr_viol.get_torch_mirror(gpu=self._use_gpu)
         return self._rhc_cnstr_viol_scale * rhc_const_viol[:, 0:1] # just on node 0
     
     def _rhc_cost(self):
         # rhc_cost = self._rhc_status.rhc_cost.get_torch_mirror(gpu=self._use_gpu) # over the whole horizon
+        # return self._rhc_cost_scale * rhc_cost
         rhc_cost = self._rhc_status.rhc_nodes_cost.get_torch_mirror(gpu=self._use_gpu)
         return self._rhc_cost_scale * rhc_cost[:, 0:1] # just on node 0
     
