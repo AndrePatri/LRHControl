@@ -224,9 +224,9 @@ class LRhcTrainingEnvBase():
         rhc_ok = self._check_controllers_registered(retry=False) # does not make sense to run training
         # if we lost some controllers
 
-        self._apply_scaling_to_actions(action) # in place scaling and offset of actions
         actions = self._actions.get_torch_mirror(gpu=self._use_gpu)
         actions[:, :] = action # writes actions
+        self._apply_scaling_to_actions(actions) # in place scaling and offset of actions
         
         self._apply_actions_to_rhc() # apply agent actions to rhc controller
 

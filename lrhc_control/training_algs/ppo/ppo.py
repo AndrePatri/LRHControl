@@ -37,7 +37,7 @@ class PPO(ActorCriticAlgoBase):
             with torch.no_grad(): # no need for gradient computation
                 action, logprob, _ = self._agent.get_action(self._obs[transition], only_mean=self._eval) # when evaluating, use only mean
                 self._values[transition] = self._agent.get_value(self._obs[transition]).reshape(-1, 1)
-            
+
             # perform a step of the (vectorized) env and retrieve trajectory
             env_step_ok = self._env.step(action)
 
@@ -51,7 +51,10 @@ class PPO(ActorCriticAlgoBase):
             self._rewards[transition] = self._env.get_rewards()
             self._next_terminations[transition] = self._env.get_terminations()
             self._next_dones[transition] = torch.logical_or(self._env.get_terminations(), self._env.get_truncations())
-            
+            print("AAAAAAAA")
+            print(self._env.get_terminations())
+            print(self._env.get_truncations())
+            print(self._next_dones[transition])
             if not env_step_ok:
                 return False
         
