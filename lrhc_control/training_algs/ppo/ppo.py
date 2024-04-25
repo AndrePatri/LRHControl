@@ -73,6 +73,8 @@ class PPO(ActorCriticAlgoBase):
                 td_error = actual_reward_discounted - self._values[t] # meas. - est. reward
 
                 # compute advantages using the Generalized Advantage Estimation (GAE) 
+                # GAE estimation needs successive transitions, so we need to stop when the trajectory is either 
+                # truncated or terminated (that's why nextnondone is used)
                 nextnondone = 1.0 - self._next_dones[t]
                 self._advantages[t] = lastgaelam = td_error + self._discount_factor * self._gae_lambda * nextnondone * lastgaelam
             #   cumulative rewards from each time step to the end of the episode
@@ -96,7 +98,7 @@ class PPO(ActorCriticAlgoBase):
             for start in range(0, self._batch_size, self._minibatch_size):
                 end = start + self._minibatch_size
                 minibatch_inds = shuffled_batch_indxs[start:end]
-                
+
                 _, newlogprob, entropy, newvalue = self._agent.get_action_and_value(
                                                                     batched_obs[minibatch_inds], 
                                                                     batched_actions[minibatch_inds])
