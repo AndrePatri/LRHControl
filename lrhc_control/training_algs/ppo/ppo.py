@@ -75,6 +75,7 @@ class PPO(ActorCriticAlgoBase):
                 # compute advantages using the Generalized Advantage Estimation (GAE) 
                 # GAE estimation needs successive transitions, so we need to stop when the trajectory is either 
                 # truncated or terminated (that's why nextnondone is used)
+                # note that longer trajectories reduce the bias in the GAE estimator
                 nextnondone = 1.0 - self._next_dones[t]
                 self._advantages[t] = lastgaelam = td_error + self._discount_factor * self._gae_lambda * nextnondone * lastgaelam
             #   cumulative rewards from each time step to the end of the episode

@@ -624,7 +624,8 @@ class ActorCriticAlgoBase():
         self._learning_rate_now = self._base_learning_rate
         self._anneal_lr = True
         self._discount_factor = 0.99
-        self._gae_lambda = 0.95
+        self._gae_lambda = 0.95 # λ = 1 gives an unbiased estimate of the total reward (but high variance),
+        # λ < 1 gives a biased estimate, but with less variance
         
         self._update_epochs = 10
         self._norm_adv = True
