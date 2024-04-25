@@ -90,17 +90,13 @@ class PPO(ActorCriticAlgoBase):
 
         # optimize policy and value network
         clipfracs = []
-
         for epoch in range(self._update_epochs):
-
             shuffled_batch_indxs = torch.randperm(self._batch_size) # randomizing 
             # indexes for removing correlations
-
             for start in range(0, self._batch_size, self._minibatch_size):
-
                 end = start + self._minibatch_size
                 minibatch_inds = shuffled_batch_indxs[start:end]
-        
+                
                 _, newlogprob, entropy, newvalue = self._agent.get_action_and_value(
                                                                     batched_obs[minibatch_inds], 
                                                                     batched_actions[minibatch_inds])
