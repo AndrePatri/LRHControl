@@ -720,15 +720,20 @@ class ActorCriticAlgoBase():
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device)
-
+        self._next_terminations = torch.full(size=(self._rollout_timesteps, self._num_envs, 1),
+                        fill_value=False,
+                        dtype=self._dtype,
+                        device=self._torch_device)
+        self._next_dones = torch.full(size=(self._rollout_timesteps, self._num_envs, 1),
+                        fill_value=False,
+                        dtype=self._dtype,
+                        device=self._torch_device)
+        
         self._rewards = torch.full(size=(self._rollout_timesteps, self._num_envs, 1),
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device)
-        self._dones = torch.full(size=(self._rollout_timesteps, self._num_envs, 1),
-                        fill_value=False,
-                        dtype=self._dtype,
-                        device=self._torch_device)
+        
         
         self._advantages = torch.full(size=(self._rollout_timesteps, self._num_envs, 1),
                         fill_value=0,

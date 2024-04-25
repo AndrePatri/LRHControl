@@ -648,7 +648,7 @@ class ActorCriticAlgoBase():
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device)
-        self._dones = torch.full(size=(self._env_timesteps, self._num_envs, 1),
+        self._next_dones = torch.full(size=(self._env_timesteps, self._num_envs, 1),
                         fill_value=False,
                         dtype=self._dtype,
                         device=self._torch_device)

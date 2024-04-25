@@ -32,7 +32,7 @@ class CleanPPO(ActorCriticAlgoBase):
         # collect data from current policy over a number of timesteps
         for transition in range(n_timesteps):
             
-            self._dones[transition] = torch.logical_or(self._env.get_terminations(), 
+            self._next_dones[transition] = torch.logical_or(self._env.get_terminations(), 
                                         self._env.get_truncations()) # note: this is not
             # correct in theory -> truncations should not be treated as terminations. But introducing
             # this error (underestimates values of truncation states) makes code cleaner (clearnrl does this)
@@ -72,7 +72,7 @@ class CleanPPO(ActorCriticAlgoBase):
                     nextnonterminal = 1.0 - last_done
                     nextvalues = self._agent.get_value(self._env.get_next_obs()).reshape(-1, 1)
                 else:
-                    nextnonterminal = 1.0 - self._dones[t + 1]
+                    nextnonterminal = 1.0 - self._next_dones[t + 1]
                     nextvalues = self._values[t + 1]
                 # temporal difference error computation
                 actual_reward_discounted = self._rewards[t] + self._discount_factor * nextvalues * nextnonterminal
