@@ -51,10 +51,6 @@ class PPO(ActorCriticAlgoBase):
             self._rewards[transition] = self._env.get_rewards()
             self._next_terminations[transition] = self._env.get_terminations()
             self._next_dones[transition] = torch.logical_or(self._env.get_terminations(), self._env.get_truncations())
-            print("AAAAAAAA")
-            print(self._env.get_terminations())
-            print(self._env.get_truncations())
-            print(self._next_dones[transition])
             if not env_step_ok:
                 return False
         
