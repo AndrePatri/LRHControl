@@ -613,7 +613,7 @@ class ActorCriticAlgoBase():
 
         # main algo settings
         self._iterations_n = 1500 # number of ppo iterations
-        self._batch_size_nom = 16384 # 32768
+        self._batch_size_nom = 32768 # 32768
         self._num_minibatches = 8
         self._rollout_timesteps = int(self._batch_size_nom / self._num_envs)
         self._batch_size = self._rollout_timesteps * self._num_envs
@@ -631,7 +631,7 @@ class ActorCriticAlgoBase():
         self._norm_adv = True
         self._clip_coef = 0.3
         self._clip_vloss = True
-        self._entropy_coeff = 0.01 # 0.01
+        self._entropy_coeff = 0.001 # 0.01
         self._val_f_coeff = 0.01
         self._max_grad_norm = 0.5
         self._target_kl = None

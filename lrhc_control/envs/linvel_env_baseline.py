@@ -107,15 +107,15 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     dtype=dtype,
                     debug=debug)
 
-        self._reward_thresh_lb = 0 # used for clipping rewards
+        self._reward_thresh_lb = -1 # used for clipping rewards
         self._obs_threshold_lb = -1e3 # used for clipping observations
         self._reward_thresh_ub = 1 # overrides parent's defaults
         self._obs_threshold_ub = 1e3
 
         self._actions_offsets[:, :] = 0.0 # default to no offset and scaling
         self._actions_scalings[:, :] = 1.0 
-        self._actions_offsets[:, 6:10] = 1.0 # stepping flags 
-        self._actions_scalings[:, 6:10] =  0.1 # 0.1
+        self._actions_offsets[:, 6:10] = 0.0 # stepping flags 
+        self._actions_scalings[:, 6:10] =  1.0 # 0.1
 
     def get_file_paths(self):
 
