@@ -604,6 +604,7 @@ class ActorCriticAlgoBase():
         self._run_name = "DefaultRun" # default
         self._env_name = self._env.name()
         self._env_episode_n_steps_lb, self._env_episode_n_steps_ub = self._env.n_steps_per_episode()
+        self._n_steps_task_rand_lb, self._n_steps_task_rand_ub = self._env.n_task_rand_per_episode()
 
         self._use_gpu = self._env.using_gpu()
         self._torch_device = torch.device("cpu") # defaults to cpu
@@ -613,8 +614,8 @@ class ActorCriticAlgoBase():
 
         # main algo settings
         self._iterations_n = 3000 # number of ppo iterations
-        self._batch_size_nom = 16384 # 32768
-        self._num_minibatches = 8
+        self._batch_size_nom = 65536 # 32768
+        self._num_minibatches = 16
         self._rollout_timesteps = int(self._batch_size_nom / self._num_envs)
         self._batch_size = self._rollout_timesteps * self._num_envs
         self._minibatch_size = int(self._batch_size // self._num_minibatches)
@@ -624,7 +625,7 @@ class ActorCriticAlgoBase():
         self._learning_rate_now = self._base_learning_rate
         self._anneal_lr = True
         self._discount_factor = 0.99
-        self._gae_lambda = 0.90 # λ = 1 gives an unbiased estimate of the total reward (but high variance),
+        self._gae_lambda = 0.95 # λ = 1 gives an unbiased estimate of the total reward (but high variance),
         # λ < 1 gives a biased estimate, but with less variance. 0.95
         
         self._update_epochs = 10
@@ -651,6 +652,8 @@ class ActorCriticAlgoBase():
         self._hyperparameters["n_policy_updates_when_done"] = self._n_policy_updates_to_be_done
         self._hyperparameters["n steps per env. episode lb"] = self._env_episode_n_steps_lb
         self._hyperparameters["n steps per env. episode ub"] = self._env_episode_n_steps_ub
+        self._hyperparameters["n steps per task rand. lb"] = self._n_steps_task_rand_lb
+        self._hyperparameters["n steps per task rand. ub"] = self._n_steps_task_rand_ub
         self._hyperparameters["n steps per env. rollout"] = self._rollout_timesteps
         self._hyperparameters["per-batch update_epochs"] = self._update_epochs
         self._hyperparameters["per-epoch policy updates"] = self._num_minibatches
@@ -683,6 +686,8 @@ class ActorCriticAlgoBase():
             f"n steps per env. rollout {self._rollout_timesteps}\n" + \
             f"max n steps per env. episode {self._env_episode_n_steps_ub}\n" + \
             f"min n steps per env. episode {self._env_episode_n_steps_lb}\n" + \
+            f"max n steps per task rand. {self._n_steps_task_rand_ub}\n" + \
+            f"min n steps per task rand. {self._n_steps_task_rand_lb}\n" + \
             f"total policy updates to be performed {self._update_epochs * self._num_minibatches * self._iterations_n}\n" + \
             f"total_timesteps to be simulated {self._total_timesteps}\n"
         Journal.log(self.__class__.__name__,

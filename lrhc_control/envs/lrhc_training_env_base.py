@@ -146,6 +146,10 @@ class LRhcTrainingEnvBase():
 
         return self._n_steps_episode_lb, self._n_steps_episode_ub
     
+    def n_task_rand_per_episode(self):
+
+        return self._n_steps_task_rand_lb, self._n_steps_task_rand_ub
+    
     def get_file_paths(self):
         empty_list = []
         return empty_list
