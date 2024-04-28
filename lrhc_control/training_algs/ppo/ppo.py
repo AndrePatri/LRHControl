@@ -130,8 +130,8 @@ class PPO(ActorCriticAlgoBase):
                     v_loss_unclipped = (newvalue - batched_returns[minibatch_inds]) ** 2
                     v_clipped = batched_values[minibatch_inds] + torch.clamp(
                         newvalue - batched_values[minibatch_inds],
-                        -self._clip_coef,
-                        self._clip_coef,
+                        -self._clip_coef_vf,
+                        self._clip_coef_vf,
                     )
                     v_loss_clipped = (v_clipped - batched_returns[minibatch_inds]) ** 2
                     v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)

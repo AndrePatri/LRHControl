@@ -631,9 +631,10 @@ class ActorCriticAlgoBase():
         self._update_epochs = 10
         self._norm_adv = True
         self._clip_coef = 0.3
+        self._clip_coef_vf = 0.3 # IMPORTANT: this clipping depends on the reward scaling.
         self._clip_vloss = True
         self._entropy_coeff = 0.0
-        self._val_f_coeff = 1e-3
+        self._val_f_coeff = 0.5
         self._max_grad_norm = 0.5
         self._target_kl = None
 
@@ -669,6 +670,7 @@ class ActorCriticAlgoBase():
         self._hyperparameters["gae_lambda"] = self._gae_lambda
         self._hyperparameters["norm_adv"] = self._norm_adv
         self._hyperparameters["clip_coef"] = self._clip_coef
+        self._hyperparameters["clip_coef_vf"] = self._clip_coef_vf
         self._hyperparameters["clip_vloss"] = self._clip_vloss
         self._hyperparameters["entropy_coeff"] = self._entropy_coeff
         self._hyperparameters["val_f_coeff"] = self._val_f_coeff
