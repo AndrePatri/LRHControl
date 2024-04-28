@@ -155,7 +155,7 @@ class PPO(ActorCriticAlgoBase):
             if self._target_kl is not None and approx_kl > self._target_kl:
                 break
             
-        # ppo-iteration db data
+        # ppo-iteration db data 
         y_pred, y_true = batched_values.cpu(), batched_returns.cpu()
         var_y = torch.var(y_true)
         explained_var = torch.nan if var_y == 0 else 1 - torch.var(y_true - y_pred) / var_y
@@ -167,6 +167,13 @@ class PPO(ActorCriticAlgoBase):
         self._approx_kl[self._it_counter, 0] = approx_kl.item()
         self._clipfrac[self._it_counter, 0] = torch.mean(torch.tensor(clipfracs))
         self._explained_variance[self._it_counter, 0] = explained_var
+        self._batch_returns_std[self._it_counter, 0] = batched_returns.std().item() 
+        self._batch_returns_mean[self._it_counter, 0] = batched_returns.mean().item()
+        self._batch_adv_std[self._it_counter, 0] = batched_advantages.std().item() 
+        self._batch_adv_mean[self._it_counter, 0] = batched_advantages.mean().item()
+        self._batch_val_std[self._it_counter, 0] = batched_values.std().item() 
+        self._batch_val_mean[self._it_counter, 0] = batched_values.mean().item()
+        
         self._policy_update_db_data_dict.update({"losses/tot_loss": self._tot_loss[self._it_counter, 0],
                                         "losses/value_loss": self._value_loss[self._it_counter, 0],
                                         "losses/policy_loss": self._policy_loss[self._it_counter, 0],
@@ -174,4 +181,10 @@ class PPO(ActorCriticAlgoBase):
                                         "losses/old_approx_kl": self._old_approx_kl[self._it_counter, 0],
                                         "losses/approx_kl": self._approx_kl[self._it_counter, 0],
                                         "losses/clipfrac": self._clipfrac[self._it_counter, 0],
-                                        "losses/explained_variance": self._explained_variance[self._it_counter, 0]}) 
+                                        "losses/explained_variance": self._explained_variance[self._it_counter, 0],
+                                        "bdata/breturn_std: ": self._batch_returns_std[self._it_counter, 0],
+                                        "bdata/breturn_mean: ": self._batch_returns_mean[self._it_counter, 0],
+                                        "bdata/badv_std: ": self._batch_adv_std[self._it_counter, 0],
+                                        "bdata/badv_mean: ": self._batch_adv_mean[self._it_counter, 0],
+                                        "bdata/bval_std: ": self._batch_val_std[self._it_counter, 0],
+                                        "bdata/bval_mean: ": self._batch_val_mean[self._it_counter, 0]}) 

@@ -352,6 +352,12 @@ class ActorCriticAlgoBase():
             hf.create_dataset('approx_kl', data=self._approx_kl.numpy())
             hf.create_dataset('clipfrac', data=self._clipfrac.numpy())
             hf.create_dataset('explained_variance', data=self._explained_variance.numpy())
+            hf.create_dataset('batch_returns_std', data=self._batch_returns_std.numpy())
+            hf.create_dataset('batch_returns_mean', data=self._batch_returns_mean.numpy())
+            hf.create_dataset('batch_adv_std', data=self._batch_adv_std.numpy())
+            hf.create_dataset('batch_adv_mean', data=self._batch_adv_mean.numpy())
+            hf.create_dataset('batch_val_std', data=self._batch_val_std.numpy())
+            hf.create_dataset('batch_val_mean', data=self._batch_val_mean.numpy())
 
         info = f"done."
         Journal.log(self.__class__.__name__,
@@ -592,7 +598,19 @@ class ActorCriticAlgoBase():
                     dtype=torch.float32, fill_value=0.0, device="cpu")
         self._explained_variance = torch.full((self._iterations_n, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
-
+        self._batch_returns_std = torch.full((self._iterations_n, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._batch_returns_mean = torch.full((self._iterations_n, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._batch_adv_std = torch.full((self._iterations_n, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._batch_adv_mean = torch.full((self._iterations_n, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._batch_val_std = torch.full((self._iterations_n, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._batch_val_mean = torch.full((self._iterations_n, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        
     def _init_params(self):
 
         self._dtype = self._env.dtype()
@@ -628,10 +646,10 @@ class ActorCriticAlgoBase():
         self._gae_lambda = 0.95 # λ = 1 gives an unbiased estimate of the total reward (but high variance),
         # λ < 1 gives a biased estimate, but with less variance. 0.95
         
-        self._update_epochs = 5
+        self._update_epochs = 10
         self._norm_adv = True
         self._clip_vloss = False
-        self._clip_coef = 0.2
+        self._clip_coef = 0.3
         self._clip_coef_vf = 0.3 # IMPORTANT: this clipping depends on the reward scaling.
         self._entropy_coeff = 0.0
         self._val_f_coeff = 1e-3
