@@ -114,8 +114,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         self._actions_offsets[:, :] = 0.0 # default to no offset and scaling
         self._actions_scalings[:, :] = 1.0 
-        self._actions_offsets[:, 6:10] = 0.5 # stepping flags 
-        self._actions_scalings[:, 6:10] =  0.2 # 0.1
+        self._actions_offsets[:, 6:10] = 0.0 # stepping flags 
+        self._actions_scalings[:, 6:10] =  1.0 
 
     def get_file_paths(self):
 
@@ -155,7 +155,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                                             gpu=self._use_gpu) 
         
         # contact flags
-        rhc_latest_contact_ref[:, :] = agent_action[:, 6:10] > 0.5 # keep contact if agent action > 0.5
+        rhc_latest_contact_ref[:, :] = agent_action[:, 6:10] > 0 # keep contact if agent action > 0
 
         if self._use_gpu:
             self._rhc_refs.rob_refs.root_state.synch_mirror(from_gpu=self._use_gpu) # write from gpu to cpu mirror
