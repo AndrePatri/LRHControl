@@ -110,11 +110,6 @@ class LRhcTrainingEnvBase():
 
         self._episodic_rewards_getter = None
 
-        self._reward_thresh_lb = 0 # used for clipping rewards
-        self._obs_threshold_lb = -10 # used for clipping observations
-        self._reward_thresh_ub = 1 # overrides parent's defaults
-        self._obs_threshold_ub = 10
-
         self._base_info = {}
         self._base_info["final_info"] = None
         self._infos = []
@@ -478,9 +473,17 @@ class LRhcTrainingEnvBase():
 
     def _init_rewards(self):
         
+        reward_thresh_default = 1
+        obs_threshold_default = 10
+        n_rewards = len(self._get_rewards_names())
+        self._reward_thresh_lb = torch.full(shape=(1, n_rewards), dtype=self._dtype, fill_value=-reward_thresh_default) # used for clipping rewards
+        self._obs_threshold_lb = torch.full(shape=(1, n_rewards), dtype=self._dtype, fill_value=-obs_threshold_default) # used for clipping observations
+        self._reward_thresh_ub = torch.full(shape=(1, n_rewards), dtype=self._dtype, fill_value=reward_thresh_default) 
+        self._obs_threshold_ub = torch.full(shape=(1, n_rewards), dtype=self._dtype, fill_value=obs_threshold_default)
+
         self._rewards = Rewards(namespace=self._namespace,
                             n_envs=self._n_envs,
-                            n_rewards=len(self._get_rewards_names()),
+                            n_rewards=n_rewards,
                             reward_names=self._get_rewards_names(),
                             env_names=None,
                             is_server=True,

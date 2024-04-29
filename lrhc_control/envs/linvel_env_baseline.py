@@ -60,7 +60,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         device = "cuda" if use_gpu else "cpu"
 
         self._task_weight = 1.0
-        self._task_scale = 5.0
+        self._task_scale = 2.5
         self._task_err_weights = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.0) 
         self._task_err_weights[0, 0] = 1.0
@@ -107,9 +107,15 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     dtype=dtype,
                     debug=debug)
 
-        self._reward_thresh_lb = -10 # used for clipping rewards
+        # overriding parent's defaults 
+        self._reward_thresh_lb[:, 0] = -0.1 
+        self._reward_thresh_lb[:, 1] = 0 
+        self._reward_thresh_lb[:, 2] = 0 
+        self._reward_thresh_ub[:, 0] = 1 
+        self._reward_thresh_ub[:, 1] = 1 
+        self._reward_thresh_ub[:, 2] = 1 
+
         self._obs_threshold_lb = -1e3 # used for clipping observations
-        self._reward_thresh_ub = 10 # overrides parent's defaults
         self._obs_threshold_ub = 1e3
 
         self._actions_offsets[:, :] = 0.0 # default to no offset and scaling
