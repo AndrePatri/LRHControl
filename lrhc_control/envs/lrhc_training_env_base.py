@@ -418,6 +418,10 @@ class LRhcTrainingEnvBase():
     
     def _init_obs(self):
         
+        obs_threshold_default = 10.0
+        self._obs_threshold_lb = -obs_threshold_default # used for clipping observations
+        self._obs_threshold_ub = obs_threshold_default
+
         self._obs = Observations(namespace=self._namespace,
                             n_envs=self._n_envs,
                             obs_dim=self._obs_dim,
@@ -473,13 +477,11 @@ class LRhcTrainingEnvBase():
 
     def _init_rewards(self):
         
-        reward_thresh_default = 1
-        obs_threshold_default = 10
+        reward_thresh_default = 1.0
         n_rewards = len(self._get_rewards_names())
-        self._reward_thresh_lb = torch.full(shape=(1, n_rewards), dtype=self._dtype, fill_value=-reward_thresh_default) # used for clipping rewards
-        self._obs_threshold_lb = torch.full(shape=(1, n_rewards), dtype=self._dtype, fill_value=-obs_threshold_default) # used for clipping observations
-        self._reward_thresh_ub = torch.full(shape=(1, n_rewards), dtype=self._dtype, fill_value=reward_thresh_default) 
-        self._obs_threshold_ub = torch.full(shape=(1, n_rewards), dtype=self._dtype, fill_value=obs_threshold_default)
+        device = "cuda" if self._use_gpu else "cpu"
+        self._reward_thresh_lb = torch.full((1, n_rewards), dtype=self._dtype, fill_value=-reward_thresh_default, device=device) # used for clipping rewards
+        self._reward_thresh_ub = torch.full((1, n_rewards), dtype=self._dtype, fill_value=reward_thresh_default, device=device) 
 
         self._rewards = Rewards(namespace=self._namespace,
                             n_envs=self._n_envs,
