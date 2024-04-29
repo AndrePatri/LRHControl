@@ -60,7 +60,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         device = "cuda" if use_gpu else "cpu"
 
         self._task_weight = 1.0
-        self._task_scale = 1.0
+        self._task_scale = 10.0
         self._task_err_weights = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.0) 
         self._task_err_weights[0, 0] = 1.0
@@ -107,9 +107,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     dtype=dtype,
                     debug=debug)
 
-        self._reward_thresh_lb = -1 # used for clipping rewards
+        self._reward_thresh_lb = -10 # used for clipping rewards
         self._obs_threshold_lb = -1e3 # used for clipping observations
-        self._reward_thresh_ub = 1 # overrides parent's defaults
+        self._reward_thresh_ub = 10 # overrides parent's defaults
         self._obs_threshold_ub = 1e3
 
         self._actions_offsets[:, :] = 0.0 # default to no offset and scaling
@@ -209,11 +209,12 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         cnstr_viol = obs[:, ((10+self._n_jnts)+6):((10+self._n_jnts)+6+1)]
         rhc_cost = obs[:, ((10+self._n_jnts)+6+1):((10+self._n_jnts)+6+2)]
 
-        epsi=1e-6
-        task_error_perc =  torch.abs((task_ref-task_meas)/(task_ref+epsi)) # error normalized wrt ref
-        task_error_index = torch.sum(self._task_err_weights * task_error_perc, dim=1, keepdim=True) \
-            / self._task_err_weights_norm_coeff # task index is normalized wrt the task weights, so that is bound 
-        # to be in [0, +inf]. A task index of 1 means a 100% average error on the task wrt the reference
+        # epsi=1e-6
+        task_error_index = self._task_scale * torch.nn.functional.mse_loss(task_ref*self._task_err_weights, task_meas*self._task_err_weights)
+        # task_error_perc =  torch.abs((task_ref-task_meas)/(task_ref+epsi)) # error normalized wrt ref
+        # task_error_index = torch.sum(self._task_err_weights * task_error_perc, dim=1, keepdim=True) \
+        #     / self._task_err_weights_norm_coeff # task index is normalized wrt the task weights, so that is bound 
+        # # to be in [0, +inf]. A task index of 1 means a 100% average error on the task wrt the reference
 
         sub_rewards = self._rewards.get_torch_mirror(gpu=self._use_gpu)
         sub_rewards[:, 0:1] = self._task_weight * (1.0 - task_error_index)

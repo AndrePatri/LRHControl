@@ -639,7 +639,7 @@ class ActorCriticAlgoBase():
         self._minibatch_size = int(self._batch_size // self._num_minibatches)
         self._total_timesteps = self._iterations_n * self._batch_size
         
-        self._base_learning_rate = 1e-3
+        self._base_learning_rate = 1e-4
         self._learning_rate_now = self._base_learning_rate
         self._anneal_lr = True
         self._discount_factor = 0.99
