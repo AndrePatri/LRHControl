@@ -1,6 +1,4 @@
 from lrhc_control.agents.actor_critic.ppo_tanh import ActorCriticTanh
-from lrhc_control.agents.actor_critic.ppo_lrelu import ActorCriticLRelu
-from lrhc_control.agents.actor_critic.ppo_tanhv2 import ActorCriticThB
 
 from lrhc_control.utils.shared_data.algo_infos import SharedRLAlgorithmInfo
 import torch 
