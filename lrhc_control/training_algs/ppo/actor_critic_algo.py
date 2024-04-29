@@ -639,20 +639,20 @@ class ActorCriticAlgoBase():
         self._minibatch_size = int(self._batch_size // self._num_minibatches)
         self._total_timesteps = self._iterations_n * self._batch_size
         
-        self._base_learning_rate = 3e-4
+        self._base_learning_rate = 1e-3
         self._learning_rate_now = self._base_learning_rate
         self._anneal_lr = True
         self._discount_factor = 0.99
         self._gae_lambda = 0.95 # λ = 1 gives an unbiased estimate of the total reward (but high variance),
         # λ < 1 gives a biased estimate, but with less variance. 0.95
         
-        self._update_epochs = 10
+        self._update_epochs = 8
         self._norm_adv = False
         self._clip_vloss = False
         self._clip_coef = 0.3
         self._clip_coef_vf = 0.3 # IMPORTANT: this clipping depends on the reward scaling.
         self._entropy_coeff = 0.0
-        self._val_f_coeff = 0.5
+        self._val_f_coeff = 0.1
         self._max_grad_norm = 0.5
         self._target_kl = None
 
