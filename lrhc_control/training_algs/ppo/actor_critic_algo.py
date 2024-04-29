@@ -645,7 +645,7 @@ class ActorCriticAlgoBase():
         # λ < 1 gives a biased estimate, but with less variance. 0.95
         
         self._update_epochs = 10
-        self._norm_adv = False
+        self._norm_adv = True
         self._clip_vloss = False
         self._clip_coef = 0.3
         self._clip_coef_vf = 0.3 # IMPORTANT: this clipping depends on the reward scaling.
