@@ -39,8 +39,8 @@ class LRhcTrainingEnvBase():
             namespace: str,
             obs_dim: int,
             actions_dim: int,
-            n_steps_episode_lb: int,
-            n_steps_episode_ub: int,
+            episode_timeout_lb: int,
+            episode_timeout_ub: int,
             n_steps_task_rand_lb: int,
             n_steps_task_rand_ub: int,
             env_name: str = "",
@@ -57,8 +57,8 @@ class LRhcTrainingEnvBase():
         
         self._closed = False
 
-        self._n_steps_episode_lb = n_steps_episode_lb # episodes durations will be randomized between
-        self._n_steps_episode_ub = n_steps_episode_ub # this bounds to remove temporal correlations
+        self._episode_timeout_lb = episode_timeout_lb # episodes durations will be randomized between
+        self._episode_timeout_ub = episode_timeout_ub # this bounds to remove temporal correlations
         # in batch data
 
         self._n_steps_task_rand_lb = n_steps_task_rand_lb
@@ -96,7 +96,7 @@ class LRhcTrainingEnvBase():
 
         self._n_preinit_steps = n_preinit_steps
         
-        self._episode_counter = None
+        self._timeout_counter = None
         self._randomization_counter = None
         self._obs = None
         self._next_obs = None
@@ -137,11 +137,11 @@ class LRhcTrainingEnvBase():
 
         return self._this_path
     
-    def n_steps_per_episode(self):
+    def episode_timeout_bounds(self):
 
-        return self._n_steps_episode_lb, self._n_steps_episode_ub
+        return self._episode_timeout_lb, self._episode_timeout_ub
     
-    def n_task_rand_per_episode(self):
+    def task_rand_timeout_bounds(self):
 
         return self._n_steps_task_rand_lb, self._n_steps_task_rand_ub
     
@@ -245,29 +245,33 @@ class LRhcTrainingEnvBase():
     
     def _post_step(self):
         
-        self._episode_counter.increment() # first increment counters
+        self._timeout_counter.increment() # first increment counters
         self._randomization_counter.increment()
-        self.randomize_refs(env_indxs=self._randomization_counter.time_limits_reached().flatten()) # randomize 
-        # refs of envs that reached the time limit
+        # self.randomize_refs(env_indxs=self._randomization_counter.time_limits_reached().flatten()) # randomize 
+        # # refs of envs that reached the time limit
 
         self._check_truncations() 
         self._check_terminations()
 
         terminated = self._terminations.get_torch_mirror(gpu=self._use_gpu)
         truncated = self._truncations.get_torch_mirror(gpu=self._use_gpu)
+        truncated_by_time_limit = self._timeout_counter.time_limits_reached()
+
         episode_finished = torch.logical_or(terminated,
-                                        truncated)
+                            truncated)
         
         self._episodic_rewards_getter.update(step_reward = self._rewards.get_torch_mirror(gpu=False),
                             is_done = episode_finished.cpu())
                                         
-        self._episode_counter.reset(to_be_reset=episode_finished, randomize_limits=True) # reset and randomize ep duration 
+        self._timeout_counter.reset(to_be_reset=truncated_by_time_limit, randomize_limits=True) # reset and randomize ep duration 
         self._randomization_counter.reset(to_be_reset=episode_finished, randomize_limits=True)
         self.randomize_refs(env_indxs=episode_finished.flatten()) # randomize refs also upon
         # episode termination
 
-        # (remotely) reset envs for which episode is finished
-        rm_reset_ok = self._remote_reset(reset_mask=episode_finished)
+        # (remotely) reset envs for which episode is finished (but without considering truncation by ref randomization)
+        to_be_reset = torch.logical_or(terminated,
+                                    truncated_by_time_limit)
+        rm_reset_ok = self._remote_reset(reset_mask=to_be_reset)
         
         # read again observations in case some env was reset
         self._synch_obs(gpu=self._use_gpu) # if some env was reset, we use _obs
@@ -310,7 +314,7 @@ class LRhcTrainingEnvBase():
         self._terminations.reset()
         self._truncations.reset()
 
-        self._episode_counter.reset()
+        self._timeout_counter.reset()
         self._randomization_counter.reset()
 
         self._synch_obs(gpu=self._use_gpu) # read obs from shared mem
@@ -332,7 +336,7 @@ class LRhcTrainingEnvBase():
             
             self._remote_stepper.close()
             
-            self._episode_counter.close()
+            self._timeout_counter.close()
             self._randomization_counter.close()
 
             # closing env.-specific shared data
@@ -632,17 +636,17 @@ class LRhcTrainingEnvBase():
 
         # episode steps counters (for detecting episode truncations for 
         # time limits) 
-        self._episode_counter = EpisodesCounter(namespace=self._namespace,
+        self._timeout_counter = EpisodesCounter(namespace=self._namespace,
                             n_envs=self._n_envs,
-                            n_steps_lb=self._n_steps_episode_lb,
-                            n_steps_ub=self._n_steps_episode_ub,
+                            n_steps_lb=self._episode_timeout_lb,
+                            n_steps_ub=self._episode_timeout_ub,
                             is_server=True,
                             verbose=self._verbose,
                             vlevel=self._vlevel,
                             safe=True,
                             force_reconnection=True,
                             with_gpu_mirror=False) # handles step counter through episodes and through envs
-        self._episode_counter.run()
+        self._timeout_counter.run()
         self._randomization_counter = TaskRandCounter(namespace=self._namespace,
                             n_envs=self._n_envs,
                             n_steps_lb=self._n_steps_task_rand_lb,
@@ -800,7 +804,13 @@ class LRhcTrainingEnvBase():
 
         # time unlimited episodes, using time limits just for diversifying 
         # experience
-        truncations[:, :] = self._episode_counter.time_limits_reached() 
+        time_limits_reached = self._timeout_counter.time_limits_reached()
+        time_to_randomize_refs = self._randomization_counter.time_limits_reached()
+        truncations[:, :] = torch.logical_or(time_limits_reached, 
+                                    time_to_randomize_refs) # truncate when reference changes
+        # but only reset env if time limit reached (not with ref rand. this way the agent 
+        # experiences difference robot states)
+        
         if self._use_gpu:
             # from GPU to CPU 
             self._truncations.synch_mirror(from_gpu=True) 

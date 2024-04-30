@@ -48,8 +48,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         actions_dim = 2 + 1 + 3 + 4 # [vxy_cmd, h_cmd, twist_cmd, dostep_0, dostep_1, dostep_2, dostep_3]
 
-        n_steps_episode_lb = 1024 # episode length
-        n_steps_episode_ub = 4096
+        episode_timeout_lb = 4096 # episode timeout
+        episode_timeout_ub = 4096
         n_steps_task_rand_lb = 128 # agent refs randomization freq
         n_steps_task_rand_ub = 512
 
@@ -95,8 +95,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         super().__init__(namespace=namespace,
                     obs_dim=obs_dim,
                     actions_dim=actions_dim,
-                    n_steps_episode_lb=n_steps_episode_lb,
-                    n_steps_episode_ub=n_steps_episode_ub,
+                    episode_timeout_lb=episode_timeout_lb,
+                    episode_timeout_ub=episode_timeout_ub,
                     n_steps_task_rand_lb=n_steps_task_rand_lb,
                     n_steps_task_rand_ub=n_steps_task_rand_ub,
                     env_name=env_name,
