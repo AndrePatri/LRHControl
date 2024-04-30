@@ -269,7 +269,7 @@ class LRhcTrainingEnvBase():
         # episode termination
 
         # (remotely) reset envs for which episode is finished (but without considering truncation by ref randomization)
-        to_be_reset = torch.logical_or(terminated,
+        to_be_reset = torch.logical_or(terminated.cpu(),
                                     truncated_by_time_limit)
         rm_reset_ok = self._remote_reset(reset_mask=to_be_reset)
         
