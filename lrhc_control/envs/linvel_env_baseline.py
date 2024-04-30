@@ -50,7 +50,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         n_steps_episode_lb = 1024 # episode length
         n_steps_episode_ub = 4096
-        n_steps_task_rand_lb = 64 # agent refs randomization freq
+        n_steps_task_rand_lb = 128 # agent refs randomization freq
         n_steps_task_rand_ub = 512
 
         n_preinit_steps = 1 # one steps of the controllers to properly initialize everything
@@ -108,7 +108,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     debug=debug)
 
         # overriding parent's defaults 
-        self._reward_thresh_lb[:, 0] = -0.1 
+        self._reward_thresh_lb[:, 0] = -1 
         self._reward_thresh_lb[:, 1] = 0 
         self._reward_thresh_lb[:, 2] = 0 
         self._reward_thresh_ub[:, 0] = 1 
@@ -233,10 +233,10 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         agent_twist_ref_current = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu)
         if env_indxs is None:
             agent_twist_ref_current[:, :] = 0 # base should be still
-            agent_twist_ref_current[:, 0:3] = (self._linvel_ub-self._linvel_lb) * torch.rand_like(agent_twist_ref_current[:, 0:3]) + self._linvel_lb # randomize h ref
+            agent_twist_ref_current[:, 0:3] = (self._linvel_ub-self._linvel_lb) * torch.rand_like(agent_twist_ref_current[:, 0:3]) + self._linvel_lb
         else:
             agent_twist_ref_current[env_indxs, :] = 0 # base should be still
-            agent_twist_ref_current[env_indxs, 0:3] = (self._linvel_ub-self._linvel_lb) * torch.rand_like(agent_twist_ref_current[env_indxs, 0:3]) + self._linvel_lb # randomize h ref
+            agent_twist_ref_current[env_indxs, 0:3] = (self._linvel_ub-self._linvel_lb) * torch.rand_like(agent_twist_ref_current[env_indxs, 0:3]) + self._linvel_lb
 
         self._agent_refs.rob_refs.root_state.set(data_type="twist", data=agent_twist_ref_current,
                                             gpu=self._use_gpu)

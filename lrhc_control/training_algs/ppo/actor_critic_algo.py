@@ -630,8 +630,8 @@ class ActorCriticAlgoBase():
 
         # main algo settings
         self._iterations_n = 3000 # number of ppo iterations
-        self._batch_size_nom = 16384 # 32768
-        self._num_minibatches = 8
+        self._batch_size_nom = 32768 # 32768
+        self._num_minibatches = 16
         self._rollout_timesteps = int(self._batch_size_nom / self._num_envs)
         self._batch_size = self._rollout_timesteps * self._num_envs
         self._minibatch_size = int(self._batch_size // self._num_minibatches)
