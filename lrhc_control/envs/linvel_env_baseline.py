@@ -186,16 +186,16 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         obs_tensor[:, ((10+self._n_jnts)+6+2):((10+self._n_jnts)+6+2+len(self.contact_names))] = self._rhc_step_var()
         
     def _rhc_const_viol(self):
-        # rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_mirror(gpu=self._use_gpu) # over the whole horizon
-        # return self._rhc_cnstr_viol_scale * rhc_const_viol
-        rhc_const_viol = self._rhc_status.rhc_nodes_constr_viol.get_torch_mirror(gpu=self._use_gpu)
-        return self._rhc_cnstr_viol_scale * rhc_const_viol[:, 0:1] # just on node 0
+        rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_mirror(gpu=self._use_gpu) # over the whole horizon
+        return self._rhc_cnstr_viol_scale * rhc_const_viol
+        # rhc_const_viol = self._rhc_status.rhc_nodes_constr_viol.get_torch_mirror(gpu=self._use_gpu)
+        # return self._rhc_cnstr_viol_scale * rhc_const_viol[:, 0:1] # just on node 0
     
     def _rhc_cost(self):
-        # rhc_cost = self._rhc_status.rhc_cost.get_torch_mirror(gpu=self._use_gpu) # over the whole horizon
-        # return self._rhc_cost_scale * rhc_cost
-        rhc_cost = self._rhc_status.rhc_nodes_cost.get_torch_mirror(gpu=self._use_gpu)
-        return self._rhc_cost_scale * rhc_cost[:, 0:1] # just on node 0
+        rhc_cost = self._rhc_status.rhc_cost.get_torch_mirror(gpu=self._use_gpu) # over the whole horizon
+        return self._rhc_cost_scale * rhc_cost
+        # rhc_cost = self._rhc_status.rhc_nodes_cost.get_torch_mirror(gpu=self._use_gpu)
+        # return self._rhc_cost_scale * rhc_cost[:, 0:1] # just on node 0
     
     def _rhc_step_var(self):
         step_var = self._rhc_status.rhc_step_var.get_torch_mirror(gpu=self._use_gpu)

@@ -168,10 +168,16 @@ class ActorCriticAlgoBase():
             # wandb.watch(self.actor_logstd, log="all")
 
         if not self._eval:
-            self._optimizer = optim.Adam(self._agent.parameters(), 
-                                    lr=self._base_learning_rate, 
-                                    eps=1e-5 # small constant added to the optimization
-                                    )
+            # self._optimizer = optim.Adam(self._agent.parameters(), 
+            #                         lr=self._base_lr_actor, 
+            #                         eps=1e-5 # small constant added to the optimization
+            #                         )
+            self._optimizer = optim.Adam([
+                {'params': self._agent.actor_mean.parameters(), 'lr': self._base_lr_actor},
+                {'params': self._agent.critic.parameters(), 'lr': self._base_lr_critic}, ],
+                lr=self._base_lr_actor, # default to actor lr (e.g. lfor ogstd parameter)
+                eps=1e-5 # small constant added to the optimization
+                )
         self._init_buffers()
         
         # self._env.reset()
@@ -201,8 +207,10 @@ class ActorCriticAlgoBase():
         if self._anneal_lr:
 
             frac = 1.0 - (self._it_counter - 1.0) / self._iterations_n
-            self._learning_rate_now = frac * self._base_learning_rate
-            self._optimizer.param_groups[0]["lr"] = self._learning_rate_now
+            self._lr_now_actor = frac * self._base_lr_actor
+            self._lr_now_critic = frac * self._base_lr_critic
+            self._optimizer.param_groups[0]["lr"] = self._lr_now_actor
+            self._optimizer.param_groups[1]["lr"] = self._lr_now_critic
 
         self._episodic_reward_getter.reset() # necessary, we don't want to accumulate 
         # debug rewards from previous rollout
@@ -435,7 +443,8 @@ class ActorCriticAlgoBase():
         
         self._elapsed_min[self._it_counter-1] = (time.perf_counter() - self._start_time_tot) / 60
         
-        self._learning_rates[self._it_counter-1] = self._learning_rate_now
+        self._learning_rates[self._it_counter-1, 0] = self._lr_now_actor
+        self._learning_rates[self._it_counter-1, 0] = self._lr_now_critic
 
         self._env_step_fps[self._it_counter-1] = self._batch_size / self._rollout_dt[self._it_counter-1]
         self._env_step_rt_factor[self._it_counter-1] = self._env_step_fps[self._it_counter-1] * self._hyperparameters["control_clust_dt"]
@@ -467,7 +476,8 @@ class ActorCriticAlgoBase():
                 "n_of_performed_policy_updates",
                 "n_of_played_episodes", 
                 "n_of_timesteps_done",
-                "current_learning_rate",
+                "lr_now_actor",
+                "lr_now_critic",
                 "rollout_dt",
                 "return_dt",
                 "policy_improv_dt",
@@ -480,7 +490,8 @@ class ActorCriticAlgoBase():
                 self._n_policy_updates[self._it_counter-1].item(),
                 self._n_of_played_episodes[self._it_counter-1].item(), 
                 self._n_timesteps_done[self._it_counter-1].item(),
-                self._learning_rate_now,
+                self._lr_now_actor,
+                self._lr_now_critic,
                 self._rollout_dt[self._it_counter-1].item(),
                 self._gae_dt[self._it_counter-1].item(),
                 self._policy_update_dt[self._it_counter-1].item(),
@@ -561,7 +572,7 @@ class ActorCriticAlgoBase():
                     dtype=torch.int32, fill_value=0, device="cpu")
         self._elapsed_min = torch.full((self._iterations_n, 1), 
                     dtype=torch.float32, fill_value=0, device="cpu")
-        self._learning_rates = torch.full((self._iterations_n, 1), 
+        self._learning_rates = torch.full((self._iterations_n, 2), 
                     dtype=torch.float32, fill_value=0, device="cpu")
         
         # reward db data
@@ -637,9 +648,12 @@ class ActorCriticAlgoBase():
         self._minibatch_size = int(self._batch_size // self._num_minibatches)
         self._total_timesteps = self._iterations_n * self._batch_size
         
-        self._base_learning_rate = 3e-4
-        self._learning_rate_now = self._base_learning_rate
+        self._base_lr_actor = 3e-4
+        self._base_lr_critic = 1e-2
+        self._lr_now_actor = self._base_lr_actor
+        self._lr_now_critic= self._base_lr_critic
         self._anneal_lr = True
+
         self._discount_factor = 0.99
         self._gae_lambda = 0.95 # λ = 1 gives an unbiased estimate of the total reward (but high variance),
         # λ < 1 gives a biased estimate, but with less variance. 0.95
@@ -680,7 +694,8 @@ class ActorCriticAlgoBase():
         self._hyperparameters["batch_size_nom"] = self._batch_size_nom
         self._hyperparameters["minibatch_size"] = self._minibatch_size
         self._hyperparameters["total_timesteps"] = self._total_timesteps
-        self._hyperparameters["base_learning_rate"] = self._base_learning_rate
+        self._hyperparameters["base_lr_actor"] = self._base_lr_actor
+        self._hyperparameters["base_lr_critic"] = self._base_lr_critic
         self._hyperparameters["anneal_lr"] = self._anneal_lr
         self._hyperparameters["discount_factor"] = self._discount_factor
         self._hyperparameters["gae_lambda"] = self._gae_lambda
