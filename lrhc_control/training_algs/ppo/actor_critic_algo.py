@@ -168,16 +168,16 @@ class ActorCriticAlgoBase():
             # wandb.watch(self.actor_logstd, log="all")
 
         if not self._eval:
-            # self._optimizer = optim.Adam(self._agent.parameters(), 
-            #                         lr=self._base_lr_actor, 
-            #                         eps=1e-5 # small constant added to the optimization
-            #                         )
-            self._optimizer = optim.Adam([
-                {'params': self._agent.actor_mean.parameters(), 'lr': self._base_lr_actor},
-                {'params': self._agent.critic.parameters(), 'lr': self._base_lr_critic}, ],
-                lr=self._base_lr_actor, # default to actor lr (e.g. lfor ogstd parameter)
-                eps=1e-5 # small constant added to the optimization
-                )
+            self._optimizer = optim.Adam(self._agent.parameters(), 
+                                    lr=self._base_lr_actor, 
+                                    eps=1e-5 # small constant added to the optimization
+                                    )
+            # self._optimizer = optim.Adam([
+            #     {'params': self._agent.actor_mean.parameters(), 'lr': self._base_lr_actor},
+            #     {'params': self._agent.critic.parameters(), 'lr': self._base_lr_critic}, ],
+            #     lr=self._base_lr_actor, # default to actor lr (e.g. lfor ogstd parameter)
+            #     eps=1e-5 # small constant added to the optimization
+            #     )
         self._init_buffers()
         
         # self._env.reset()
@@ -209,7 +209,7 @@ class ActorCriticAlgoBase():
             self._lr_now_actor = frac * self._base_lr_actor
             self._lr_now_critic = frac * self._base_lr_critic
             self._optimizer.param_groups[0]["lr"] = self._lr_now_actor
-            self._optimizer.param_groups[1]["lr"] = self._lr_now_critic
+            # self._optimizer.param_groups[1]["lr"] = self._lr_now_critic
 
         self._episodic_reward_getter.reset() # necessary, we don't want to accumulate 
         # debug rewards from previous rollout
@@ -678,7 +678,7 @@ class ActorCriticAlgoBase():
 
         # main algo settings
         self._iterations_n = 3000 # number of ppo iterations
-        self._batch_size_nom = 32768 # 32768
+        self._batch_size_nom = 8192 # 32768
         self._num_minibatches = 8
         self._rollout_timesteps = int(self._batch_size_nom / self._num_envs)
         self._batch_size = self._rollout_timesteps * self._num_envs
@@ -686,7 +686,7 @@ class ActorCriticAlgoBase():
         self._total_timesteps = self._iterations_n * self._batch_size
         
         self._base_lr_actor = 3e-4
-        self._base_lr_critic = 3e-5
+        self._base_lr_critic = 3e-4
         self._lr_now_actor = self._base_lr_actor
         self._lr_now_critic= self._base_lr_critic
         self._anneal_lr = True
@@ -698,10 +698,10 @@ class ActorCriticAlgoBase():
         self._update_epochs = 10
         self._norm_adv = True
         self._clip_vloss = False
-        self._clip_coef = 0.2
+        self._clip_coef = 0.3
         self._clip_coef_vf = 0.3 # IMPORTANT: this clipping depends on the reward scaling.
         self._entropy_coeff = 0.0
-        self._val_f_coeff = 1.0
+        self._val_f_coeff = 0.5
         self._max_grad_norm_actor = 0.5
         self._max_grad_norm_critic = 0.5
         self._target_kl = None
