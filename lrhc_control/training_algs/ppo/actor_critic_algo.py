@@ -686,7 +686,7 @@ class ActorCriticAlgoBase():
         self._total_timesteps = self._iterations_n * self._batch_size
         
         self._base_lr_actor = 3e-4
-        self._base_lr_critic = 3e-4
+        self._base_lr_critic = 3e-5
         self._lr_now_actor = self._base_lr_actor
         self._lr_now_critic= self._base_lr_critic
         self._anneal_lr = True
@@ -701,7 +701,7 @@ class ActorCriticAlgoBase():
         self._clip_coef = 0.2
         self._clip_coef_vf = 0.3 # IMPORTANT: this clipping depends on the reward scaling.
         self._entropy_coeff = 0.0
-        self._val_f_coeff = 0.5
+        self._val_f_coeff = 1.0
         self._max_grad_norm_actor = 0.5
         self._max_grad_norm_critic = 0.5
         self._target_kl = None
