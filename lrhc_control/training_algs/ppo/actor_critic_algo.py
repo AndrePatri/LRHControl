@@ -205,7 +205,6 @@ class ActorCriticAlgoBase():
 
         # annealing the learning rate if enabled (may improve convergence)
         if self._anneal_lr:
-
             frac = 1.0 - (self._it_counter - 1.0) / self._iterations_n
             self._lr_now_actor = frac * self._base_lr_actor
             self._lr_now_critic = frac * self._base_lr_critic
@@ -350,14 +349,28 @@ class ActorCriticAlgoBase():
             hf.create_dataset('learn_rates', data=self._learning_rates.numpy())
 
             # ppo iterations db data
-            hf.create_dataset('tot_loss', data=self._tot_loss.numpy())
-            hf.create_dataset('value_loss', data=self._value_loss.numpy())
-            hf.create_dataset('policy_loss', data=self._policy_loss.numpy())
-            hf.create_dataset('entropy_loss', data=self._entropy_loss.numpy())
-            hf.create_dataset('old_approx_kl', data=self._old_approx_kl.numpy())
-            hf.create_dataset('approx_kl', data=self._approx_kl.numpy())
+            hf.create_dataset('tot_loss_mean', data=self._tot_loss_mean.numpy())
+            hf.create_dataset('value_los_means', data=self._value_loss_mean.numpy())
+            hf.create_dataset('policy_loss_mean', data=self._policy_loss_mean.numpy())
+            hf.create_dataset('entropy_loss_mean', data=self._entropy_loss_mean.numpy())
+            hf.create_dataset('tot_loss_grad_norm_mean', data=self._tot_loss_grad_norm_mean.numpy())
+            hf.create_dataset('actor_loss_grad_norm_mean', data=self._actor_loss_grad_norm_mean.numpy())
+
+            hf.create_dataset('tot_loss_std', data=self._tot_loss_std.numpy())
+            hf.create_dataset('value_loss_std', data=self._value_loss_std.numpy())
+            hf.create_dataset('policy_loss_std', data=self._policy_loss_std.numpy())
+            hf.create_dataset('entropy_loss_std', data=self._entropy_loss_std.numpy())
+            hf.create_dataset('tot_loss_grad_norm_std', data=self._tot_loss_grad_norm_std.numpy())
+            hf.create_dataset('actor_loss_grad_norm_std', data=self._actor_loss_grad_norm_std.numpy())
+
+            hf.create_dataset('old_approx_kl_mean', data=self._old_approx_kl_mean.numpy())
+            hf.create_dataset('approx_kl_mean', data=self._approx_kl_mean.numpy())
+            hf.create_dataset('old_approx_kl_std', data=self._old_approx_kl_std.numpy())
+            hf.create_dataset('approx_kl_std', data=self._approx_kl_std.numpy())
+
             hf.create_dataset('clipfrac', data=self._clipfrac.numpy())
             hf.create_dataset('explained_variance', data=self._explained_variance.numpy())
+
             hf.create_dataset('batch_returns_std', data=self._batch_returns_std.numpy())
             hf.create_dataset('batch_returns_mean', data=self._batch_returns_mean.numpy())
             hf.create_dataset('batch_adv_std', data=self._batch_adv_std.numpy())
@@ -591,22 +604,46 @@ class ActorCriticAlgoBase():
                                         dtype=torch.float32, fill_value=0.0, device="cpu")
 
         # ppo iteration db data
-        self._tot_loss = torch.full((self._iterations_n, 1), 
+        self._tot_loss_mean = torch.full((self._iterations_n, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._value_loss = torch.full((self._iterations_n, 1), 
+        self._value_loss_mean = torch.full((self._iterations_n, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._policy_loss = torch.full((self._iterations_n, 1), 
+        self._policy_loss_mean = torch.full((self._iterations_n, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._entropy_loss = torch.full((self._iterations_n, 1), 
+        self._entropy_loss_mean = torch.full((self._iterations_n, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._old_approx_kl = torch.full((self._iterations_n, 1), 
+        self._tot_loss_grad_norm_mean = torch.full((self._iterations_n, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._approx_kl = torch.full((self._iterations_n, 1), 
+        self._actor_loss_grad_norm_mean = torch.full((self._iterations_n, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
+        
+        self._tot_loss_std = torch.full((self._iterations_n, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._value_loss_std = torch.full((self._iterations_n, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._policy_loss_std = torch.full((self._iterations_n, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._entropy_loss_std = torch.full((self._iterations_n, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._tot_loss_grad_norm_std = torch.full((self._iterations_n, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._actor_loss_grad_norm_std = torch.full((self._iterations_n, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        
+        self._old_approx_kl_mean = torch.full((self._iterations_n, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._approx_kl_mean = torch.full((self._iterations_n, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._old_approx_kl_std = torch.full((self._iterations_n, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._approx_kl_std = torch.full((self._iterations_n, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        
         self._clipfrac = torch.full((self._iterations_n, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
         self._explained_variance = torch.full((self._iterations_n, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
+        
         self._batch_returns_std = torch.full((self._iterations_n, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
         self._batch_returns_mean = torch.full((self._iterations_n, 1), 
@@ -649,7 +686,7 @@ class ActorCriticAlgoBase():
         self._total_timesteps = self._iterations_n * self._batch_size
         
         self._base_lr_actor = 3e-4
-        self._base_lr_critic = 1e-2
+        self._base_lr_critic = 3e-4
         self._lr_now_actor = self._base_lr_actor
         self._lr_now_critic= self._base_lr_critic
         self._anneal_lr = True
@@ -665,7 +702,8 @@ class ActorCriticAlgoBase():
         self._clip_coef_vf = 0.3 # IMPORTANT: this clipping depends on the reward scaling.
         self._entropy_coeff = 0.0
         self._val_f_coeff = 0.5
-        self._max_grad_norm = 0.5
+        self._max_grad_norm_actor = 0.5
+        self._max_grad_norm_critic = 0.5
         self._target_kl = None
 
         self._n_policy_updates_to_be_done = self._update_epochs * self._num_minibatches * self._iterations_n
@@ -705,7 +743,8 @@ class ActorCriticAlgoBase():
         self._hyperparameters["clip_vloss"] = self._clip_vloss
         self._hyperparameters["entropy_coeff"] = self._entropy_coeff
         self._hyperparameters["val_f_coeff"] = self._val_f_coeff
-        self._hyperparameters["max_grad_norm"] = self._max_grad_norm
+        self._hyperparameters["max_grad_norm_actor"] = self._max_grad_norm_actor
+        self._hyperparameters["max_grad_norm_critic"] = self._max_grad_norm_critic
         self._hyperparameters["target_kl"] = self._target_kl
 
         # small debug log
@@ -717,10 +756,10 @@ class ActorCriticAlgoBase():
             f"per-batch update_epochs {self._update_epochs}\n" + \
             f"iterations_n {self._iterations_n}\n" + \
             f"n steps per env. rollout {self._rollout_timesteps}\n" + \
-            f"max n steps per env. episode {self._episode_timeout_ub}\n" + \
-            f"min n steps per env. episode {self._episode_timeout_lb}\n" + \
-            f"max n steps per task rand. {self._task_rand_timeout_ub}\n" + \
-            f"min n steps per task rand. {self._task_rand_timeout_lb}\n" + \
+            f"episode timeout max steps {self._episode_timeout_ub}\n" + \
+            f"episode timeout min steps {self._episode_timeout_lb}\n" + \
+            f"task rand. max n steps {self._task_rand_timeout_ub}\n" + \
+            f"task rand. min n steps {self._task_rand_timeout_lb}\n" + \
             f"total policy updates to be performed {self._update_epochs * self._num_minibatches * self._iterations_n}\n" + \
             f"total_timesteps to be simulated {self._total_timesteps}\n"
         Journal.log(self.__class__.__name__,
