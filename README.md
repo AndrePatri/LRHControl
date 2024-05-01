@@ -4,4 +4,4 @@
 
 </h2>
 
-Main package of the [IBRIDO](https://github.com/AndrePatri/IBRIDO) software echosystem for Learning-based Receding Horizon Control.
+Main package of the [IBRIDO](https://github.com/AndrePatri/IBRIDO) software ecosystem for Learning-based Receding Horizon Control.
