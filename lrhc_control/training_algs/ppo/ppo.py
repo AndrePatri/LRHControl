@@ -236,7 +236,7 @@ class PPO(ActorCriticAlgoBase):
                                         "it_info/old_approx_kl_std": self._old_approx_kl_std[self._it_counter, 0],
                                         "it_info/approx_kl_std": self._approx_kl_std[self._it_counter, 0],
                                         "it_info/clipfrac_mean": self._clipfrac_mean[self._it_counter, 0],
-                                        "it_info/clipfrac_std": self._clipfrac_mean[self._it_counter, 0],
+                                        "it_info/clipfrac_std": self._clipfrac_std[self._it_counter, 0],
                                         "it_info/explained_variance": self._explained_variance[self._it_counter, 0],
                                         "it_info_GAE/breturn_std: ": self._batch_returns_std[self._it_counter, 0],
                                         "it_info_GAE/breturn_mean: ": self._batch_returns_mean[self._it_counter, 0],
