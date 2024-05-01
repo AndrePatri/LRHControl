@@ -170,7 +170,6 @@ class LRhcTrainingEnvBase():
     def _debug(self):
         
         if self._use_gpu:
-
             self._obs.synch_mirror(from_gpu=True) # copy data from gpu to cpu view
             self._next_obs.synch_mirror(from_gpu=True)
             self._actions.synch_mirror(from_gpu=True)
@@ -182,7 +181,7 @@ class LRhcTrainingEnvBase():
         self._actions.synch_all(read=False, retry=True) 
         self._tot_rewards.synch_all(read=False, retry=True)
         self._rewards.synch_all(read=False, retry=True)
-    
+        
     def _remote_sim_step(self):
 
         self._remote_stepper.trigger() # triggers simulation + RHC
@@ -259,9 +258,6 @@ class LRhcTrainingEnvBase():
 
         episode_finished = torch.logical_or(terminated,
                             truncated)
-        
-        self._episodic_rewards_getter.update(step_reward = self._rewards.get_torch_mirror(gpu=False),
-                            is_done = episode_finished.cpu())
                                         
         self._timeout_counter.reset(to_be_reset=truncated_by_time_limit, randomize_limits=True) # reset and randomize ep duration 
         self._randomization_counter.reset(to_be_reset=episode_finished, randomize_limits=True)
@@ -281,7 +277,9 @@ class LRhcTrainingEnvBase():
         self._fill_obs(obs)
         self._clip_obs(obs)
 
-        # reset counter if either terminated
+        self._episodic_rewards_getter.update(rewards = self._rewards.get_torch_mirror(gpu=False),
+                            ep_finished = episode_finished.cpu())
+        
         if self._is_debug:
             self._debug() # copies db data on shared memory
         
