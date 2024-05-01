@@ -215,8 +215,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         cnstr_viol = obs[:, ((10+self._n_jnts)+6):((10+self._n_jnts)+6+1)]
         rhc_cost = obs[:, ((10+self._n_jnts)+6+1):((10+self._n_jnts)+6+2)]
 
-        # epsi=1e-6
-        task_error_index = self._task_scale * torch.nn.functional.mse_loss(task_ref*self._task_err_weights, task_meas*self._task_err_weights)
+        # MSE along task dimension
+        task_error = (task_ref-task_meas)*self._task_err_weights
+        task_error_index = self._task_scale * torch.sum(task_error*task_error, dim=1, keepdim=True)/task_error.shape[1]
         # task_error_perc =  torch.abs((task_ref-task_meas)/(task_ref+epsi)) # error normalized wrt ref
         # task_error_index = torch.sum(self._task_err_weights * task_error_perc, dim=1, keepdim=True) \
         #     / self._task_err_weights_norm_coeff # task index is normalized wrt the task weights, so that is bound 
