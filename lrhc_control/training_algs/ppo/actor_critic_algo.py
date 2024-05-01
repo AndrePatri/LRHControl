@@ -631,13 +631,13 @@ class ActorCriticAlgoBase():
         # main algo settings
         self._iterations_n = 3000 # number of ppo iterations
         self._batch_size_nom = 32768 # 32768
-        self._num_minibatches = 16
+        self._num_minibatches = 8
         self._rollout_timesteps = int(self._batch_size_nom / self._num_envs)
         self._batch_size = self._rollout_timesteps * self._num_envs
         self._minibatch_size = int(self._batch_size // self._num_minibatches)
         self._total_timesteps = self._iterations_n * self._batch_size
         
-        self._base_learning_rate = 1e-3
+        self._base_learning_rate = 3e-4
         self._learning_rate_now = self._base_learning_rate
         self._anneal_lr = True
         self._discount_factor = 0.99
@@ -647,9 +647,9 @@ class ActorCriticAlgoBase():
         self._update_epochs = 10
         self._norm_adv = True
         self._clip_vloss = False
-        self._clip_coef = 0.3
+        self._clip_coef = 0.2
         self._clip_coef_vf = 0.3 # IMPORTANT: this clipping depends on the reward scaling.
-        self._entropy_coeff = 1e-4
+        self._entropy_coeff = 0.0
         self._val_f_coeff = 0.001
         self._max_grad_norm = 0.5
         self._target_kl = None
