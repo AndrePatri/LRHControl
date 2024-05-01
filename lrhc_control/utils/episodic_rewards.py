@@ -99,7 +99,7 @@ class EpisodicRewards():
         # increment counters
         self._current_ep_idx[ep_finished.flatten(), 0] = self._current_ep_idx[ep_finished.flatten(), 0] + 1 # an episode has been played
         self._steps_counter[~ep_finished.flatten(), :] +=1
-        self._steps_counter[ep_finished.flatten(), :] = 0 # reset counters
+        self._steps_counter[ep_finished.flatten(), :] = 1 # reset counters
 
     def reward_names(self):
         return self._reward_names

@@ -738,6 +738,8 @@ class LRhcTrainingEnvBase():
         if self._is_debug:
             self._check_finite(rewards, "rewards", False)
 
+        torch.nan_to_num(input=rewards, out=rewards, nan=torch.inf, posinf=None, neginf=None) # prevent nans
+
         rewards.clamp_(self._reward_thresh_lb, self._reward_thresh_ub)
 
     def _apply_scaling_to_actions(self, actions):
