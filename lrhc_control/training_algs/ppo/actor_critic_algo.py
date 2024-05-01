@@ -212,7 +212,7 @@ class ActorCriticAlgoBase():
             # self._optimizer.param_groups[1]["lr"] = self._lr_now_critic
 
         self._episodic_reward_getter.reset() # necessary, we don't want to accumulate 
-        # debug rewards from previous rollout
+        # debug rewards from previous rollouts
 
         self._start_time = time.perf_counter()
 
@@ -683,8 +683,8 @@ class ActorCriticAlgoBase():
 
         # main algo settings
         self._iterations_n = 3000 # number of ppo iterations
-        self._batch_size_nom = 8192 # 32768
-        self._num_minibatches = 8
+        self._batch_size_nom = 32768 # 32768
+        self._num_minibatches = 32
         self._rollout_timesteps = int(self._batch_size_nom / self._num_envs)
         self._batch_size = self._rollout_timesteps * self._num_envs
         self._minibatch_size = int(self._batch_size // self._num_minibatches)

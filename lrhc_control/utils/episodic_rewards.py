@@ -15,7 +15,7 @@ class EpisodicRewards():
         self._n_envs = reward_tensor.shape[0]
         self._n_rewards = reward_tensor.shape[1]
 
-        self._episodic_rewards = None
+        self._episodic_returns = None
         self._current_ep_idx = None
 
         self._steps_counter = 0
@@ -38,7 +38,7 @@ class EpisodicRewards():
     
     def reset(self):
 
-        self._episodic_rewards = torch.full(size=(self._n_envs, self._n_rewards), 
+        self._episodic_returns = torch.full(size=(self._n_envs, self._n_rewards), 
                                     fill_value=0.0,
                                     dtype=torch.float32, device="cpu") # we don't need it on GPU
 
@@ -46,11 +46,11 @@ class EpisodicRewards():
                                     fill_value=1,
                                     dtype=torch.int32, device="cpu")
         
-        self._avrg_episodic_reward = torch.full(size=(self._n_envs, self._n_rewards), 
+        self._avrg_episodic_return = torch.full(size=(self._n_envs, self._n_rewards), 
                                     fill_value=0.0,
                                     dtype=torch.float32, device="cpu")
         
-        self._tot_avrg_episodic_reward = torch.full(size=(self._n_envs, 1), 
+        self._tot_avrg_episodic_return = torch.full(size=(self._n_envs, 1), 
                                     fill_value=0.0,
                                     dtype=torch.float32, device="cpu")
 
@@ -80,7 +80,7 @@ class EpisodicRewards():
                 LogType.EXCEP,
                 throw_when_excep=True)
         
-        self._episodic_rewards[:, :] = self._episodic_rewards[:, :] + step_reward[:, :]
+        self._episodic_returns[:, :] = self._episodic_returns[:, :] + step_reward[:, :]
 
         self._current_ep_idx[is_done.flatten(), 0] = self._current_ep_idx[is_done.flatten(), 0] + 1
 
@@ -98,13 +98,13 @@ class EpisodicRewards():
             normalize: bool = True):
     
         # average reward over the performed episodes for each env
-        self._avrg_episodic_reward = self._episodic_rewards / self._current_ep_idx
+        self._avrg_episodic_return = self._episodic_returns / self._current_ep_idx
 
         if normalize: # normalize of the number of steps
-            return self._avrg_episodic_reward / self._steps_counter
+            return self._avrg_episodic_return / self._steps_counter
         else:
 
-            return self._avrg_episodic_reward
+            return self._avrg_episodic_return
 
     def get_env_avrg(self,
                 normalize: bool = True):
@@ -115,13 +115,13 @@ class EpisodicRewards():
             normalize: bool = True):
         
         # total average reward over the performed episodes for each env
-        self._tot_avrg_episodic_reward[: , 0] = torch.sum(self._episodic_rewards / self._current_ep_idx, dim=1)
+        self._tot_avrg_episodic_return[: , 0] = torch.sum(self._episodic_returns / self._current_ep_idx, dim=1)
 
         if normalize: # normalize of the number of steps
-            return self._tot_avrg_episodic_reward / self._steps_counter
+            return self._tot_avrg_episodic_return / self._steps_counter
         else:
 
-            return self._tot_avrg_episodic_reward
+            return self._tot_avrg_episodic_return
             
     def get_total_env_avrg(self, 
             normalize: bool = True):
