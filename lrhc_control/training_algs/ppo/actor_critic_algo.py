@@ -368,7 +368,9 @@ class ActorCriticAlgoBase():
             hf.create_dataset('old_approx_kl_std', data=self._old_approx_kl_std.numpy())
             hf.create_dataset('approx_kl_std', data=self._approx_kl_std.numpy())
 
-            hf.create_dataset('clipfrac', data=self._clipfrac.numpy())
+            hf.create_dataset('clipfrac_mean', data=self._clipfrac_mean.numpy())
+            hf.create_dataset('clipfrac_std', data=self._clipfrac_std.numpy())
+            
             hf.create_dataset('explained_variance', data=self._explained_variance.numpy())
 
             hf.create_dataset('batch_returns_std', data=self._batch_returns_std.numpy())
@@ -639,8 +641,11 @@ class ActorCriticAlgoBase():
         self._approx_kl_std = torch.full((self._iterations_n, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
         
-        self._clipfrac = torch.full((self._iterations_n, 1), 
+        self._clipfrac_mean = torch.full((self._iterations_n, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._clipfrac_std= torch.full((self._iterations_n, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        
         self._explained_variance = torch.full((self._iterations_n, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
         

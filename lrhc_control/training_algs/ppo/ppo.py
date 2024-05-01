@@ -206,7 +206,9 @@ class PPO(ActorCriticAlgoBase):
         self._old_approx_kl_std[self._it_counter, 0] = torch.std(torch.tensor(old_approx_kls))
         self._approx_kl_std[self._it_counter, 0] = torch.std(torch.tensor(approx_kls))
 
-        self._clipfrac[self._it_counter, 0] = torch.mean(torch.tensor(clipfracs))
+        self._clipfrac_mean[self._it_counter, 0] = torch.mean(torch.tensor(clipfracs))
+        self._clipfrac_std[self._it_counter, 0] = torch.std(torch.tensor(clipfracs))
+
         self._explained_variance[self._it_counter, 0] = explained_var
 
         self._batch_returns_std[self._it_counter, 0] = batched_returns.std().item() 
@@ -233,7 +235,8 @@ class PPO(ActorCriticAlgoBase):
                                         # "it_info/actor_loss_grad_norm_std": self._actor_loss_grad_norm_std[self._it_counter, 0],
                                         "it_info/old_approx_kl_std": self._old_approx_kl_std[self._it_counter, 0],
                                         "it_info/approx_kl_std": self._approx_kl_std[self._it_counter, 0],
-                                        "it_info/clipfrac": self._clipfrac[self._it_counter, 0],
+                                        "it_info/clipfrac_mean": self._clipfrac_mean[self._it_counter, 0],
+                                        "it_info/clipfrac_std": self._clipfrac_mean[self._it_counter, 0],
                                         "it_info/explained_variance": self._explained_variance[self._it_counter, 0],
                                         "it_info/breturn_std: ": self._batch_returns_std[self._it_counter, 0],
                                         "it_info/breturn_mean: ": self._batch_returns_mean[self._it_counter, 0],
