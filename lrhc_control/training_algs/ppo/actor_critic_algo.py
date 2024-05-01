@@ -650,7 +650,7 @@ class ActorCriticAlgoBase():
         self._clip_coef = 0.2
         self._clip_coef_vf = 0.3 # IMPORTANT: this clipping depends on the reward scaling.
         self._entropy_coeff = 0.0
-        self._val_f_coeff = 0.001
+        self._val_f_coeff = 0.5
         self._max_grad_norm = 0.5
         self._target_kl = None
 
