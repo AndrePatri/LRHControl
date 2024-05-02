@@ -186,6 +186,11 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         obs_tensor[:, ((10+self._n_jnts)+6+1):((10+self._n_jnts)+6+2)] = self._rhc_cost()
         obs_tensor[:, ((10+self._n_jnts)+6+2):((10+self._n_jnts)+6+2+len(self.contact_names))] = self._rhc_step_var()
         
+        # adding last action to obs
+        next_idx = (10+self._n_jnts)+6+2+len(self.contact_names)
+        last_actions = self._actions.get_torch_mirror(gpu=self._use_gpu)
+        obs_tensor[:, next_idx:(next_idx+self._n_prev_actions*self.actions_dim())] = last_actions
+                   
     def _rhc_const_viol(self):
         # rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_mirror(gpu=self._use_gpu) # over the whole horizon
         # return self._rhc_cnstr_viol_scale * rhc_const_viol
@@ -271,16 +276,15 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         obs_names[restart_idx + 7] = "rhc_const_viol"
         obs_names[restart_idx + 8] = "rhc_cost"
         i = 0
-        next_idx = restart_idx + 9
         for contact in self.contact_names:
-            obs_names[next_idx + i] = f"step_var_{contact}"
+            obs_names[restart_idx + 9 + i] = f"step_var_{contact}"
             i+=1
-            next_idx = next_idx + i
+            next_idx = restart_idx + 9 + i
 
         action_names = self._get_action_names()
         for pre_t_idx in range(self._n_prev_actions):
             for prev_act_idx in range(self.actions_dim()):
-                obs_names[next_idx + pre_t_idx * self.actions_dim() + prev_act_idx] = action_names[prev_act_idx] + f"tm_{pre_t_idx}"
+                obs_names[next_idx + pre_t_idx * self.actions_dim() + prev_act_idx] = action_names[prev_act_idx] + f"_tm_{pre_t_idx}"
 
         return obs_names
 
