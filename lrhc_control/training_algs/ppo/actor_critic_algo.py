@@ -220,10 +220,11 @@ class ActorCriticAlgoBase():
         if not rollout_ok:
             return False
         # after rolling out policy, we get the episodic reward for the current policy
-        self._episodic_rewards[self._it_counter, :, :] = self._episodic_reward_getter.get_total_reward() # total ep. rewards across envs
-        self._episodic_rewards_env_avrg[self._it_counter, :, :] = self._episodic_reward_getter.get_total_reward_env_avrg() # avrg over envs
+        self._episodic_rewards[self._it_counter, :, :] = self._episodic_reward_getter.get_rollout_avrg_total_reward() # total ep. rewards across envs
+        self._episodic_rewards_env_avrg[self._it_counter, :, :] = self._episodic_reward_getter.get_rollout_avrg_total_reward_env_avrg() # tot, avrg over envs
         self._episodic_sub_rewards[self._it_counter, :, :] = self._episodic_reward_getter.get_rollout_avrg_reward() # sub-episodic rewards across envs
-        self._episodic_sub_rewards_env_avrg[self._it_counter, :, :] = self._episodic_reward_getter.get_rollout_reward_env_avrg() # avrg over envs
+        self._episodic_sub_rewards_env_avrg[self._it_counter, :] = self._episodic_reward_getter.get_rollout_reward_env_avrg() # avrg over envs
+        
         self._rollout_t = time.perf_counter()
 
         self._compute_returns()
@@ -249,10 +250,11 @@ class ActorCriticAlgoBase():
         if not rollout_ok:
             return False
         # after rolling out policy, we get the episodic reward for the current policy
-        self._episodic_rewards[self._it_counter, :, :] = self._episodic_reward_getter.get_total_reward() # total ep. rewards across envs
+        self._episodic_rewards[self._it_counter, :, :] = self._episodic_reward_getter.get_rollout_avrg_total_reward() # total ep. rewards across envs
+        self._episodic_rewards_env_avrg[self._it_counter, :, :] = self._episodic_reward_getter.get_rollout_avrg_total_reward_env_avrg() # tot, avrg over envs
         self._episodic_sub_rewards[self._it_counter, :, :] = self._episodic_reward_getter.get_rollout_avrg_reward() # sub-episodic rewards across envs
         self._episodic_sub_rewards_env_avrg[self._it_counter, :] = self._episodic_reward_getter.get_rollout_reward_env_avrg() # avrg over envs
-        self._episodic_rewards_env_avrg[self._it_counter, :, :] = self._episodic_reward_getter.get_total_reward_env_avrg() # tot, avrg over envs
+
         self._rollout_t = time.perf_counter()
 
         self._post_step()
@@ -591,8 +593,8 @@ class ActorCriticAlgoBase():
                     dtype=torch.float32, fill_value=0, device="cpu")
         
         # reward db data
-        tot_ep_rew_shape = self._episodic_reward_getter.get_total_reward().shape
-        tot_ep_rew_shape_env_avrg_shape = self._episodic_reward_getter.get_total_reward_env_avrg().shape
+        tot_ep_rew_shape = self._episodic_reward_getter.get_rollout_avrg_total_reward().shape
+        tot_ep_rew_shape_env_avrg_shape = self._episodic_reward_getter.get_rollout_avrg_total_reward_env_avrg().shape
         rollout_avrg_rew_shape = self._episodic_reward_getter.get_rollout_avrg_reward().shape
         rollout_avrg_rew_env_avrg_shape = self._episodic_reward_getter.get_rollout_reward_env_avrg().shape
         self._reward_names = self._episodic_reward_getter.reward_names()

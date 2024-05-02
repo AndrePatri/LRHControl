@@ -48,10 +48,10 @@ class EpisodicRewards():
         
         # avrg reward of each env, over all the played episoded between calls to this class
         # reset() method
-        self._rollout_avrg_rewards = torch.full(size=(self._n_envs, self._n_rewards), 
+        self._rollout_ep_rewards = torch.full(size=(self._n_envs, self._n_rewards), 
                                     fill_value=0.0,
                                     dtype=torch.float32, device="cpu")
-        self._rollout_avrg_rewards_avrg = torch.full(size=(self._n_envs, self._n_rewards), 
+        self._rollout_ep_rewards_avrg = torch.full(size=(self._n_envs, self._n_rewards), 
                                     fill_value=0.0,
                                     dtype=torch.float32, device="cpu")
 
@@ -88,17 +88,11 @@ class EpisodicRewards():
                 throw_when_excep=True)
 
         self._episodic_returns[:, :] = self._episodic_returns + rewards
-
         self._episodic_rewards_avrg[:, :] = self._episodic_returns[:, :] / self._steps_counter[:, :] # average by n timesteps
-
-        print("aaaaaaaaa")
-        self._rollout_avrg_rewards[ep_finished.flatten(), :] = self._rollout_avrg_rewards[ep_finished.flatten(), :] + self._episodic_rewards_avrg[ep_finished.flatten(), :]
-        self._rollout_avrg_rewards_avrg[:, :] = self._rollout_avrg_rewards[:, :] / self._current_ep_idx[:, :]
-
-        print(self._rollout_avrg_rewards[ep_finished.flatten(), :])
-        print(self._current_ep_idx)
-        print(self._steps_counter)
         
+        self._rollout_ep_rewards_avrg[:, :] = (self._rollout_ep_rewards + self._episodic_rewards_avrg) / self._current_ep_idx[:, :]
+        self._rollout_ep_rewards[ep_finished.flatten(), :] += self._episodic_rewards_avrg[ep_finished.flatten(), :]
+
         self._episodic_returns[ep_finished.flatten(), :] = 0 # if finished, reset (undiscounted) ep rewards
 
         # increment counters
@@ -112,27 +106,17 @@ class EpisodicRewards():
     def step_idx(self):
         return self._steps_counter
     
-    def get_rollout_avrg_reward(self, average=True):
-    
-        if average: # normalize of the number of steps
-            return self._rollout_avrg_rewards_avrg
-        else:
-            return self._rollout_avrg_rewards
+    def get_rollout_avrg_reward(self):
+        return self._rollout_ep_rewards_avrg
 
-    def get_rollout_reward_env_avrg(self,
-                average: bool = True):
-        return torch.sum(self.get_rollout_avrg_reward(average=average), dim=0, keepdim=True)/self._n_envs
+    def get_rollout_reward_env_avrg(self):
+        return torch.sum(self.get_rollout_avrg_reward(), dim=0, keepdim=True)/self._n_envs
     
-    def get_total_reward(self,
-                average: bool = True):
-        if average:
-            return torch.sum(self._rollout_avrg_rewards_avrg, dim=1, keepdim=True)
-        else:
-            return torch.sum(self._rollout_avrg_rewards, dim=1, keepdim=True)
+    def get_rollout_avrg_total_reward(self):
+        return torch.sum(self._rollout_ep_rewards_avrg, dim=1, keepdim=True)
             
-    def get_total_reward_env_avrg(self, 
-            average: bool = True):
-        return torch.sum(self.get_total_reward(average=average), dim=0, keepdim=True)/self._n_envs
+    def get_rollout_avrg_total_reward_env_avrg(self):
+        return torch.sum(self.get_rollout_avrg_total_reward(), dim=0, keepdim=True)/self._n_envs
 
     def get_n_played_episodes(self):
         return torch.sum(self._current_ep_idx).item()
