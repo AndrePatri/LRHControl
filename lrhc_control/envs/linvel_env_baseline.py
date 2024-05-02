@@ -44,9 +44,10 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         robot_state_tmp.close()
         rhc_status_tmp.close()
 
-        obs_dim = 18 + n_jnts + len(self.contact_names) 
-
         actions_dim = 2 + 1 + 3 + 4 # [vxy_cmd, h_cmd, twist_cmd, dostep_0, dostep_1, dostep_2, dostep_3]
+
+        self._n_prev_actions = 1
+        obs_dim = 18 + n_jnts + len(self.contact_names) + self._n_prev_actions * actions_dim
 
         episode_timeout_lb = 4096 # episode timeouts
         episode_timeout_ub = 8192
@@ -270,9 +271,16 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         obs_names[restart_idx + 7] = "rhc_const_viol"
         obs_names[restart_idx + 8] = "rhc_cost"
         i = 0
+        next_idx = restart_idx + 9
         for contact in self.contact_names:
-            obs_names[restart_idx + 9 + i] = f"step_var_{contact}"
+            obs_names[next_idx + i] = f"step_var_{contact}"
             i+=1
+            next_idx = next_idx + i
+
+        action_names = self._get_action_names()
+        for pre_t_idx in range(self._n_prev_actions):
+            for prev_act_idx in range(self.actions_dim()):
+                obs_names[next_idx + pre_t_idx * self.actions_dim() + prev_act_idx] = action_names[prev_act_idx] + f"tm_{pre_t_idx}"
 
         return obs_names
 
