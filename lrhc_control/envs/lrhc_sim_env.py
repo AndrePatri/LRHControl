@@ -82,12 +82,15 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                     control_cluster.wait_for_solution() # this is blocking
                     if self.debug:
                         self.cluster_timers[robot_name] = time.perf_counter()
+                    failed = control_cluster.get_failed_controllers(gpu=self.using_gpu)
                     if self._use_remote_stepping[i]:
                         self._remote_steppers[robot_name].ack() # signal cluster stepping is finished
+                        if failed is not None: # deactivate robot completely (basically, deactivate jnt imp controller)
+                            self.task.deactivate(env_indxs = failed,
+                                robot_names = [robot_name])
                         self._process_remote_reset_req(robot_name=robot_name)
                     else:
                         # automatically reset and reactivate failed controllers if not running remotely
-                        failed = control_cluster.get_failed_controllers(gpu=self.using_gpu)
                         if failed is not None:
                             self.reset(env_indxs=failed,
                                     robot_names=[robot_name],
