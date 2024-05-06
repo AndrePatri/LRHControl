@@ -47,6 +47,8 @@ class HybridQuadRhcRefs(RhcRefs):
         # handles phase transitions
         self.gait_manager = gait_manager
 
+        self._timeline_names = self.gait_manager._contact_timelines.keys()
+
         # task interfaces from horizon for setting commands to rhc
         self._get_tasks()
 
@@ -87,22 +89,18 @@ class HybridQuadRhcRefs(RhcRefs):
             phase_id = self.phase_id.read_retry(row_index=self.robot_index,
                                 col_index=0)[0]
 
-            # contact phases
-            if phase_id == -1:
-                if self.gait_manager.contact_phases['ball_1'].getEmptyNodes() > 0: # there are available nodes on the horizon 
-                    # we assume timelines of the same amount at each rhc instant (only checking one contact)
-                    contact_flags = self.contact_flags.get_numpy_mirror()[self.robot_index, :]
-                    is_contact = contact_flags.flatten().tolist() 
-                    # contact if contact_flags[i] > 0.5
-                    self.gait_manager.cycle(is_contact)
-                else:
-                    if (self._step_idx+1) % self._print_frequency == 0: 
-                        # sporadic log
-                        warn = f"Trying to add phases to full timeline! No phase will be set."
+            if phase_id == -1: # custom phases
+                contact_flags = self.contact_flags.get_numpy_mirror()[self.robot_index, :]
+                is_contact = contact_flags.flatten().tolist() 
+                self.gait_manager.set_step(is_contact) # set phases 
+                for timeline_name in self._timeline_names: # sanity check
+                    timeline = self.gait_manager._contact_timelines[timeline_name]
+                    if timeline.getEmptyNodes() > 0:
+                        error = f"Empty nodes detected over the horizon! Make sure to fill the whole horizon with valid phases!!"
                         Journal.log(self.__class__.__name__,
                             "step",
-                            warn,
-                            LogType.WARN,
+                            error,
+                            LogType.EXCEP,
                             throw_when_excep = True)
             elif phase_id == 0:
                 self.gait_manager.stand()
