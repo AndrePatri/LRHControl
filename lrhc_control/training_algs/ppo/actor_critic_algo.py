@@ -382,6 +382,37 @@ class ActorCriticAlgoBase():
             hf.create_dataset('batch_val_std', data=self._batch_val_std.numpy())
             hf.create_dataset('batch_val_mean', data=self._batch_val_mean.numpy())
 
+            # custom env data
+            self._custom_env_data = {}
+            db_data_names = list(self._env.custom_db_data.keys())
+            for dbdatan in db_data_names:
+                self._custom_env_data[dbdatan] = {}
+                rollout_stat=self._env.custom_db_data[dbdatan].get_rollout_stat()
+                self._custom_env_data[dbdatan]["rollout_stat"] = torch.full((self._iterations_n, 
+                                                                    rollout_stat.shape[0], 
+                                                                    rollout_stat.shape[1]), 
+                        dtype=torch.float32, fill_value=0.0, device="cpu")
+                rollout_stat_env_avrg=self._env.custom_db_data[dbdatan].get_rollout_stat_env_avrg()
+                self._custom_env_data[dbdatan]["rollout_stat_env_avrg"] = torch.full((self._iterations_n, 
+                                                                            rollout_stat_env_avrg.shape[0], 
+                                                                            rollout_stat_env_avrg.shape[1]), 
+                        dtype=torch.float32, fill_value=0.0, device="cpu")
+                rollout_stat_comp=self._env.custom_db_data[dbdatan].get_rollout_stat_comp()
+                self._custom_env_data[dbdatan]["rollout_stat_comp"] = torch.full((self._iterations_n, 
+                                                                        rollout_stat_comp.shape[0], 
+                                                                        rollout_stat_comp.shape[1]), 
+                        dtype=torch.float32, fill_value=0.0, device="cpu")
+                rollout_stat_comp_env_avrg=self._env.custom_db_data[dbdatan].get_rollout_stat_comp_env_avrg()
+                self._custom_env_data[dbdatan]["rollout_stat_comp_env_avrg"] = torch.full((self._iterations_n, rollout_stat_comp_env_avrg.shape[0], rollout_stat_comp_env_avrg.shape[1]), 
+                        dtype=torch.float32, fill_value=0.0, device="cpu")
+            
+            db_data_names = list(self._env.custom_db_data.keys())
+            for db_dname in db_data_names:
+                subnames = list(self._custom_env_data[db_dname].keys())
+                for subname in subnames:
+                    var_name = db_data_names + "_" + subname
+                    hf.create_dataset(var_name, data=self._custom_env_data[db_dname][subname])
+
         info = f"done."
         Journal.log(self.__class__.__name__,
             "_dump_dbinfo_to_file",
@@ -665,6 +696,30 @@ class ActorCriticAlgoBase():
         self._batch_val_mean = torch.full((self._iterations_n, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
         
+        # custom data from env
+        self._custom_env_data = {}
+        db_data_names = list(self._env.custom_db_data.keys())
+        for dbdatan in db_data_names:
+            self._custom_env_data[dbdatan] = {}
+            rollout_stat=self._env.custom_db_data[dbdatan].get_rollout_stat()
+            self._custom_env_data[dbdatan]["rollout_stat"] = torch.full((self._iterations_n, 
+                                                                rollout_stat.shape[0], 
+                                                                rollout_stat.shape[1]), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+            rollout_stat_env_avrg=self._env.custom_db_data[dbdatan].get_rollout_stat_env_avrg()
+            self._custom_env_data[dbdatan]["rollout_stat_env_avrg"] = torch.full((self._iterations_n, 
+                                                                        rollout_stat_env_avrg.shape[0], 
+                                                                        rollout_stat_env_avrg.shape[1]), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+            rollout_stat_comp=self._env.custom_db_data[dbdatan].get_rollout_stat_comp()
+            self._custom_env_data[dbdatan]["rollout_stat_comp"] = torch.full((self._iterations_n, 
+                                                                    rollout_stat_comp.shape[0], 
+                                                                    rollout_stat_comp.shape[1]), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+            rollout_stat_comp_env_avrg=self._env.custom_db_data[dbdatan].get_rollout_stat_comp_env_avrg()
+            self._custom_env_data[dbdatan]["rollout_stat_comp_env_avrg"] = torch.full((self._iterations_n, rollout_stat_comp_env_avrg.shape[0], rollout_stat_comp_env_avrg.shape[1]), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+
     def _init_params(self):
 
         self._dtype = self._env.dtype()

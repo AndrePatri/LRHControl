@@ -8,6 +8,7 @@ from SharsorIPCpp.PySharsorIPC import VLevel
 from SharsorIPCpp.PySharsorIPC import LogType
 
 import os
+from lrhc_control.utils.episodic_data import EpisodicData
 
 class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
@@ -94,7 +95,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._linvel_ub[0, 2] = 0.0
 
         self._this_child_path = os.path.abspath(__file__)
-        
+
         super().__init__(namespace=namespace,
                     obs_dim=obs_dim,
                     actions_dim=actions_dim,

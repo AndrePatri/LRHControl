@@ -14,5 +14,5 @@ import casadi as cs
 # phase managing
 import phase_manager.pymanager as pymanager
 import phase_manager.pyphase as pyphase
-
+import phase_manager.pytimeline as pytimeline
 

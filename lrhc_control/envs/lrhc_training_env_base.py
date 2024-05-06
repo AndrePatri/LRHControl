@@ -20,6 +20,7 @@ from lrhc_control.utils.shared_data.training_env import Truncations
 from lrhc_control.utils.shared_data.training_env import EpisodesCounter, TaskRandCounter
 
 from lrhc_control.utils.episodic_rewards import EpisodicRewards
+from lrhc_control.utils.episodic_data import EpisodicData
 
 from SharsorIPCpp.PySharsorIPC import VLevel
 from SharsorIPCpp.PySharsorIPC import LogType
@@ -30,6 +31,7 @@ from perf_sleep.pyperfsleep import PerfSleep
 from abc import abstractmethod
 
 import os
+from typing import List
 
 class LRhcTrainingEnvBase():
 
@@ -53,6 +55,8 @@ class LRhcTrainingEnvBase():
         
         self._this_path = os.path.abspath(__file__)
 
+        self.custom_db_data = None
+            
         self._env_index = 0
         
         self._closed = False
@@ -109,10 +113,6 @@ class LRhcTrainingEnvBase():
         self._truncations = None
 
         self._episodic_rewards_getter = None
-
-        self._base_info = {}
-        self._base_info["final_info"] = None
-        self._infos = []
         
         self._timeout = 30000
 
@@ -264,6 +264,9 @@ class LRhcTrainingEnvBase():
         self.randomize_refs(env_indxs=episode_finished.flatten()) # randomize refs also upon
         # episode termination
 
+        self.custom_db_data["SteppingFreqIdx"].update(new_data=self._rhc_refs.contact_flags.get_torch_mirror(gpu=False), 
+                                    ep_finished=episode_finished.cpu()) # before potentially resetting the flags, get data
+
         # (remotely) reset envs for which episode is finished (but without considering truncation by ref randomization)
         to_be_reset = torch.logical_or(terminated.cpu(),
                                     truncated_by_time_limit)
@@ -280,6 +283,8 @@ class LRhcTrainingEnvBase():
         self._episodic_rewards_getter.update(rewards = self._rewards.get_torch_mirror(gpu=False),
                             ep_finished = episode_finished.cpu())
         
+        self._fill_custom_db_data()
+
         if self._is_debug:
             self._debug() # copies db data on shared memory
         
@@ -516,6 +521,14 @@ class LRhcTrainingEnvBase():
         self._episodic_rewards_getter = EpisodicRewards(reward_tensor=self._rewards.get_torch_mirror(),
                                         reward_names=self._get_rewards_names())
     
+    def _init_infos(self):
+
+        self.custom_db_data = {}
+        rhc_latest_contact_ref = self._rhc_refs.contact_flags.get_torch_mirror()
+        contact_names = self._rhc_refs.rob_refs.contact_names()
+        stepping_data = EpisodicData("SteppingFreqIdx", rhc_latest_contact_ref, contact_names)
+        self.custom_db_data[stepping_data.name()] = stepping_data
+
     def _init_terminations(self):
 
         # Boolean array indicating whether each environment episode has terminated after 
@@ -535,10 +548,6 @@ class LRhcTrainingEnvBase():
         self._terminations.run()
     
     def _init_truncations(self):
-
-        # Boolean array indicating whether each environment episode has been truncated 
-        # after the current step. Truncation usually means that the episode has been 
-        # forcibly ended before reaching a natural termination point.
         
         self._truncations = Truncations(namespace=self._namespace,
                             n_envs=self._n_envs,
@@ -551,17 +560,6 @@ class LRhcTrainingEnvBase():
                             fill_value=False) 
         
         self._truncations.run()
-    
-    def _init_infos(self):
-        
-        # Additional information about the environment's response. It can include various 
-        # details such as diagnostics, statistics, or any custom information provided by the 
-        # environment
-
-        device = "cuda" if self._use_gpu else "cpu"
-
-        for i in range(self._n_envs):
-            self._infos.append(self._base_info)
         
     def _attach_to_shared_mem(self):
 
@@ -841,11 +839,16 @@ class LRhcTrainingEnvBase():
     @abstractmethod
     def _fill_obs(self,
             obs_tensor: torch.Tensor):
-                
+    
         pass
 
     @abstractmethod
     def _randomize_refs(self,
                 env_indxs: torch.Tensor = None):
+        
+        pass
+    
+    @abstractmethod
+    def _fill_custom_db_data(self):
         
         pass
