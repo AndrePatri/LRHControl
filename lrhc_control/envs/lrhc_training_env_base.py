@@ -264,7 +264,7 @@ class LRhcTrainingEnvBase():
         self.randomize_refs(env_indxs=episode_finished.flatten()) # randomize refs also upon
         # episode termination
 
-        self.custom_db_data["SteppingFreqIdx"].update(new_data=self._rhc_refs.contact_flags.get_torch_mirror(gpu=False), 
+        self.custom_db_data["ContactIndex"].update(new_data=self._rhc_refs.contact_flags.get_torch_mirror(gpu=False), 
                                     ep_finished=episode_finished.cpu()) # before potentially resetting the flags, get data
 
         # (remotely) reset envs for which episode is finished (but without considering truncation by ref randomization)
@@ -289,7 +289,8 @@ class LRhcTrainingEnvBase():
             self._debug() # copies db data on shared memory
         
         return rm_reset_ok
-
+        # return True
+    
     def _assemble_rewards(self):
 
         tot_rewards = self._tot_rewards.get_torch_mirror(gpu=self._use_gpu)
@@ -526,7 +527,7 @@ class LRhcTrainingEnvBase():
         self.custom_db_data = {}
         rhc_latest_contact_ref = self._rhc_refs.contact_flags.get_torch_mirror()
         contact_names = self._rhc_refs.rob_refs.contact_names()
-        stepping_data = EpisodicData("SteppingFreqIdx", rhc_latest_contact_ref, contact_names)
+        stepping_data = EpisodicData("ContactIndex", rhc_latest_contact_ref, contact_names)
         self.custom_db_data[stepping_data.name()] = stepping_data
 
     def _init_terminations(self):
