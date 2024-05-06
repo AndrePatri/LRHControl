@@ -220,11 +220,6 @@ class ActorCriticAlgoBase():
         rollout_ok = self._play()
         if not rollout_ok:
             return False
-        # after rolling out policy, we get the episodic reward for the current policy
-        self._episodic_rewards[self._it_counter, :, :] = self._episodic_reward_getter.get_rollout_avrg_total_reward() # total ep. rewards across envs
-        self._episodic_rewards_env_avrg[self._it_counter, :, :] = self._episodic_reward_getter.get_rollout_avrg_total_reward_env_avrg() # tot, avrg over envs
-        self._episodic_sub_rewards[self._it_counter, :, :] = self._episodic_reward_getter.get_rollout_avrg_reward() # sub-episodic rewards across envs
-        self._episodic_sub_rewards_env_avrg[self._it_counter, :] = self._episodic_reward_getter.get_rollout_reward_env_avrg() # avrg over envs
         
         self._rollout_t = time.perf_counter()
 
@@ -250,11 +245,6 @@ class ActorCriticAlgoBase():
         rollout_ok = self._play()
         if not rollout_ok:
             return False
-        # after rolling out policy, we get the episodic reward for the current policy
-        self._episodic_rewards[self._it_counter, :, :] = self._episodic_reward_getter.get_rollout_avrg_total_reward() # total ep. rewards across envs
-        self._episodic_rewards_env_avrg[self._it_counter, :, :] = self._episodic_reward_getter.get_rollout_avrg_total_reward_env_avrg() # tot, avrg over envs
-        self._episodic_sub_rewards[self._it_counter, :, :] = self._episodic_reward_getter.get_rollout_avrg_reward() # sub-episodic rewards across envs
-        self._episodic_sub_rewards_env_avrg[self._it_counter, :] = self._episodic_reward_getter.get_rollout_reward_env_avrg() # avrg over envs
 
         self._rollout_t = time.perf_counter()
 
@@ -477,6 +467,20 @@ class ActorCriticAlgoBase():
         self._env_step_rt_factor[self._it_counter-1] = self._env_step_fps[self._it_counter-1] * self._hyperparameters["control_clust_dt"]
         self._policy_update_fps[self._it_counter-1] = self._update_epochs * self._num_minibatches / self._policy_update_dt[self._it_counter-1]
 
+        # after rolling out policy, we get the episodic reward for the current policy
+        self._episodic_rewards[self._it_counter-1, :, :] = self._episodic_reward_getter.get_rollout_avrg_total_reward() # total ep. rewards across envs
+        self._episodic_rewards_env_avrg[self._it_counter-1, :, :] = self._episodic_reward_getter.get_rollout_avrg_total_reward_env_avrg() # tot, avrg over envs
+        self._episodic_sub_rewards[self._it_counter-1, :, :] = self._episodic_reward_getter.get_rollout_avrg_reward() # sub-episodic rewards across envs
+        self._episodic_sub_rewards_env_avrg[self._it_counter-1, :, :] = self._episodic_reward_getter.get_rollout_reward_env_avrg() # avrg over envs
+
+        # fill env db info
+        db_data_names = list(self._env.custom_db_data.keys())
+        for dbdatan in db_data_names:
+            self._custom_env_data[dbdatan]["rollout_stat"][self._it_counter-1, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat()
+            self._custom_env_data[dbdatan]["rollout_stat_env_avrg"][self._it_counter-1, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat_env_avrg()
+            self._custom_env_data[dbdatan]["rollout_stat_comp"][self._it_counter-1, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat_comp()
+            self._custom_env_data[dbdatan]["rollout_stat_comp_env_avrg"][self._it_counter-1, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat_comp_env_avrg()
+
         self._log_info()
 
         if self._it_counter == self._iterations_n:
@@ -546,8 +550,6 @@ class ActorCriticAlgoBase():
             for dbdatan in db_data_names: 
                 data = self._custom_env_data[dbdatan]
                 data_names = self._env.custom_db_data[dbdatan].data_names()
-                print("AAAAA")
-                print(data["rollout_stat_comp"][self._it_counter-1, :, :].numpy())
                 self._custom_env_data_db_dict.update({f"{dbdatan}" + "_rollout_stat_comp": 
                         wandb.Histogram(data["rollout_stat_comp"][self._it_counter-1, :, :].numpy())})
                 self._custom_env_data_db_dict.update({f"{dbdatan}" + "_rollout_stat_comp_env_avrg": 
