@@ -11,14 +11,18 @@ class GaitManager:
     def __init__(self, 
             task_interface: TaskInterface, 
             phase_manager: pymanager.PhaseManager, 
-            contact_map):
+            contact_map,
+            injection_node: int = None):
 
         self.task_interface = task_interface
         self.phase_manager = phase_manager
 
         self._contact_timelines = dict()
 
-        self._injection_node = 10
+        if injection_node is None:
+            self._injection_node = round(self.task_interface.prb.getNNodes()/2.0)
+        else:
+            self._injection_node = injection_node
 
         for contact_name, phase_name in contact_map.items():
             self._contact_timelines[contact_name] = self.phase_manager.getTimelines()[phase_name]

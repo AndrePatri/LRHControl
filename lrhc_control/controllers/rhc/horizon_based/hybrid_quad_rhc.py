@@ -24,6 +24,7 @@ class HybridQuadRhc(RHController):
             robot_name: str, # used for shared memory namespaces
             codegen_dir: str, 
             n_nodes:float = 25,
+            injection_node:int = 10,
             dt: float = 0.02,
             max_solver_iter = 1, # defaults to rt-iteration
             open_loop: bool = True,
@@ -31,6 +32,8 @@ class HybridQuadRhc(RHController):
             verbose = False, 
             debug = False
             ):
+
+        self._injection_node = injection_node
 
         self._open_loop = open_loop
 
@@ -151,7 +154,7 @@ class HybridQuadRhc(RHController):
 
         contact_phase_map = {c: f'{c}_timeline' for c in self._model.cmap.keys()}
         
-        self._gm = GaitManager(self._ti, self._pm, contact_phase_map)
+        self._gm = GaitManager(self._ti, self._pm, contact_phase_map, injection_node=self._injection_node)
 
         self.n_dofs = self._get_ndofs() # after loading the URDF and creating the controller we
         # know n_dofs -> we assign it (by default = None)
