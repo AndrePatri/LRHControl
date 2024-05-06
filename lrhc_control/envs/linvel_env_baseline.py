@@ -74,11 +74,11 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         self._rhc_cnstr_viol_weight = 1.0
         # self._rhc_cnstr_viol_scale = 1.0 * 1e-3
-        self._rhc_cnstr_viol_scale = 1.0 * 3e-3
+        self._rhc_cnstr_viol_scale = 1.0 * 2e-3
 
         self._rhc_cost_weight = 1.0
         # self._rhc_cost_scale = 1e-2 * 1e-3
-        self._rhc_cost_scale = 1e-2 * 3e-3
+        self._rhc_cost_scale = 1e-2 * 2e-3
 
         self._rhc_step_var_scale = 1e-2
 
