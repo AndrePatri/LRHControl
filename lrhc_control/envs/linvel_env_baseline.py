@@ -113,8 +113,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         # overriding parent's defaults 
         self._reward_thresh_lb[:, 0] = -1 
-        self._reward_thresh_lb[:, 1] = 0 
-        self._reward_thresh_lb[:, 2] = 0 
+        self._reward_thresh_lb[:, 1] = -1
+        self._reward_thresh_lb[:, 2] = -1
         self._reward_thresh_ub[:, 0] = 1 
         self._reward_thresh_ub[:, 1] = 1 
         self._reward_thresh_ub[:, 2] = 1 
