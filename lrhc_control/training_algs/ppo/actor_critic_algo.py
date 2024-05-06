@@ -554,9 +554,9 @@ class ActorCriticAlgoBase():
                         wandb.Histogram(data["rollout_stat_comp"][self._it_counter-1, :, :].numpy())})
                 self._custom_env_data_db_dict.update({f"{dbdatan}" + "_rollout_stat_comp_env_avrg": 
                         data["rollout_stat_comp_env_avrg"][self._it_counter-1, :, :].item()})
-                self._custom_env_data_db_dict.update({f"sub_env_dbdata/{dbdatan}" + "_rollout_stat_env_avrg": 
+                self._custom_env_data_db_dict.update({f"sub_env_dbdata/{dbdatan}-{data_names[i]}" + "_rollout_stat_env_avrg": 
                        data["rollout_stat_env_avrg"][self._it_counter-1, :, i:i+1] for i in range(len(data_names))})
-                self._custom_env_data_db_dict.update({f"sub_env_dbdata/{dbdatan}" + "_rollout_stat": 
+                self._custom_env_data_db_dict.update({f"sub_env_dbdata/{dbdatan}-{data_names[i]}" + "_rollout_stat": 
                         wandb.Histogram(data["rollout_stat"].numpy()[self._it_counter-1, :, i:i+1]) for i in range(len(data_names))})
 
             # write debug info to shared memory    
@@ -739,8 +739,8 @@ class ActorCriticAlgoBase():
         self._m_checkpoint_freq = 50 # n ppo iterations after which a checkpoint model is dumped
 
         # main algo settings
-        self._iterations_n = 50 # number of ppo iterations
-        self._batch_size_nom = 32768 # 32768
+        self._iterations_n = 3000 # number of ppo iterations
+        self._batch_size_nom = 8192 # 32768
         self._num_minibatches = 8
         self._rollout_timesteps = int(self._batch_size_nom / self._num_envs)
         self._batch_size = self._rollout_timesteps * self._num_envs
