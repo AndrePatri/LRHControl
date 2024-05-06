@@ -417,8 +417,8 @@ class HybridQuadRhc(RHController):
         try:
             converged = self._ti.rti() # solves the problem
             self.sol_counter = self.sol_counter + 1
-            return True
-        except Exception as e:
+            return not self._check_rhc_failure()
+        except Exception as e: # fail in case of exceptions
             return False
     
     def _db_solve(self):
@@ -443,8 +443,8 @@ class HybridQuadRhc(RHController):
             self._rti_time = time.perf_counter() 
             self.sol_counter = self.sol_counter + 1
             self._update_db_data()
-            return True
-        except Exception as e:
+            return not self._check_rhc_failure()
+        except Exception as e: # fail in case of exceptions
             if self._verbose:
                 exception = f"Rti() for controller {self.controller_index} failed" + \
                 f" with exception{type(e).__name__}"
@@ -455,7 +455,11 @@ class HybridQuadRhc(RHController):
                     throw_when_excep = False)
             self._update_db_data()
             return False
-        
+    
+    def _get_fail_idx(self):
+        explosion_index = self._get_rhc_constr_viol() + self._get_rhc_cost()*1e-2
+        return explosion_index
+    
     def _update_db_data(self):
 
         self._profiling_data_dict["problem_update_dt"] = self._prb_update_time - self._timer_start

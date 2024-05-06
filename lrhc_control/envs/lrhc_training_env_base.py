@@ -271,7 +271,6 @@ class LRhcTrainingEnvBase():
         to_be_reset = torch.logical_or(terminated.cpu(),
                                     truncated_by_time_limit)
         rm_reset_ok = self._remote_reset(reset_mask=to_be_reset)
-        
         # read again observations in case some env was reset
         self._synch_obs(gpu=self._use_gpu) # if some env was reset, we use _obs
         # to hold the states, including resets, while _next_obs will always hold the 
