@@ -49,6 +49,7 @@ class ActorCriticAlgoBase():
         self._model_path = None
         
         self._policy_update_db_data_dict =  {}
+        self._custom_env_data_db_dict = {}
         self._hyperparameters = {}
         
         self._episodic_reward_getter = self._env.ep_reward_getter()
@@ -382,36 +383,14 @@ class ActorCriticAlgoBase():
             hf.create_dataset('batch_val_std', data=self._batch_val_std.numpy())
             hf.create_dataset('batch_val_mean', data=self._batch_val_mean.numpy())
 
-            # custom env data
-            self._custom_env_data = {}
-            db_data_names = list(self._env.custom_db_data.keys())
-            for dbdatan in db_data_names:
-                self._custom_env_data[dbdatan] = {}
-                rollout_stat=self._env.custom_db_data[dbdatan].get_rollout_stat()
-                self._custom_env_data[dbdatan]["rollout_stat"] = torch.full((self._iterations_n, 
-                                                                    rollout_stat.shape[0], 
-                                                                    rollout_stat.shape[1]), 
-                        dtype=torch.float32, fill_value=0.0, device="cpu")
-                rollout_stat_env_avrg=self._env.custom_db_data[dbdatan].get_rollout_stat_env_avrg()
-                self._custom_env_data[dbdatan]["rollout_stat_env_avrg"] = torch.full((self._iterations_n, 
-                                                                            rollout_stat_env_avrg.shape[0], 
-                                                                            rollout_stat_env_avrg.shape[1]), 
-                        dtype=torch.float32, fill_value=0.0, device="cpu")
-                rollout_stat_comp=self._env.custom_db_data[dbdatan].get_rollout_stat_comp()
-                self._custom_env_data[dbdatan]["rollout_stat_comp"] = torch.full((self._iterations_n, 
-                                                                        rollout_stat_comp.shape[0], 
-                                                                        rollout_stat_comp.shape[1]), 
-                        dtype=torch.float32, fill_value=0.0, device="cpu")
-                rollout_stat_comp_env_avrg=self._env.custom_db_data[dbdatan].get_rollout_stat_comp_env_avrg()
-                self._custom_env_data[dbdatan]["rollout_stat_comp_env_avrg"] = torch.full((self._iterations_n, rollout_stat_comp_env_avrg.shape[0], rollout_stat_comp_env_avrg.shape[1]), 
-                        dtype=torch.float32, fill_value=0.0, device="cpu")
-            
+            # dump all custom env data
             db_data_names = list(self._env.custom_db_data.keys())
             for db_dname in db_data_names:
-                subnames = list(self._custom_env_data[db_dname].keys())
+                data=self._custom_env_data[db_dname]
+                subnames = list(data.keys())
                 for subname in subnames:
-                    var_name = db_data_names + "_" + subname
-                    hf.create_dataset(var_name, data=self._custom_env_data[db_dname][subname])
+                    var_name = db_dname + "_" + subname
+                    hf.create_dataset(var_name, data=data[subname])
 
         info = f"done."
         Journal.log(self.__class__.__name__,
@@ -561,10 +540,28 @@ class ActorCriticAlgoBase():
                       self._episodic_sub_rewards_env_avrg[self._it_counter-1, :, i:i+1] for i in range(len(self._reward_names))})
             wandb_d.update({f"sub_reward/{self._reward_names[i]}":
                       wandb.Histogram(self._episodic_sub_rewards.numpy()[self._it_counter-1, :, i:i+1]) for i in range(len(self._reward_names))})
-            wandb_d.update(self._policy_update_db_data_dict)
-        
+            
+            # add custom env db data
+            db_data_names = list(self._env.custom_db_data.keys())
+            for dbdatan in db_data_names: 
+                data = self._custom_env_data[dbdatan]
+                data_names = self._env.custom_db_data[dbdatan].data_names()
+                print("AAAAA")
+                print(data["rollout_stat_comp"][self._it_counter-1, :, :].numpy())
+                self._custom_env_data_db_dict.update({f"{dbdatan}" + "_rollout_stat_comp": 
+                        wandb.Histogram(data["rollout_stat_comp"][self._it_counter-1, :, :].numpy())})
+                self._custom_env_data_db_dict.update({f"{dbdatan}" + "_rollout_stat_comp_env_avrg": 
+                        data["rollout_stat_comp_env_avrg"][self._it_counter-1, :, :].item()})
+                self._custom_env_data_db_dict.update({f"sub_env_dbdata/{dbdatan}" + "_rollout_stat_env_avrg": 
+                       data["rollout_stat_env_avrg"][self._it_counter-1, :, i:i+1] for i in range(len(data_names))})
+                self._custom_env_data_db_dict.update({f"sub_env_dbdata/{dbdatan}" + "_rollout_stat": 
+                        wandb.Histogram(data["rollout_stat"].numpy()[self._it_counter-1, :, i:i+1]) for i in range(len(data_names))})
+
             # write debug info to shared memory    
-            wandb.log(wandb_d),
+            wandb_d.update(self._policy_update_db_data_dict)
+            wandb_d.update(self._custom_env_data_db_dict)
+
+            wandb.log(wandb_d)
 
         if self._verbose:
             
@@ -740,8 +737,8 @@ class ActorCriticAlgoBase():
         self._m_checkpoint_freq = 50 # n ppo iterations after which a checkpoint model is dumped
 
         # main algo settings
-        self._iterations_n = 3000 # number of ppo iterations
-        self._batch_size_nom = 32768 # 32768
+        self._iterations_n = 50 # number of ppo iterations
+        self._batch_size_nom = 16 # 32768
         self._num_minibatches = 8
         self._rollout_timesteps = int(self._batch_size_nom / self._num_envs)
         self._batch_size = self._rollout_timesteps * self._num_envs
