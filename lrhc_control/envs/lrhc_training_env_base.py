@@ -45,6 +45,7 @@ class LRhcTrainingEnvBase():
             episode_timeout_ub: int,
             n_steps_task_rand_lb: int,
             n_steps_task_rand_ub: int,
+            action_repeat: int = 1,
             env_name: str = "",
             n_preinit_steps: int = 0,
             verbose: bool = False,
@@ -59,6 +60,10 @@ class LRhcTrainingEnvBase():
             
         self._env_index = 0
         
+        self._action_repeat = action_repeat
+        if self._action_repeat <=0: 
+            self._action_repeat = 1
+            
         self._closed = False
 
         self._episode_timeout_lb = episode_timeout_lb # episodes durations will be randomized between
@@ -229,6 +234,20 @@ class LRhcTrainingEnvBase():
         self._apply_actions_to_rhc() # apply agent actions to rhc controller
 
         ok_sim_step = self._remote_sim_step() # blocking
+
+        # ok_sim_step = True
+        # for i in range(0, self._action_repeat): # remove env substepping
+        #     ok_sim_step = ok_sim_step and self._remote_sim_step() # blocking, 
+        #     # no sim substepping is allowed to fail
+        #     if not ok_sim_step:
+        #         return False
+        #     self._synch_obs(gpu=self._use_gpu) # read obs from shared mem (done in substeps also, 
+        #     # since substeps rewards will need updated substep obs)
+        #     next_obs = self._next_obs.get_torch_mirror(gpu=self._use_gpu)
+        #     self._fill_obs(next_obs)
+        #     self._clip_obs(next_obs) # good practice
+        #     self._compute_sub_rewards(next_obs)
+        #     self._assemble_rewards() # includes rewards clipping
 
         self._synch_obs(gpu=self._use_gpu) # read obs from shared mem
         next_obs = self._next_obs.get_torch_mirror(gpu=self._use_gpu)
