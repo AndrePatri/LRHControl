@@ -41,4 +41,4 @@ class GaitManager:
     
     def add_flight(self, timeline_name):
         timeline = self._contact_timelines[timeline_name]
-        timeline.addPhase(timeline.getRegisteredPhase(f'flight_{timeline_name}'))
+        timeline.addPhase(timeline.getRegisteredPhase(f'flight_{timeline_name}'), pos=self._injection_node, absolute_position=True)
