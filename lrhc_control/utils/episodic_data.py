@@ -14,9 +14,12 @@ class EpisodicData():
     def __init__(self,
             name: str,
             data_tensor: torch.Tensor,
-            data_names: List[str] = None):
+            data_names: List[str] = None, 
+            debug: bool = False):
 
         self._name = name
+
+        self._debug = debug
 
         self._n_envs = data_tensor.shape[0]
         self._data_size = data_tensor.shape[1]
@@ -77,7 +80,7 @@ class EpisodicData():
             (not new_data.shape[1] == self._data_size):
             exception = f"Provided new_data tensor shape {new_data.shape[0]}, {new_data.shape[1]}" + \
                 f" does not match {self._n_envs}, {self._data_size}!!"
-            Journal.log(self.__class__.__name__,
+            Journal.log(self.__class__.__name__ + f"[{self._name}]",
                 "__init__",
                 exception,
                 LogType.EXCEP,
@@ -87,12 +90,21 @@ class EpisodicData():
             (not ep_finished.shape[1] == 1):
             exception = f"Provided ep_finished boolean tensor shape {ep_finished.shape[0]}, {ep_finished.shape[1]}" + \
                 f" does not match {self._n_envs}, {1}!!"
-            Journal.log(self.__class__.__name__,
+            Journal.log(self.__class__.__name__ + f"[{self._name}]",
                 "__init__",
                 exception,
                 LogType.EXCEP,
                 throw_when_excep=True)
 
+        if self._debug and (not torch.isfinite(new_data).all().item()):
+            print(new_data)
+            exception = f"Found non finite elements in provided data!!"
+            Journal.log(self.__class__.__name__ + f"[{self._name}]",
+                "__init__",
+                exception,
+                LogType.EXCEP,
+                throw_when_excep=True)
+            
         self._episodic_sum[:, :] = self._episodic_sum + new_data # sum over the current episode
         self._episodic_avrg[:, :] = self._episodic_sum[:, :] / self._steps_counter[:, :] # average bover the played timesteps
         

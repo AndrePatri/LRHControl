@@ -283,8 +283,13 @@ class LRhcTrainingEnvBase():
         self.randomize_refs(env_indxs=episode_finished.flatten()) # randomize refs also upon
         # episode termination
 
-        self._update_custom_db_data(episode_finished=episode_finished)
-
+        # debug step if required (TBD before reset req processing)
+        if self._is_debug:
+            self._debug() # copies db data on shared memory
+            self._update_custom_db_data(episode_finished=episode_finished)
+            self._episodic_rewards_getter.update(rewards = self._rewards.get_torch_mirror(gpu=False),
+                            ep_finished = episode_finished.cpu())
+            
         # (remotely) reset envs for which episode is finished (but without considering truncation by ref randomization)
         to_be_reset = torch.logical_or(terminated.cpu(),
                                     truncated_by_time_limit)
@@ -292,19 +297,11 @@ class LRhcTrainingEnvBase():
         # read again observations in case some env was reset
         self._synch_obs(gpu=self._use_gpu) # if some env was reset, we use _obs
         # to hold the states, including resets, while _next_obs will always hold the 
-        # state right after stepping
+        # state right after stepping the sim env
         obs = self._obs.get_torch_mirror(gpu=self._use_gpu)
         self._fill_obs(obs)
         self._clip_obs(obs)
 
-        self._episodic_rewards_getter.update(rewards = self._rewards.get_torch_mirror(gpu=False),
-                            ep_finished = episode_finished.cpu())
-        
-        self._fill_custom_db_data()
-
-        if self._is_debug:
-            self._debug() # copies db data on shared memory
-        
         return rm_reset_ok
         # return True
     
@@ -872,10 +869,5 @@ class LRhcTrainingEnvBase():
     @abstractmethod
     def _randomize_refs(self,
                 env_indxs: torch.Tensor = None):
-        
-        pass
-    
-    @abstractmethod
-    def _fill_custom_db_data(self):
         
         pass
