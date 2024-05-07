@@ -277,6 +277,10 @@ class HybridQuadRhc(RHController):
         
         return len(self._model.joint_names)
 
+    def _get_robot_mass(self):
+
+        return self._kin_dyn.mass()
+
     def _get_cmd_jnt_q_from_sol(self):
         
         # wrapping joint q commands between 2pi and -2pi
