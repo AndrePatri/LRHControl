@@ -264,8 +264,7 @@ class LRhcTrainingEnvBase():
         self.randomize_refs(env_indxs=episode_finished.flatten()) # randomize refs also upon
         # episode termination
 
-        self.custom_db_data["ContactIndex"].update(new_data=self._rhc_refs.contact_flags.get_torch_mirror(gpu=False), 
-                                    ep_finished=episode_finished.cpu()) # before potentially resetting the flags, get data
+        self._update_custom_db_data(episode_finished=episode_finished)
 
         # (remotely) reset envs for which episode is finished (but without considering truncation by ref randomization)
         to_be_reset = torch.logical_or(terminated.cpu(),
@@ -290,6 +289,13 @@ class LRhcTrainingEnvBase():
         return rm_reset_ok
         # return True
     
+    def _update_custom_db_data(self, episode_finished):
+
+        self.custom_db_data["RhcStatusFlag"].update(new_data=self._rhc_refs.contact_flags.get_torch_mirror(gpu=False), 
+                                    ep_finished=episode_finished.cpu()) # before potentially resetting the flags, get data
+        
+        self._get_custom_db_data(episode_finished=episode_finished)
+
     def _assemble_rewards(self):
 
         tot_rewards = self._tot_rewards.get_torch_mirror(gpu=self._use_gpu)
@@ -406,23 +412,21 @@ class LRhcTrainingEnvBase():
         return self._dtype 
     
     def _get_obs_names(self):
-
         # to be overridden by child class
-
         return None
     
     def _get_action_names(self):
-
         # to be overridden by child class
-
         return None
     
     def _get_rewards_names(self):
-
         # to be overridden by child class
-
         return None
     
+    def _get_custom_db_data(self, episode_finished):
+        # to be overridden by child class
+        pass
+
     def _init_obs(self):
         
         obs_threshold_default = 10.0
@@ -526,8 +530,11 @@ class LRhcTrainingEnvBase():
         self.custom_db_data = {}
         rhc_latest_contact_ref = self._rhc_refs.contact_flags.get_torch_mirror()
         contact_names = self._rhc_refs.rob_refs.contact_names()
-        stepping_data = EpisodicData("ContactIndex", rhc_latest_contact_ref, contact_names)
+        stepping_data = EpisodicData("RhcStatusFlag", rhc_latest_contact_ref, contact_names)
         self.custom_db_data[stepping_data.name()] = stepping_data
+    
+    def _add_custom_db_info(self, db_data: EpisodicData):
+        self.custom_db_data[db_data.name()] = db_data
 
     def _init_terminations(self):
 
