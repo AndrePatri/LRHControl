@@ -129,8 +129,10 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         # custom db info 
         step_idx_data = EpisodicData("ContactIndex", self._rhc_step_var(gpu=False), self.contact_names)
+        task_perc_error = EpisodicData("TaskPercError", self._task_error_perc(gpu=False), ["percentage"])
         self._add_custom_db_info(db_data=step_idx_data)
-        
+        self._add_custom_db_info(db_data=task_perc_error)
+
     def get_file_paths(self):
 
         paths = []
@@ -198,11 +200,28 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         last_actions = self._actions.get_torch_mirror(gpu=self._use_gpu)
         obs_tensor[:, next_idx:(next_idx+self._n_prev_actions*self.actions_dim())] = last_actions
     
-    def _get_custom_db_data(self, episode_finished):
+    def _get_custom_db_data(self, 
+            episode_finished):
         
         self.custom_db_data["ContactIndex"].update(new_data=self._rhc_step_var(gpu=False), 
                                     ep_finished=episode_finished.cpu())
-        
+        self.custom_db_data["TaskPercError"].update(new_data=self._task_error_perc(gpu=False), 
+                                    ep_finished=episode_finished.cpu())
+    
+    def _task_error_perc(self, gpu: bool):
+        # weighted average of the current task error percentage (wrt the reference)
+        # computed over the task dimensions
+        next_obs = self._next_obs.get_torch_mirror(gpu=gpu)
+        if not gpu:
+            task_weights = self._task_err_weights.cpu()
+        else:
+            task_weights = self._task_err_weights
+        task_meas = next_obs[:, 4:10]
+        task_ref = next_obs[:, (10+self._n_jnts):((10+self._n_jnts)+6)]
+        task_error_perc = torch.sum((task_meas-task_ref)/task_ref*task_weights, dim=1, keepdim=True)/ \
+            (torch.sum(task_weights).item())
+        return task_error_perc
+    
     def _rhc_const_viol(self, gpu: bool):
         # rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_mirror(gpu=self._use_gpu) # over the whole horizon
         # return self._rhc_cnstr_viol_scale * rhc_const_viol

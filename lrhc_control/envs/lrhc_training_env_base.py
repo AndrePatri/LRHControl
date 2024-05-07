@@ -289,7 +289,8 @@ class LRhcTrainingEnvBase():
         return rm_reset_ok
         # return True
     
-    def _update_custom_db_data(self, episode_finished):
+    def _update_custom_db_data(self,
+                    episode_finished):
 
         self.custom_db_data["RhcStatusFlag"].update(new_data=self._rhc_refs.contact_flags.get_torch_mirror(gpu=False), 
                                     ep_finished=episode_finished.cpu()) # before potentially resetting the flags, get data
