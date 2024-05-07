@@ -47,7 +47,9 @@ class HybridQuadRhcRefs(RhcRefs):
         # handles phase transitions
         self.gait_manager = gait_manager
 
-        self._timeline_names = self.gait_manager._contact_timelines.keys()
+        self._timelines = self.gait_manager._contact_timelines
+        
+        self._timeline_names = self.gait_manager._timeline_names
 
         # task interfaces from horizon for setting commands to rhc
         self._get_tasks()
@@ -92,7 +94,14 @@ class HybridQuadRhcRefs(RhcRefs):
             if phase_id == -1: # custom phases
                 contact_flags = self.contact_flags.get_numpy_mirror()[self.robot_index, :]
                 is_contact = contact_flags.flatten().tolist() 
-                self.gait_manager.set_step(is_contact) # set phases 
+                for i in range(len(is_contact)):
+                    timeline_name = self._timeline_names[i]
+                    timeline = self.gait_manager._contact_timelines[timeline_name]
+                    if timeline.getEmptyNodes() > 0: # after shift, always add a stance
+                        self.gait_manager.add_stand(timeline_name)
+                    if is_contact[i] == False:
+                        self.gait_manager.add_flight(timeline_name)
+
                 for timeline_name in self._timeline_names: # sanity check
                     timeline = self.gait_manager._contact_timelines[timeline_name]
                     if timeline.getEmptyNodes() > 0:
@@ -102,20 +111,6 @@ class HybridQuadRhcRefs(RhcRefs):
                             error,
                             LogType.EXCEP,
                             throw_when_excep = True)
-            elif phase_id == 0:
-                self.gait_manager.stand()
-            elif phase_id == 1:
-                self.gait_manager.walk()
-            elif phase_id == 2:
-                self.gait_manager.crawl()
-            elif phase_id == 3:
-                self.gait_manager.trot()
-            elif phase_id == 4:
-                self.gait_manager.trot_jumped()
-            elif phase_id == 5:
-                self.gait_manager.jump()
-            elif phase_id == 6:
-                self.gait_manager.wheelie()
             else:
                 exception = f"Unsupported phase id {phase_id} has been received!"
                 Journal.log(self.__class__.__name__,
