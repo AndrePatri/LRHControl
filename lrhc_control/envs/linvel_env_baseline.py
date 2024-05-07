@@ -81,7 +81,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # self._rhc_cost_scale = 1e-2 * 1e-3
         self._rhc_cost_scale = 1e-2 * 5e-3
 
-        self._rhc_step_var_scale = 1e-2
+        self._rhc_step_var_scale = 1
 
         self._linvel_lb = torch.full((1, 3), dtype=dtype, device=device,
                             fill_value=-0.8) 
