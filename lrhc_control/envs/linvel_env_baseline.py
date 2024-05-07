@@ -62,7 +62,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         device = "cuda" if use_gpu else "cpu"
 
         self._task_weight = 1.0
-        self._task_scale = 2.5
+        self._task_scale = 5.0
         self._task_err_weights = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.0) 
         self._task_err_weights[0, 0] = 1.0
@@ -75,11 +75,11 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         self._rhc_cnstr_viol_weight = 1.0
         # self._rhc_cnstr_viol_scale = 1.0 * 1e-3
-        self._rhc_cnstr_viol_scale = 1.0 * 2e-3
+        self._rhc_cnstr_viol_scale = 1.0 * 5e-3
 
         self._rhc_cost_weight = 1.0
         # self._rhc_cost_scale = 1e-2 * 1e-3
-        self._rhc_cost_scale = 1e-2 * 2e-3
+        self._rhc_cost_scale = 1e-2 * 5e-3
 
         self._rhc_step_var_scale = 1e-2
 
@@ -127,6 +127,10 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._actions_offsets[:, 6:10] = 0.0 # stepping flags 
         self._actions_scalings[:, 6:10] =  1.0 
 
+        # custom db info 
+        step_idx_data = EpisodicData("ContactIndex", self._rhc_step_var(gpu=False), self.contact_names)
+        self._add_custom_db_info(db_data=step_idx_data)
+        
     def get_file_paths(self):
 
         paths = []
@@ -185,29 +189,34 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         obs_tensor[:, 4:10] = robot_twist_meas
         obs_tensor[:, 10:(10+self._n_jnts)] = robot_jnt_q_meas
         obs_tensor[:, (10+self._n_jnts):((10+self._n_jnts)+6)] = agent_twist_ref
-        obs_tensor[:, ((10+self._n_jnts)+6):((10*self._n_jnts)+6+1)] = self._rhc_const_viol()
-        obs_tensor[:, ((10+self._n_jnts)+6+1):((10+self._n_jnts)+6+2)] = self._rhc_cost()
-        obs_tensor[:, ((10+self._n_jnts)+6+2):((10+self._n_jnts)+6+2+len(self.contact_names))] = self._rhc_step_var()
+        obs_tensor[:, ((10+self._n_jnts)+6):((10*self._n_jnts)+6+1)] = self._rhc_const_viol(gpu=self._use_gpu)
+        obs_tensor[:, ((10+self._n_jnts)+6+1):((10+self._n_jnts)+6+2)] = self._rhc_cost(gpu=self._use_gpu)
+        obs_tensor[:, ((10+self._n_jnts)+6+2):((10+self._n_jnts)+6+2+len(self.contact_names))] = self._rhc_step_var(gpu=self._use_gpu)
         
         # adding last action to obs
         next_idx = (10+self._n_jnts)+6+2+len(self.contact_names)
         last_actions = self._actions.get_torch_mirror(gpu=self._use_gpu)
         obs_tensor[:, next_idx:(next_idx+self._n_prev_actions*self.actions_dim())] = last_actions
-                   
-    def _rhc_const_viol(self):
+    
+    def _get_custom_db_data(self, episode_finished):
+        
+        self.custom_db_data["ContactIndex"].update(new_data=self._rhc_step_var(gpu=False), 
+                                    ep_finished=episode_finished.cpu())
+        
+    def _rhc_const_viol(self, gpu: bool):
         # rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_mirror(gpu=self._use_gpu) # over the whole horizon
         # return self._rhc_cnstr_viol_scale * rhc_const_viol
-        rhc_const_viol = self._rhc_status.rhc_nodes_constr_viol.get_torch_mirror(gpu=self._use_gpu)
+        rhc_const_viol = self._rhc_status.rhc_nodes_constr_viol.get_torch_mirror(gpu=gpu)
         return self._rhc_cnstr_viol_scale * rhc_const_viol[:, 0:1] # just on node 0
     
-    def _rhc_cost(self):
+    def _rhc_cost(self, gpu: bool):
         # rhc_cost = self._rhc_status.rhc_cost.get_torch_mirror(gpu=self._use_gpu) # over the whole horizon
         # return self._rhc_cost_scale * rhc_cost
-        rhc_cost = self._rhc_status.rhc_nodes_cost.get_torch_mirror(gpu=self._use_gpu)
+        rhc_cost = self._rhc_status.rhc_nodes_cost.get_torch_mirror(gpu=gpu)
         return self._rhc_cost_scale * rhc_cost[:, 0:1] # just on node 0
     
-    def _rhc_step_var(self):
-        step_var = self._rhc_status.rhc_step_var.get_torch_mirror(gpu=self._use_gpu)
+    def _rhc_step_var(self, gpu: bool):
+        step_var = self._rhc_status.rhc_step_var.get_torch_mirror(gpu=gpu)
         to_be_cat = []
         for i in range(len(self.contact_names)):
             start_idx=i*self.n_nodes
