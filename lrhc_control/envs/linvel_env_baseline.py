@@ -205,8 +205,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         
         self.custom_db_data["ContactIndex"].update(new_data=self._rhc_step_var(gpu=False), 
                                     ep_finished=episode_finished.cpu())
-        self.custom_db_data["TaskPercError"].update(new_data=self._task_error_perc(gpu=False), 
-                                    ep_finished=episode_finished.cpu())
+        # self.custom_db_data["TaskPercError"].update(new_data=self._task_error_perc(gpu=False), 
+        #                             ep_finished=episode_finished.cpu())
     
     def _task_error_perc(self, gpu: bool):
         # weighted average of the current task error percentage (wrt the reference)
@@ -218,7 +218,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             task_weights = self._task_err_weights
         task_meas = next_obs[:, 4:10]
         task_ref = next_obs[:, (10+self._n_jnts):((10+self._n_jnts)+6)]
-        task_error_perc = torch.sum((task_meas-task_ref)/task_ref*task_weights, dim=1, keepdim=True)/ \
+
+        task_error_perc = torch.sum((task_meas-task_ref)/(task_ref*task_weights+1e-6), dim=1, keepdim=True)/ \
             (torch.sum(task_weights).item())
         return task_error_perc
     
@@ -255,11 +256,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # MSE along task dimension
         task_error = (task_ref-task_meas)*self._task_err_weights
         task_error_index = self._task_scale * torch.sum(task_error*task_error, dim=1, keepdim=True)/task_error.shape[1]
-        # task_error_perc =  torch.abs((task_ref-task_meas)/(task_ref+epsi)) # error normalized wrt ref
-        # task_error_index = torch.sum(self._task_err_weights * task_error_perc, dim=1, keepdim=True) \
-        #     / self._task_err_weights_norm_coeff # task index is normalized wrt the task weights, so that is bound 
-        # # to be in [0, +inf]. A task index of 1 means a 100% average error on the task wrt the reference
-
+    
         sub_rewards = self._rewards.get_torch_mirror(gpu=self._use_gpu)
         sub_rewards[:, 0:1] = self._task_weight * (1.0 - task_error_index)
         sub_rewards[:, 1:2] = self._rhc_cnstr_viol_weight * (1.0 - cnstr_viol)
