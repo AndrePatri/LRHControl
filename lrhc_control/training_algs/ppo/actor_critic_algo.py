@@ -731,7 +731,8 @@ class ActorCriticAlgoBase():
         self._env_name = self._env.name()
         self._episode_timeout_lb, self._episode_timeout_ub = self._env.episode_timeout_bounds()
         self._task_rand_timeout_lb, self._task_rand_timeout_ub = self._env.task_rand_timeout_bounds()
-
+        self._env_n_action_reps = self._env.n_action_reps()
+        
         self._use_gpu = self._env.using_gpu()
         self._torch_device = torch.device("cpu") # defaults to cpu
         self._torch_deterministic = True
@@ -785,6 +786,7 @@ class ActorCriticAlgoBase():
         self._hyperparameters["episodes timeout ub"] = self._episode_timeout_ub
         self._hyperparameters["task rand timeout lb"] = self._task_rand_timeout_lb
         self._hyperparameters["task rand timeout ub"] = self._task_rand_timeout_ub
+        self._hyperparameters["env_n_action_reps"] = self._env_n_action_reps
         self._hyperparameters["n steps per env. rollout"] = self._rollout_timesteps
         self._hyperparameters["per-batch update_epochs"] = self._update_epochs
         self._hyperparameters["per-epoch policy updates"] = self._num_minibatches
@@ -822,6 +824,7 @@ class ActorCriticAlgoBase():
             f"episode timeout min steps {self._episode_timeout_lb}\n" + \
             f"task rand. max n steps {self._task_rand_timeout_ub}\n" + \
             f"task rand. min n steps {self._task_rand_timeout_lb}\n" + \
+            f"number of action reps {self._env_n_action_reps}\n" + \
             f"total policy updates to be performed {self._update_epochs * self._num_minibatches * self._iterations_n}\n" + \
             f"total_timesteps to be simulated {self._total_timesteps}\n"
         Journal.log(self.__class__.__name__,

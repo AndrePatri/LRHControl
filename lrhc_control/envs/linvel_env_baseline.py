@@ -45,12 +45,13 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         robot_state_tmp.close()
         rhc_status_tmp.close()
 
+        action_repeat = 1
         actions_dim = 2 + 1 + 3 + 4 # [vxy_cmd, h_cmd, twist_cmd, dostep_0, dostep_1, dostep_2, dostep_3]
 
         self._n_prev_actions = 1
         obs_dim = 18 + n_jnts + len(self.contact_names) + self._n_prev_actions * actions_dim
 
-        episode_timeout_lb = 4096 # episode timeouts
+        episode_timeout_lb = 4096 # episode timeouts (including env substepping when action_repeat>1)
         episode_timeout_ub = 8192
         n_steps_task_rand_lb = 256 # agent refs randomization freq
         n_steps_task_rand_ub = 512
@@ -111,6 +112,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     episode_timeout_ub=episode_timeout_ub,
                     n_steps_task_rand_lb=n_steps_task_rand_lb,
                     n_steps_task_rand_ub=n_steps_task_rand_ub,
+                    action_repeat=action_repeat,
                     env_name=env_name,
                     n_preinit_steps=n_preinit_steps,
                     verbose=verbose,
