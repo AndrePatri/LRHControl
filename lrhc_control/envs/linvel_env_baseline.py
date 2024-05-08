@@ -71,7 +71,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._task_err_weights[0, 2] = 1e-6
         self._task_err_weights[0, 3] = 1e-6
         self._task_err_weights[0, 4] = 1e-6
-        self._task_err_weights[0, 5] = 1.0
+        self._task_err_weights[0, 5] = 1e-6
         self._task_err_weights_norm_coeff = torch.sum(self._task_err_weights).item()
 
         self._rhc_cnstr_viol_weight = 1.0
@@ -89,19 +89,19 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._twist_ref_ub = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.8)
         # lin vel
-        self._twist_ref_lb[0, 0] = -3.0
-        self._twist_ref_lb[0, 1] = -3.0
+        self._twist_ref_lb[0, 0] = -1.5
+        self._twist_ref_lb[0, 1] = -1.5
         self._twist_ref_lb[0, 2] = 0.0
-        self._twist_ref_ub[0, 0] = 3.0
-        self._twist_ref_ub[0, 1] = 3.0
+        self._twist_ref_ub[0, 0] = 1.5
+        self._twist_ref_ub[0, 1] = 1.5
         self._twist_ref_ub[0, 2] = 0.0
         # angular vel
         self._twist_ref_lb[0, 3] = 0.0
         self._twist_ref_lb[0, 4] = 0.0
-        self._twist_ref_lb[0, 5] = -3.0
+        self._twist_ref_lb[0, 5] = 0.0
         self._twist_ref_ub[0, 3] = 0.0
         self._twist_ref_ub[0, 4] = 0.0
-        self._twist_ref_ub[0, 5] = 3.0
+        self._twist_ref_ub[0, 5] = 0.0
 
         self._this_child_path = os.path.abspath(__file__)
 
