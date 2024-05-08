@@ -70,7 +70,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._task_err_weights[0, 2] = 1e-6
         self._task_err_weights[0, 3] = 1e-6
         self._task_err_weights[0, 4] = 1e-6
-        self._task_err_weights[0, 5] = 1e-6
+        self._task_err_weights[0, 5] = 1.0
         self._task_err_weights_norm_coeff = torch.sum(self._task_err_weights).item()
 
         self._rhc_cnstr_viol_weight = 1.0
@@ -83,16 +83,24 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         self._rhc_step_var_scale = 1
 
-        self._linvel_lb = torch.full((1, 3), dtype=dtype, device=device,
+        self._twist_ref_lb = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=-0.8) 
-        self._linvel_ub = torch.full((1, 3), dtype=dtype, device=device,
+        self._twist_ref_ub = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.8)
-        self._linvel_lb[0, 0] = -1.5
-        self._linvel_lb[0, 1] = -1.5
-        self._linvel_lb[0, 2] = 0.0
-        self._linvel_ub[0, 0] = 1.5
-        self._linvel_ub[0, 1] = 1.5
-        self._linvel_ub[0, 2] = 0.0
+        # lin vel
+        self._twist_ref_lb[0, 0] = -3.0
+        self._twist_ref_lb[0, 1] = -3.0
+        self._twist_ref_lb[0, 2] = 0.0
+        self._twist_ref_ub[0, 0] = 3.0
+        self._twist_ref_ub[0, 1] = 3.0
+        self._twist_ref_ub[0, 2] = 0.0
+        # angular vel
+        self._twist_ref_lb[0, 3] = 0.0
+        self._twist_ref_lb[0, 4] = 0.0
+        self._twist_ref_lb[0, 5] = -3.0
+        self._twist_ref_ub[0, 3] = 0.0
+        self._twist_ref_ub[0, 4] = 0.0
+        self._twist_ref_ub[0, 5] = 3.0
 
         self._this_child_path = os.path.abspath(__file__)
 
@@ -267,12 +275,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         
         agent_twist_ref_current = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu)
         if env_indxs is None:
-            agent_twist_ref_current[:, :] = 0 # base should be still
-            agent_twist_ref_current[:, 0:3] = (self._linvel_ub-self._linvel_lb) * torch.rand_like(agent_twist_ref_current[:, 0:3]) + self._linvel_lb
+            agent_twist_ref_current[:, :] = torch.rand_like(agent_twist_ref_current[:, :]) * (self._twist_ref_ub-self._twist_ref_lb) + self._twist_ref_lb
         else:
-            agent_twist_ref_current[env_indxs, :] = 0 # base should be still
-            agent_twist_ref_current[env_indxs, 0:3] = (self._linvel_ub-self._linvel_lb) * torch.rand_like(agent_twist_ref_current[env_indxs, 0:3]) + self._linvel_lb
-
+            agent_twist_ref_current[env_indxs, :] =  torch.rand_like(agent_twist_ref_current[env_indxs, :]) * (self._twist_ref_ub-self._twist_ref_lb) + self._twist_ref_lb
         self._agent_refs.rob_refs.root_state.set(data_type="twist", data=agent_twist_ref_current,
                                             gpu=self._use_gpu)
         self._synch_refs(gpu=self._use_gpu)
