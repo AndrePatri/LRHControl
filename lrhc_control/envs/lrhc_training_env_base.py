@@ -319,7 +319,8 @@ class LRhcTrainingEnvBase():
         sub_rewards = self._rewards.get_torch_mirror(gpu=self._use_gpu)
         self._clip_rewards(sub_rewards) # clipping rewards in a range
 
-        tot_rewards[:, :] = tot_rewards + torch.sum(sub_rewards, dim=1, keepdim=True)
+        # average over substeps
+        tot_rewards[:, :] = tot_rewards + torch.sum(sub_rewards, dim=1, keepdim=True)/self._action_repeat
 
     def randomize_refs(self,
                 env_indxs: torch.Tensor = None):
