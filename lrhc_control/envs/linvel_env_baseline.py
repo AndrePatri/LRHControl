@@ -273,7 +273,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         rhc_cost = obs[:, ((10+self._n_jnts)+6+1):((10+self._n_jnts)+6+2)]
 
         # task_error_wmse = self._task_err_quad(task_meas=task_meas, task_ref=task_ref)
-        task_error_pseudolin = self._task_err_quad(task_meas=task_meas, task_ref=task_ref)
+        task_error_pseudolin = self._task_err_pseudolin(task_meas=task_meas, task_ref=task_ref)
 
         sub_rewards = self._rewards.get_torch_mirror(gpu=self._use_gpu)
         sub_rewards[:, 0:1] = self._task_weight * (1.0 - self._task_scale * task_error_pseudolin)
