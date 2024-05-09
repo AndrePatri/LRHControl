@@ -63,7 +63,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         device = "cuda" if use_gpu else "cpu"
 
         self._task_weight = 1.0
-        self._task_scale = 5.0
+        self._task_scale = 10.0
         self._task_err_weights = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.0) 
         self._task_err_weights[0, 0] = 1.0
@@ -72,7 +72,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._task_err_weights[0, 3] = 1e-6
         self._task_err_weights[0, 4] = 1e-6
         self._task_err_weights[0, 5] = 1e-6
-        self._task_err_weights_norm_coeff = torch.sum(self._task_err_weights).item()
+        self._task_err_weights_sum = torch.sum(self._task_err_weights).item()
 
         self._rhc_cnstr_viol_weight = 1.0
         # self._rhc_cnstr_viol_scale = 1.0 * 1e-3
@@ -233,6 +233,15 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             (torch.sum(task_weights).item())
         return task_error_perc
     
+    def _task_err_quad(self, task_ref, task_meas):
+        task_error = (task_ref-task_meas)
+        task_wmse = torch.sum((task_error*task_error)*self._task_err_weights, dim=1, keepdim=True)/self._task_err_weights_sum
+        return task_wmse # weighted mean square error (along task dimension)
+    
+    def _task_err_pseudolin(self, task_ref, task_meas):
+        task_wmse = self._task_err_quad(task_ref=task_ref, task_meas=task_meas)
+        return task_wmse.sqrt()
+    
     def _rhc_const_viol(self, gpu: bool):
         # rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_mirror(gpu=self._use_gpu) # over the whole horizon
         # return self._rhc_cnstr_viol_scale * rhc_const_viol
@@ -263,12 +272,11 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         cnstr_viol = obs[:, ((10+self._n_jnts)+6):((10+self._n_jnts)+6+1)]
         rhc_cost = obs[:, ((10+self._n_jnts)+6+1):((10+self._n_jnts)+6+2)]
 
-        # MSE along task dimension
-        task_error = (task_ref-task_meas)*self._task_err_weights
-        task_error_index = self._task_scale * torch.sum(task_error*task_error, dim=1, keepdim=True)/task_error.shape[1]
-    
+        # task_error_wmse = self._task_err_quad(task_meas=task_meas, task_ref=task_ref)
+        task_error_pseudolin = self._task_err_quad(task_meas=task_meas, task_ref=task_ref)
+
         sub_rewards = self._rewards.get_torch_mirror(gpu=self._use_gpu)
-        sub_rewards[:, 0:1] = self._task_weight * (1.0 - task_error_index)
+        sub_rewards[:, 0:1] = self._task_weight * (1.0 - self._task_scale * task_error_pseudolin)
         sub_rewards[:, 1:2] = self._rhc_cnstr_viol_weight * (1.0 - cnstr_viol)
         sub_rewards[:, 2:3] = self._rhc_cost_weight * (1.0 - rhc_cost)
         
