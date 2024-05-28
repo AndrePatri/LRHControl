@@ -22,7 +22,7 @@ if __name__ == "__main__":
     parser.add_argument('--dt_data', type=float, help='Dt at which data on shared memory is sampled',
                 default=0.01)
     parser.add_argument('--dt_plot', type=float, help='Dt at which plots are updated',
-                default=0.5)
+                default=0.01)
     parser.add_argument('--w_length', type=float, help='length [s] of the data window into the past',
                 default=5.0)
     

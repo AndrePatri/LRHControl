@@ -208,7 +208,8 @@ class LRHcIsaacTask(IsaacTask):
         # always updated imp. controller internal state (jnt imp control is supposed to be
         # always running)
         self.jnt_imp_controllers[robot_name].update_state(pos = self.jnts_q(robot_name=robot_name), 
-                    vel = self.jnts_v(robot_name=robot_name))
+                vel = self.jnts_v(robot_name=robot_name),
+                eff = self.jnts_eff(robot_name=robot_name))
 
         if actions is not None and env_indxs is not None:
             # if new actions are received, also update references
