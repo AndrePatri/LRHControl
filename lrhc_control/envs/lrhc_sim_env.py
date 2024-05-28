@@ -428,7 +428,8 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
             data_type="q", robot_idxs = env_indxs, gpu=self.using_gpu)
         rhc_state.jnts_state.set(data=self.task.jnts_v(robot_name=robot_name, env_idxs=env_indxs), 
             data_type="v", robot_idxs = env_indxs, gpu=self.using_gpu) 
-
+        rhc_state.jnts_state.set(data=self.task.jnts_eff(robot_name=robot_name, env_idxs=env_indxs), 
+            data_type="eff", robot_idxs = env_indxs, gpu=self.using_gpu) 
         # Updating contact state for selected contact links
         self._update_contact_state(robot_name=robot_name, env_indxs=env_indxs)
 
