@@ -40,6 +40,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         n_jnts = robot_state_tmp.n_jnts()
         # n_contacts = robot_state_tmp.n_contacts()
         self.contact_names = robot_state_tmp.contact_names()
+        n_contacts = len(self.contact_names)
         self.step_var_dim = rhc_status_tmp.rhc_step_var.tot_dim()
         self.n_nodes = rhc_status_tmp.n_nodes
         robot_state_tmp.close()
@@ -49,7 +50,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         actions_dim = 2 + 1 + 3 + 4 # [vxy_cmd, h_cmd, twist_cmd, dostep_0, dostep_1, dostep_2, dostep_3]
 
         self._n_prev_actions = 1
-        obs_dim = 18 + n_jnts + len(self.contact_names) + self._n_prev_actions * actions_dim
+        obs_dim = 18 + n_jnts + n_contacts + self._n_prev_actions * actions_dim
 
         episode_timeout_lb = 4096 # episode timeouts (including env substepping when action_repeat>1)
         episode_timeout_ub = 8192
@@ -71,7 +72,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._task_err_weights[0, 2] = 1e-6
         self._task_err_weights[0, 3] = 1e-6
         self._task_err_weights[0, 4] = 1e-6
-        self._task_err_weights[0, 5] = 1e-6
+        self._task_err_weights[0, 5] = 0.2
         self._task_err_weights_sum = torch.sum(self._task_err_weights).item()
 
         self._rhc_cnstr_viol_weight = 1.0
@@ -82,7 +83,19 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # self._rhc_cost_scale = 1e-2 * 1e-3
         self._rhc_cost_scale = 1e-2 * 5e-3
 
-        self._rhc_step_var_scale = 1
+        # power penalty
+        self._power_weight = 1.0
+        self._power_scale = 1e-3
+        self._power_penalty_weights = torch.full((1, n_jnts), dtype=dtype, device=device,
+                            fill_value=1.0)
+        n_jnts_per_limb = round(n_jnts/n_contacts) # assuming same topology along limbs
+        pow_weights_along_limb = [1.0] * n_jnts_per_limb
+        pow_weights_along_limb[0] = 1.0
+        pow_weights_along_limb[1] = 1.0
+        pow_weights_along_limb[2] = 1.0
+        for i in range(round(n_jnts/n_contacts)):
+            self._power_penalty_weights[0, i*n_contacts:(n_contacts*(i+1))] = pow_weights_along_limb[i]
+        self._power_penalty_weights_sum = torch.sum(self._power_penalty_weights).item()
 
         self._twist_ref_lb = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=-0.8) 
@@ -98,10 +111,13 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # angular vel
         self._twist_ref_lb[0, 3] = 0.0
         self._twist_ref_lb[0, 4] = 0.0
-        self._twist_ref_lb[0, 5] = 0.0
+        self._twist_ref_lb[0, 5] = -1.5
         self._twist_ref_ub[0, 3] = 0.0
         self._twist_ref_ub[0, 4] = 0.0
-        self._twist_ref_ub[0, 5] = 0.0
+        self._twist_ref_ub[0, 5] = 1.5
+
+        self._rhc_step_var_scale = 1
+
 
         self._this_child_path = os.path.abspath(__file__)
 
@@ -233,6 +249,10 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             (torch.sum(task_weights).item())
         return task_error_perc
     
+    def _mech_power_penalty(self, jnts_vel, jnts_effort):
+        tot_weighted_power = torch.sum((jnts_effort*jnts_vel)*self._power_penalty_weights, dim=1, keepdim=True)/self._power_penalty_weights_sum
+        return tot_weighted_power
+    
     def _task_err_quad(self, task_ref, task_meas):
         task_error = (task_ref-task_meas)
         task_wmse = torch.sum((task_error*task_error)*self._task_err_weights, dim=1, keepdim=True)/self._task_err_weights_sum
@@ -275,10 +295,17 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # task_error_wmse = self._task_err_quad(task_meas=task_meas, task_ref=task_ref)
         task_error_pseudolin = self._task_err_pseudolin(task_meas=task_meas, task_ref=task_ref)
 
+        # mech power
+        jnts_vel = self._robot_state.jnts_state.get(data_type="v",gpu=self._use_gpu)
+        jnts_effort = self._robot_state.jnts_state.get(data_type="eff",gpu=self._use_gpu)
+        weighted_mech_power = self._mech_power_penalty(jnts_vel=jnts_vel, 
+                                            jnts_effort=jnts_effort)
+
         sub_rewards = self._rewards.get_torch_mirror(gpu=self._use_gpu)
         sub_rewards[:, 0:1] = self._task_weight * (1.0 - self._task_scale * task_error_pseudolin)
         sub_rewards[:, 1:2] = self._rhc_cnstr_viol_weight * (1.0 - cnstr_viol)
         sub_rewards[:, 2:3] = self._rhc_cost_weight * (1.0 - rhc_cost)
+        sub_rewards[:, 3:4] = self._power_weight * (1.0 - self._power_scale * weighted_mech_power)
         
     def _randomize_refs(self,
                 env_indxs: torch.Tensor = None):
@@ -349,11 +376,12 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
     def _get_rewards_names(self):
 
-        n_rewards = 3
+        n_rewards = 4
         reward_names = [""] * n_rewards
 
         reward_names[0] = "task_error"
         reward_names[1] = "rhc_const_viol"
         reward_names[2] = "rhc_cost"
+        reward_names[3] = "mech_power"
 
         return reward_names
