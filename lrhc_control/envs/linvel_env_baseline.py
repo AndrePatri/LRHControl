@@ -1,6 +1,7 @@
 from lrhc_control.utils.sys_utils import PathsGetter
 from lrhc_control.envs.lrhc_training_env_base import LRhcTrainingEnvBase
 from control_cluster_bridge.utilities.shared_data.rhc_data import RobotState, RhcStatus
+from control_cluster_bridge.utilities.math_utils_torch import world2base_frame, base2world_frame, w2hor_frame
 
 import torch
 
@@ -19,6 +20,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             use_gpu: bool = True,
             dtype: torch.dtype = torch.float32,
             debug: bool = True):
+        
+        self._use_horizontal_frame_for_refs = True 
+        self._use_local_base_meas = True
 
         # temporarily creating robot state client to get n jnts
         robot_state_tmp = RobotState(namespace=namespace,
@@ -118,7 +122,6 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         self._rhc_step_var_scale = 1
 
-
         self._this_child_path = os.path.abspath(__file__)
 
         super().__init__(namespace=namespace,
@@ -158,6 +161,11 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         task_perc_error = EpisodicData("TaskPercError", self._task_error_perc(gpu=False), ["percentage"])
         self._add_custom_db_info(db_data=step_idx_data)
         self._add_custom_db_info(db_data=task_perc_error)
+
+        # some aux data to avoid allocations at training runtime
+        self._robot_twist_meas_h = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu).copy()
+        self._robot_twist_meas_b = self._robot_twist_meas_h.copy()
+        self._agent_twist_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu).copy()
 
     def get_file_paths(self):
 
@@ -327,7 +335,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         obs_names[1] = "q_i"
         obs_names[2] = "q_j"
         obs_names[3] = "q_k"
-        obs_names[4] = "lin_vel_x"
+        obs_names[4] = "lin_vel_x" # local base frame
         obs_names[5] = "lin_vel_y"
         obs_names[6] = "lin_vel_z"
         obs_names[7] = "omega_x"
@@ -337,7 +345,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         for i in range(self._n_jnts): # jnt obs (pos):
             obs_names[10 + i] = f"{jnt_names[i]}"
         restart_idx = 9 + self._n_jnts
-        obs_names[restart_idx + 1] = "lin_vel_x_ref"
+        obs_names[restart_idx + 1] = "lin_vel_x_ref" # specified in the "horizontal frame"
         obs_names[restart_idx + 2] = "lin_vel_y_ref"
         obs_names[restart_idx + 3] = "lin_vel_z_ref"
         obs_names[restart_idx + 4] = "omega_x_ref"
@@ -361,7 +369,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
     def _get_action_names(self):
 
         action_names = [""] * self.actions_dim()
-        action_names[0] = "vx_cmd"
+        action_names[0] = "vx_cmd" # twist commands from agent to RHC controller are in the "horizontal" frame
         action_names[1] = "vy_cmd"
         action_names[2] = "h_cmd"
         action_names[3] = "roll_twist_cmd"
