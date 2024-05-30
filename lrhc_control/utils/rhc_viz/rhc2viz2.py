@@ -2,6 +2,8 @@ from rhcviz.utils.handshake import RHCVizHandshake
 from rhcviz.utils.namings import NamingConventions
 from rhcviz.utils.string_list_encoding import StringArray
 
+from lrhc_control.controllers.rhc.horizon_based.utils.math_utils import hor2w_frame
+
 from control_cluster_bridge.utilities.shared_data.rhc_data import RobotState
 from control_cluster_bridge.utilities.shared_data.rhc_data import RhcRefs
 from control_cluster_bridge.utilities.shared_data.rhc_data import RhcInternal
@@ -37,8 +39,11 @@ class RhcToViz2Bridge:
             verbose = False,
             rhcviz_basename = "RHCViz",
             robot_selector: List = [0, None],
-            with_agent_refs = False):
+            with_agent_refs = False,
+            refs_in_hor_frame: bool = False):
 
+        self._refs_in_hor_frame = refs_in_hor_frame
+        
         self._robot_selector = robot_selector
 
         self._with_agent_refs = with_agent_refs
@@ -385,13 +390,31 @@ class RhcToViz2Bridge:
         # rhc refs
         rhc_ref_pose = self.rhc_refs.rob_refs.root_state.get(data_type="q_full",robot_idxs=self._current_index)
         rhc_ref_twist= self.rhc_refs.rob_refs.root_state.get(data_type="twist",robot_idxs=self._current_index)
-        rhc_refs = np.concatenate((rhc_ref_pose, rhc_ref_twist), axis=0)
-
+        
+        if self._refs_in_hor_frame:
+            rhc_ref_twist_h = rhc_ref_twist.copy().reshape(-1, 1)
+            hor2w_frame(t_h=rhc_ref_twist.reshape(-1, 1), 
+                        q_b=self.robot_state.root_state.get(data_type="q",
+                        robot_idxs=self._current_index).reshape(-1, 1), 
+                        t_out=rhc_ref_twist_h)
+            rhc_refs = np.concatenate((rhc_ref_pose, rhc_ref_twist_h.flatten()), axis=0)
+        else:
+            rhc_refs = np.concatenate((rhc_ref_pose, rhc_ref_twist), axis=0)
         # high lev refs
         if self._with_agent_refs:
-            hl_ref_pose = self.agent_refs.rob_refs.root_state.get(data_type="q_full",robot_idxs=self._current_index)
-            hl_ref_twist= self.agent_refs.rob_refs.root_state.get(data_type="twist",robot_idxs=self._current_index)
-            hl_refs = np.concatenate((hl_ref_pose, hl_ref_twist), axis=0)
+            if self._refs_in_hor_frame:
+                hl_ref_pose = self.agent_refs.rob_refs.root_state.get(data_type="q_full",robot_idxs=self._current_index)
+                hl_ref_twist= self.agent_refs.rob_refs.root_state.get(data_type="twist",robot_idxs=self._current_index)
+                agent_ref_twist_h = hl_ref_twist.copy().reshape(-1, 1)
+                hor2w_frame(t_h=hl_ref_twist.reshape(-1, 1), 
+                        q_b=self.robot_state.root_state.get(data_type="q",
+                        robot_idxs=self._current_index).reshape(-1, 1), 
+                        t_out=agent_ref_twist_h)
+                hl_refs = np.concatenate((hl_ref_pose, agent_ref_twist_h), axis=0)
+            else:
+                hl_ref_pose = self.agent_refs.rob_refs.root_state.get(data_type="q_full",robot_idxs=self._current_index)
+                hl_ref_twist= self.agent_refs.rob_refs.root_state.get(data_type="twist",robot_idxs=self._current_index)
+                hl_refs = np.concatenate((hl_ref_pose, hl_ref_twist), axis=0)
 
         if not self._contains_nan(rhc_q):
             self.rhc_q_pub.publish(Float64MultiArray(data=rhc_q))
