@@ -79,7 +79,7 @@ class HybridQuadRhcRefs(RhcRefs):
                 LogType.EXCEP,
                 throw_when_excep = True)
                         
-    def step(self):
+    def step(self, q_base: np.ndarray = None):
         
         if self.is_running():
             
@@ -120,7 +120,7 @@ class HybridQuadRhcRefs(RhcRefs):
                     throw_when_excep = True)
                 
             # updated internal references with latest available ones
-            self._apply_refs_to_tasks()
+            self._apply_refs_to_tasks(q_base=q_base)
             
             self._step_idx +=1
         
@@ -132,7 +132,7 @@ class HybridQuadRhcRefs(RhcRefs):
                 LogType.EXCEP,
                 throw_when_excep = True)
     
-    def _apply_refs_to_tasks(self):
+    def _apply_refs_to_tasks(self, q_base = None):
         # can be overridden by child
         base_q_full_ref = self.rob_refs.root_state.get(data_type = "q_full", 
                                     robot_idxs=self.robot_index_np).reshape(-1, 1)

@@ -418,8 +418,8 @@ class HybridQuadRhc(RHController):
             # initial conditions using robot measurements
     
         self._pm.shift() # shifts phases of one dt
-        self.rhc_refs.step() # updates rhc references
-        # with the latests available data on shared memory
+        self.rhc_refs.step(q_base=self.robot_state.root_state.get(data_type="q", 
+                                                    robot_idxs=self.controller_index).reshape(-1, 1))
             
         try:
             converged = self._ti.rti() # solves the problem
@@ -442,7 +442,8 @@ class HybridQuadRhc(RHController):
         self._prb_update_time = time.perf_counter() 
         self._pm.shift() # shifts phases of one dt
         self._phase_shift_time = time.perf_counter() 
-        self.rhc_refs.step() # updates rhc references
+        self.rhc_refs.step(q_base=self.robot_state.root_state.get(data_type="q", 
+                        robot_idxs=self.controller_index).reshape(-1, 1)) # updates rhc references
         self._task_ref_update_time = time.perf_counter() 
             
         try:
