@@ -30,8 +30,11 @@ class HybridQuadRhc(RHController):
             open_loop: bool = True,
             dtype = np.float32,
             verbose = False, 
-            debug = False
+            debug = False,
+            refs_in_hor_frame = True
             ):
+
+        self._refs_in_hor_frame = refs_in_hor_frame
 
         self._injection_node = injection_node
 
@@ -418,8 +421,11 @@ class HybridQuadRhc(RHController):
             # initial conditions using robot measurements
     
         self._pm.shift() # shifts phases of one dt
-        self.rhc_refs.step(q_base=self.robot_state.root_state.get(data_type="q", 
+        if self._refs_in_hor_frame:
+            self.rhc_refs.step(q_base=self.robot_state.root_state.get(data_type="q", 
                                                     robot_idxs=self.controller_index).reshape(-1, 1))
+        else:
+            self.rhc_refs.step()
             
         try:
             converged = self._ti.rti() # solves the problem
@@ -441,9 +447,13 @@ class HybridQuadRhc(RHController):
         
         self._prb_update_time = time.perf_counter() 
         self._pm.shift() # shifts phases of one dt
-        self._phase_shift_time = time.perf_counter() 
-        self.rhc_refs.step(q_base=self.robot_state.root_state.get(data_type="q", 
-                        robot_idxs=self.controller_index).reshape(-1, 1)) # updates rhc references
+        self._phase_shift_time = time.perf_counter()
+        if self._refs_in_hor_frame:
+            self.rhc_refs.step(q_base=self.robot_state.root_state.get(data_type="q", 
+                            robot_idxs=self.controller_index).reshape(-1, 1)) # updates rhc references
+        else:
+            self.rhc_refs.step()
+             
         self._task_ref_update_time = time.perf_counter() 
             
         try:
