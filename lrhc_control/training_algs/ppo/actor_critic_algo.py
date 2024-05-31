@@ -381,7 +381,9 @@ class ActorCriticAlgoBase():
                 for subname in subnames:
                     var_name = db_dname + "_" + subname
                     hf.create_dataset(var_name, data=data[subname])
-
+            db_info_names = list(self._env.custom_db_info.keys())
+            for db_info in db_info_names:
+                hf.create_dataset(db_info, data=self._env.custom_db_info[db_info])
         info = f"done."
         Journal.log(self.__class__.__name__,
             "_dump_dbinfo_to_file",

@@ -37,9 +37,11 @@ class RhcToVizBridge:
             rhcviz_basename = "RHCViz",
             robot_selector: List = [0, None],
             with_agent_refs = False,
-            refs_in_hor_frame: bool = False):
+            rhc_refs_in_h_frame: bool = False,
+            agent_refs_in_h_frame: bool = False):
 
-        self._refs_in_hor_frame = refs_in_hor_frame
+        self._rhc_refs_in_hor_frame = rhc_refs_in_h_frame
+        self._agent_refs_in_h_frame = agent_refs_in_h_frame
 
         self._robot_selector = robot_selector
 
@@ -377,7 +379,7 @@ class RhcToVizBridge:
         rhc_ref_pose = self.rhc_refs.rob_refs.root_state.get(data_type="q_full",robot_idxs=self._current_index)
         rhc_ref_twist= self.rhc_refs.rob_refs.root_state.get(data_type="twist",robot_idxs=self._current_index)
         
-        if self._refs_in_hor_frame:
+        if self._rhc_refs_in_hor_frame:
             rhc_ref_twist_h = rhc_ref_twist.copy().reshape(-1, 1)
             hor2w_frame(t_h=rhc_ref_twist.reshape(-1, 1), 
                         q_b=self.robot_state.root_state.get(data_type="q",
@@ -388,7 +390,7 @@ class RhcToVizBridge:
 
         # high lev refs
         if self._with_agent_refs:
-            if self._refs_in_hor_frame:
+            if self._agent_refs_in_h_frame:
                 hl_ref_pose = self.agent_refs.rob_refs.root_state.get(data_type="q_full",robot_idxs=self._current_index).numpy()
                 hl_ref_twist= self.agent_refs.rob_refs.root_state.get(data_type="twist",robot_idxs=self._current_index).numpy()
                 agent_ref_twist_h = hl_ref_twist.copy().reshape(-1, 1)

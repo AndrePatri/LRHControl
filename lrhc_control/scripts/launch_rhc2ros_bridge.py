@@ -20,9 +20,10 @@ if __name__ == '__main__':
     parser.add_argument('--verbose', action='store_true', help='Enable verbose mode, default is True')
     parser.add_argument('--ros2', action='store_true', help='Enable ROS 2 mode')
     parser.add_argument('--with_agent_refs', action='store_true', help='also forward agent refs to rhcviz')
-    parser.add_argument('--refs_in_h_frame', type=bool, default=True, help='set to true if rhc and agent refs are \
+    parser.add_argument('--rhc_refs_in_h_frame', type=bool, default=True, help='set to true if rhc refs are \
                         specified in the horizontal frame')
-
+    parser.add_argument('--agent_refs_in_h_frame', type=bool, default=False, help='set to true if agent refs are \
+                        specified in the horizontal frame')
 
     args = parser.parse_args()
 
@@ -45,7 +46,8 @@ if __name__ == '__main__':
                         rhcviz_basename="RHCViz", 
                         robot_selector=[0, None],
                         with_agent_refs=args.with_agent_refs,
-                        refs_in_hor_frame=args.refs_in_h_frame)
+                        rhc_refs_in_h_frame=args.rhc_refs_in_h_frame,
+                        agent_refs_in_h_frame=args.agent_refs_in_h_frame)
     else:
 
         from lrhc_control.utils.rhc_viz.rhc2viz2 import RhcToViz2Bridge
@@ -55,6 +57,7 @@ if __name__ == '__main__':
                         rhcviz_basename="RHCViz", 
                         robot_selector=[0, None],
                         with_agent_refs=args.with_agent_refs,
-                        refs_in_hor_frame=args.refs_in_h_frame)
+                        rhc_refs_in_h_frame=args.rhc_refs_in_h_frame,
+                        agent_refs_in_h_frame=args.agent_refs_in_h_frame)
 
     bridge.run(update_dt=update_dt)

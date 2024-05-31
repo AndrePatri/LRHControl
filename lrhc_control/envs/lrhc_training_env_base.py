@@ -57,7 +57,9 @@ class LRhcTrainingEnvBase():
         self._this_path = os.path.abspath(__file__)
 
         self.custom_db_data = None
-            
+        
+        self.custom_db_info = {}
+
         self._env_index = 0
         
         self._action_repeat = action_repeat
@@ -130,6 +132,8 @@ class LRhcTrainingEnvBase():
         self._init_terminations()
         self._init_truncations()
         
+        self._custom_post_init()
+
         # self._wait_for_sim_env()
 
         self._init_step()
@@ -244,7 +248,7 @@ class LRhcTrainingEnvBase():
         actions[:, :] = action # writes actions
         self._apply_scaling_to_actions(actions) # in place scaling and offset of actions
         
-        self._apply_actions_to_rhc() # apply agent actions to rhc controller
+        # self._apply_actions_to_rhc() # apply agent actions to rhc controller
 
         stepping_ok = True
         tot_rewards = self._tot_rewards.get_torch_mirror(gpu=self._use_gpu)
@@ -871,3 +875,6 @@ class LRhcTrainingEnvBase():
                 env_indxs: torch.Tensor = None):
         
         pass
+
+    def _custom_post_init(self):
+        pass 

@@ -21,9 +21,10 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             dtype: torch.dtype = torch.float32,
             debug: bool = True):
         
-        self._use_horizontal_frame_for_refs = True 
-        self._use_local_base_meas = True
-
+        self._add_last_action_to_obs = False
+        self._use_horizontal_frame_for_refs = False # usually impractical for task rand to set this to True 
+        self._use_local_base_frame = True
+        
         # temporarily creating robot state client to get n jnts
         robot_state_tmp = RobotState(namespace=namespace,
                                 is_server=False, 
@@ -53,7 +54,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         action_repeat = 1
         actions_dim = 2 + 1 + 3 + 4 # [vxy_cmd, h_cmd, twist_cmd, dostep_0, dostep_1, dostep_2, dostep_3]
 
-        self._n_prev_actions = 1
+        self._n_prev_actions = 1 if self._add_last_action_to_obs else 0
         obs_dim = 18 + n_jnts + n_contacts + self._n_prev_actions * actions_dim
 
         episode_timeout_lb = 4096 # episode timeouts (including env substepping when action_repeat>1)
@@ -158,13 +159,18 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         # custom db info 
         step_idx_data = EpisodicData("ContactIndex", self._rhc_step_var(gpu=False), self.contact_names)
-        task_perc_error = EpisodicData("TaskPercError", self._task_error_perc(gpu=False), ["percentage"])
         self._add_custom_db_info(db_data=step_idx_data)
-        self._add_custom_db_info(db_data=task_perc_error)
+        
+        # other static db info 
+        self.custom_db_info["add_last_action_to_obs"] = self._add_last_action_to_obs
+        self.custom_db_info["use_horizontal_frame_for_refs"] = self._use_horizontal_frame_for_refs
+        self.custom_db_info["use_local_base_frame"] = self._use_local_base_frame
 
+    def _custom_post_init(self):
         # some aux data to avoid allocations at training runtime
         self._robot_twist_meas_h = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu).clone()
         self._robot_twist_meas_b = self._robot_twist_meas_h.clone()
+        self._robot_twist_meas_w = self._robot_twist_meas_h.clone()
         self._agent_twist_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu).clone()
 
     def get_file_paths(self):
@@ -222,40 +228,28 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         agent_twist_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu)
 
         obs_tensor[:, 0:4] = robot_q_meas # [w, i, j, k] (IsaacSim convention)
-        obs_tensor[:, 4:10] = robot_twist_meas
+        if self._use_local_base_frame: # measurement from world to local base link
+            world2base_frame(t_w=robot_twist_meas,q_b=robot_q_meas,t_out=self._robot_twist_meas_b)
+            obs_tensor[:, 4:10] = self._robot_twist_meas_b
+        else:
+            obs_tensor[:, 4:10] = robot_twist_meas
         obs_tensor[:, 10:(10+self._n_jnts)] = robot_jnt_q_meas
-        obs_tensor[:, (10+self._n_jnts):((10+self._n_jnts)+6)] = agent_twist_ref
+        obs_tensor[:, (10+self._n_jnts):((10+self._n_jnts)+6)] = agent_twist_ref # high lev agent ref (local base if self._use_local_base_frame)
         obs_tensor[:, ((10+self._n_jnts)+6):((10*self._n_jnts)+6+1)] = self._rhc_const_viol(gpu=self._use_gpu)
         obs_tensor[:, ((10+self._n_jnts)+6+1):((10+self._n_jnts)+6+2)] = self._rhc_cost(gpu=self._use_gpu)
         obs_tensor[:, ((10+self._n_jnts)+6+2):((10+self._n_jnts)+6+2+len(self.contact_names))] = self._rhc_step_var(gpu=self._use_gpu)
         
-        # adding last action to obs
-        next_idx = (10+self._n_jnts)+6+2+len(self.contact_names)
-        last_actions = self._actions.get_torch_mirror(gpu=self._use_gpu)
-        obs_tensor[:, next_idx:(next_idx+self._n_prev_actions*self.actions_dim())] = last_actions
+        # adding last action to obs at the back of the obs tensor
+        if self._add_last_action_to_obs:
+            next_idx = (10+self._n_jnts)+6+2+len(self.contact_names)
+            last_actions = self._actions.get_torch_mirror(gpu=self._use_gpu)
+            obs_tensor[:, next_idx:(next_idx+self._n_prev_actions*self.actions_dim())] = last_actions
     
     def _get_custom_db_data(self, 
             episode_finished):
         
         self.custom_db_data["ContactIndex"].update(new_data=self._rhc_step_var(gpu=False), 
                                     ep_finished=episode_finished.cpu())
-        # self.custom_db_data["TaskPercError"].update(new_data=self._task_error_perc(gpu=False), 
-        #                             ep_finished=episode_finished.cpu())
-    
-    def _task_error_perc(self, gpu: bool):
-        # weighted average of the current task error percentage (wrt the reference)
-        # computed over the task dimensions
-        next_obs = self._next_obs.get_torch_mirror(gpu=gpu)
-        if not gpu:
-            task_weights = self._task_err_weights.cpu()
-        else:
-            task_weights = self._task_err_weights
-        task_meas = next_obs[:, 4:10]
-        task_ref = next_obs[:, (10+self._n_jnts):((10+self._n_jnts)+6)]
-
-        task_error_perc = torch.sum((task_meas-task_ref)/(task_ref*task_weights+1e-6), dim=1, keepdim=True)/ \
-            (torch.sum(task_weights).item())
-        return task_error_perc
     
     def _mech_power_penalty(self, jnts_vel, jnts_effort):
         tot_weighted_power = torch.sum((jnts_effort*jnts_vel)*self._power_penalty_weights, dim=1, keepdim=True)/self._power_penalty_weights_sum
@@ -295,14 +289,29 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     obs: torch.Tensor):
         
         # task error
-        task_meas = obs[:, 4:10] # robot twist meas
-        task_ref = obs[:, (10+self._n_jnts):((10+self._n_jnts)+6)] # robot hybrid twist refs
+        task_meas = obs[:, 4:10] # robot twist meas (local base if _use_local_base_frame)
+        task_ref = obs[:, (10+self._n_jnts):((10+self._n_jnts)+6)] # high level agent refs (hybrid twist)
+        # task_error_wmse = self._task_err_quad(task_meas=task_meas, task_ref=task_ref)
+        if self._use_local_base_frame and self._use_horizontal_frame_for_refs:
+           base2world_frame(t_b=task_meas,q_b=obs[:, 0:4],t_out=self._robot_twist_meas_w)
+           w2hor_frame(t_w=self._robot_twist_meas_w,q_b=obs[:, 0:4],t_out=self._robot_twist_meas_h)
+           task_error_pseudolin = self._task_err_pseudolin(task_meas=self._robot_twist_meas_h, 
+                                                task_ref=task_ref)
+        elif self._use_local_base_frame and not self._use_horizontal_frame_for_refs:
+            base2world_frame(t_b=task_meas,q_b=obs[:, 0:4],t_out=self._robot_twist_meas_w)
+            task_error_pseudolin = self._task_err_pseudolin(task_meas=self._robot_twist_meas_w, 
+                                                task_ref=task_ref)
+        elif not self._use_local_base_frame and self._use_horizontal_frame_for_refs:
+            w2hor_frame(t_w=task_meas,q_b=obs[:, 0:4],t_out=self._robot_twist_meas_h)
+            task_error_pseudolin = self._task_err_pseudolin(task_meas=self._robot_twist_meas_h, 
+                                                task_ref=task_ref)
+        else: # all in world frame
+            task_error_pseudolin = self._task_err_pseudolin(task_meas=task_meas, 
+                                                task_ref=task_ref)
+
         cnstr_viol = obs[:, ((10+self._n_jnts)+6):((10+self._n_jnts)+6+1)]
         rhc_cost = obs[:, ((10+self._n_jnts)+6+1):((10+self._n_jnts)+6+2)]
-
-        # task_error_wmse = self._task_err_quad(task_meas=task_meas, task_ref=task_ref)
-        task_error_pseudolin = self._task_err_pseudolin(task_meas=task_meas, task_ref=task_ref)
-
+        
         # mech power
         jnts_vel = self._robot_state.jnts_state.get(data_type="v",gpu=self._use_gpu)
         jnts_effort = self._robot_state.jnts_state.get(data_type="eff",gpu=self._use_gpu)
