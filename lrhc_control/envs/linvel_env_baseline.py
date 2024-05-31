@@ -21,10 +21,12 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             dtype: torch.dtype = torch.float32,
             debug: bool = True):
         
+        action_repeat = 1
+
         self._add_last_action_to_obs = False
         self._use_horizontal_frame_for_refs = False # usually impractical for task rand to set this to True 
         self._use_local_base_frame = True
-        
+
         # temporarily creating robot state client to get n jnts
         robot_state_tmp = RobotState(namespace=namespace,
                                 is_server=False, 
@@ -51,7 +53,6 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         robot_state_tmp.close()
         rhc_status_tmp.close()
 
-        action_repeat = 1
         actions_dim = 2 + 1 + 3 + 4 # [vxy_cmd, h_cmd, twist_cmd, dostep_0, dostep_1, dostep_2, dostep_3]
 
         self._n_prev_actions = 1 if self._add_last_action_to_obs else 0
@@ -235,13 +236,15 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             obs_tensor[:, 4:10] = robot_twist_meas
         obs_tensor[:, 10:(10+self._n_jnts)] = robot_jnt_q_meas
         obs_tensor[:, (10+self._n_jnts):((10+self._n_jnts)+6)] = agent_twist_ref # high lev agent ref (local base if self._use_local_base_frame)
-        obs_tensor[:, ((10+self._n_jnts)+6):((10*self._n_jnts)+6+1)] = self._rhc_const_viol(gpu=self._use_gpu)
-        obs_tensor[:, ((10+self._n_jnts)+6+1):((10+self._n_jnts)+6+2)] = self._rhc_cost(gpu=self._use_gpu)
-        obs_tensor[:, ((10+self._n_jnts)+6+2):((10+self._n_jnts)+6+2+len(self.contact_names))] = self._rhc_step_var(gpu=self._use_gpu)
-        
+
+        next_idx = (10+self._n_jnts)+6
+        obs_tensor[:, next_idx:(next_idx+len(self.contact_names))] = self._rhc_step_var(gpu=self._use_gpu)
+        obs_tensor[:, (next_idx+len(self.contact_names)):(next_idx+len(self.contact_names)+1)] = self._rhc_const_viol(gpu=self._use_gpu)
+        obs_tensor[:, (next_idx+len(self.contact_names)+1):(next_idx+len(self.contact_names)+2)] = self._rhc_cost(gpu=self._use_gpu)
+
         # adding last action to obs at the back of the obs tensor
         if self._add_last_action_to_obs:
-            next_idx = (10+self._n_jnts)+6+2+len(self.contact_names)
+            next_idx = next_idx+len(self.contact_names)+2
             last_actions = self._actions.get_torch_mirror(gpu=self._use_gpu)
             obs_tensor[:, next_idx:(next_idx+self._n_prev_actions*self.actions_dim())] = last_actions
     
@@ -307,10 +310,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                                                 task_ref=task_ref)
         else: # all in world frame
             task_error_pseudolin = self._task_err_pseudolin(task_meas=task_meas, 
-                                                task_ref=task_ref)
-
-        cnstr_viol = obs[:, ((10+self._n_jnts)+6):((10+self._n_jnts)+6+1)]
-        rhc_cost = obs[:, ((10+self._n_jnts)+6+1):((10+self._n_jnts)+6+2)]
+                                                task_ref=task_ref) 
         
         # mech power
         jnts_vel = self._robot_state.jnts_state.get(data_type="v",gpu=self._use_gpu)
@@ -320,9 +320,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         sub_rewards = self._rewards.get_torch_mirror(gpu=self._use_gpu)
         sub_rewards[:, 0:1] = self._task_weight * (1.0 - self._task_scale * task_error_pseudolin)
-        sub_rewards[:, 1:2] = self._rhc_cnstr_viol_weight * (1.0 - cnstr_viol)
-        sub_rewards[:, 2:3] = self._rhc_cost_weight * (1.0 - rhc_cost)
-        sub_rewards[:, 3:4] = self._power_weight * (1.0 - self._power_scale * weighted_mech_power)
+        sub_rewards[:, 1:2] = self._power_weight * (1.0 - self._power_scale * weighted_mech_power)
+        sub_rewards[:, 2:3] = self._rhc_cnstr_viol_weight * (1.0 - self._rhc_const_viol(gpu=self._use_gpu))
+        sub_rewards[:, 3:4] = self._rhc_cost_weight * (1.0 - self._rhc_cost(gpu=self._use_gpu))
         
     def _randomize_refs(self,
                 env_indxs: torch.Tensor = None):
@@ -360,13 +360,15 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         obs_names[restart_idx + 4] = "omega_x_ref"
         obs_names[restart_idx + 5] = "omega_y_ref"
         obs_names[restart_idx + 6] = "omega_z_ref"
-        obs_names[restart_idx + 7] = "rhc_const_viol"
-        obs_names[restart_idx + 8] = "rhc_cost"
+        
         i = 0
         for contact in self.contact_names:
-            obs_names[restart_idx + 9 + i] = f"step_var_{contact}"
+            obs_names[restart_idx + 7 + i] = f"step_var_{contact}"
             i+=1
-            next_idx = restart_idx + 9 + i
+            next_idx = restart_idx + 7 + i
+        
+        obs_names[restart_idx + 8] = "rhc_const_viol"
+        obs_names[restart_idx + 9] = "rhc_cost"
 
         action_names = self._get_action_names()
         for pre_t_idx in range(self._n_prev_actions):
@@ -378,7 +380,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
     def _get_action_names(self):
 
         action_names = [""] * self.actions_dim()
-        action_names[0] = "vx_cmd" # twist commands from agent to RHC controller are in the "horizontal" frame
+        action_names[0] = "vx_cmd" # twist commands from agent to RHC controller
         action_names[1] = "vy_cmd"
         action_names[2] = "h_cmd"
         action_names[3] = "roll_twist_cmd"
@@ -397,8 +399,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         reward_names = [""] * n_rewards
 
         reward_names[0] = "task_error"
-        reward_names[1] = "rhc_const_viol"
-        reward_names[2] = "rhc_cost"
-        reward_names[3] = "mech_power"
+        reward_names[1] = "mech_power"
+        reward_names[2] = "rhc_const_viol"
+        reward_names[3] = "rhc_cost"
 
         return reward_names
