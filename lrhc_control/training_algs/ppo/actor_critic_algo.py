@@ -105,7 +105,7 @@ class ActorCriticAlgoBase():
                         actions_dim=self._env.actions_dim(),
                         actor_std=0.01,
                         critic_std=1.0,
-                        norm_obs=True,
+                        norm_obs=False,
                         device=self._torch_device,
                         dtype=self._dtype,
                         is_eval=self._eval)
@@ -743,7 +743,7 @@ class ActorCriticAlgoBase():
 
         # main algo settings
         self._iterations_n = 3000 # number of ppo iterations
-        self._batch_size_nom = 8192 # 32768
+        self._batch_size_nom = 16384 # 32768
         self._batch_size_nom = self._batch_size_nom // self._env_n_action_reps # correct with n of action reps
         self._num_minibatches = 8
         self._rollout_timesteps = self._batch_size_nom // self._num_envs
