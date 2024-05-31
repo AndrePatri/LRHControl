@@ -163,9 +163,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._add_custom_db_info(db_data=task_perc_error)
 
         # some aux data to avoid allocations at training runtime
-        self._robot_twist_meas_h = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu).copy()
-        self._robot_twist_meas_b = self._robot_twist_meas_h.copy()
-        self._agent_twist_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu).copy()
+        self._robot_twist_meas_h = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu).clone()
+        self._robot_twist_meas_b = self._robot_twist_meas_h.clone()
+        self._agent_twist_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu).clone()
 
     def get_file_paths(self):
 
