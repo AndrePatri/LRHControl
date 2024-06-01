@@ -24,6 +24,7 @@ if __name__ == '__main__':
                         specified in the horizontal frame')
     parser.add_argument('--agent_refs_in_h_frame', type=bool, default=False, help='set to true if agent refs are \
                         specified in the horizontal frame')
+    parser.add_argument('--env_idx', type=int, help='env index of which data is to be published', default=-1)
 
     args = parser.parse_args()
 
@@ -58,6 +59,7 @@ if __name__ == '__main__':
                         robot_selector=[0, None],
                         with_agent_refs=args.with_agent_refs,
                         rhc_refs_in_h_frame=args.rhc_refs_in_h_frame,
-                        agent_refs_in_h_frame=args.agent_refs_in_h_frame)
+                        agent_refs_in_h_frame=args.agent_refs_in_h_frame,
+                        env_idx=args.env_idx)
 
     bridge.run(update_dt=update_dt)

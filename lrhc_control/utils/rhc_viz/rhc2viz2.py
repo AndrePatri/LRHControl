@@ -41,7 +41,11 @@ class RhcToViz2Bridge:
             robot_selector: List = [0, None],
             with_agent_refs = False,
             rhc_refs_in_h_frame: bool = False,
-            agent_refs_in_h_frame: bool = False):
+            agent_refs_in_h_frame: bool = False,
+            env_idx: int = -1):
+        
+        self._current_index = env_idx
+        self._use_static_idx = True if env_idx >= 0 else False
 
         self._rhc_refs_in_hor_frame = rhc_refs_in_h_frame
         self._agent_refs_in_h_frame = agent_refs_in_h_frame
@@ -115,8 +119,6 @@ class RhcToViz2Bridge:
         self.robot_state = None
         self.rhc_refs = None
         self.agent_refs = None
-
-        self._current_index = 0
 
         self._update_counter = 0
         self._print_frequency = 100
@@ -225,15 +227,16 @@ class RhcToViz2Bridge:
         self._check_selector()
 
         # env selector
-        self.env_index = SharedTWrapper(namespace = self.namespace,
-                basename = "EnvSelector",
-                is_server = False, 
-                verbose = True, 
-                vlevel = VLevel.V2,
-                safe = False,
-                dtype=dtype.Int)
-        
-        self.env_index.run()
+        if not self._use_static_idx:
+            self.env_index = SharedTWrapper(namespace = self.namespace,
+                    basename = "EnvSelector",
+                    is_server = False, 
+                    verbose = True, 
+                    vlevel = VLevel.V2,
+                    safe = False,
+                    dtype=dtype.Int)
+            
+            self.env_index.run()
         
         rhc_internal_config = RhcInternal.Config(is_server=False, 
                         enable_q=True)
@@ -309,9 +312,9 @@ class RhcToViz2Bridge:
         
         success = False
 
-        self.env_index.synch_all(read=True, retry=True)
-
-        self._current_index = self.env_index.get_numpy_mirror()[0, 0].item()
+        if not self._use_static_idx:
+            self.env_index.synch_all(read=True, retry=True)
+            self._current_index = self.env_index.get_numpy_mirror()[0, 0].item()
 
         if self._current_index in self._robot_indexes:
 
