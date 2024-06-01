@@ -56,8 +56,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         actions_dim = 2 + 1 + 3 + 4 # [vxy_cmd, h_cmd, twist_cmd, dostep_0, dostep_1, dostep_2, dostep_3]
 
         self._n_prev_actions = 1 if self._add_last_action_to_obs else 0
-        # obs_dim = 18 + n_jnts + n_contacts + self._n_prev_actions * actions_dim
-        obs_dim = 17 + n_jnts + n_contacts + self._n_prev_actions * actions_dim
+        obs_dim = 18 + n_jnts + n_contacts + self._n_prev_actions * actions_dim
+        # obs_dim = 17 + n_jnts + n_contacts + self._n_prev_actions * actions_dim
 
         episode_timeout_lb = 4096 # episode timeouts (including env substepping when action_repeat>1)
         episode_timeout_ub = 8192
@@ -91,7 +91,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._rhc_cost_scale = 1e-2 * 5e-3
 
         # power penalty
-        self._power_weight = 1.0
+        self._power_weight = 0.0
         self._power_scale = 5e-3
         self._power_penalty_weights = torch.full((1, n_jnts), dtype=dtype, device=device,
                             fill_value=1.0)
@@ -104,6 +104,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             self._power_penalty_weights[0, i*n_contacts:(n_contacts*(i+1))] = pow_weights_along_limb[i]
         self._power_penalty_weights_sum = torch.sum(self._power_penalty_weights).item()
 
+        # task rand
         self._twist_ref_lb = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=-0.8) 
         self._twist_ref_ub = torch.full((1, 6), dtype=dtype, device=device,
@@ -144,12 +145,12 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     debug=debug)
 
         # overriding parent's defaults 
-        self._reward_thresh_lb[:, 0] = -10 
-        self._reward_thresh_lb[:, 1] = -10
+        self._reward_thresh_lb[:, 0] = -1
+        self._reward_thresh_lb[:, 1] = -1
         self._reward_thresh_lb[:, 2] = -1
         self._reward_thresh_lb[:, 3] = -1
-        self._reward_thresh_ub[:, 0] = 10 
-        self._reward_thresh_ub[:, 1] = 10 
+        self._reward_thresh_ub[:, 0] = 1
+        self._reward_thresh_ub[:, 1] = 1
         self._reward_thresh_ub[:, 2] = 1 
         self._reward_thresh_ub[:, 3] = 1 
 
