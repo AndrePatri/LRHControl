@@ -88,6 +88,6 @@ class RunningNormalizer(th.nn.Module):
         self.register_buffer("vec_running_count", self._running_stats.count)
 
     def forward(self, x):
-        if self.training and not self._freeze_stats:
+        if not self._freeze_stats:
             self._running_stats.update(x)
         return (x - self._running_stats.mean)/(th.sqrt(self._running_stats.var)+self._epsilon)
