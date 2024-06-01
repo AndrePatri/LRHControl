@@ -57,7 +57,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         self._n_prev_actions = 1 if self._add_last_action_to_obs else 0
         # obs_dim = 18 + n_jnts + n_contacts + self._n_prev_actions * actions_dim
-        obs_dim = 4+6+n_jnts+2+2+self._n_prev_actions*actions_dim
+        obs_dim = 18 + n_jnts + self._n_prev_actions * actions_dim
 
         episode_timeout_lb = 4096 # episode timeouts (including env substepping when action_repeat>1)
         episode_timeout_ub = 8192
@@ -240,9 +240,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         else:
             obs_tensor[:, 4:10] = robot_twist_meas
         obs_tensor[:, 10:(10+self._n_jnts)] = robot_jnt_q_meas
+        obs_tensor[:, (10+self._n_jnts):((10+self._n_jnts)+6)] = agent_twist_ref # high lev agent ref (local base if self._use_local_base_frame)
 
-        obs_tensor[:, (10+self._n_jnts):((10+self._n_jnts)+2)] = agent_twist_ref[:, 0:2] # high lev agent ref (local base if self._use_local_base_frame)
-        next_idx = (10+self._n_jnts)+2
+        next_idx = (10+self._n_jnts)+6
         # obs_tensor[:, next_idx:(next_idx+len(self.contact_names))] = self._rhc_step_var(gpu=self._use_gpu)
         # obs_tensor[:, (next_idx+len(self.contact_names)):(next_idx+len(self.contact_names)+1)] = self._rhc_const_viol(gpu=self._use_gpu)
         # obs_tensor[:, (next_idx+len(self.contact_names)+1):(next_idx+len(self.contact_names)+2)] = self._rhc_cost(gpu=self._use_gpu)
@@ -300,10 +300,10 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
     
     def _compute_sub_rewards(self,
                     obs: torch.Tensor):
-                
+        
         # task error
-        task_meas = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu) # robot twist meas (local base if _use_local_base_frame)
-        task_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu) # high level agent refs (hybrid twist)
+        task_meas = obs[:, 4:10] # robot twist meas (local base if _use_local_base_frame)
+        task_ref = obs[:, (10+self._n_jnts):((10+self._n_jnts)+6)] # high level agent refs (hybrid twist)
         # task_error_wmse = self._task_err_quad(task_meas=task_meas, task_ref=task_ref)
         if self._use_local_base_frame and self._use_horizontal_frame_for_refs:
            base2world_frame(t_b=task_meas,q_b=obs[:, 0:4],t_out=self._robot_twist_meas_w)
@@ -366,14 +366,18 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         restart_idx = 9 + self._n_jnts
         obs_names[restart_idx + 1] = "lin_vel_x_ref" # specified in the "horizontal frame"
         obs_names[restart_idx + 2] = "lin_vel_y_ref"
+        obs_names[restart_idx + 3] = "lin_vel_z_ref"
+        obs_names[restart_idx + 4] = "omega_x_ref"
+        obs_names[restart_idx + 5] = "omega_y_ref"
+        obs_names[restart_idx + 6] = "omega_z_ref"
         
         # i = 0
         # for contact in self.contact_names:
-        #     obs_names[restart_idx + 4 + i] = f"step_var_{contact}"
+        #     obs_names[restart_idx + 7 + i] = f"step_var_{contact}"
         #     i+=1
-        #     next_idx = restart_idx + 4 + i
+        #     next_idx = restart_idx + 7 + i
         
-        next_idx = restart_idx + 3
+        next_idx = restart_idx + 7
         obs_names[next_idx] = "rhc_const_viol"
         obs_names[next_idx + 1] = "rhc_cost"
 
