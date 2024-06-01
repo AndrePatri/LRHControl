@@ -170,10 +170,12 @@ class LRHcIsaacTask(IsaacTask):
     
     def reset(self, 
             env_indxs: torch.Tensor = None,
-            robot_names: List[str]=None):
+            robot_names: List[str]=None,
+            randomize: bool = False):
 
         super().reset(env_indxs=env_indxs, 
-                    robot_names=robot_names)
+                    robot_names=robot_names,
+                    randomize=randomize)
 
     def _step_jnt_imp_control(self,
                         robot_name: str, 

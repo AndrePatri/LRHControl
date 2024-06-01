@@ -95,7 +95,8 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                             self.reset(env_indxs=failed,
                                     robot_names=[robot_name],
                                     reset_world=False,
-                                    reset_cluster=True)
+                                    reset_cluster=True,
+                                    randomize=False)
                         # activate inactive controllers
                         control_cluster.activate_controllers(idxs=control_cluster.get_inactive_controllers())
 
@@ -296,7 +297,8 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
             robot_names: List[str]=None,
             reset_world: bool = False,
             reset_cluster: bool = False,
-            reset_counter = False):
+            reset_counter = False,
+            randomize: bool = False):
 
         if reset_cluster:
             # reset controllers remotely
@@ -305,7 +307,8 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
         if reset_world:
             self._world.reset()
         self.task.reset(env_indxs = env_indxs,
-            robot_names = robot_names) # resets articulations in sim, the meas.
+            robot_names = robot_names,
+            randomize=randomize) # resets articulations in sim, the meas.
         # states and the jnt imp controllers
         rob_names = robot_names
         if rob_names is None:
@@ -359,7 +362,8 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
             self.reset(env_indxs=to_be_reset,
                 robot_names=[robot_name],
                 reset_world=False,
-                reset_cluster=True)
+                reset_cluster=True,
+                randomize=True)
         control_cluster = self.cluster_servers[robot_name]
         control_cluster.activate_controllers(idxs=to_be_reset) # activate controllers
         # (necessary if failed)
