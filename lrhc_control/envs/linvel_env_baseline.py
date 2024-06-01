@@ -2,7 +2,7 @@ from lrhc_control.utils.sys_utils import PathsGetter
 from lrhc_control.envs.lrhc_training_env_base import LRhcTrainingEnvBase
 from control_cluster_bridge.utilities.shared_data.rhc_data import RobotState, RhcStatus
 from control_cluster_bridge.utilities.math_utils_torch import world2base_frame, base2world_frame, w2hor_frame
-from control_cluster_bridge.utilities.math_utils_torch import xversor
+
 import torch
 
 from SharsorIPCpp.PySharsorIPC import VLevel
@@ -57,7 +57,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         self._n_prev_actions = 1 if self._add_last_action_to_obs else 0
         # obs_dim = 18 + n_jnts + n_contacts + self._n_prev_actions * actions_dim
-        obs_dim = 3+6+n_jnts+2+2+self._n_prev_actions*actions_dim
+        obs_dim = 4+6+n_jnts+2+2+self._n_prev_actions*actions_dim
 
         episode_timeout_lb = 4096 # episode timeouts (including env substepping when action_repeat>1)
         episode_timeout_ub = 8192
@@ -177,7 +177,6 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._robot_twist_meas_b = self._robot_twist_meas_h.clone()
         self._robot_twist_meas_w = self._robot_twist_meas_h.clone()
         self._agent_twist_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu).clone()
-        self._xversor = self._robot_state.root_state.get(data_type="v",gpu=self._use_gpu).clone() # versor has 3 components
 
     def get_file_paths(self):
 
@@ -234,18 +233,16 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         robot_twist_meas = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu)
         agent_twist_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu)
 
-        xversor(q_b=robot_q_meas,vx_out=self._xversor) # extract x versor
-        obs_tensor[:, 0:3] = self._xversor
-
+        obs_tensor[:, 0:4] = robot_q_meas # [w, i, j, k] (IsaacSim convention)
         if self._use_local_base_frame: # measurement from world to local base link
             world2base_frame(t_w=robot_twist_meas,q_b=robot_q_meas,t_out=self._robot_twist_meas_b)
-            obs_tensor[:, 3:9] = self._robot_twist_meas_b
+            obs_tensor[:, 4:10] = self._robot_twist_meas_b
         else:
-            obs_tensor[:, 3:9] = robot_twist_meas
-        obs_tensor[:, 9:(9+self._n_jnts)] = robot_jnt_q_meas
+            obs_tensor[:, 4:10] = robot_twist_meas
+        obs_tensor[:, 10:(10+self._n_jnts)] = robot_jnt_q_meas
 
-        obs_tensor[:, (9+self._n_jnts):((9+self._n_jnts)+2)] = agent_twist_ref[:, 0:2] # high lev agent ref (local base if self._use_local_base_frame)
-        next_idx = (9+self._n_jnts)+2
+        obs_tensor[:, (10+self._n_jnts):((10+self._n_jnts)+2)] = agent_twist_ref[:, 0:2] # high lev agent ref (local base if self._use_local_base_frame)
+        next_idx = (10+self._n_jnts)+2
         # obs_tensor[:, next_idx:(next_idx+len(self.contact_names))] = self._rhc_step_var(gpu=self._use_gpu)
         # obs_tensor[:, (next_idx+len(self.contact_names)):(next_idx+len(self.contact_names)+1)] = self._rhc_const_viol(gpu=self._use_gpu)
         # obs_tensor[:, (next_idx+len(self.contact_names)+1):(next_idx+len(self.contact_names)+2)] = self._rhc_cost(gpu=self._use_gpu)
@@ -353,27 +350,28 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         obs_names = [""] * self.obs_dim()
 
-        obs_names[0] = "xversor_i"
-        obs_names[1] = "xversor_j"
-        obs_names[2] = "xversor_k"
-        obs_names[3] = "lin_vel_x" # local base frame
-        obs_names[4] = "lin_vel_y"
-        obs_names[5] = "lin_vel_z"
-        obs_names[6] = "omega_x"
-        obs_names[7] = "omega_y"
-        obs_names[8] = "omega_z"
+        obs_names[0] = "q_w"
+        obs_names[1] = "q_i"
+        obs_names[2] = "q_j"
+        obs_names[3] = "q_k"
+        obs_names[4] = "lin_vel_x" # local base frame
+        obs_names[5] = "lin_vel_y"
+        obs_names[6] = "lin_vel_z"
+        obs_names[7] = "omega_x"
+        obs_names[8] = "omega_y"
+        obs_names[9] = "omega_z"
         jnt_names = self._robot_state.jnt_names()
         for i in range(self._n_jnts): # jnt obs (pos):
-            obs_names[9 + i] = f"{jnt_names[i]}"
-        restart_idx = 8 + self._n_jnts
+            obs_names[10 + i] = f"{jnt_names[i]}"
+        restart_idx = 9 + self._n_jnts
         obs_names[restart_idx + 1] = "lin_vel_x_ref" # specified in the "horizontal frame"
         obs_names[restart_idx + 2] = "lin_vel_y_ref"
         
         # i = 0
         # for contact in self.contact_names:
-        #     obs_names[restart_idx + 3 + i] = f"step_var_{contact}"
+        #     obs_names[restart_idx + 4 + i] = f"step_var_{contact}"
         #     i+=1
-        #     next_idx = restart_idx + 3 + i
+        #     next_idx = restart_idx + 4 + i
         
         next_idx = restart_idx + 3
         obs_names[next_idx] = "rhc_const_viol"
