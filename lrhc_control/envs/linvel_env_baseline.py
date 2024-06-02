@@ -176,7 +176,6 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._robot_twist_meas_h = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu).clone()
         self._robot_twist_meas_b = self._robot_twist_meas_h.clone()
         self._robot_twist_meas_w = self._robot_twist_meas_h.clone()
-        self._agent_twist_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu).clone()
 
     def get_file_paths(self):
 
@@ -302,24 +301,24 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     obs: torch.Tensor):
                 
         # task error
-        task_meas = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu) # robot twist meas (local base if _use_local_base_frame)
+        # task_meas = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu) # robot twist meas (local base if _use_local_base_frame)
         task_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu) # high level agent refs (hybrid twist)
         # task_error_wmse = self._task_err_quad(task_meas=task_meas, task_ref=task_ref)
         if self._use_local_base_frame and self._use_horizontal_frame_for_refs:
-           base2world_frame(t_b=task_meas,q_b=obs[:, 0:4],t_out=self._robot_twist_meas_w)
+           base2world_frame(t_b=obs[:, 4:10],q_b=obs[:, 0:4],t_out=self._robot_twist_meas_w)
            w2hor_frame(t_w=self._robot_twist_meas_w,q_b=obs[:, 0:4],t_out=self._robot_twist_meas_h)
            task_error_pseudolin = self._task_err_pseudolin(task_meas=self._robot_twist_meas_h, 
                                                 task_ref=task_ref)
         elif self._use_local_base_frame and not self._use_horizontal_frame_for_refs:
-            base2world_frame(t_b=task_meas,q_b=obs[:, 0:4],t_out=self._robot_twist_meas_w)
+            base2world_frame(t_b=obs[:, 4:10],q_b=obs[:, 0:4],t_out=self._robot_twist_meas_w)
             task_error_pseudolin = self._task_err_pseudolin(task_meas=self._robot_twist_meas_w, 
                                                 task_ref=task_ref)
         elif not self._use_local_base_frame and self._use_horizontal_frame_for_refs:
-            w2hor_frame(t_w=task_meas,q_b=obs[:, 0:4],t_out=self._robot_twist_meas_h)
+            w2hor_frame(t_w=obs[:, 4:10],q_b=obs[:, 0:4],t_out=self._robot_twist_meas_h)
             task_error_pseudolin = self._task_err_pseudolin(task_meas=self._robot_twist_meas_h, 
                                                 task_ref=task_ref)
         else: # all in world frame
-            task_error_pseudolin = self._task_err_pseudolin(task_meas=task_meas, 
+            task_error_pseudolin = self._task_err_pseudolin(task_meas=obs[:, 4:10], 
                                                 task_ref=task_ref) 
         
         # mech power
@@ -354,7 +353,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         obs_names[1] = "q_i"
         obs_names[2] = "q_j"
         obs_names[3] = "q_k"
-        obs_names[4] = "lin_vel_x" # local base frame
+        obs_names[4] = "lin_vel_x" 
         obs_names[5] = "lin_vel_y"
         obs_names[6] = "lin_vel_z"
         obs_names[7] = "omega_x"
