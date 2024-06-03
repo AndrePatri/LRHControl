@@ -177,6 +177,10 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._robot_twist_meas_b = self._robot_twist_meas_h.clone()
         self._robot_twist_meas_w = self._robot_twist_meas_h.clone()
 
+        # task aux objs
+        device = "cuda" if self._use_gpu else "cpu"
+        self._ni_scaling = torch.zeros((self._n_envs, 1),dtype=self._dtype,device=device)
+
     def get_file_paths(self):
 
         paths = []
@@ -267,6 +271,19 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         tot_weighted_power = torch.sum((jnts_effort*jnts_vel)*self._power_penalty_weights, dim=1, keepdim=True)/self._power_penalty_weights_sum
         return tot_weighted_power
     
+    def _task_err_quadv2(self, task_ref, task_meas):
+        delta = 0.001 # [m/s]
+        ref_norm = task_ref.norm(dim=1,keepdim=True)
+        self._ni_scaling[:, :] = ref_norm
+        self._ni_scaling[ref_norm < delta] = delta
+        task_error = (task_ref-task_meas)/(self._ni_scaling)
+        task_wmse = torch.sum((task_error*task_error)*self._task_err_weights, dim=1, keepdim=True)/self._task_err_weights_sum
+        return task_wmse # weighted mean square error (along task dimension)
+    
+    def _task_err_pseudolinv2(self, task_ref, task_meas):
+        task_wmse = self._task_err_quadv2(task_ref=task_ref, task_meas=task_meas)
+        return task_wmse.sqrt()
+    
     def _task_err_quad(self, task_ref, task_meas):
         task_error = (task_ref-task_meas)
         task_wmse = torch.sum((task_error*task_error)*self._task_err_weights, dim=1, keepdim=True)/self._task_err_weights_sum
@@ -299,7 +316,10 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
     
     def _compute_sub_rewards(self,
                     obs: torch.Tensor):
-                
+        
+        # task_error_fun = self._task_err_pseudolin
+        task_error_fun = self._task_err_pseudolinv2
+
         # task error
         # task_meas = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu) # robot twist meas (local base if _use_local_base_frame)
         task_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu) # high level agent refs (hybrid twist)
@@ -307,18 +327,18 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         if self._use_local_base_frame and self._use_horizontal_frame_for_refs:
            base2world_frame(t_b=obs[:, 4:10],q_b=obs[:, 0:4],t_out=self._robot_twist_meas_w)
            w2hor_frame(t_w=self._robot_twist_meas_w,q_b=obs[:, 0:4],t_out=self._robot_twist_meas_h)
-           task_error_pseudolin = self._task_err_pseudolin(task_meas=self._robot_twist_meas_h, 
+           task_error_pseudolin = task_error_fun(task_meas=self._robot_twist_meas_h, 
                                                 task_ref=task_ref)
         elif self._use_local_base_frame and not self._use_horizontal_frame_for_refs:
             base2world_frame(t_b=obs[:, 4:10],q_b=obs[:, 0:4],t_out=self._robot_twist_meas_w)
-            task_error_pseudolin = self._task_err_pseudolin(task_meas=self._robot_twist_meas_w, 
+            task_error_pseudolin = task_error_fun(task_meas=self._robot_twist_meas_w, 
                                                 task_ref=task_ref)
         elif not self._use_local_base_frame and self._use_horizontal_frame_for_refs:
             w2hor_frame(t_w=obs[:, 4:10],q_b=obs[:, 0:4],t_out=self._robot_twist_meas_h)
-            task_error_pseudolin = self._task_err_pseudolin(task_meas=self._robot_twist_meas_h, 
+            task_error_pseudolin = task_error_fun(task_meas=self._robot_twist_meas_h, 
                                                 task_ref=task_ref)
         else: # all in world frame
-            task_error_pseudolin = self._task_err_pseudolin(task_meas=obs[:, 4:10], 
+            task_error_pseudolin = task_error_fun(task_meas=obs[:, 4:10], 
                                                 task_ref=task_ref) 
         
         # mech power
