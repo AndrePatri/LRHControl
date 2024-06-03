@@ -169,6 +169,11 @@ class LRhcTrainingEnvBase():
 
         self._activate_rhc_controllers()
 
+        # just an auxiliary tensor
+        initial_reset_aux = self._terminations.get_torch_mirror(gpu=self._use_gpu).clone()
+        initial_reset_aux[:, :] = True # we reset all sim envs first
+        self._remote_sim_step() 
+        self._remote_reset(reset_mask=initial_reset_aux) 
         for i in range(self._n_preinit_steps): # perform some
             # dummy remote env stepping to make sure to have meaningful 
             # initializations (doesn't increment step counter)
