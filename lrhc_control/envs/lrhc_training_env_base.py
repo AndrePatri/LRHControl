@@ -1,6 +1,7 @@
 import torch
 
 from control_cluster_bridge.utilities.shared_data.rhc_data import RobotState
+from control_cluster_bridge.utilities.shared_data.rhc_data import RhcCmds
 from control_cluster_bridge.utilities.shared_data.rhc_data import RhcRefs
 from control_cluster_bridge.utilities.shared_data.rhc_data import RhcStatus
 
@@ -94,6 +95,7 @@ class LRhcTrainingEnvBase():
         self._env_name = env_name
 
         self._robot_state = None
+        self._rhc_cmds = None
         self._rhc_refs = None
         self._rhc_status = None
 
@@ -366,6 +368,7 @@ class LRhcTrainingEnvBase():
 
             # close all shared mem. clients
             self._robot_state.close()
+            self._rhc_cmds.close()
             self._rhc_refs.close()
             self._rhc_status.close()
             
@@ -606,6 +609,14 @@ class LRhcTrainingEnvBase():
                                 with_gpu_mirror=self._use_gpu,
                                 with_torch_view=True)
         
+        self._rhc_cmds = RhcCmds(namespace=self._namespace,
+                                is_server=False, 
+                                safe=self._safe_shared_mem,
+                                verbose=self._verbose,
+                                vlevel=self._vlevel,
+                                with_gpu_mirror=self._use_gpu,
+                                with_torch_view=True)
+
         self._rhc_refs = RhcRefs(namespace=self._namespace,
                             is_server=False,
                             safe=self._safe_shared_mem,
@@ -622,6 +633,7 @@ class LRhcTrainingEnvBase():
                                 with_torch_view=True)
         
         self._robot_state.run()
+        self._rhc_cmds.run()
         self._rhc_refs.run()
         self._rhc_status.run()
 
@@ -714,9 +726,11 @@ class LRhcTrainingEnvBase():
             gpu=True):
 
         # read from shared memory on CPU
-        # root link state
+        # robot state
         self._robot_state.root_state.synch_all(read = True, retry = True)
         self._robot_state.jnts_state.synch_all(read = True, retry = True)
+        # rhc cmds
+        self._rhc_cmds.contact_wrenches.synch_all(read = True, retry = True)
         # refs for root link and contacts
         self._rhc_refs.rob_refs.root_state.synch_all(read = True, retry = True)
         self._rhc_refs.contact_flags.synch_all(read = True, retry = True)
@@ -734,6 +748,7 @@ class LRhcTrainingEnvBase():
             # copies data to "mirror" on GPU
             self._robot_state.root_state.synch_mirror(from_gpu=False) # copies shared data on GPU
             self._robot_state.jnts_state.synch_mirror(from_gpu=False)
+            self._rhc_cmds.contact_wrenches.synch_mirror(from_gpu=False)
             self._rhc_refs.rob_refs.root_state.synch_mirror(from_gpu=False)
             self._rhc_refs.contact_flags.synch_mirror(from_gpu=False)
             self._rhc_status.rhc_cost.synch_mirror(from_gpu=False)
