@@ -90,8 +90,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._rhc_cost_scale = 1e-2 * 5e-3
 
         # power penalty
-        self._power_weight = 0.0
-        self._power_scale = 5e-3
+        self._power_weight = 1.0
+        self._power_scale = 0.1
         self._power_penalty_weights = torch.full((1, n_jnts), dtype=dtype, device=device,
                             fill_value=1.0)
         n_jnts_per_limb = round(n_jnts/n_contacts) # assuming same topology along limbs
@@ -111,11 +111,11 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._twist_ref_ub = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.8)
         # lin vel
-        self._twist_ref_lb[0, 0] = 0
-        self._twist_ref_lb[0, 1] = 0
+        self._twist_ref_lb[0, 0] = 0.0
+        self._twist_ref_lb[0, 1] = 0.0
         self._twist_ref_lb[0, 2] = 0.0
-        self._twist_ref_ub[0, 0] = 0
-        self._twist_ref_ub[0, 1] = 0
+        self._twist_ref_ub[0, 0] = 0.0
+        self._twist_ref_ub[0, 1] = 0.0
         self._twist_ref_ub[0, 2] = 0.0
         # angular vel
         self._twist_ref_lb[0, 3] = 0.0
@@ -146,11 +146,11 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     debug=debug)
 
         # overriding parent's defaults 
-        self._reward_thresh_lb[:, 0] = -10
+        self._reward_thresh_lb[:, 0] = -1
         self._reward_thresh_lb[:, 1] = -1
         self._reward_thresh_lb[:, 2] = -1
         self._reward_thresh_lb[:, 3] = -1
-        self._reward_thresh_ub[:, 0] = 10
+        self._reward_thresh_ub[:, 0] = 1
         self._reward_thresh_ub[:, 1] = 1
         self._reward_thresh_ub[:, 2] = 1 
         self._reward_thresh_ub[:, 3] = 1 
