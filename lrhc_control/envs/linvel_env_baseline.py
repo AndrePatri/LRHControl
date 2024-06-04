@@ -56,9 +56,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         actions_dim = 2 + 1 + 3 + 4 # [vxy_cmd, h_cmd, twist_cmd, dostep_0, dostep_1, dostep_2, dostep_3]
 
         self._n_prev_actions = 1 if self._add_last_action_to_obs else 0
-        # obs_dim = 18 + n_jnts + n_contacts + self._n_prev_actions * actions_dim
-        obs_dim = 4+6+2*n_jnts+2+2+self._n_prev_actions*actions_dim
-
+        # obs_dim = 4+6+2*n_jnts+2+2+self._n_prev_actions*actions_dim
+        obs_dim = 4+6+n_jnts+2+2+self._n_prev_actions*actions_dim
         episode_timeout_lb = 4096 # episode timeouts (including env substepping when action_repeat>1)
         episode_timeout_ub = 8192
         n_steps_task_rand_lb = 256 # agent refs randomization freq
@@ -233,7 +232,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         robot_q_meas = self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
         robot_jnt_q_meas = self._robot_state.jnts_state.get(data_type="q",gpu=self._use_gpu)
         robot_twist_meas = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu)
-        robot_jnt_v_meas = self._robot_state.jnts_state.get(data_type="v",gpu=self._use_gpu)
+        # robot_jnt_v_meas = self._robot_state.jnts_state.get(data_type="v",gpu=self._use_gpu)
         agent_twist_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu)
 
         next_idx=0
@@ -247,8 +246,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         next_idx+=6
         obs_tensor[:, next_idx:(next_idx+self._n_jnts)] = robot_jnt_q_meas
         next_idx+=self._n_jnts
-        obs_tensor[:, next_idx:(next_idx+self._n_jnts)] = robot_jnt_v_meas
-        next_idx+=self._n_jnts
+        # obs_tensor[:, next_idx:(next_idx+self._n_jnts)] = robot_jnt_v_meas
+        # next_idx+=self._n_jnts
         obs_tensor[:, next_idx:(next_idx+2)] = agent_twist_ref[:, 0:2] # high lev agent ref (local base if self._use_local_base_frame)
         next_idx+=2
         obs_tensor[:, next_idx:(next_idx+1)] = self._rhc_const_viol(gpu=self._use_gpu)
@@ -387,9 +386,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         for i in range(self._n_jnts): # jnt obs (pos):
             obs_names[next_idx+i] = f"q_{jnt_names[i]}"
         next_idx+=self._n_jnts
-        for i in range(self._n_jnts): # jnt obs (v):
-            obs_names[next_idx+i] = f"v_{jnt_names[i]}"
-        next_idx+=self._n_jnts
+        # for i in range(self._n_jnts): # jnt obs (v):
+        #     obs_names[next_idx+i] = f"v_{jnt_names[i]}"
+        # next_idx+=self._n_jnts
         obs_names[next_idx] = "lin_vel_x_ref" # specified in the "horizontal frame"
         obs_names[next_idx+1] = "lin_vel_y_ref"
         next_idx+=2
