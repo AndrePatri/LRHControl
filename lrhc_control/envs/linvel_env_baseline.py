@@ -104,6 +104,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._power_penalty_weights_sum = torch.sum(self._power_penalty_weights).item()
 
         # task rand
+        self._use_pof0 = True
+        self._pof0 = 0.1
         self._twist_ref_lb = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=-0.8) 
         self._twist_ref_ub = torch.full((1, 6), dtype=dtype, device=device,
@@ -179,6 +181,10 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # task aux objs
         device = "cuda" if self._use_gpu else "cpu"
         self._ni_scaling = torch.zeros((self._n_envs, 1),dtype=self._dtype,device=device)
+
+        self._pof1_b = torch.full(size=(self._n_envs,1),dtype=self._dtype,device=device,fill_value=1-self._pof0)
+        self._bernoulli_coeffs = self._pof1_b.clone()
+        self._bernoulli_coeffs[:, :] = 1.0
 
     def get_file_paths(self):
 
@@ -358,10 +364,13 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                 env_indxs: torch.Tensor = None):
         
         agent_twist_ref_current = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu)
+        if self._use_pof0: # sample from bernoulli distribution
+            torch.bernoulli(input=self._pof1_b,out=self._bernoulli_coeffs) # by default bernoulli_coeffs are 1 if not _use_pof0
         if env_indxs is None:
-            agent_twist_ref_current[:, :] = torch.rand_like(agent_twist_ref_current[:, :]) * (self._twist_ref_ub-self._twist_ref_lb) + self._twist_ref_lb
+            agent_twist_ref_current[:, :] = (torch.rand_like(agent_twist_ref_current[:, :])*self._bernoulli_coeffs) * (self._twist_ref_ub-self._twist_ref_lb) + self._twist_ref_lb
         else:
-            agent_twist_ref_current[env_indxs, :] =  torch.rand_like(agent_twist_ref_current[env_indxs, :]) * (self._twist_ref_ub-self._twist_ref_lb) + self._twist_ref_lb
+            random_ref=torch.rand_like(agent_twist_ref_current[env_indxs, :])*self._bernoulli_coeffs[env_indxs, :]
+            agent_twist_ref_current[env_indxs, :] =  (random_ref) * (self._twist_ref_ub-self._twist_ref_lb) + self._twist_ref_lb
         self._agent_refs.rob_refs.root_state.set(data_type="twist", data=agent_twist_ref_current,
                                             gpu=self._use_gpu)
         self._synch_refs(gpu=self._use_gpu)
