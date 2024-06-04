@@ -57,7 +57,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         self._n_prev_actions = 1 if self._add_last_action_to_obs else 0
         # obs_dim = 18 + n_jnts + n_contacts + self._n_prev_actions * actions_dim
-        obs_dim = 4+6+n_jnts+2+2+self._n_prev_actions*actions_dim
+        obs_dim = 4+6+2*n_jnts+2+2+self._n_prev_actions*actions_dim
 
         episode_timeout_lb = 4096 # episode timeouts (including env substepping when action_repeat>1)
         episode_timeout_ub = 8192
@@ -230,37 +230,39 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
     def _fill_obs(self,
             obs_tensor: torch.Tensor):
 
-        robot_jnt_q_meas = self._robot_state.jnts_state.get(data_type="q",gpu=self._use_gpu)
         robot_q_meas = self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
-        # robot_jnt_v_meas = self._robot_state.jnts_state.get(data_type="v",gpu=self._use_gpu)
+        robot_jnt_q_meas = self._robot_state.jnts_state.get(data_type="q",gpu=self._use_gpu)
         robot_twist_meas = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu)
+        robot_jnt_v_meas = self._robot_state.jnts_state.get(data_type="v",gpu=self._use_gpu)
         agent_twist_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu)
 
-        obs_tensor[:, 0:4] = robot_q_meas # [w, i, j, k] (IsaacSim convention)
+        next_idx=0
+        obs_tensor[:, next_idx:(next_idx+4)] = robot_q_meas # [w, i, j, k] (IsaacSim convention)
+        next_idx+=4
         if self._use_local_base_frame: # measurement from world to local base link
             world2base_frame(t_w=robot_twist_meas,q_b=robot_q_meas,t_out=self._robot_twist_meas_b)
-            obs_tensor[:, 4:10] = self._robot_twist_meas_b
+            obs_tensor[:, next_idx:(next_idx+6)] = self._robot_twist_meas_b
         else:
-            obs_tensor[:, 4:10] = robot_twist_meas
-        obs_tensor[:, 10:(10+self._n_jnts)] = robot_jnt_q_meas
-
-        obs_tensor[:, (10+self._n_jnts):((10+self._n_jnts)+2)] = agent_twist_ref[:, 0:2] # high lev agent ref (local base if self._use_local_base_frame)
-        next_idx = (10+self._n_jnts)+2
+            obs_tensor[:, next_idx:(next_idx+6)] = robot_twist_meas
+        next_idx+=6
+        obs_tensor[:, next_idx:(next_idx+self._n_jnts)] = robot_jnt_q_meas
+        next_idx+=self._n_jnts
+        obs_tensor[:, next_idx:(next_idx+self._n_jnts)] = robot_jnt_v_meas
+        next_idx+=self._n_jnts
+        obs_tensor[:, next_idx:(next_idx+2)] = agent_twist_ref[:, 0:2] # high lev agent ref (local base if self._use_local_base_frame)
+        next_idx+=2
+        obs_tensor[:, next_idx:(next_idx+1)] = self._rhc_const_viol(gpu=self._use_gpu)
+        next_idx+=1
+        obs_tensor[:, next_idx:(next_idx+1)] = self._rhc_cost(gpu=self._use_gpu)
+        next_idx+=1
         # obs_tensor[:, next_idx:(next_idx+len(self.contact_names))] = self._rhc_step_var(gpu=self._use_gpu)
-        # obs_tensor[:, (next_idx+len(self.contact_names)):(next_idx+len(self.contact_names)+1)] = self._rhc_const_viol(gpu=self._use_gpu)
-        # obs_tensor[:, (next_idx+len(self.contact_names)+1):(next_idx+len(self.contact_names)+2)] = self._rhc_cost(gpu=self._use_gpu)
-
-        obs_tensor[:, (next_idx):(next_idx+1)] = self._rhc_const_viol(gpu=self._use_gpu)
-        obs_tensor[:, (next_idx+1):(next_idx+2)] = self._rhc_cost(gpu=self._use_gpu)
-
+        # next_idx+=len(self.contact_names)
         # adding last action to obs at the back of the obs tensor
         if self._add_last_action_to_obs:
-            next_idx = next_idx+len(self.contact_names)+2
-            # next_idx = next_idx+len(self.contact_names)+1
-            # next_idx = next_idx+len(self.contact_names)
             last_actions = self._actions.get_torch_mirror(gpu=self._use_gpu)
             obs_tensor[:, next_idx:(next_idx+self._n_prev_actions*self.actions_dim())] = last_actions
-    
+            next_idx+=self._n_prev_actions*self.actions_dim()
+
     def _get_custom_db_data(self, 
             episode_finished):
         
@@ -272,7 +274,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         return tot_weighted_power
     
     def _task_err_quadv2(self, task_ref, task_meas):
-        delta = 0.001 # [m/s]
+        delta = 0.01 # [m/s]
         ref_norm = task_ref.norm(dim=1,keepdim=True)
         self._ni_scaling[:, :] = ref_norm
         self._ni_scaling[ref_norm < delta] = delta
@@ -369,6 +371,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         obs_names = [""] * self.obs_dim()
 
+        next_idx=0
         obs_names[0] = "q_w"
         obs_names[1] = "q_i"
         obs_names[2] = "q_j"
@@ -379,27 +382,29 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         obs_names[7] = "omega_x"
         obs_names[8] = "omega_y"
         obs_names[9] = "omega_z"
+        next_idx+=10
         jnt_names = self._robot_state.jnt_names()
         for i in range(self._n_jnts): # jnt obs (pos):
-            obs_names[10 + i] = f"{jnt_names[i]}"
-        restart_idx = 9 + self._n_jnts
-        obs_names[restart_idx + 1] = "lin_vel_x_ref" # specified in the "horizontal frame"
-        obs_names[restart_idx + 2] = "lin_vel_y_ref"
-        
+            obs_names[next_idx+i] = f"q_{jnt_names[i]}"
+        next_idx+=self._n_jnts
+        for i in range(self._n_jnts): # jnt obs (v):
+            obs_names[next_idx+i] = f"v_{jnt_names[i]}"
+        next_idx+=self._n_jnts
+        obs_names[next_idx] = "lin_vel_x_ref" # specified in the "horizontal frame"
+        obs_names[next_idx+1] = "lin_vel_y_ref"
+        next_idx+=2
         # i = 0
         # for contact in self.contact_names:
-        #     obs_names[restart_idx + 4 + i] = f"step_var_{contact}"
-        #     i+=1
-        #     next_idx = restart_idx + 4 + i
-        
-        next_idx = restart_idx + 3
+        #     obs_names[next_idx+i] = f"step_var_{contact}"
+        #     i+=1        
+        # next_idx+=len(self.contact_names)
         obs_names[next_idx] = "rhc_const_viol"
         obs_names[next_idx + 1] = "rhc_cost"
-
+        next_idx+=2
         action_names = self._get_action_names()
         for pre_t_idx in range(self._n_prev_actions):
             for prev_act_idx in range(self.actions_dim()):
-                obs_names[next_idx + 1 + pre_t_idx * self.actions_dim() + prev_act_idx] = action_names[prev_act_idx] + f"_tm_{pre_t_idx}"
+                obs_names[next_idx+pre_t_idx*self.actions_dim()+prev_act_idx] = action_names[prev_act_idx]+f"_tm_{pre_t_idx}"
 
         return obs_names
 
