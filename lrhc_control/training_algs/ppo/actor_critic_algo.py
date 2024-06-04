@@ -745,7 +745,7 @@ class ActorCriticAlgoBase():
         self._iterations_n = 3000 # number of ppo iterations
         self._batch_size_nom = 16384 # 32768
         self._batch_size_nom = self._batch_size_nom // self._env_n_action_reps # correct with n of action reps
-        self._num_minibatches = 8
+        self._num_minibatches = 32
         self._rollout_timesteps = self._batch_size_nom // self._num_envs
         self._batch_size = self._rollout_timesteps * self._num_envs
         self._minibatch_size = self._batch_size // self._num_minibatches
@@ -765,9 +765,9 @@ class ActorCriticAlgoBase():
         self._norm_adv = True
         self._clip_vloss = False
         self._clip_coef = 0.2
-        self._clip_coef_vf = 0.3 # IMPORTANT: this clipping depends on the reward scaling.
+        self._clip_coef_vf = 0.2 # IMPORTANT: this clipping depends on the reward scaling.
         self._entropy_coeff = 0.0
-        self._val_f_coeff = 1e-2
+        self._val_f_coeff = 0.5
         self._max_grad_norm_actor = 0.5
         self._max_grad_norm_critic = 0.5
         self._target_kl = None
