@@ -111,11 +111,11 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._twist_ref_ub = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.8)
         # lin vel
-        self._twist_ref_lb[0, 0] = -1.5
-        self._twist_ref_lb[0, 1] = -1.5
+        self._twist_ref_lb[0, 0] = 0
+        self._twist_ref_lb[0, 1] = 0
         self._twist_ref_lb[0, 2] = 0.0
-        self._twist_ref_ub[0, 0] = 1.5
-        self._twist_ref_ub[0, 1] = 1.5
+        self._twist_ref_ub[0, 0] = 0
+        self._twist_ref_ub[0, 1] = 0
         self._twist_ref_ub[0, 2] = 0.0
         # angular vel
         self._twist_ref_lb[0, 3] = 0.0
@@ -324,8 +324,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
     def _compute_sub_rewards(self,
                     obs: torch.Tensor):
         
-        # task_error_fun = self._task_err_pseudolin
-        task_error_fun = self._task_err_pseudolinv2
+        task_error_fun = self._task_err_pseudolin
+        # task_error_fun = self._task_err_pseudolinv2
 
         # task error
         # task_meas = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu) # robot twist meas (local base if _use_local_base_frame)
