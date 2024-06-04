@@ -20,14 +20,13 @@ class CriticQ(nn.Module):
             device:str="cuda",
             dtype=torch.float32,
             is_eval:bool=False):
-        
+        super().__init__()
+
         self._normalize_obs = norm_obs
         self._is_eval = is_eval
 
         self._torch_device = device
         self._torch_dtype = dtype
-
-        super().__init__()
 
         self._obs_dim = obs_dim
         self._actions_dim = actions_dim
@@ -83,11 +82,12 @@ class Actor(nn.Module):
             obs_dim: int, 
             actions_dim: int,
             actions_scale: List[float] = None,
-            action_bias: List[float] = None,
+            actions_bias: List[float] = None,
             norm_obs: bool = True,
             device:str="cuda",
             dtype=torch.float32,
             is_eval:bool=False):
+        super().__init__()
 
         self._normalize_obs = norm_obs
         self._is_eval = is_eval
@@ -98,13 +98,11 @@ class Actor(nn.Module):
         self._obs_dim = obs_dim
         self._actions_dim = actions_dim
         self._actions_scale = actions_scale
-        self._action_bias = action_bias
+        self._actions_bias = actions_bias
 
         size_internal_layer = 256
         self.LOG_STD_MAX = 2
         self.LOG_STD_MIN = -5
-
-        super().__init__()
 
         # action rescaling
         if self._actions_scale is not None:
@@ -120,18 +118,18 @@ class Actor(nn.Module):
         self.register_buffer(
             "a_scale", action_scale
         )
-        if self._action_bias is not None:
-            if (len(self._action_bias) != actions_dim):
+        if self._actions_bias is not None:
+            if (len(self._actions_bias) != actions_dim):
                 Journal.log(self.__class__.__name__,
                     "__init__",
-                    f"Action action_bias list length should be equal to {actions_dim}, but got {len(self._action_bias)}",
+                    f"Action actions_bias list length should be equal to {actions_dim}, but got {len(self._actions_bias)}",
                     LogType.EXCEP,
                     throw_when_excep = True)
-            action_bias = torch.tensor(self._action_bias, dtype=self._torch_dtype,device=self._torch_device).reshape(1, -1)
+            actions_bias = torch.tensor(self._actions_bias, dtype=self._torch_dtype,device=self._torch_device).reshape(1, -1)
         else:
-            action_bias = torch.full((1, obs_dim),fill_value=0.0,dtype=self._torch_dtype,device=self._torch_device)
+            actions_bias = torch.full((1, obs_dim),fill_value=0.0,dtype=self._torch_dtype,device=self._torch_device)
         self.register_buffer(
-            "a_bias", action_bias
+            "a_bias", actions_bias
         )
 
         if self._normalize_obs:
@@ -192,7 +190,7 @@ class Actor(nn.Module):
         log_prob = log_prob.sum(1, keepdim=True)
         mean = torch.tanh(mean) * self.a_scale + self.a_bias
         return action, log_prob, mean
-    
+
 if __name__ == "__main__":  
     
     device = "cuda"
@@ -212,7 +210,7 @@ if __name__ == "__main__":
     print(q_v)
 
     actor = Actor(obs_dim=5,actions_dim=3,
-            actions_scale=[1.0, 1.0, 1.0],action_bias=[0.0,0.0,0.0],
+            actions_scale=[1.0, 1.0, 1.0],actions_bias=[0.0,0.0,0.0],
             norm_obs=True,
             device=device,
             dtype=torch.float32,

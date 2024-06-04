@@ -1,4 +1,4 @@
-from lrhc_control.agents.sactor_critic.sac import 
+from lrhc_control.agents.sactor_critic.sac import CriticQ, Actor
 
 from lrhc_control.utils.shared_data.algo_infos import SharedRLAlgorithmInfo
 import torch 
@@ -101,8 +101,41 @@ class SActorCriticAlgoBase():
 
         self._torch_device = torch.device("cuda" if torch.cuda.is_available() and self._use_gpu else "cpu")
 
-        self._agent = 
-        # self._agent.to(self._torch_device) # move agent to target device
+        self._agent = Actor(obs_dim=self._env.obs_dim(),
+                    actions_dim=self._env.actions_dim(),
+                    actions_scale=self._env._actions_scale,
+                    actions_bias=self._env._actions_bias,
+                    norm_obs=True,
+                    device=self._torch_device,
+                    dtype=self._dtype,
+                    is_eval=self._eval
+                    )
+        self._qf1 = CriticQ(obs_dim=self._env.obs_dim(),
+                    actions_dim=self._env.actions_dim(),
+                    norm_obs=True,
+                    device=self._torch_device,
+                    dtype=self._dtype,
+                    is_eval=self._eval)
+        self._qf2 = CriticQ(obs_dim=self._env.obs_dim(),
+                    actions_dim=self._env.actions_dim(),
+                    norm_obs=True,
+                    device=self._torch_device,
+                    dtype=self._dtype,
+                    is_eval=self._eval)
+        self._qf1_target = CriticQ(obs_dim=self._env.obs_dim(),
+                    actions_dim=self._env.actions_dim(),
+                    norm_obs=True,
+                    device=self._torch_device,
+                    dtype=self._dtype,
+                    is_eval=self._eval)
+        self._qf2_target = CriticQ(obs_dim=self._env.obs_dim(),
+                    actions_dim=self._env.actions_dim(),
+                    norm_obs=True,
+                    device=self._torch_device,
+                    dtype=self._dtype,
+                    is_eval=self._eval)
+        self._qf1_target.load_state_dict(self._qf1.state_dict())
+        self._qf2_target.load_state_dict(self._qf2.state_dict())
 
         # load model if necessary 
         if self._eval: # load pretrained model
@@ -162,18 +195,19 @@ class SActorCriticAlgoBase():
             # wandb.watch(self.actor_logstd, log="all")
 
         if not self._eval:
-            self._optimizer = optim.Adam(self._agent.parameters(), 
-                                    lr=self._base_lr_actor, 
-                                    eps=1e-5 # small constant added to the optimization
-                                    )
-            # self._optimizer = optim.Adam([
-            #     {'params': self._agent.actor_mean.parameters(), 'lr': self._base_lr_actor},
-            #     {'params': self._agent.critic.parameters(), 'lr': self._base_lr_critic}, ],
-            #     lr=self._base_lr_actor, # default to actor lr (e.g. lfor ogstd parameter)
-            #     eps=1e-5 # small constant added to the optimization
-            #     )
+            self._qf_optimizer = optim.Adam(list(self._qf1.parameters()) + list(self._qf2.parameters()), 
+                                    lr=self._lr_q)
+            self._actor_optimizer = optim.Adam(list(self._agent.parameters()), 
+                                    lr=self._lr_policy)
+
         self._init_buffers()
         
+        if self._autotune:
+            self._target_entropy = -self._env.actions_dim()
+            self._log_alpha = torch.zeros(1, requires_grad=True, device=self._torch_device)
+            self._alpha = self._log_alpha.exp().item()
+            self._a_optimizer = optim.Adam([self._log_alpha], lr=self._lr_q)
+    
         # self._env.reset()
         
         self._setup_done = True
@@ -748,21 +782,17 @@ class SActorCriticAlgoBase():
         self._noise_clip = 0.5
         self._alpha = 0.2
         self._autotune = False
-        
+
         self._policy_freq = 2
         self._trgt_net_freq = 1
 
         self._update_epochs = 10
-        self._norm_adv = True
-        self._clip_vloss = False
-        self._clip_coef = 0.2
-        self._clip_coef_vf = 0.2 # IMPORTANT: this clipping depends on the reward scaling.
-        self._entropy_coeff = 0.0
-        self._val_f_coeff = 0.5
-        self._max_grad_norm_actor = 0.5
-        self._max_grad_norm_critic = 0.5
-        self._target_kl = None
 
+        self._target_entropy = None
+        self._log_alpha = None
+        self._alpha = None
+        self._a_optimizer = None
+        
         self._n_policy_updates_to_be_done = self._update_epochs * self._num_minibatches * self._iterations_n
 
         # write them to hyperparam dictionary for debugging
