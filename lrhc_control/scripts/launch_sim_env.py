@@ -213,7 +213,9 @@ if __name__ == '__main__':
                                                 "cluster_sol_time",
                                                 "n_sim_steps",
                                                 "n_cluster_trigger_steps",
-                                                "n_cluster_sol_steps"],
+                                                "n_cluster_sol_steps",
+                                                "sim_time",
+                                                "cluster_time"],
                                 val=[rt_factor.get(), 
                                     rt_factor.get() * num_envs,
                                     rt_factor.get_avrg_step_time(),
@@ -223,7 +225,9 @@ if __name__ == '__main__':
                                     env.debug_data["cluster_sol_time"][robot_names[i]],
                                     n_steps,
                                     trigger_counter,
-                                    sol_counter
+                                    sol_counter,
+                                    env.debug_data["sim_time"][robot_names[i]],
+                                    sol_counter*env.cluster_servers[robot_name].cluster_dt()
                                     ])
 
         # except Exception as e:

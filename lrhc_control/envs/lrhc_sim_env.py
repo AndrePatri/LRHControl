@@ -37,6 +37,8 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
         self.debug_data["time_to_get_states_from_sim"] = np.nan
         self.debug_data["cluster_sol_time"] = {}
         self.debug_data["cluster_state_update_dt"] = {}
+        self.debug_data["sim_time"] = {}
+        self.debug_data["cluster_time"] = {}
 
         self._is_first_trigger = {}
         self.cluster_timers = {}
@@ -165,9 +167,11 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
             # if self._use_remote_stepping[i] and self._init_steps_done:
             #     self._signal_sim_env_is_ready(robot_name=robot_name) # signal sim is ready
            
-            if self.debug:
-                self.debug_data["cluster_sol_time"][robot_name] = \
-                    self.cluster_servers[robot_name].solution_time()
+            # if self.debug:
+            self.debug_data["sim_time"][robot_name]=self.cluster_step_counters[robot_name]*self.get_task().integration_dt()
+            self.debug_data["cluster_sol_time"][robot_name] = \
+                self.cluster_servers[robot_name].solution_time()
+            self.debug_data["cluster_time"] = self.cluster_servers[robot_name]
 
     def step(self):
         
@@ -267,6 +271,8 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
 
             self.debug_data["cluster_sol_time"][robot_name] = np.nan
             self.debug_data["cluster_state_update_dt"][robot_name] = np.nan
+            self.debug_data["sim_time"][robot_name] = np.nan
+            self.debug_data["cluster_time"][robot_name] = np.nan
             if self.debug:
                 self.cluster_timers[robot_name] = time.perf_counter()
 
