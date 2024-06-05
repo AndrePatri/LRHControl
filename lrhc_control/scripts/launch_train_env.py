@@ -1,6 +1,7 @@
 from lrhc_control.envs.linvel_env_baseline import LinVelTrackBaseline
 
 from lrhc_control.training_algs.ppo.ppo import PPO
+from lrhc_control.training_algs.sac.sac import SAC
 
 from control_cluster_bridge.utilities.shared_data.sim_data import SharedSimInfo
 
@@ -57,8 +58,9 @@ if __name__ == "__main__":
     for i in range(len(sim_info_keys)):
         sim_data[sim_info_keys[i]] = sim_info_data[i]
     
-    ppo = PPO(env=env, debug=not args.disable_db, seed=args.seed)
-    ppo.setup(run_name=args.run_name, 
+    # algo = PPO(env=env, debug=not args.disable_db, seed=args.seed)
+    algo = SAC(env=env, debug=not args.disable_db, seed=args.seed)
+    algo.setup(run_name=args.run_name, 
         verbose=True,
         drop_dir_name=args.drop_dir,
         custom_args = sim_data,
@@ -70,12 +72,12 @@ if __name__ == "__main__":
         dump_checkpoints=args.dump_checkpoints)
 
     try:
-        while not ppo.is_done():
+        while not algo.is_done():
             if not args.eval:
-                if not ppo.learn():
-                    ppo.done()
+                if not algo.learn():
+                    algo.done()
             else: # eval phase
-                if not ppo.eval():
-                    ppo.done()
+                if not algo.eval():
+                    algo.done()
     except KeyboardInterrupt:
-        ppo.done() # in case it's interrupted by user
+        algo.done() # in case it's interrupted by user

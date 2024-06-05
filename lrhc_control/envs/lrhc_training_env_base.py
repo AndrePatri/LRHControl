@@ -280,7 +280,7 @@ class LRhcTrainingEnvBase():
         stepping_ok =  stepping_ok and self._post_step() # post sub-stepping operations
         # (if action_repeat > 1, then just the db data at the last substep is logged)
 
-        return stepping_ok
+        return stepping_ok 
     
     def _post_step(self):
         
@@ -792,6 +792,12 @@ class LRhcTrainingEnvBase():
 
         actions.mul_(self._actions_scalings).add_(self._actions_offsets)
 
+    def get_action_scaling(self):
+        return self._actions_scalings
+
+    def get_action_offsets(self):
+        return self._actions_offsets
+    
     def _check_finite(self, 
                 tensor: torch.Tensor,
                 name: str, 

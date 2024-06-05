@@ -73,6 +73,14 @@ class SActorCriticAlgoBase():
 
         self.done()
 
+    @abstractmethod
+    def learn(self):
+        pass
+    
+    @abstractmethod
+    def eval(self):
+        pass
+
     def setup(self,
             run_name: str,
             custom_args: Dict = {},
@@ -103,8 +111,8 @@ class SActorCriticAlgoBase():
 
         self._agent = Actor(obs_dim=self._env.obs_dim(),
                     actions_dim=self._env.actions_dim(),
-                    actions_scale=self._env._actions_scale,
-                    actions_bias=self._env._actions_bias,
+                    actions_scale=self._env.get_action_scaling()[0, :].tolist(),
+                    actions_bias=self._env.get_action_offsets()[0, :].tolist(),
                     norm_obs=True,
                     device=self._torch_device,
                     dtype=self._dtype,
@@ -159,8 +167,7 @@ class SActorCriticAlgoBase():
                     throw_when_excep = True)
             else:
                 self._model_path = model_path
-                self._rollout_timesteps = int(n_timesteps_per_eval/self._num_envs) # overrides 
-                self._iterations_n = n_evals
+                self._total_timesteps = n_evals
             self._load_model(self._model_path)
 
         # create dump directory + copy important files for debug
@@ -200,7 +207,7 @@ class SActorCriticAlgoBase():
             self._actor_optimizer = optim.Adam(list(self._agent.parameters()), 
                                     lr=self._lr_policy)
 
-        self._init_buffers()
+        self._init_replay_buffers()
         
         if self._autotune:
             self._target_entropy = -self._env.actions_dim()
@@ -225,71 +232,6 @@ class SActorCriticAlgoBase():
     def model_path(self):
 
         return self._model_path
-    
-    def learn(self):
-        
-        if not self._setup_done:
-            self._should_have_called_setup()
-
-        # annealing the learning rate if enabled (may improve convergence)
-        if self._anneal_lr:
-            frac = 1.0 - (self._it_counter - 1.0) / self._iterations_n
-            self._lr_now_actor = frac * self._base_lr_actor
-            self._lr_now_critic = frac * self._base_lr_critic
-            self._optimizer.param_groups[0]["lr"] = self._lr_now_actor
-            # self._optimizer.param_groups[1]["lr"] = self._lr_now_critic
-
-        self._episodic_reward_getter.reset() # necessary, we don't want to accumulate 
-        # debug rewards from previous rollouts
-
-        self._start_time = time.perf_counter()
-
-        rollout_ok = self._play()
-        if not rollout_ok:
-            return False
-        
-        self._rollout_t = time.perf_counter()
-
-        self._compute_returns()
-        self._gae_t = time.perf_counter()
-
-        self._improve_policy()
-        self._policy_update_t = time.perf_counter()
-
-        self._post_step()
-
-        return True
-
-    def eval(self):
-
-        if not self._setup_done:
-            self._should_have_called_setup()
-
-        self._episodic_reward_getter.reset()
-
-        self._start_time = time.perf_counter()
-
-        rollout_ok = self._play()
-        if not rollout_ok:
-            return False
-
-        self._rollout_t = time.perf_counter()
-
-        self._post_step()
-
-        return True
-
-    @abstractmethod
-    def _play(self):
-        pass
-    
-    @abstractmethod
-    def _compute_returns(self):
-       pass
-    
-    @abstractmethod
-    def _improve_policy(self):
-        pass
 
     def _save_model(self,
             is_checkpoint: bool = False):
@@ -356,49 +298,14 @@ class SActorCriticAlgoBase():
             hf.create_dataset('episodic_rewards_env_avrg', data=self._episodic_rewards_env_avrg.numpy())
 
             # profiling data
-            hf.create_dataset('rollout_dt', data=self._rollout_dt.numpy())
             hf.create_dataset('env_step_fps', data=self._env_step_fps.numpy())
             hf.create_dataset('env_step_rt_factor', data=self._env_step_rt_factor.numpy())
-            hf.create_dataset('gae_dt', data=self._gae_dt.numpy())
             hf.create_dataset('policy_update_dt', data=self._policy_update_dt.numpy())
             hf.create_dataset('policy_update_fps', data=self._policy_update_fps.numpy())
             hf.create_dataset('n_of_played_episodes', data=self._n_of_played_episodes.numpy())
             hf.create_dataset('n_timesteps_done', data=self._n_timesteps_done.numpy())
             hf.create_dataset('n_policy_updates', data=self._n_policy_updates.numpy())
             hf.create_dataset('elapsed_min', data=self._elapsed_min.numpy())
-            hf.create_dataset('learn_rates', data=self._learning_rates.numpy())
-
-            # ppo iterations db data
-            hf.create_dataset('tot_loss_mean', data=self._tot_loss_mean.numpy())
-            hf.create_dataset('value_los_means', data=self._value_loss_mean.numpy())
-            hf.create_dataset('policy_loss_mean', data=self._policy_loss_mean.numpy())
-            hf.create_dataset('entropy_loss_mean', data=self._entropy_loss_mean.numpy())
-            hf.create_dataset('tot_loss_grad_norm_mean', data=self._tot_loss_grad_norm_mean.numpy())
-            hf.create_dataset('actor_loss_grad_norm_mean', data=self._actor_loss_grad_norm_mean.numpy())
-
-            hf.create_dataset('tot_loss_std', data=self._tot_loss_std.numpy())
-            hf.create_dataset('value_loss_std', data=self._value_loss_std.numpy())
-            hf.create_dataset('policy_loss_std', data=self._policy_loss_std.numpy())
-            hf.create_dataset('entropy_loss_std', data=self._entropy_loss_std.numpy())
-            hf.create_dataset('tot_loss_grad_norm_std', data=self._tot_loss_grad_norm_std.numpy())
-            hf.create_dataset('actor_loss_grad_norm_std', data=self._actor_loss_grad_norm_std.numpy())
-
-            hf.create_dataset('old_approx_kl_mean', data=self._old_approx_kl_mean.numpy())
-            hf.create_dataset('approx_kl_mean', data=self._approx_kl_mean.numpy())
-            hf.create_dataset('old_approx_kl_std', data=self._old_approx_kl_std.numpy())
-            hf.create_dataset('approx_kl_std', data=self._approx_kl_std.numpy())
-
-            hf.create_dataset('clipfrac_mean', data=self._clipfrac_mean.numpy())
-            hf.create_dataset('clipfrac_std', data=self._clipfrac_std.numpy())
-            
-            hf.create_dataset('explained_variance', data=self._explained_variance.numpy())
-
-            hf.create_dataset('batch_returns_std', data=self._batch_returns_std.numpy())
-            hf.create_dataset('batch_returns_mean', data=self._batch_returns_mean.numpy())
-            hf.create_dataset('batch_adv_std', data=self._batch_adv_std.numpy())
-            hf.create_dataset('batch_adv_mean', data=self._batch_adv_mean.numpy())
-            hf.create_dataset('batch_val_std', data=self._batch_val_std.numpy())
-            hf.create_dataset('batch_val_mean', data=self._batch_val_mean.numpy())
 
             # dump all custom env data
             db_data_names = list(self._env.custom_db_data.keys())
@@ -479,22 +386,15 @@ class SActorCriticAlgoBase():
 
         self._it_counter +=1 
 
-        self._rollout_dt[self._it_counter-1] = self._rollout_t -self._start_time
-        self._gae_dt[self._it_counter-1] = self._gae_t - self._rollout_t
-        self._policy_update_dt[self._it_counter-1] = self._policy_update_t - self._gae_t
-        
         self._n_of_played_episodes[self._it_counter-1] = self._episodic_reward_getter.get_n_played_episodes()
-        self._n_timesteps_done[self._it_counter-1] = self._it_counter * self._batch_size
-        self._n_policy_updates[self._it_counter-1] = self._it_counter * self._update_epochs * self._num_minibatches
+        self._n_timesteps_done[self._it_counter-1] = self._it_counter * self._total_timesteps
+        self._n_policy_updates[self._it_counter-1] = self._it_counter * self._update_epochs 
         
         self._elapsed_min[self._it_counter-1] = (time.perf_counter() - self._start_time_tot) / 60
         
-        self._learning_rates[self._it_counter-1, 0] = self._lr_now_actor
-        self._learning_rates[self._it_counter-1, 0] = self._lr_now_critic
-
-        self._env_step_fps[self._it_counter-1] = self._batch_size / self._rollout_dt[self._it_counter-1]
+        self._env_step_fps[self._it_counter-1] = self._batch_size / self._collection_dt[self._it_counter-1]
         self._env_step_rt_factor[self._it_counter-1] = self._env_step_fps[self._it_counter-1] * self._hyperparameters["control_clust_dt"]
-        self._policy_update_fps[self._it_counter-1] = self._update_epochs * self._num_minibatches / self._policy_update_dt[self._it_counter-1]
+        self._policy_update_fps[self._it_counter-1] = self._update_epochs 
 
         # after rolling out policy, we get the episodic reward for the current policy
         self._episodic_rewards[self._it_counter-1, :, :] = self._episodic_reward_getter.get_rollout_avrg_total_reward() # total ep. rewards across envs
@@ -512,7 +412,7 @@ class SActorCriticAlgoBase():
 
         self._log_info()
 
-        if self._it_counter == self._iterations_n:
+        if self._it_counter == self._total_timesteps:
             self.done()
         else:
             if self._dump_checkpoints and (self._it_counter % self._m_checkpoint_freq == 0):
@@ -536,11 +436,6 @@ class SActorCriticAlgoBase():
                 "n_of_performed_policy_updates",
                 "n_of_played_episodes", 
                 "n_of_timesteps_done",
-                "lr_now_actor",
-                "lr_now_critic",
-                "rollout_dt",
-                "return_dt",
-                "policy_improv_dt",
                 "env_step_fps",
                 "env_step_rt_factor",
                 "policy_improv_fps",
@@ -550,10 +445,6 @@ class SActorCriticAlgoBase():
                 self._n_policy_updates[self._it_counter-1].item(),
                 self._n_of_played_episodes[self._it_counter-1].item(), 
                 self._n_timesteps_done[self._it_counter-1].item(),
-                self._lr_now_actor,
-                self._lr_now_critic,
-                self._rollout_dt[self._it_counter-1].item(),
-                self._gae_dt[self._it_counter-1].item(),
                 self._policy_update_dt[self._it_counter-1].item(),
                 self._env_step_fps[self._it_counter-1].item(),
                 self._env_step_rt_factor[self._it_counter-1].item(),
@@ -596,18 +487,16 @@ class SActorCriticAlgoBase():
 
         if self._verbose:
             
-            info = f"\nN. PPO iterations performed: {self._it_counter}/{self._iterations_n}\n" + \
+            info = f"\nN. SAC iterations performed: {self._it_counter}/{self._total_timesteps}\n" + \
                 f"N. policy updates performed: {self._n_policy_updates[self._it_counter-1].item()}/" + \
-                f"{self._update_epochs * self._num_minibatches * self._iterations_n}\n" + \
                 f"N. env steps performed: {self._it_counter * self._batch_size}/{self._total_timesteps}\n" + \
                 f"Elapsed minutes: {self._elapsed_min[self._it_counter-1].item()}\n" + \
                 f"Estimated remaining training time: " + \
-                f"{self._elapsed_min[self._it_counter-1].item()/60 * 1/self._it_counter * (self._iterations_n-self._it_counter)} hours\n" + \
+                f"{self._elapsed_min[self._it_counter-1].item()/60 * 1/self._it_counter * (self._total_timesteps-self._it_counter)} hours\n" + \
                 f"Average episodic reward across all environments: {self._episodic_rewards_env_avrg[self._it_counter-1, :, :].item()}\n" + \
                 f"Average episodic rewards across all environments {self._reward_names_str}: {self._episodic_sub_rewards_env_avrg[self._it_counter-1, :]}\n" + \
-                f"Current rollout fps: {self._env_step_fps[self._it_counter-1].item()}, time for rollout {self._rollout_dt[self._it_counter-1].item()} s\n" + \
+                f"Current rollout fps: {self._env_step_fps[self._it_counter-1].item()}, time for rollout {self._collection_dt[self._it_counter-1].item()} s\n" + \
                 f"Current rollout rt factor: {self._env_step_rt_factor[self._it_counter-1].item()}\n" + \
-                f"Time to compute bootstrap {self._gae_dt[self._it_counter-1].item()} s\n" + \
                 f"Current policy update fps: {self._policy_update_fps[self._it_counter-1].item()}, time for policy updates {self._policy_update_dt[self._it_counter-1].item()} s\n"
             Journal.log(self.__class__.__name__,
                 "_post_step",
@@ -620,35 +509,30 @@ class SActorCriticAlgoBase():
         # initalize some debug data
 
         # rollout phase
-        self._rollout_dt = torch.full((self._iterations_n, 1), 
+        self._collection_dt = torch.full((self._total_timesteps, 1), 
                     dtype=torch.float32, fill_value=-1.0, device="cpu")
-        self._rollout_t = -1.0
-        self._env_step_fps = torch.full((self._iterations_n, 1), 
+        
+        self._collection_t = -1.0
+        self._env_step_fps = torch.full((self._total_timesteps, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._env_step_rt_factor = torch.full((self._iterations_n, 1), 
+        self._env_step_rt_factor = torch.full((self._total_timesteps, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
         
-        # gae computation
-        self._gae_t = -1.0
-        self._gae_dt = torch.full((self._iterations_n, 1), 
-                    dtype=torch.float32, fill_value=-1.0, device="cpu")
-
-        # ppo iteration
         self._policy_update_t = -1.0
-        self._policy_update_dt = torch.full((self._iterations_n, 1), 
+        self._policy_update_dt = torch.full((self._total_timesteps, 1), 
                     dtype=torch.float32, fill_value=-1.0, device="cpu")
-        self._policy_update_fps = torch.full((self._iterations_n, 1), 
+        self._policy_update_fps = torch.full((self._total_timesteps, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
         
-        self._n_of_played_episodes = torch.full((self._iterations_n, 1), 
+        self._n_of_played_episodes = torch.full((self._total_timesteps, 1), 
                     dtype=torch.int32, fill_value=0, device="cpu")
-        self._n_timesteps_done = torch.full((self._iterations_n, 1), 
+        self._n_timesteps_done = torch.full((self._total_timesteps, 1), 
                     dtype=torch.int32, fill_value=0, device="cpu")
-        self._n_policy_updates = torch.full((self._iterations_n, 1), 
+        self._n_policy_updates = torch.full((self._total_timesteps, 1), 
                     dtype=torch.int32, fill_value=0, device="cpu")
-        self._elapsed_min = torch.full((self._iterations_n, 1), 
+        self._elapsed_min = torch.full((self._total_timesteps, 1), 
                     dtype=torch.float32, fill_value=0, device="cpu")
-        self._learning_rates = torch.full((self._iterations_n, 2), 
+        self._learning_rates = torch.full((self._total_timesteps, 2), 
                     dtype=torch.float32, fill_value=0, device="cpu")
         
         # reward db data
@@ -658,71 +542,14 @@ class SActorCriticAlgoBase():
         rollout_avrg_rew_env_avrg_shape = self._episodic_reward_getter.get_rollout_reward_env_avrg().shape
         self._reward_names = self._episodic_reward_getter.reward_names()
         self._reward_names_str = "[" + ', '.join(self._reward_names) + "]"
-        self._episodic_rewards = torch.full((self._iterations_n, tot_ep_rew_shape[0], tot_ep_rew_shape[1]), 
+        self._episodic_rewards = torch.full((self._total_timesteps, tot_ep_rew_shape[0], tot_ep_rew_shape[1]), 
                                         dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._episodic_rewards_env_avrg = torch.full((self._iterations_n, tot_ep_rew_shape_env_avrg_shape[0], tot_ep_rew_shape_env_avrg_shape[1]), 
+        self._episodic_rewards_env_avrg = torch.full((self._total_timesteps, tot_ep_rew_shape_env_avrg_shape[0], tot_ep_rew_shape_env_avrg_shape[1]), 
                                         dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._episodic_sub_rewards = torch.full((self._iterations_n, rollout_avrg_rew_shape[0], rollout_avrg_rew_shape[1]), 
+        self._episodic_sub_rewards = torch.full((self._total_timesteps, rollout_avrg_rew_shape[0], rollout_avrg_rew_shape[1]), 
                                         dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._episodic_sub_rewards_env_avrg = torch.full((self._iterations_n, rollout_avrg_rew_env_avrg_shape[0], rollout_avrg_rew_env_avrg_shape[1]), 
+        self._episodic_sub_rewards_env_avrg = torch.full((self._total_timesteps, rollout_avrg_rew_env_avrg_shape[0], rollout_avrg_rew_env_avrg_shape[1]), 
                                         dtype=torch.float32, fill_value=0.0, device="cpu")
-
-        # ppo iteration db data
-        self._tot_loss_mean = torch.full((self._iterations_n, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._value_loss_mean = torch.full((self._iterations_n, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._policy_loss_mean = torch.full((self._iterations_n, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._entropy_loss_mean = torch.full((self._iterations_n, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._tot_loss_grad_norm_mean = torch.full((self._iterations_n, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._actor_loss_grad_norm_mean = torch.full((self._iterations_n, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
-        
-        self._tot_loss_std = torch.full((self._iterations_n, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._value_loss_std = torch.full((self._iterations_n, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._policy_loss_std = torch.full((self._iterations_n, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._entropy_loss_std = torch.full((self._iterations_n, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._tot_loss_grad_norm_std = torch.full((self._iterations_n, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._actor_loss_grad_norm_std = torch.full((self._iterations_n, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
-        
-        self._old_approx_kl_mean = torch.full((self._iterations_n, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._approx_kl_mean = torch.full((self._iterations_n, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._old_approx_kl_std = torch.full((self._iterations_n, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._approx_kl_std = torch.full((self._iterations_n, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
-        
-        self._clipfrac_mean = torch.full((self._iterations_n, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._clipfrac_std= torch.full((self._iterations_n, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
-        
-        self._explained_variance = torch.full((self._iterations_n, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
-        
-        self._batch_returns_std = torch.full((self._iterations_n, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._batch_returns_mean = torch.full((self._iterations_n, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._batch_adv_std = torch.full((self._iterations_n, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._batch_adv_mean = torch.full((self._iterations_n, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._batch_val_std = torch.full((self._iterations_n, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._batch_val_mean = torch.full((self._iterations_n, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
         
         # custom data from env
         self._custom_env_data = {}
@@ -730,22 +557,22 @@ class SActorCriticAlgoBase():
         for dbdatan in db_data_names:
             self._custom_env_data[dbdatan] = {}
             rollout_stat=self._env.custom_db_data[dbdatan].get_rollout_stat()
-            self._custom_env_data[dbdatan]["rollout_stat"] = torch.full((self._iterations_n, 
+            self._custom_env_data[dbdatan]["rollout_stat"] = torch.full((self._total_timesteps, 
                                                                 rollout_stat.shape[0], 
                                                                 rollout_stat.shape[1]), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
             rollout_stat_env_avrg=self._env.custom_db_data[dbdatan].get_rollout_stat_env_avrg()
-            self._custom_env_data[dbdatan]["rollout_stat_env_avrg"] = torch.full((self._iterations_n, 
+            self._custom_env_data[dbdatan]["rollout_stat_env_avrg"] = torch.full((self._total_timesteps, 
                                                                         rollout_stat_env_avrg.shape[0], 
                                                                         rollout_stat_env_avrg.shape[1]), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
             rollout_stat_comp=self._env.custom_db_data[dbdatan].get_rollout_stat_comp()
-            self._custom_env_data[dbdatan]["rollout_stat_comp"] = torch.full((self._iterations_n, 
+            self._custom_env_data[dbdatan]["rollout_stat_comp"] = torch.full((self._total_timesteps, 
                                                                     rollout_stat_comp.shape[0], 
                                                                     rollout_stat_comp.shape[1]), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
             rollout_stat_comp_env_avrg=self._env.custom_db_data[dbdatan].get_rollout_stat_comp_env_avrg()
-            self._custom_env_data[dbdatan]["rollout_stat_comp_env_avrg"] = torch.full((self._iterations_n, rollout_stat_comp_env_avrg.shape[0], rollout_stat_comp_env_avrg.shape[1]), 
+            self._custom_env_data[dbdatan]["rollout_stat_comp_env_avrg"] = torch.full((self._total_timesteps, rollout_stat_comp_env_avrg.shape[0], rollout_stat_comp_env_avrg.shape[1]), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
 
     def _init_params(self):
@@ -769,9 +596,10 @@ class SActorCriticAlgoBase():
         self._m_checkpoint_freq = 50 # n ppo iterations after which a checkpoint model is dumped
 
         # main algo settings
-        self._warmstart_timesteps = 5e3
-        self._buffer_size = 16384 # 32768
-        self._total_timesteps = 1e6
+        self._warmstart_timesteps = int(1e2)
+        self._replay_buffer_size = int(1e6) # 32768
+        self._batch_size = 256
+        self._total_timesteps = int(1e6)
         
         self._lr_policy = 3e-4
         self._lr_q = 1e-3
@@ -780,20 +608,19 @@ class SActorCriticAlgoBase():
         self._discount_factor = 0.99
         self._smoothing_coeff = 0.005
         self._noise_clip = 0.5
-        self._alpha = 0.2
-        self._autotune = False
 
         self._policy_freq = 2
         self._trgt_net_freq = 1
 
         self._update_epochs = 10
 
+        self._autotune = False
         self._target_entropy = None
         self._log_alpha = None
-        self._alpha = None
+        self._alpha = 0.2
         self._a_optimizer = None
         
-        self._n_policy_updates_to_be_done = self._update_epochs * self._num_minibatches * self._iterations_n
+        self._n_policy_updates_to_be_done = self._update_epochs
 
         # write them to hyperparam dictionary for debugging
         self._hyperparameters["n_envs"] = self._num_envs
@@ -803,53 +630,24 @@ class SActorCriticAlgoBase():
         # self._hyperparameters["actor_size"] = self._actor_size
         self._hyperparameters["seed"] = self._seed
         self._hyperparameters["using_gpu"] = self._use_gpu
-        self._hyperparameters["n_iterations"] = self._iterations_n
-        self._hyperparameters["n_policy_updates_per_batch"] = self._update_epochs * self._num_minibatches
+        self._hyperparameters["n_iterations"] = self._total_timesteps
+        self._hyperparameters["n_policy_updates_per_batch"] = self._update_epochs 
         self._hyperparameters["n_policy_updates_when_done"] = self._n_policy_updates_to_be_done
         self._hyperparameters["episodes timeout lb"] = self._episode_timeout_lb
         self._hyperparameters["episodes timeout ub"] = self._episode_timeout_ub
         self._hyperparameters["task rand timeout lb"] = self._task_rand_timeout_lb
         self._hyperparameters["task rand timeout ub"] = self._task_rand_timeout_ub
-        self._hyperparameters["env_n_action_reps"] = self._env_n_action_reps
-        self._hyperparameters["n steps per env. rollout"] = self._rollout_timesteps
-        self._hyperparameters["per-batch update_epochs"] = self._update_epochs
-        self._hyperparameters["per-epoch policy updates"] = self._num_minibatches
-        self._hyperparameters["total policy updates to be performed"] = self._update_epochs * self._num_minibatches * self._iterations_n
-        self._hyperparameters["total_timesteps to be simulated"] = self._total_timesteps
-        self._hyperparameters["batch_size"] = self._batch_size
-        self._hyperparameters["batch_size_nom"] = self._batch_size_nom
-        self._hyperparameters["minibatch_size"] = self._minibatch_size
-        self._hyperparameters["total_timesteps"] = self._total_timesteps
-        self._hyperparameters["base_lr_actor"] = self._base_lr_actor
-        self._hyperparameters["base_lr_critic"] = self._base_lr_critic
-        self._hyperparameters["anneal_lr"] = self._anneal_lr
-        self._hyperparameters["discount_factor"] = self._discount_factor
-        self._hyperparameters["gae_lambda"] = self._gae_lambda
-        self._hyperparameters["norm_adv"] = self._norm_adv
-        self._hyperparameters["clip_coef"] = self._clip_coef
-        self._hyperparameters["clip_coef_vf"] = self._clip_coef_vf
-        self._hyperparameters["clip_vloss"] = self._clip_vloss
-        self._hyperparameters["entropy_coeff"] = self._entropy_coeff
-        self._hyperparameters["val_f_coeff"] = self._val_f_coeff
-        self._hyperparameters["max_grad_norm_actor"] = self._max_grad_norm_actor
-        self._hyperparameters["max_grad_norm_critic"] = self._max_grad_norm_critic
-        self._hyperparameters["target_kl"] = self._target_kl
 
         # small debug log
         info = f"\nUsing \n" + \
-            f"batch_size_nominal {self._batch_size_nom}\n" + \
-            f"batch_size {self._batch_size}\n" + \
-            f"num_minibatches {self._num_minibatches}\n" + \
-            f"minibatch_size {self._minibatch_size}\n" + \
             f"per-batch update_epochs {self._update_epochs}\n" + \
-            f"iterations_n {self._iterations_n}\n" + \
-            f"n steps per env. rollout {self._rollout_timesteps}\n" + \
+            f"iterations_n {self._total_timesteps}\n" + \
+            f"n steps per env. rollout {self._replay_buffer_size}\n" + \
             f"episode timeout max steps {self._episode_timeout_ub}\n" + \
             f"episode timeout min steps {self._episode_timeout_lb}\n" + \
             f"task rand. max n steps {self._task_rand_timeout_ub}\n" + \
             f"task rand. min n steps {self._task_rand_timeout_lb}\n" + \
             f"number of action reps {self._env_n_action_reps}\n" + \
-            f"total policy updates to be performed {self._update_epochs * self._num_minibatches * self._iterations_n}\n" + \
             f"total_timesteps to be simulated {self._total_timesteps}\n"
         Journal.log(self.__class__.__name__,
             "_init_params",
@@ -859,58 +657,92 @@ class SActorCriticAlgoBase():
         
         self._it_counter = 0
 
-    def _init_buffers(self):
+    def _init_replay_buffers(self):
+        
+        self._bpos = 0
 
-        self._obs = torch.full(size=(self._rollout_timesteps, self._num_envs, self._obs_dim),
+        self._obs = torch.full(size=(self._replay_buffer_size, self._num_envs, self._obs_dim),
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device) 
-        self._values = torch.full(size=(self._rollout_timesteps, self._num_envs, 1),
+        self._actions = torch.full(size=(self._replay_buffer_size, self._num_envs, self._actions_dim),
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device)
-            
-        self._actions = torch.full(size=(self._rollout_timesteps, self._num_envs, self._actions_dim),
+        self._values = torch.full(size=(self._replay_buffer_size, self._num_envs, 1),
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device)
-        self._logprobs = torch.full(size=(self._rollout_timesteps, self._num_envs, 1),
+        self._rewards = torch.full(size=(self._replay_buffer_size, self._num_envs, 1),
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device)
-
-        self._next_obs = torch.full(size=(self._rollout_timesteps, self._num_envs, self._obs_dim),
+        self._next_obs = torch.full(size=(self._replay_buffer_size, self._num_envs, self._obs_dim),
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device) 
-        self._next_values = torch.full(size=(self._rollout_timesteps, self._num_envs, 1),
-                        fill_value=0,
-                        dtype=self._dtype,
-                        device=self._torch_device)
-        self._next_terminations = torch.full(size=(self._rollout_timesteps, self._num_envs, 1),
+        self._next_terminal = torch.full(size=(self._replay_buffer_size, self._num_envs, 1),
                         fill_value=False,
                         dtype=self._dtype,
                         device=self._torch_device)
-        self._next_dones = torch.full(size=(self._rollout_timesteps, self._num_envs, 1),
+        self._next_truncated = torch.full(size=(self._replay_buffer_size, self._num_envs, 1),
                         fill_value=False,
                         dtype=self._dtype,
                         device=self._torch_device)
-        
-        self._rewards = torch.full(size=(self._rollout_timesteps, self._num_envs, 1),
-                        fill_value=0,
-                        dtype=self._dtype,
-                        device=self._torch_device)
-        
-        
-        self._advantages = torch.full(size=(self._rollout_timesteps, self._num_envs, 1),
-                        fill_value=0,
-                        dtype=self._dtype,
-                        device=self._torch_device)
-        self._returns = torch.full(size=(self._rollout_timesteps, self._num_envs, 1),
-                        fill_value=0,
+        self._next_done = torch.full(size=(self._replay_buffer_size, self._num_envs, 1),
+                        fill_value=False,
                         dtype=self._dtype,
                         device=self._torch_device)
 
+    def _add_experience(self, 
+            obs: torch.Tensor, actions: torch.Tensor, rewards: torch.Tensor, 
+            next_obs: torch.Tensor, 
+            truncations: torch.Tensor,
+            terminations: torch.Tensor) -> None:
+        
+        self._obs[self._bpos] = obs
+        self._next_obs[self._bpos] = next_obs
+        self._actions[self._bpos] = actions
+        self._rewards[self._bpos] = rewards
+        self._next_terminal[self._bpos] = truncations
+        self._next_truncated[self._bpos] = terminations
+        self._next_done[self._bpos] = torch.logical_or(self._next_terminal[self._bpos], 
+                                        self._next_truncated[self._bpos])
+
+        self._bpos += 1
+        if self._bpos == self._replay_buffer_size:
+            self.full = True
+            self._bpos = 0
+    
+    def _sample(self):
+        
+        shuffled_buffer_idxs = torch.randperm(self._batch_size) # randomizing 
+
+        batched_obs = self._obs.reshape((-1, self._env.obs_dim()))
+        batched_next_obs = self._next_obs.reshape((-1, self._env.obs_dim()))
+        batched_actions = self._actions.reshape((-1, self._env.actions_dim()))
+        batched_rewards = self._rewards.reshape(-1)
+        batched_terminal = self._next_terminal.reshape(-1)
+        batched_truncated = self._next_truncated.reshape(-1)
+        batched_done = self._next_done.reshape(-1)
+
+        sampled_obs = batched_obs[shuffled_buffer_idxs]
+        sampled_next_obs = batched_next_obs[shuffled_buffer_idxs]
+        sampled_actions = batched_actions[shuffled_buffer_idxs]
+        sampled_rewards = batched_rewards[shuffled_buffer_idxs]
+        sampled_terminal = batched_terminal[shuffled_buffer_idxs]
+        sampled_truncated = batched_truncated[shuffled_buffer_idxs]
+        sampled_done = batched_done[shuffled_buffer_idxs]
+
+        return sampled_obs,sampled_next_obs,sampled_actions,\
+            sampled_rewards,sampled_terminal,sampled_truncated,sampled_done
+
+    def _sample_random_actions(self):
+        
+        actions = self._env.get_actions()
+
+        return torch.rand_like(actions)
+    
     def _init_algo_shared_data(self,
                 static_params: Dict):
 
