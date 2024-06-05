@@ -26,6 +26,8 @@ class PPO(ActorCriticAlgoBase):
         self._this_child_path = os.path.abspath(__file__) # overrides parent
 
     def _play(self):
+        
+        self._agent.train(False) # switch agent mode (e.g. enables computing running normalizer stats)
 
         # collect data from current policy over a number of timesteps
         for transition in range(self._rollout_timesteps):
@@ -81,6 +83,8 @@ class PPO(ActorCriticAlgoBase):
             self._returns[:, :] = self._advantages + self._values
 
     def _improve_policy(self):
+        
+        self._agent.train(True) # switch agent to training mode (e.g. freezes running normalizer stats)
 
         # flatten batches before policy update
         batched_obs = self._obs.reshape((-1, self._env.obs_dim()))
