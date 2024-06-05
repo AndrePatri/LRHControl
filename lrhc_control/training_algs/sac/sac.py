@@ -23,20 +23,7 @@ class SAC(SActorCriticAlgoBase):
 
     def eval(self):
 
-        if not self._setup_done:
-            self._should_have_called_setup()
-
-        self._episodic_reward_getter.reset()
-
-        self._start_time = time.perf_counter()
-        collect_ok = self._collect_experience()
-        if not collect_ok:
-            return False
-        self._collection_t = time.perf_counter()
-
-        self._post_step()
-
-        return True
+        pass
 
     def learn(self):
         
@@ -48,6 +35,8 @@ class SAC(SActorCriticAlgoBase):
 
         for transition in range(self._total_timesteps):
             
+            self._switch_training_mode(train=False)
+
             obs = self._env.get_obs() # also accounts for resets when envs are 
             # either terminated or truncated
             if transition > self._warmstart_timesteps:
@@ -71,6 +60,8 @@ class SAC(SActorCriticAlgoBase):
                 return False
             
             if transition > self._warmstart_timesteps:
+                
+                self._switch_training_mode(train=True)
 
                 obs,next_obs,actions,rewards,_,_,next_done = self._sample()
                 

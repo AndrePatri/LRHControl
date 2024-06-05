@@ -35,7 +35,7 @@ class CriticQ(nn.Module):
         size_internal_layer = 256
         if self._normalize_obs:
             self._q_net = nn.Sequential(
-                RunningNormalizer((self._q_net_dim,), epsilon=1e-8, device=self._torch_device, dtype=self._torch_dtype, is_training=not self._is_eval),
+                RunningNormalizer((self._q_net_dim,), epsilon=1e-8, device=self._torch_device, dtype=self._torch_dtype, freeze_stats=self._is_eval),
                 self._layer_init(layer=nn.Linear(self._q_net_dim, size_internal_layer),device=self._torch_device,dtype=self._torch_dtype),
                 nn.ReLU(),
                 self._layer_init(layer=nn.Linear(size_internal_layer, size_internal_layer), device=self._torch_device,dtype=self._torch_dtype),
@@ -137,7 +137,7 @@ class Actor(nn.Module):
 
         if self._normalize_obs:
             self._fc12 = nn.Sequential(
-                RunningNormalizer((self._obs_dim,), epsilon=1e-8, device=self._torch_device, dtype=self._torch_dtype, is_training=not self._is_eval),
+                RunningNormalizer((self._obs_dim,), epsilon=1e-8, device=self._torch_device, dtype=self._torch_dtype,freeze_stats=self._is_eval),
                 self._layer_init(layer=nn.Linear(self._obs_dim, size_internal_layer),device=self._torch_device,dtype=self._torch_dtype),
                 self._layer_init(layer=nn.Linear(size_internal_layer, size_internal_layer), device=self._torch_device,dtype=self._torch_dtype)
             )

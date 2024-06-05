@@ -596,7 +596,7 @@ class SActorCriticAlgoBase():
         self._m_checkpoint_freq = 50 # n ppo iterations after which a checkpoint model is dumped
 
         # main algo settings
-        self._warmstart_timesteps = int(1e2)
+        self._warmstart_timesteps = int(20)
         self._replay_buffer_size = int(1e6) # 32768
         self._batch_size = 256
         self._total_timesteps = int(1e6)
@@ -743,6 +743,15 @@ class SActorCriticAlgoBase():
 
         return torch.rand_like(actions)
     
+    def _switch_training_mode(self, 
+                    train: bool = True):
+
+        self._agent.train(train)
+        self._qf1.train(train)
+        self._qf2.train(train)
+        self._qf1_target.train(train)
+        self._qf2_target.train(train)
+
     def _init_algo_shared_data(self,
                 static_params: Dict):
 
