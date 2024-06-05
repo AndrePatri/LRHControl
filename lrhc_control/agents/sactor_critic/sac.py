@@ -74,9 +74,6 @@ class CriticQ(nn.Module):
         return layer
     
     def forward(self, x, a):
-        print("IIIIIIIII")
-        print(x.shape)
-        print(a.shape)
         x = torch.cat((x, a), dim=1)
         return self._q_net(x)
 

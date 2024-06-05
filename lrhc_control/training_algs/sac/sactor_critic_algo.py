@@ -453,8 +453,8 @@ class SActorCriticAlgoBase():
                 ]
 
             # write debug info to shared memory    
-            self._shared_algo_data.write(dyn_info_name=info_names,
-                                    val=info_data)
+            # self._shared_algo_data.write(dyn_info_name=info_names,
+            #                         val=info_data)
 
             wandb_d = {'tot_episodic_reward': wandb.Histogram(self._episodic_rewards[self._it_counter-1, :, :].numpy()),
                 'tot_episodic_reward_env_avrg': self._episodic_rewards_env_avrg[self._it_counter-1, :, :].item(),
@@ -622,6 +622,8 @@ class SActorCriticAlgoBase():
         
         self._n_policy_updates_to_be_done = self._update_epochs
 
+        self._db_frequency = 100 # log db data every n timesteps
+        
         # write them to hyperparam dictionary for debugging
         self._hyperparameters["n_envs"] = self._num_envs
         self._hyperparameters["obs_dim"] = self._obs_dim

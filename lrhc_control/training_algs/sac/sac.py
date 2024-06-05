@@ -55,7 +55,6 @@ class SAC(SActorCriticAlgoBase):
                     terminations=self._env.get_terminations(), 
                     truncations=self._env.get_truncations())
 
-            print(f"transition {transition} done")
             if not env_step_ok:
                 return False
             
@@ -83,8 +82,6 @@ class SAC(SActorCriticAlgoBase):
                 qf_loss.backward()
                 self._qf_optimizer.step()
 
-                print("qf step done")
-
                 if transition % self._policy_freq == 0:  # TD 3 Delayed update support
                     for i in range(self._policy_freq): # compensate for the delay by doing 'actor_update_interval' instead of 1
                         pi, log_pi, _ = self._agent.get_action(obs)
@@ -92,11 +89,9 @@ class SAC(SActorCriticAlgoBase):
                         qf2_pi = self._qf2(obs, pi)
                         min_qf_pi = torch.min(qf1_pi, qf2_pi)
                         actor_loss = ((self._alpha * log_pi) - min_qf_pi).mean()
-                        print("ijijdicidmimimii")
                         self._actor_optimizer.zero_grad()
                         actor_loss.backward()
                         self._actor_optimizer.step()
-                        print("polocy step done")
                         if self._autotune:
                             with torch.no_grad():
                                 _, log_pi, _ = self._agent.get_action(obs)
@@ -113,6 +108,6 @@ class SAC(SActorCriticAlgoBase):
                         target_param.data.copy_(self._smoothing_coeff * param.data + (1 - self._smoothing_coeff) * target_param.data)
                     for param, target_param in zip(self._qf2.parameters(), self._qf2_target.parameters()):
                         target_param.data.copy_(self._smoothing_coeff * param.data + (1 - self._smoothing_coeff) * target_param.data)
-                    print("updated target network")
 
-        self._post_step()
+            if transition % self._db_frequency == 0:
+                self._post_step()
