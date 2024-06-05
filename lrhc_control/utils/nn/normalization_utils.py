@@ -78,9 +78,9 @@ class RunningMeanStd(object):
             print(f"Detected nan/inf in mean/std tracker, skipping")
 
 class RunningNormalizer(th.nn.Module):
-    def __init__(self, shape : Tuple[int,...], dtype, device, epsilon : float = 1e-8, is_training: bool=True):
+    def __init__(self, shape : Tuple[int,...], dtype, device, epsilon : float = 1e-8, freeze_stats: bool=True):
         super().__init__()
-        self._freeze_stats = not is_training
+        self._freeze_stats = freeze_stats
         self.register_buffer("_epsilon", th.tensor(epsilon, device = device))
         self._running_stats = RunningMeanStd(shape, torch_device=device, dtype=dtype)
         self.register_buffer("vec_running_mean",  self._running_stats.mean)
@@ -88,6 +88,6 @@ class RunningNormalizer(th.nn.Module):
         self.register_buffer("vec_running_count", self._running_stats.count)
 
     def forward(self, x):
-        if not self._freeze_stats:
+        if not (self.training or self._freeze_stats):
             self._running_stats.update(x)
         return (x - self._running_stats.mean)/(th.sqrt(self._running_stats.var)+self._epsilon)
