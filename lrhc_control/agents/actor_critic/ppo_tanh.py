@@ -35,7 +35,7 @@ class ActorCriticTanh(nn.Module):
         size_actor = 128
         if self._normalize_obs:
             self.critic = nn.Sequential(
-                RunningNormalizer((self._obs_dim,), epsilon=1e-8, device=self._torch_device, dtype=self._torch_dtype, is_training=not self._is_eval),
+                RunningNormalizer((self._obs_dim,), epsilon=1e-8, device=self._torch_device, dtype=self._torch_dtype, freeze_stats=self._is_eval),
                 self._layer_init(layer=nn.Linear(self._obs_dim, size_critic),device=self._torch_device,dtype=self._torch_dtype),
                 nn.Tanh(),
                 self._layer_init(layer=nn.Linear(size_critic, size_critic), device=self._torch_device,dtype=self._torch_dtype),
@@ -43,7 +43,7 @@ class ActorCriticTanh(nn.Module):
                 self._layer_init(layer=nn.Linear(size_critic, 1), std=self._critic_std, device=self._torch_device,dtype=self._torch_dtype),
             ) # (stochastic critic)
             self.actor_mean = nn.Sequential(
-                RunningNormalizer((self._obs_dim,), epsilon=1e-8, device=self._torch_device, dtype=self._torch_dtype, is_training=not self._is_eval),
+                RunningNormalizer((self._obs_dim,), epsilon=1e-8, device=self._torch_device, dtype=self._torch_dtype, freeze_stats=self._is_eval),
                 self._layer_init(layer=nn.Linear(self._obs_dim, size_actor), device=self._torch_device,dtype=self._torch_dtype),
                 nn.Tanh(),
                 self._layer_init(layer=nn.Linear(size_actor, size_actor), device=self._torch_device,dtype=self._torch_dtype),
