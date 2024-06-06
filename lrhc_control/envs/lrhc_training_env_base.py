@@ -323,6 +323,11 @@ class LRhcTrainingEnvBase():
         
         self._get_custom_db_data(episode_finished=episode_finished)
 
+    def reset_custom_db_data(self):
+        # to be called periodically to reset custom db data stat. collection 
+        for custom_db_data in self.custom_db_data.values():
+            custom_db_data.reset()
+
     def _assemble_rewards(self):
 
         tot_rewards = self._tot_rewards.get_torch_mirror(gpu=self._use_gpu)
@@ -557,6 +562,7 @@ class LRhcTrainingEnvBase():
     def _init_infos(self):
 
         self.custom_db_data = {}
+        # by default always log this data
         rhc_latest_contact_ref = self._rhc_refs.contact_flags.get_torch_mirror()
         contact_names = self._rhc_refs.rob_refs.contact_names()
         stepping_data = EpisodicData("RhcStatusFlag", rhc_latest_contact_ref, contact_names)
