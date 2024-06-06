@@ -7,6 +7,8 @@ from lrhc_control.controllers.rhc.horizon_based.utils.math_utils import hor2w_fr
 from control_cluster_bridge.utilities.shared_data.rhc_data import RobotState
 from control_cluster_bridge.utilities.shared_data.rhc_data import RhcRefs
 from control_cluster_bridge.utilities.shared_data.rhc_data import RhcInternal
+from control_cluster_bridge.utilities.shared_data.sim_data import SharedSimInfo
+
 from lrhc_control.utils.shared_data.agent_refs import AgentRefs
 
 import numpy as np
@@ -98,6 +100,7 @@ class RhcToVizBridge:
         self.robot_state = None
         self.rhc_refs = None
         self.agent_refs = None
+        self._sim_data = None
 
         self._current_index = 0
 
@@ -173,7 +176,15 @@ class RhcToVizBridge:
 
     def run(self,
         update_dt: float = 0.01):
-                
+        
+        # sim data
+        self._sim_data = SharedSimInfo(namespace=self.namespace,
+                                is_server=False,
+                                safe=False,
+                                verbose=True,
+                                vlevel=VLevel.V2)
+        self._sim_data.run()
+        
         # robot state
         self.robot_state = RobotState(namespace=self.namespace,
                                 is_server=False,

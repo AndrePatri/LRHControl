@@ -7,6 +7,8 @@ from lrhc_control.controllers.rhc.horizon_based.utils.math_utils import hor2w_fr
 from control_cluster_bridge.utilities.shared_data.rhc_data import RobotState
 from control_cluster_bridge.utilities.shared_data.rhc_data import RhcRefs
 from control_cluster_bridge.utilities.shared_data.rhc_data import RhcInternal
+from control_cluster_bridge.utilities.shared_data.sim_data import SharedSimInfo
+
 from lrhc_control.utils.shared_data.agent_refs import AgentRefs
 
 import numpy as np
@@ -21,6 +23,8 @@ from SharsorIPCpp.PySharsorIPC import Journal
 import rclpy
 from std_msgs.msg import Float64MultiArray
 from std_msgs.msg import String
+from rosgraph_msgs.msg import Clock
+
 from rclpy.node import Node
 from rclpy.qos import ReliabilityPolicy, DurabilityPolicy, HistoryPolicy, LivelinessPolicy
 from rclpy.qos import QoSProfile
@@ -111,6 +115,10 @@ class RhcToViz2Bridge:
                                                                 namespace=self.namespace),
                                             qos_profile=self._qos_settings)   
 
+        self.simtime_pub = self.node.create_publisher(Clock, 
+                                            "clock",
+                                            qos_profile=self._qos_settings) 
+        
         self.cluster_size = None
         self.jnt_names_robot = None
         self.jnt_names_rhc = None
@@ -119,6 +127,7 @@ class RhcToViz2Bridge:
         self.robot_state = None
         self.rhc_refs = None
         self.agent_refs = None
+        self._sim_data = None
 
         self._update_counter = 0
         self._print_frequency = 100
@@ -192,7 +201,18 @@ class RhcToViz2Bridge:
 
     def run(self,
         update_dt: float = 0.01):
-                
+        
+        # sim data
+        self._sim_data = SharedSimInfo(namespace=self.namespace,
+                                is_server=False,
+                                safe=False,
+                                verbose=True,
+                                vlevel=VLevel.V2)
+        self._sim_data.run()
+        self._sim_time = 0
+        self._sim_datanames = self._sim_data.param_keys
+        self._simtime_idx = self._sim_datanames.index("cluster_time")
+        self._ros2_clock = Clock()
         # robot state
         self.robot_state = RobotState(namespace=self.namespace,
                                 is_server=False,
@@ -326,7 +346,7 @@ class RhcToViz2Bridge:
                 if self._with_agent_refs:
                     self.agent_refs.rob_refs.synch_from_shared_mem()
                 self.rhc_internal_clients[self._current_index].synch(read=True)
-
+                self._sim_time = self._sim_data.get()[self._simtime_idx].item()
                 self._publish()
             
         else:
@@ -379,6 +399,10 @@ class RhcToViz2Bridge:
     
     def _publish(self):
         
+        self._ros2_clock.clock.sec = int(self._sim_time)
+        self._ros2_clock.clock.nanosec = int((self._sim_time - self._ros2_clock.clock.sec)*1e9)
+
+        self.simtime_pub.publish(self._ros2_clock)
         # continously publish also joint names 
         self.robot_jntnames_pub.publish(String(data=self.jnt_names_robot_encoded))
         
