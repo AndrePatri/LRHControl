@@ -83,7 +83,8 @@ class ActorCriticAlgoBase():
             n_evals: int = None,
             n_timesteps_per_eval: int = None,
             comment: str = "",
-            dump_checkpoints: bool = False):
+            dump_checkpoints: bool = False,
+            norm_obs: bool = True):
 
         self._verbose = verbose
 
@@ -105,7 +106,7 @@ class ActorCriticAlgoBase():
                         actions_dim=self._env.actions_dim(),
                         actor_std=0.01,
                         critic_std=1.0,
-                        norm_obs=True,
+                        norm_obs=norm_obs,
                         device=self._torch_device,
                         dtype=self._dtype,
                         is_eval=self._eval)
@@ -214,6 +215,7 @@ class ActorCriticAlgoBase():
 
         self._episodic_reward_getter.reset() # necessary, we don't want to accumulate 
         # debug rewards from previous rollouts
+        self._env.reset_custom_db_data() # reset custom db stats for this iteration
 
         self._start_time = time.perf_counter()
 

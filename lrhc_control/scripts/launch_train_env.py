@@ -34,6 +34,7 @@ if __name__ == "__main__":
     parser.add_argument('--comment', type=str, help='Any useful comment associated with this run',default="")
     parser.add_argument('--seed', type=int, help='seed', default=1)
     parser.add_argument('--disable_db', action='store_true', help='Whether to disable debug (this includes db prints and remote data logging)')
+    parser.add_argument('--norm_obs', type=bool, help='whether to use a normalization layer at the agent input', default=True)
 
     args = parser.parse_args()
     
@@ -58,8 +59,8 @@ if __name__ == "__main__":
     for i in range(len(sim_info_keys)):
         sim_data[sim_info_keys[i]] = sim_info_data[i]
     
-    # algo = PPO(env=env, debug=not args.disable_db, seed=args.seed)
-    algo = SAC(env=env, debug=not args.disable_db, seed=args.seed)
+    algo = PPO(env=env, debug=not args.disable_db, seed=args.seed)
+    # algo = SAC(env=env, debug=not args.disable_db, seed=args.seed)
     algo.setup(run_name=args.run_name, 
         verbose=True,
         drop_dir_name=args.drop_dir,
@@ -69,7 +70,8 @@ if __name__ == "__main__":
         model_path=args.mpath,
         n_evals=args.n_evals,
         n_timesteps_per_eval=args.n_timesteps,
-        dump_checkpoints=args.dump_checkpoints)
+        dump_checkpoints=args.dump_checkpoints,
+        norm_obs=args.norm_obs)
 
     try:
         while not algo.is_done():
