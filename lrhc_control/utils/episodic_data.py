@@ -24,7 +24,7 @@ class EpisodicData():
         self._n_envs = data_tensor.shape[0]
         self._data_size = data_tensor.shape[1]
                             
-        self.reset()
+        self._init_data()
 
         self._data_names = data_names
         if data_names is not None:
@@ -43,7 +43,7 @@ class EpisodicData():
     def name(self):
         return self._name
     
-    def reset(self):
+    def _init_data(self):
         
         # undiscounted sum of each env, during a single episode
         self._episodic_sum = torch.full(size=(self._n_envs, self._data_size), 
@@ -71,6 +71,15 @@ class EpisodicData():
         self._steps_counter = torch.full(size=(self._n_envs, 1), 
                                     fill_value=1,
                                     dtype=torch.int32, device="cpu")
+
+    def reset(self):
+        # reset all data
+        self._episodic_sum.zero_()
+        self._episodic_avrg.zero_()
+        self._rollout_sum.zero_()
+        self._rollout_sum_avrg.zero_()
+        self._current_ep_idx.fill_(1)
+        self._steps_counter.fill_(1)
 
     def update(self, 
         new_data: torch.Tensor,
