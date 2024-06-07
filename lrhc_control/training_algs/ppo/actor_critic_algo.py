@@ -757,7 +757,7 @@ class ActorCriticAlgoBase():
         self._base_lr_critic = 3e-4
         self._lr_now_actor = self._base_lr_actor
         self._lr_now_critic= self._base_lr_critic
-        self._anneal_lr = True
+        self._anneal_lr = False
 
         self._discount_factor = 0.99
         self._gae_lambda = 0.95 # λ = 1 gives an unbiased estimate of the total reward (but high variance),
@@ -768,7 +768,7 @@ class ActorCriticAlgoBase():
         self._clip_vloss = False
         self._clip_coef = 0.2
         self._clip_coef_vf = 0.2 # IMPORTANT: this clipping depends on the reward scaling.
-        self._entropy_coeff = 0.0
+        self._entropy_coeff = 0.01
         self._val_f_coeff = 0.5
         self._max_grad_norm_actor = 0.5
         self._max_grad_norm_critic = 0.5
