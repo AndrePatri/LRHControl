@@ -13,13 +13,18 @@ class EpisodicRewards(EpisodicData):
             reward_names: List[str] = None,
             max_episode_length: int = 1):
 
-        scaling = torch.full((reward_tensor.shape[0], 1),
-                    fill_value=max_episode_length,
-                    dtype=torch.int32,device="cpu") # reward metrics are scaled using
         # the maximum ep length
         super().__init__(data_tensor=reward_tensor, data_names=reward_names, name="SubRewards")
-        self.set_constant_data_scaling(enable=True,scaling=scaling)
+        self.set_constant_data_scaling(scaling=max_episode_length)
     
+    def set_constant_data_scaling(self, scaling: int):
+        # overrides parent
+
+        scaling = torch.full((self._n_envs, 1),
+                    fill_value=scaling,
+                    dtype=torch.int32,device="cpu") # reward metrics are scaled using
+        self.set_constant_data_scaling(enable=True,scaling=scaling)
+        
     def update(self, 
         rewards: torch.Tensor,
         ep_finished: torch.Tensor):

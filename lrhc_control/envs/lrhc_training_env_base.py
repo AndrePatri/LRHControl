@@ -560,6 +560,11 @@ class LRhcTrainingEnvBase():
                                         reward_names=self._get_rewards_names(),
                                         max_episode_length=self._episode_timeout_ub)
     
+    def _set_ep_rewards_scaling(self,
+                        scaling: int):
+        
+        self._episodic_rewards_getter.set_constant_data_scaling(scaling=scaling)
+        
     def _init_infos(self):
 
         self.custom_db_data = {}

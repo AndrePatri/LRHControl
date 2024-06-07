@@ -183,6 +183,7 @@ class ActorCriticAlgoBase():
         self._init_buffers()
         
         # self._env.reset()
+        self._set_ep_rewards_scaling(scaling=self._rollout_timesteps)
         
         self._setup_done = True
 
