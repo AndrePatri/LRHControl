@@ -1,4 +1,3 @@
-from SharsorIPCpp.PySharsorIPC import VLevel
 from SharsorIPCpp.PySharsorIPC import Journal
 from SharsorIPCpp.PySharsorIPC import LogType
 
@@ -20,6 +19,12 @@ class EpisodicData():
         self._name = name
 
         self._debug = debug
+        
+        self._use_constant_scaling = False # whether to use constant 
+        # scaling over episodes (this is useful to log meaningful reward data). If not 
+        # enabled, metrics are actually averaged over the episode's timesteps, meaning that 
+        # no difference between long or short episodes can be seen
+        self._scaling = None
 
         self._n_envs = data_tensor.shape[0]
         self._data_size = data_tensor.shape[1]
@@ -40,6 +45,26 @@ class EpisodicData():
             for i in range(self._data_size):
                 self._data_names.append(f"data_n{i}")
     
+    def set_constant_data_scaling(self,
+                enable: bool = True,
+                scaling: torch.Tensor = None):
+        
+        if scaling is not None:
+
+            if (not scaling.shape[0] == self._n_envs) or \
+            (not scaling.shape[1] == 1):
+                exception = f"Provided scaling tensor shape {scaling.shape[0]}, {scaling.shape[1]}" + \
+                    f" does not match {self._n_envs}, {1}!!"
+                Journal.log(self.__class__.__name__ + f"[{self._name}]",
+                    "__init__",
+                    exception,
+                    LogType.EXCEP,
+                    throw_when_excep=True)
+
+            self._scaling[:, :] = scaling
+        
+        self._use_constant_scaling = enable
+
     def name(self):
         return self._name
     
@@ -72,6 +97,15 @@ class EpisodicData():
                                     fill_value=1,
                                     dtype=torch.int32, device="cpu")
 
+        self._scale_now = torch.full(size=(self._n_envs, 1), 
+                                    fill_value=1,
+                                    dtype=torch.int32, device="cpu")
+
+        # just used if use_constant_scaling
+        self._scaling = torch.full(size=(self._n_envs, 1), 
+                                    fill_value=1,
+                                    dtype=torch.int32, device="cpu") # default to scaling 1
+        
     def reset(self):
         # reset all data
         self._episodic_sum.zero_()
@@ -80,10 +114,11 @@ class EpisodicData():
         self._rollout_sum_avrg.zero_()
         self._current_ep_idx.fill_(1)
         self._steps_counter.fill_(1)
+        self._scale_now.fill_(1)
 
     def update(self, 
         new_data: torch.Tensor,
-        ep_finished: torch.Tensor):
+        ep_finished: torch.Tensor): # rewards scaled over episode length
 
         if (not new_data.shape[0] == self._n_envs) or \
             (not new_data.shape[1] == self._data_size):
@@ -113,9 +148,14 @@ class EpisodicData():
                 exception,
                 LogType.EXCEP,
                 throw_when_excep=True)
-            
+        
+        if not self._use_constant_scaling:
+            self._scale_now[:, :] = self._steps_counter # use current n of timesteps as scale 
+        else:
+            self._scale_now[:, :] = self._scaling # constant scaling
+
         self._episodic_sum[:, :] = self._episodic_sum + new_data # sum over the current episode
-        self._episodic_avrg[:, :] = self._episodic_sum[:, :] / self._steps_counter[:, :] # average bover the played timesteps
+        self._episodic_avrg[:, :] = self._episodic_sum[:, :] / self._scale_now[:, :] # average bover the played timesteps
         
         self._rollout_sum_avrg[:, :] = (self._rollout_sum + self._episodic_avrg) / self._current_ep_idx[:, :] # average sum over episodes (including current)
         self._rollout_sum[ep_finished.flatten(), :] += self._episodic_avrg[ep_finished.flatten(), :] # sum over ALREADY played episodes
@@ -147,4 +187,99 @@ class EpisodicData():
 
     def get_n_played_episodes(self):
         return torch.sum(self._current_ep_idx).item()
+    
+if __name__ == "__main__":  
 
+    n_envs = 1
+    data_dim = 3
+    ep_finished = torch.full((n_envs, 1),fill_value=0,dtype=torch.bool,device="cpu")
+    new_data = torch.full((n_envs, data_dim),fill_value=0,dtype=torch.float32,device="cpu")
+    data_scaling = torch.full((n_envs, 1),fill_value=1,dtype=torch.int32,device="cpu")
+    data_names = ["okokok", "sdcsdc", "cdcsdcplpl"]
+    test_data = EpisodicData("TestData",
+                    data_tensor=new_data,
+                    data_names=data_names,
+                    debug=True)
+    
+    # with constant scaling
+    print("###### CONSTANT SCALING #######")
+
+    test_data.set_constant_data_scaling(enable=True,
+                scaling=data_scaling)
+    test_data.reset()
+    ep_finished[:, :] = False
+    new_data[0, 0] = 1
+    new_data[0, 1] = 2
+    new_data[0, 2] = 3
+
+    test_data.update(new_data=new_data,
+                ep_finished=ep_finished)
+
+    ep_finished[:, :] = False
+    new_data+=1 
+
+    test_data.update(new_data=new_data,
+                ep_finished=ep_finished)
+    
+    ep_finished[:, :] = False
+    new_data+=1 
+
+    test_data.update(new_data=new_data,
+                ep_finished=ep_finished)
+
+    
+    print("get_rollout_stat:")
+    print(test_data.get_rollout_stat())
+
+    print("get_rollout_stat_env_avrg:")
+    print(test_data.get_rollout_stat_env_avrg())
+
+    print("get_rollout_stat_comp:")
+    print(test_data.get_rollout_stat_comp())
+
+    print("get_rollout_stat_comp_env_avrg:")
+    print(test_data.get_rollout_stat_comp_env_avrg())
+
+    print("get_rollout_stat_comp_env_avrg:")
+    print(test_data.get_rollout_stat_comp_env_avrg())
+
+    # with adaptive scaling
+    print("###### ADAPTIVE SCALING #######")
+    test_data.set_constant_data_scaling(enable=False,
+                scaling=None)
+    test_data.reset()
+    ep_finished[:, :] = False
+    new_data[0, 0] = 1
+    new_data[0, 1] = 2
+    new_data[0, 2] = 3
+
+    test_data.update(new_data=new_data,
+                ep_finished=ep_finished)
+
+    ep_finished[:, :] = False
+    new_data+=1 
+
+    test_data.update(new_data=new_data,
+                ep_finished=ep_finished)
+    
+    ep_finished[:, :] = False
+    new_data+=1 
+
+    test_data.update(new_data=new_data,
+                ep_finished=ep_finished)
+
+    
+    print("get_rollout_stat:")
+    print(test_data.get_rollout_stat())
+
+    print("get_rollout_stat_env_avrg:")
+    print(test_data.get_rollout_stat_env_avrg())
+
+    print("get_rollout_stat_comp:")
+    print(test_data.get_rollout_stat_comp())
+
+    print("get_rollout_stat_comp_env_avrg:")
+    print(test_data.get_rollout_stat_comp_env_avrg())
+
+    print("get_rollout_stat_comp_env_avrg:")
+    print(test_data.get_rollout_stat_comp_env_avrg())
