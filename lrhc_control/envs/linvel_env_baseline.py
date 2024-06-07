@@ -56,10 +56,12 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         actions_dim = 2 + 1 + 3 + 4 # [vxy_cmd, h_cmd, twist_cmd, dostep_0, dostep_1, dostep_2, dostep_3]
 
         self._n_prev_actions = 1 if self._add_last_action_to_obs else 0
+        # obs_dim = 4+6+2*n_jnts+2+self._n_prev_actions*actions_dim
         obs_dim = 4+6+2*n_jnts+2+2+self._n_prev_actions*actions_dim
+
         # obs_dim = 4+6+n_jnts+2+2+self._n_prev_actions*actions_dim
-        episode_timeout_lb = 4096 # episode timeouts (including env substepping when action_repeat>1)
-        episode_timeout_ub = 8192
+        episode_timeout_lb = 512 # episode timeouts (including env substepping when action_repeat>1)
+        episode_timeout_ub = 1024
         n_steps_task_rand_lb = 256 # agent refs randomization freq
         n_steps_task_rand_ub = 512
 
@@ -81,11 +83,11 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._task_err_weights[0, 5] = 0.0
         self._task_err_weights_sum = torch.sum(self._task_err_weights).item()
 
-        self._rhc_cnstr_viol_weight = 1.0
+        self._rhc_cnstr_viol_weight = 0.0
         # self._rhc_cnstr_viol_scale = 1.0 * 1e-3
         self._rhc_cnstr_viol_scale = 1.0 * 5e-3
 
-        self._rhc_cost_weight = 1.0
+        self._rhc_cost_weight = 0.0
         # self._rhc_cost_scale = 1e-2 * 1e-3
         self._rhc_cost_scale = 1e-2 * 5e-3
 
@@ -105,7 +107,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         # jnt vel penalty 
         self._jnt_vel_weight = 1.0
-        self._jnt_vel_scale = 0.1
+        self._jnt_vel_scale = 0.3
         self._jnt_vel_penalty_weights = torch.full((1, n_jnts), dtype=dtype, device=device,
                             fill_value=1.0)
         jnt_vel_weights_along_limb = [1.0] * n_jnts_per_limb
@@ -269,10 +271,10 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         next_idx+=self._n_jnts
         obs_tensor[:, next_idx:(next_idx+2)] = agent_twist_ref[:, 0:2] # high lev agent ref (local base if self._use_local_base_frame)
         next_idx+=2
-        obs_tensor[:, next_idx:(next_idx+1)] = self._rhc_const_viol(gpu=self._use_gpu)
-        next_idx+=1
-        obs_tensor[:, next_idx:(next_idx+1)] = self._rhc_cost(gpu=self._use_gpu)
-        next_idx+=1
+        # obs_tensor[:, next_idx:(next_idx+1)] = self._rhc_const_viol(gpu=self._use_gpu)
+        # next_idx+=1
+        # obs_tensor[:, next_idx:(next_idx+1)] = self._rhc_cost(gpu=self._use_gpu)
+        # next_idx+=1
         # obs_tensor[:, next_idx:(next_idx+len(self.contact_names))] = self._rhc_step_var(gpu=self._use_gpu)
         # next_idx+=len(self.contact_names)
         # adding last action to obs at the back of the obs tensor
@@ -425,9 +427,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         #     obs_names[next_idx+i] = f"step_var_{contact}"
         #     i+=1        
         # next_idx+=len(self.contact_names)
-        obs_names[next_idx] = "rhc_const_viol"
-        obs_names[next_idx + 1] = "rhc_cost"
-        next_idx+=2
+        # obs_names[next_idx] = "rhc_const_viol"
+        # obs_names[next_idx + 1] = "rhc_cost"
+        # next_idx+=2
         action_names = self._get_action_names()
         for pre_t_idx in range(self._n_prev_actions):
             for prev_act_idx in range(self.actions_dim()):
