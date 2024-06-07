@@ -557,7 +557,8 @@ class LRhcTrainingEnvBase():
         self._tot_rewards.run()
 
         self._episodic_rewards_getter = EpisodicRewards(reward_tensor=self._rewards.get_torch_mirror(),
-                                        reward_names=self._get_rewards_names())
+                                        reward_names=self._get_rewards_names(),
+                                        max_episode_length=self._episode_timeout_ub)
     
     def _init_infos(self):
 
