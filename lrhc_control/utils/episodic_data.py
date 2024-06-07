@@ -240,9 +240,6 @@ if __name__ == "__main__":
     print("get_rollout_stat_comp_env_avrg:")
     print(test_data.get_rollout_stat_comp_env_avrg())
 
-    print("get_rollout_stat_comp_env_avrg:")
-    print(test_data.get_rollout_stat_comp_env_avrg())
-
     # with adaptive scaling
     print("###### ADAPTIVE SCALING #######")
     test_data.set_constant_data_scaling(enable=False,

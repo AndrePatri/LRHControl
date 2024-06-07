@@ -10,10 +10,16 @@ class EpisodicRewards(EpisodicData):
 
     def __init__(self,
             reward_tensor: torch.Tensor,
-            reward_names: List[str] = None):
+            reward_names: List[str] = None,
+            max_episode_length: int = 1):
 
-       super().__init__(data_tensor=reward_tensor, data_names=reward_names, name="SubRewards")
-
+        scaling = torch.full((reward_tensor.shape[0], 1),
+                    fill_value=max_episode_length,
+                    dtype=torch.int32,device="cpu") # reward metrics are scaled using
+        # the maximum ep length
+        super().__init__(data_tensor=reward_tensor, data_names=reward_names, name="SubRewards")
+        self.set_constant_data_scaling(enable=True,scaling=scaling)
+    
     def update(self, 
         rewards: torch.Tensor,
         ep_finished: torch.Tensor):
@@ -159,4 +165,48 @@ class EpisodicRewardsOld():
     def get_n_played_episodes(self):
 
         return torch.sum(self._current_ep_idx).item()
-        
+
+if __name__ == "__main__":  
+
+    n_envs = 1
+    data_dim = 3
+    max_ep_length = 1
+    ep_finished = torch.full((n_envs, 1),fill_value=0,dtype=torch.bool,device="cpu")
+    new_data = torch.full((n_envs, data_dim),fill_value=0,dtype=torch.float32,device="cpu")
+    data_names = ["okokok", "sdcsdc", "cdcsdcplpl"]
+    reward_data = EpisodicRewards(reward_tensor=new_data,
+                    reward_names=data_names,
+                    max_episode_length=max_ep_length)
+    reward_data.reset()
+
+    ep_finished[:, :] = False
+    new_data[0, 0] = 1
+    new_data[0, 1] = 2
+    new_data[0, 2] = 3
+
+    reward_data.update(rewards=new_data,
+                ep_finished=ep_finished)
+
+    ep_finished[:, :] = False
+    new_data+=1 
+
+    reward_data.update(rewards=new_data,
+                ep_finished=ep_finished)
+    
+    ep_finished[:, :] = False
+    new_data+=1 
+
+    reward_data.update(rewards=new_data,
+                ep_finished=ep_finished)
+
+    print("get_rollout_stat:")
+    print(reward_data.get_rollout_avrg_reward())
+
+    print("get_rollout_stat_env_avrg:")
+    print(reward_data.get_rollout_reward_env_avrg())
+
+    print("get_rollout_stat_comp:")
+    print(reward_data.get_rollout_avrg_total_reward())
+
+    print("get_rollout_stat_comp_env_avrg:")
+    print(reward_data.get_rollout_avrg_total_reward_env_avrg())
