@@ -92,7 +92,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._rhc_cost_scale = 1e-2 * 5e-3
 
         # power penalty
-        self._power_weight = 0.0
+        self._power_weight = 1.0
         self._power_scale = 0.1
         self._power_penalty_weights = torch.full((1, n_jnts), dtype=dtype, device=device,
                             fill_value=1.0)
@@ -106,7 +106,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._power_penalty_weights_sum = torch.sum(self._power_penalty_weights).item()
 
         # jnt vel penalty 
-        self._jnt_vel_weight = 1.0
+        self._jnt_vel_weight = 0.0
         self._jnt_vel_scale = 0.3
         self._jnt_vel_penalty_weights = torch.full((1, n_jnts), dtype=dtype, device=device,
                             fill_value=1.0)
@@ -120,21 +120,21 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         # task rand
         self._use_pof0 = True
-        self._pof0 = 0.1
+        self._pof0 = 0.05
         self._twist_ref_lb = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=-0.8) 
         self._twist_ref_ub = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.8)
         # lin vel
-        self._twist_ref_lb[0, 0] = 0.0
-        self._twist_ref_lb[0, 1] = 0.0
+        self._twist_ref_lb[0, 0] = -1.5
+        self._twist_ref_lb[0, 1] = -1.5
         self._twist_ref_lb[0, 2] = 0.0
         self._twist_ref_ub[0, 0] = 0.0
         self._twist_ref_ub[0, 1] = 0.0
         self._twist_ref_ub[0, 2] = 0.0
         # angular vel
-        self._twist_ref_lb[0, 3] = 0.0
-        self._twist_ref_lb[0, 4] = 0.0
+        self._twist_ref_lb[0, 3] = 1.5
+        self._twist_ref_lb[0, 4] = 1.5
         self._twist_ref_lb[0, 5] = 0.0
         self._twist_ref_ub[0, 3] = 0.0
         self._twist_ref_ub[0, 4] = 0.0
