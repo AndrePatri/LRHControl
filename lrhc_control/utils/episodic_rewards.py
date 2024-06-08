@@ -23,7 +23,7 @@ class EpisodicRewards(EpisodicData):
         scaling = torch.full((self._n_envs, 1),
                     fill_value=scaling,
                     dtype=torch.int32,device="cpu") # reward metrics are scaled using
-        self.set_constant_data_scaling(enable=True,scaling=scaling)
+        super().set_constant_data_scaling(enable=True,scaling=scaling)
         
     def update(self, 
         rewards: torch.Tensor,

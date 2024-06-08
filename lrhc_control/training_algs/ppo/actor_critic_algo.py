@@ -183,8 +183,8 @@ class ActorCriticAlgoBase():
         self._init_buffers()
         
         # self._env.reset()
-        self._set_ep_rewards_scaling(scaling=self._rollout_timesteps)
-        
+        self._env._set_ep_rewards_scaling(scaling=self._rollout_timesteps)
+
         self._setup_done = True
 
         self._is_done = False
@@ -769,7 +769,7 @@ class ActorCriticAlgoBase():
         self._clip_vloss = False
         self._clip_coef = 0.2
         self._clip_coef_vf = 0.2 # IMPORTANT: this clipping depends on the reward scaling.
-        self._entropy_coeff = 0.01
+        self._entropy_coeff = 1e-4
         self._val_f_coeff = 0.5
         self._max_grad_norm_actor = 0.5
         self._max_grad_norm_critic = 0.5
