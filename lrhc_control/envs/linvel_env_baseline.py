@@ -60,8 +60,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         obs_dim = 4+6+2*n_jnts+2+2+self._n_prev_actions*actions_dim
 
         # obs_dim = 4+6+n_jnts+2+2+self._n_prev_actions*actions_dim
-        episode_timeout_lb = 512 # episode timeouts (including env substepping when action_repeat>1)
-        episode_timeout_ub = 1024
+        episode_timeout_lb = 2048 # episode timeouts (including env substepping when action_repeat>1)
+        episode_timeout_ub = 4096
         n_steps_task_rand_lb = 256 # agent refs randomization freq
         n_steps_task_rand_ub = 512
 
@@ -92,7 +92,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._rhc_cost_scale = 1e-2 * 5e-3
 
         # power penalty
-        self._power_weight = 1.0
+        self._power_weight = 0.1
         self._power_scale = 0.1
         self._power_penalty_weights = torch.full((1, n_jnts), dtype=dtype, device=device,
                             fill_value=1.0)
@@ -129,12 +129,12 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._twist_ref_lb[0, 0] = -1.5
         self._twist_ref_lb[0, 1] = -1.5
         self._twist_ref_lb[0, 2] = 0.0
-        self._twist_ref_ub[0, 0] = 0.0
-        self._twist_ref_ub[0, 1] = 0.0
+        self._twist_ref_ub[0, 0] = 1.5
+        self._twist_ref_ub[0, 1] = 1.5
         self._twist_ref_ub[0, 2] = 0.0
         # angular vel
-        self._twist_ref_lb[0, 3] = 1.5
-        self._twist_ref_lb[0, 4] = 1.5
+        self._twist_ref_lb[0, 3] = 0.0
+        self._twist_ref_lb[0, 4] = 0.0
         self._twist_ref_lb[0, 5] = 0.0
         self._twist_ref_ub[0, 3] = 0.0
         self._twist_ref_ub[0, 4] = 0.0
@@ -388,10 +388,11 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         if self._use_pof0: # sample from bernoulli distribution
             torch.bernoulli(input=self._pof1_b,out=self._bernoulli_coeffs) # by default bernoulli_coeffs are 1 if not _use_pof0
         if env_indxs is None:
-            agent_twist_ref_current[:, :] = (torch.rand_like(agent_twist_ref_current[:, :])*self._bernoulli_coeffs) * (self._twist_ref_ub-self._twist_ref_lb) + self._twist_ref_lb
+            agent_twist_ref_current[:, :] = torch.rand_like(agent_twist_ref_current[:, :]) * (self._twist_ref_ub-self._twist_ref_lb) + self._twist_ref_lb
+            agent_twist_ref_current[:, :] = agent_twist_ref_current[:, :]*self._bernoulli_coeffs
         else:
-            random_ref=torch.rand_like(agent_twist_ref_current[env_indxs, :])*self._bernoulli_coeffs[env_indxs, :]
-            agent_twist_ref_current[env_indxs, :] =  (random_ref) * (self._twist_ref_ub-self._twist_ref_lb) + self._twist_ref_lb
+            agent_twist_ref_current[env_indxs, :] = (torch.rand_like(agent_twist_ref_current[env_indxs, :])) * (self._twist_ref_ub-self._twist_ref_lb) + self._twist_ref_lb
+            agent_twist_ref_current[env_indxs, :] = agent_twist_ref_current[env_indxs, :]*self._bernoulli_coeffs[env_indxs, :]
         self._agent_refs.rob_refs.root_state.set(data_type="twist", data=agent_twist_ref_current,
                                             gpu=self._use_gpu)
         self._synch_refs(gpu=self._use_gpu)
