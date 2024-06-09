@@ -56,8 +56,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         actions_dim = 2 + 1 + 3 + 4 # [vxy_cmd, h_cmd, twist_cmd, dostep_0, dostep_1, dostep_2, dostep_3]
 
         self._n_prev_actions = 1 if self._add_last_action_to_obs else 0
-        # obs_dim = 4+6+2*n_jnts+2+self._n_prev_actions*actions_dim
-        obs_dim = 4+6+2*n_jnts+2+2+self._n_prev_actions*actions_dim
+        obs_dim = 4+6+2*n_jnts+2+self._n_prev_actions*actions_dim
+        # obs_dim = 4+6+2*n_jnts+2+2+self._n_prev_actions*actions_dim
 
         # obs_dim = 4+6+n_jnts+2+2+self._n_prev_actions*actions_dim
         episode_timeout_lb = 2048 # episode timeouts (including env substepping when action_repeat>1)
