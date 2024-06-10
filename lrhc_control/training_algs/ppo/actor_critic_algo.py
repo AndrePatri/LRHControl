@@ -215,10 +215,6 @@ class ActorCriticAlgoBase():
             self._optimizer.param_groups[0]["lr"] = self._lr_now_actor
             self._optimizer.param_groups[1]["lr"] = self._lr_now_actor
             self._optimizer.param_groups[2]["lr"] = self._lr_now_critic
-        
-        self._episodic_reward_getter.reset() # necessary, we don't want to accumulate 
-        # debug rewards from previous rollouts
-        self._env.reset_custom_db_data() # reset custom db stats for this iteration
 
         self._start_time = time.perf_counter()
 
@@ -479,6 +475,8 @@ class ActorCriticAlgoBase():
         self._episodic_rewards_env_avrg[self._it_counter-1, :, :] = self._episodic_reward_getter.get_rollout_avrg_total_reward_env_avrg() # tot, avrg over envs
         self._episodic_sub_rewards[self._it_counter-1, :, :] = self._episodic_reward_getter.get_rollout_avrg_reward() # sub-episodic rewards across envs
         self._episodic_sub_rewards_env_avrg[self._it_counter-1, :, :] = self._episodic_reward_getter.get_rollout_reward_env_avrg() # avrg over envs
+        self._episodic_reward_getter.reset() # necessary, we don't want to accumulate 
+        # debug rewards from previous rollouts
 
         # fill env db info
         db_data_names = list(self._env.custom_db_data.keys())
@@ -487,6 +485,7 @@ class ActorCriticAlgoBase():
             self._custom_env_data[dbdatan]["rollout_stat_env_avrg"][self._it_counter-1, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat_env_avrg()
             self._custom_env_data[dbdatan]["rollout_stat_comp"][self._it_counter-1, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat_comp()
             self._custom_env_data[dbdatan]["rollout_stat_comp_env_avrg"][self._it_counter-1, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat_comp_env_avrg()
+        self._env.reset_custom_db_data() # reset custom db stats for this iteration
 
         self._log_info()
 
