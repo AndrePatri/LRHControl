@@ -320,6 +320,8 @@ class LRhcTrainingEnvBase():
 
         self.custom_db_data["RhcStatusFlag"].update(new_data=self._rhc_refs.contact_flags.get_torch_mirror(gpu=False), 
                                     ep_finished=episode_finished.cpu()) # before potentially resetting the flags, get data
+        self.custom_db_data["Actions"].update(new_data=self._actions.get_torch_mirror(gpu=False), 
+                                    ep_finished=episode_finished.cpu())
         
         self._get_custom_db_data(episode_finished=episode_finished)
 
@@ -568,12 +570,17 @@ class LRhcTrainingEnvBase():
     def _init_infos(self):
 
         self.custom_db_data = {}
-        # by default always log this data
+        # by default always log this contact data
         rhc_latest_contact_ref = self._rhc_refs.contact_flags.get_torch_mirror()
         contact_names = self._rhc_refs.rob_refs.contact_names()
         stepping_data = EpisodicData("RhcStatusFlag", rhc_latest_contact_ref, contact_names)
-        self.custom_db_data[stepping_data.name()] = stepping_data
-    
+        self._add_custom_db_info(db_data=stepping_data)
+        # log also action data
+        actions = self._actions.get_torch_mirror()
+        action_names = self._get_action_names()
+        action_data = EpisodicData("Actions", actions, action_names)
+        self._add_custom_db_info(db_data=action_data)
+
     def _add_custom_db_info(self, db_data: EpisodicData):
         self.custom_db_data[db_data.name()] = db_data
 

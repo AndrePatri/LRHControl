@@ -71,16 +71,16 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         
         device = "cuda" if use_gpu else "cpu"
 
-        self._task_weight = 3.0
+        self._task_weight = 1.0
         self._task_scale = 2.0
         self._task_err_weights = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.0) 
         self._task_err_weights[0, 0] = 1.0
         self._task_err_weights[0, 1] = 1.0
-        self._task_err_weights[0, 2] = 0.0
-        self._task_err_weights[0, 3] = 0.0
-        self._task_err_weights[0, 4] = 0.0
-        self._task_err_weights[0, 5] = 0.0
+        self._task_err_weights[0, 2] = 1e-3
+        self._task_err_weights[0, 3] = 1e-3
+        self._task_err_weights[0, 4] = 1e-3
+        self._task_err_weights[0, 5] = 1e-3
         self._task_err_weights_sum = torch.sum(self._task_err_weights).item()
 
         self._rhc_cnstr_viol_weight = 1.0
@@ -92,7 +92,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._rhc_cost_scale = 1e-2 * 5e-3
 
         # power penalty
-        self._power_weight = 0.1
+        self._power_weight = 0.0
         self._power_scale = 0.1
         self._power_penalty_weights = torch.full((1, n_jnts), dtype=dtype, device=device,
                             fill_value=1.0)
@@ -119,8 +119,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._jnt_vel_penalty_weights_sum = torch.sum(self._jnt_vel_penalty_weights).item()
 
         # task rand
-        self._use_pof0 = True
-        self._pof0 = 0.05
+        self._use_pof0 = False
+        self._pof0 = 0.1
         self._twist_ref_lb = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=-0.8) 
         self._twist_ref_ub = torch.full((1, 6), dtype=dtype, device=device,
@@ -161,11 +161,11 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     debug=debug)
 
         # overriding parent's defaults 
-        self._reward_thresh_lb[:, 0] = -1
+        self._reward_thresh_lb[:, 0] = -10
         self._reward_thresh_lb[:, 1] = -1
         self._reward_thresh_lb[:, 2] = -1
         self._reward_thresh_lb[:, 3] = -1
-        self._reward_thresh_ub[:, 0] = 1
+        self._reward_thresh_ub[:, 0] = 10
         self._reward_thresh_ub[:, 1] = 1
         self._reward_thresh_ub[:, 2] = 1 
         self._reward_thresh_ub[:, 3] = 1 

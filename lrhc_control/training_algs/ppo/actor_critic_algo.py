@@ -170,17 +170,16 @@ class ActorCriticAlgoBase():
             # wandb.watch(self.actor_logstd, log="all")
 
         if not self._eval:
-            # self._optimizer = optim.Adam(self._agent.parameters(), 
-            #                         lr=self._base_lr_actor, 
-            #                         eps=1e-5 # small constant added to the optimization
-            #                         )
-            self._optimizer = optim.Adam([
-                {'params': self._agent.actor_mean.parameters(), 'lr': self._base_lr_actor},
-                {'params': self._agent.actor_logstd, 'lr': self._base_lr_actor},
-                {'params': self._agent.critic.parameters(), 'lr': self._base_lr_critic}, ],
-                lr=self._base_lr_actor, # default to actor lr (e.g. lfor ogstd parameter)
-                eps=1e-5 # small constant added to the optimization
-                )
+            self._optimizer = optim.Adam(self._agent.parameters(), 
+                                    lr=self._base_lr_actor, 
+                                    eps=1e-5 # small constant added to the optimization
+                                    )
+            # self._optimizer = optim.Adam([
+            #     {'params': self._agent.actor_mean.parameters(), 'lr': self._base_lr_actor},
+            #     {'params': self._agent.critic.parameters(), 'lr': self._base_lr_critic}, ],
+            #     lr=self._base_lr_actor, # default to actor lr (e.g. lfor ogstd parameter)
+            #     eps=1e-5 # small constant added to the optimization
+            #     )
         self._init_buffers()
         
         # self._env.reset()
@@ -213,8 +212,11 @@ class ActorCriticAlgoBase():
             self._lr_now_actor = frac * self._base_lr_actor
             self._lr_now_critic = frac * self._base_lr_critic
             self._optimizer.param_groups[0]["lr"] = self._lr_now_actor
-            self._optimizer.param_groups[1]["lr"] = self._lr_now_actor
-            self._optimizer.param_groups[2]["lr"] = self._lr_now_critic
+            # self._optimizer.param_groups[1]["lr"] = self._lr_now_critic
+
+        self._episodic_reward_getter.reset() # necessary, we don't want to accumulate 
+        # debug rewards from previous rollouts
+        self._env.reset_custom_db_data() # reset custom db stats for this iteration
 
         self._start_time = time.perf_counter()
 
@@ -464,7 +466,7 @@ class ActorCriticAlgoBase():
         self._elapsed_min[self._it_counter-1] = (time.perf_counter() - self._start_time_tot) / 60
         
         self._learning_rates[self._it_counter-1, 0] = self._lr_now_actor
-        self._learning_rates[self._it_counter-1, 1] = self._lr_now_critic
+        self._learning_rates[self._it_counter-1, 0] = self._lr_now_critic
 
         self._env_step_fps[self._it_counter-1] = self._batch_size / self._rollout_dt[self._it_counter-1]
         self._env_step_rt_factor[self._it_counter-1] = self._env_step_fps[self._it_counter-1] * self._hyperparameters["control_clust_dt"]
@@ -475,8 +477,6 @@ class ActorCriticAlgoBase():
         self._episodic_rewards_env_avrg[self._it_counter-1, :, :] = self._episodic_reward_getter.get_rollout_avrg_total_reward_env_avrg() # tot, avrg over envs
         self._episodic_sub_rewards[self._it_counter-1, :, :] = self._episodic_reward_getter.get_rollout_avrg_reward() # sub-episodic rewards across envs
         self._episodic_sub_rewards_env_avrg[self._it_counter-1, :, :] = self._episodic_reward_getter.get_rollout_reward_env_avrg() # avrg over envs
-        self._episodic_reward_getter.reset() # necessary, we don't want to accumulate 
-        # debug rewards from previous rollouts
 
         # fill env db info
         db_data_names = list(self._env.custom_db_data.keys())
@@ -485,7 +485,6 @@ class ActorCriticAlgoBase():
             self._custom_env_data[dbdatan]["rollout_stat_env_avrg"][self._it_counter-1, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat_env_avrg()
             self._custom_env_data[dbdatan]["rollout_stat_comp"][self._it_counter-1, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat_comp()
             self._custom_env_data[dbdatan]["rollout_stat_comp_env_avrg"][self._it_counter-1, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat_comp_env_avrg()
-        self._env.reset_custom_db_data() # reset custom db stats for this iteration
 
         self._log_info()
 
@@ -749,7 +748,7 @@ class ActorCriticAlgoBase():
         self._iterations_n = 3000 # number of ppo iterations
         self._batch_size_nom = 16384 # 32768
         self._batch_size_nom = self._batch_size_nom // self._env_n_action_reps # correct with n of action reps
-        self._num_minibatches = 32
+        self._num_minibatches = 8
         self._rollout_timesteps = self._batch_size_nom // self._num_envs
         self._batch_size = self._rollout_timesteps * self._num_envs
         self._minibatch_size = self._batch_size // self._num_minibatches
