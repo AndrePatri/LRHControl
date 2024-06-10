@@ -606,11 +606,11 @@ class SActorCriticAlgoBase():
         self._m_checkpoint_freq = 5000 # n ppo iterations after which a checkpoint model is dumped
 
         # main algo settings
-        self._warmstart_timesteps = int(100)
+        self._warmstart_timesteps = int(1e3)
         self._replay_buffer_size_nominal = int(1e6) # 32768
         self._replay_buffer_size_vec = self._replay_buffer_size_nominal//self._num_envs # 32768
         self._replay_buffer_size = self._replay_buffer_size_vec*self._num_envs
-        self._batch_size = 256
+        self._batch_size = 1048
         self._total_timesteps = int(1e6)
         
         self._lr_policy = 3e-4
