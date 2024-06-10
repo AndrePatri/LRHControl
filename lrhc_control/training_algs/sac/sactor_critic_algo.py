@@ -607,7 +607,9 @@ class SActorCriticAlgoBase():
 
         # main algo settings
         self._warmstart_timesteps = int(100)
-        self._replay_buffer_size = int(1e6) # 32768
+        self._replay_buffer_size_nominal = int(1e6) # 32768
+        self._replay_buffer_size_vec = self._replay_buffer_size_nominal//self._num_envs # 32768
+        self._replay_buffer_size = self._replay_buffer_size_vec*self._num_envs
         self._batch_size = 256
         self._total_timesteps = int(1e6)
         
@@ -647,6 +649,7 @@ class SActorCriticAlgoBase():
         info = f"\nUsing \n" + \
             f"total timesteps {self._total_timesteps}\n" + \
             f"warmstart timesteps {self._warmstart_timesteps}\n" + \
+            f"replay buffer nominal size {self._replay_buffer_size_nominal}\n" + \
             f"replay buffer size {self._replay_buffer_size}\n" + \
             f"batch size {self._batch_size}\n" + \
             f"policy update freq {self._policy_freq}\n" + \
@@ -669,35 +672,35 @@ class SActorCriticAlgoBase():
         
         self._bpos = 0
 
-        self._obs = torch.full(size=(self._replay_buffer_size, self._num_envs, self._obs_dim),
+        self._obs = torch.full(size=(self._replay_buffer_size_vec, self._num_envs, self._obs_dim),
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device) 
-        self._actions = torch.full(size=(self._replay_buffer_size, self._num_envs, self._actions_dim),
+        self._actions = torch.full(size=(self._replay_buffer_size_vec, self._num_envs, self._actions_dim),
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device)
-        self._values = torch.full(size=(self._replay_buffer_size, self._num_envs, 1),
+        self._values = torch.full(size=(self._replay_buffer_size_vec, self._num_envs, 1),
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device)
-        self._rewards = torch.full(size=(self._replay_buffer_size, self._num_envs, 1),
+        self._rewards = torch.full(size=(self._replay_buffer_size_vec, self._num_envs, 1),
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device)
-        self._next_obs = torch.full(size=(self._replay_buffer_size, self._num_envs, self._obs_dim),
+        self._next_obs = torch.full(size=(self._replay_buffer_size_vec, self._num_envs, self._obs_dim),
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device) 
-        self._next_terminal = torch.full(size=(self._replay_buffer_size, self._num_envs, 1),
+        self._next_terminal = torch.full(size=(self._replay_buffer_size_vec, self._num_envs, 1),
                         fill_value=False,
                         dtype=self._dtype,
                         device=self._torch_device)
-        self._next_truncated = torch.full(size=(self._replay_buffer_size, self._num_envs, 1),
+        self._next_truncated = torch.full(size=(self._replay_buffer_size_vec, self._num_envs, 1),
                         fill_value=False,
                         dtype=self._dtype,
                         device=self._torch_device)
-        self._next_done = torch.full(size=(self._replay_buffer_size, self._num_envs, 1),
+        self._next_done = torch.full(size=(self._replay_buffer_size_vec, self._num_envs, 1),
                         fill_value=False,
                         dtype=self._dtype,
                         device=self._torch_device)
@@ -718,13 +721,14 @@ class SActorCriticAlgoBase():
                                         self._next_truncated[self._bpos])
 
         self._bpos += 1
-        if self._bpos == self._replay_buffer_size:
+        if self._bpos == self._replay_buffer_size_vec:
             self.full = True
             self._bpos = 0
     
     def _sample(self):
         
-        shuffled_buffer_idxs = torch.randperm(self._batch_size) # randomizing 
+        shuffled_buffer_idxs = torch.randint(0, self._replay_buffer_size,
+                                        (self._batch_size,)) # randomizing 
 
         batched_obs = self._obs.reshape((-1, self._env.obs_dim()))
         batched_next_obs = self._next_obs.reshape((-1, self._env.obs_dim()))
