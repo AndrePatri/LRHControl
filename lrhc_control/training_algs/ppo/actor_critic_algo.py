@@ -170,16 +170,17 @@ class ActorCriticAlgoBase():
             # wandb.watch(self.actor_logstd, log="all")
 
         if not self._eval:
-            self._optimizer = optim.Adam(self._agent.parameters(), 
-                                    lr=self._base_lr_actor, 
-                                    eps=1e-5 # small constant added to the optimization
-                                    )
-            # self._optimizer = optim.Adam([
-            #     {'params': self._agent.actor_mean.parameters(), 'lr': self._base_lr_actor},
-            #     {'params': self._agent.critic.parameters(), 'lr': self._base_lr_critic}, ],
-            #     lr=self._base_lr_actor, # default to actor lr (e.g. lfor ogstd parameter)
-            #     eps=1e-5 # small constant added to the optimization
-            #     )
+            # self._optimizer = optim.Adam(self._agent.parameters(), 
+            #                         lr=self._base_lr_actor, 
+            #                         eps=1e-5 # small constant added to the optimization
+            #                         )
+            self._optimizer = optim.Adam([
+                {'params': self._agent.actor_mean.parameters(), 'lr': self._base_lr_actor},
+                {'params': self._agent.actor_logstd, 'lr': self._base_lr_actor},
+                {'params': self._agent.critic.parameters(), 'lr': self._base_lr_critic}, ],
+                lr=self._base_lr_actor, # default to actor lr (e.g. lfor ogstd parameter)
+                eps=1e-5 # small constant added to the optimization
+                )
         self._init_buffers()
         
         # self._env.reset()
@@ -212,8 +213,9 @@ class ActorCriticAlgoBase():
             self._lr_now_actor = frac * self._base_lr_actor
             self._lr_now_critic = frac * self._base_lr_critic
             self._optimizer.param_groups[0]["lr"] = self._lr_now_actor
-            # self._optimizer.param_groups[1]["lr"] = self._lr_now_critic
-
+            self._optimizer.param_groups[1]["lr"] = self._lr_now_actor
+            self._optimizer.param_groups[2]["lr"] = self._lr_now_critic
+        
         self._episodic_reward_getter.reset() # necessary, we don't want to accumulate 
         # debug rewards from previous rollouts
         self._env.reset_custom_db_data() # reset custom db stats for this iteration
@@ -466,7 +468,7 @@ class ActorCriticAlgoBase():
         self._elapsed_min[self._it_counter-1] = (time.perf_counter() - self._start_time_tot) / 60
         
         self._learning_rates[self._it_counter-1, 0] = self._lr_now_actor
-        self._learning_rates[self._it_counter-1, 0] = self._lr_now_critic
+        self._learning_rates[self._it_counter-1, 1] = self._lr_now_critic
 
         self._env_step_fps[self._it_counter-1] = self._batch_size / self._rollout_dt[self._it_counter-1]
         self._env_step_rt_factor[self._it_counter-1] = self._env_step_fps[self._it_counter-1] * self._hyperparameters["control_clust_dt"]
