@@ -12,6 +12,59 @@ from SharsorIPCpp.PySharsorIPC import LogType
 from SharsorIPCpp.PySharsorIPC import Journal
 from SharsorIPCpp.PySharsorIPC import VLevel
 
+class SACAgent(nn.Module):
+    def __init__(self,
+            obs_dim: int, 
+            actions_dim: int,
+            actions_scale: List[float] = None,
+            actions_bias: List[float] = None,
+            norm_obs: bool = True,
+            device:str="cuda",
+            dtype=torch.float32,
+            is_eval:bool=False):
+        super().__init__()
+
+        self.actor = Actor(obs_dim=obs_dim,
+                    actions_dim=actions_dim,
+                    actions_scale=actions_scale,
+                    actions_bias=actions_bias,
+                    norm_obs=norm_obs,
+                    device=device,
+                    dtype=dtype,
+                    is_eval=is_eval
+                    )
+        self.qf1 = CriticQ(obs_dim=obs_dim,
+                    actions_dim=actions_dim,
+                    norm_obs=norm_obs,
+                    device=device,
+                    dtype=dtype,
+                    is_eval=is_eval)
+        self.qf1_target = CriticQ(obs_dim=obs_dim,
+                    actions_dim=actions_dim,
+                    norm_obs=norm_obs,
+                    device=device,
+                    dtype=dtype,
+                    is_eval=is_eval)
+        self.qf2 = CriticQ(obs_dim=obs_dim,
+                    actions_dim=actions_dim,
+                    norm_obs=norm_obs,
+                    device=device,
+                    dtype=dtype,
+                    is_eval=is_eval)
+        self.qf2_target = CriticQ(obs_dim=obs_dim,
+                    actions_dim=actions_dim,
+                    norm_obs=norm_obs,
+                    device=device,
+                    dtype=dtype,
+                    is_eval=is_eval)
+        
+        self.qf1_target.load_state_dict(self.qf1.state_dict())
+        self.qf2_target.load_state_dict(self.qf2.state_dict())
+    
+    def get_impl_path(self):
+        import os 
+        return os.path.abspath(__file__)
+    
 class CriticQ(nn.Module):
     def __init__(self,
             obs_dim: int, 
@@ -53,11 +106,7 @@ class CriticQ(nn.Module):
 
     def get_n_params(self):
         return sum(p.numel() for p in self.parameters())
-    
-    def get_impl_path(self):
-        import os 
-        return os.path.abspath(__file__)
-    
+
     def _layer_init(self, 
             layer, 
             std=torch.sqrt(torch.tensor(2)), 

@@ -1,4 +1,4 @@
-from lrhc_control.agents.sactor_critic.sac import CriticQ, Actor
+from lrhc_control.agents.sactor_critic.sac import SACAgent
 
 from lrhc_control.utils.shared_data.algo_infos import SharedRLAlgorithmInfo
 import torch 
@@ -73,8 +73,36 @@ class SActorCriticAlgoBase():
 
         self.done()
 
-    @abstractmethod
     def learn(self):
+
+        if not self._setup_done:
+            self._should_have_called_setup()
+
+        self._start_time = time.perf_counter()
+
+        if not self._collect_transition():
+            return False
+        
+        self._collection_t = time.perf_counter()
+        self._collection_dt[self._log_it_counter] += \
+            (self._collection_t-self._start_time)/self._db_frequency # average over collected batcp
+
+        self._update_policy()
+
+        self._policy_update_t = time.perf_counter()
+        self._policy_update_dt[self._log_it_counter] += \
+            (self._policy_update_t - self._collection_t)/self._db_frequency
+
+        self._post_step()
+
+        return True
+
+    @abstractmethod
+    def _collect_transition(self)->bool:
+        pass
+    
+    @abstractmethod
+    def _update_policy(self):
         pass
     
     @abstractmethod
@@ -91,7 +119,8 @@ class SActorCriticAlgoBase():
             n_evals: int = None,
             n_timesteps_per_eval: int = None,
             comment: str = "",
-            dump_checkpoints: bool = False):
+            dump_checkpoints: bool = False,
+            norm_obs: bool = True):
 
         self._verbose = verbose
 
@@ -109,41 +138,15 @@ class SActorCriticAlgoBase():
 
         self._torch_device = torch.device("cuda" if torch.cuda.is_available() and self._use_gpu else "cpu")
 
-        self._agent = Actor(obs_dim=self._env.obs_dim(),
+        self._agent = SACAgent(obs_dim=self._env.obs_dim(),
                     actions_dim=self._env.actions_dim(),
                     actions_scale=self._env.get_action_scaling()[0, :].tolist(),
                     actions_bias=self._env.get_action_offsets()[0, :].tolist(),
-                    norm_obs=True,
+                    norm_obs=norm_obs,
                     device=self._torch_device,
                     dtype=self._dtype,
                     is_eval=self._eval
                     )
-        self._qf1 = CriticQ(obs_dim=self._env.obs_dim(),
-                    actions_dim=self._env.actions_dim(),
-                    norm_obs=True,
-                    device=self._torch_device,
-                    dtype=self._dtype,
-                    is_eval=self._eval)
-        self._qf2 = CriticQ(obs_dim=self._env.obs_dim(),
-                    actions_dim=self._env.actions_dim(),
-                    norm_obs=True,
-                    device=self._torch_device,
-                    dtype=self._dtype,
-                    is_eval=self._eval)
-        self._qf1_target = CriticQ(obs_dim=self._env.obs_dim(),
-                    actions_dim=self._env.actions_dim(),
-                    norm_obs=True,
-                    device=self._torch_device,
-                    dtype=self._dtype,
-                    is_eval=self._eval)
-        self._qf2_target = CriticQ(obs_dim=self._env.obs_dim(),
-                    actions_dim=self._env.actions_dim(),
-                    norm_obs=True,
-                    device=self._torch_device,
-                    dtype=self._dtype,
-                    is_eval=self._eval)
-        self._qf1_target.load_state_dict(self._qf1.state_dict())
-        self._qf2_target.load_state_dict(self._qf2.state_dict())
 
         # load model if necessary 
         if self._eval: # load pretrained model
@@ -198,13 +201,11 @@ class SActorCriticAlgoBase():
                 dir=self._drop_dir
             )
             wandb.watch(self._agent, log="all")
-            # wandb.watch(self._agent.actor_mean, log="all")
-            # wandb.watch(self.actor_logstd, log="all")
 
         if not self._eval:
-            self._qf_optimizer = optim.Adam(list(self._qf1.parameters()) + list(self._qf2.parameters()), 
+            self._qf_optimizer = optim.Adam(list(self._agent.qf1.parameters()) + list(self._agent.qf2.parameters()), 
                                     lr=self._lr_q)
-            self._actor_optimizer = optim.Adam(list(self._agent.parameters()), 
+            self._actor_optimizer = optim.Adam(list(self._agent.actor.parameters()), 
                                     lr=self._lr_policy)
 
         self._init_replay_buffers()
@@ -238,7 +239,7 @@ class SActorCriticAlgoBase():
 
         path = self._model_path
         if is_checkpoint: # use iteration as id
-            path = path + "_checkpoint" + str(self._it_counter)
+            path = path + "_checkpoint" + str(self._log_it_counter)
         info = f"Saving model to {path}"
         Journal.log(self.__class__.__name__,
             "done",
@@ -383,40 +384,51 @@ class SActorCriticAlgoBase():
             shutil.copytree(aux_dir, aux_drop_dir, dirs_exist_ok=True)
 
     def _post_step(self):
-
-        self._it_counter +=1 
-
-        self._n_of_played_episodes[self._it_counter-1] = self._episodic_reward_getter.get_n_played_episodes()
-        self._n_timesteps_done[self._it_counter-1] = self._it_counter * self._total_timesteps
-        self._n_policy_updates[self._it_counter-1] = self._it_counter * self._update_epochs 
         
-        self._elapsed_min[self._it_counter-1] = (time.perf_counter() - self._start_time_tot) / 60
+        self._transition_counter+=1
+
+        if self._transition_counter % self._db_frequency == 0:
+            # only log data every n timesteps 
+
+            self._env_step_fps[self._log_it_counter] = (self._transition_counter-self._n_timesteps_done[self._log_it_counter]) / self._collection_dt[self._log_it_counter]
+            self._env_step_rt_factor[self._log_it_counter] = self._env_step_fps[self._log_it_counter] * self._hyperparameters["control_clust_dt"]
+
+            self._n_of_played_episodes[self._log_it_counter] = self._episodic_reward_getter.get_n_played_episodes()
+            self._n_timesteps_done[self._log_it_counter] = self._transition_counter
+
+            self._n_policy_updates[self._log_it_counter] = self._transition_counter*self._policy_freq
+
+            self._policy_update_fps[self._log_it_counter] = self._n_policy_updates[self._log_it_counter]/self._policy_update_dt[self._log_it_counter]
+
+            self._elapsed_min[self._log_it_counter] = (time.perf_counter() - self._start_time_tot) / 60
         
-        self._env_step_fps[self._it_counter-1] = self._batch_size / self._collection_dt[self._it_counter-1]
-        self._env_step_rt_factor[self._it_counter-1] = self._env_step_fps[self._it_counter-1] * self._hyperparameters["control_clust_dt"]
-        self._policy_update_fps[self._it_counter-1] = self._update_epochs 
+            # we get some episodic reward metrics
+            self._episodic_rewards[self._log_it_counter, :, :] = self._episodic_reward_getter.get_rollout_avrg_total_reward() # total ep. rewards across envs
+            self._episodic_rewards_env_avrg[self._log_it_counter, :, :] = self._episodic_reward_getter.get_rollout_avrg_total_reward_env_avrg() # tot, avrg over envs
+            self._episodic_sub_rewards[self._log_it_counter, :, :] = self._episodic_reward_getter.get_rollout_avrg_reward() # sub-episodic rewards across envs
+            self._episodic_sub_rewards_env_avrg[self._log_it_counter, :, :] = self._episodic_reward_getter.get_rollout_reward_env_avrg() # avrg over envs
+            self._episodic_reward_getter.reset() # necessary, we don't want to accumulate 
+            # debug rewards from previous iterations
 
-        # after rolling out policy, we get the episodic reward for the current policy
-        self._episodic_rewards[self._it_counter-1, :, :] = self._episodic_reward_getter.get_rollout_avrg_total_reward() # total ep. rewards across envs
-        self._episodic_rewards_env_avrg[self._it_counter-1, :, :] = self._episodic_reward_getter.get_rollout_avrg_total_reward_env_avrg() # tot, avrg over envs
-        self._episodic_sub_rewards[self._it_counter-1, :, :] = self._episodic_reward_getter.get_rollout_avrg_reward() # sub-episodic rewards across envs
-        self._episodic_sub_rewards_env_avrg[self._it_counter-1, :, :] = self._episodic_reward_getter.get_rollout_reward_env_avrg() # avrg over envs
+            # fill env custom db metrics
+            db_data_names = list(self._env.custom_db_data.keys())
+            for dbdatan in db_data_names:
+                self._custom_env_data[dbdatan]["rollout_stat"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat()
+                self._custom_env_data[dbdatan]["rollout_stat_env_avrg"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat_env_avrg()
+                self._custom_env_data[dbdatan]["rollout_stat_comp"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat_comp()
+                self._custom_env_data[dbdatan]["rollout_stat_comp_env_avrg"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat_comp_env_avrg()
+            self._env.reset_custom_db_data() # reset custom db stats for this iteration
 
-        # fill env db info
-        db_data_names = list(self._env.custom_db_data.keys())
-        for dbdatan in db_data_names:
-            self._custom_env_data[dbdatan]["rollout_stat"][self._it_counter-1, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat()
-            self._custom_env_data[dbdatan]["rollout_stat_env_avrg"][self._it_counter-1, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat_env_avrg()
-            self._custom_env_data[dbdatan]["rollout_stat_comp"][self._it_counter-1, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat_comp()
-            self._custom_env_data[dbdatan]["rollout_stat_comp_env_avrg"][self._it_counter-1, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat_comp_env_avrg()
+            self._log_info()
 
-        self._log_info()
+            self._log_it_counter+=1 
 
-        if self._it_counter == self._total_timesteps:
-            self.done()
-        else:
-            if self._dump_checkpoints and (self._it_counter % self._m_checkpoint_freq == 0):
+            if self._dump_checkpoints and \
+                (self._transition_counter % self._m_checkpoint_freq == 0):
                 self._save_model(is_checkpoint=True)
+
+        if self._transition_counter == self._total_timesteps:
+            self.done()            
             
     def _should_have_called_setup(self):
 
@@ -441,29 +453,29 @@ class SActorCriticAlgoBase():
                 "policy_improv_fps",
                 "elapsed_min"
                 ]
-            info_data = [self._it_counter, 
-                self._n_policy_updates[self._it_counter-1].item(),
-                self._n_of_played_episodes[self._it_counter-1].item(), 
-                self._n_timesteps_done[self._it_counter-1].item(),
-                self._policy_update_dt[self._it_counter-1].item(),
-                self._env_step_fps[self._it_counter-1].item(),
-                self._env_step_rt_factor[self._it_counter-1].item(),
-                self._policy_update_fps[self._it_counter-1].item(),
-                self._elapsed_min[self._it_counter-1].item()
+            info_data = [self._log_it_counter, 
+                self._n_policy_updates[self._log_it_counter].item(),
+                self._n_of_played_episodes[self._log_it_counter].item(), 
+                self._n_timesteps_done[self._log_it_counter].item(),
+                self._policy_update_dt[self._log_it_counter].item(),
+                self._env_step_fps[self._log_it_counter].item(),
+                self._env_step_rt_factor[self._log_it_counter].item(),
+                self._policy_update_fps[self._log_it_counter].item(),
+                self._elapsed_min[self._log_it_counter].item()
                 ]
 
             # write debug info to shared memory    
             # self._shared_algo_data.write(dyn_info_name=info_names,
             #                         val=info_data)
 
-            wandb_d = {'tot_episodic_reward': wandb.Histogram(self._episodic_rewards[self._it_counter-1, :, :].numpy()),
-                'tot_episodic_reward_env_avrg': self._episodic_rewards_env_avrg[self._it_counter-1, :, :].item(),
-                'ppo_iteration' : self._it_counter}
+            wandb_d = {'tot_episodic_reward': wandb.Histogram(self._episodic_rewards[self._log_it_counter, :, :].numpy()),
+                'tot_episodic_reward_env_avrg': self._episodic_rewards_env_avrg[self._log_it_counter, :, :].item(),
+                'ppo_iteration' : self._log_it_counter}
             wandb_d.update(dict(zip(info_names, info_data)))
             wandb_d.update({f"sub_reward/{self._reward_names[i]}_env_avrg":
-                      self._episodic_sub_rewards_env_avrg[self._it_counter-1, :, i:i+1] for i in range(len(self._reward_names))})
+                      self._episodic_sub_rewards_env_avrg[self._log_it_counter, :, i:i+1] for i in range(len(self._reward_names))})
             wandb_d.update({f"sub_reward/{self._reward_names[i]}":
-                      wandb.Histogram(self._episodic_sub_rewards.numpy()[self._it_counter-1, :, i:i+1]) for i in range(len(self._reward_names))})
+                      wandb.Histogram(self._episodic_sub_rewards.numpy()[self._log_it_counter, :, i:i+1]) for i in range(len(self._reward_names))})
             
             # add custom env db data
             db_data_names = list(self._env.custom_db_data.keys())
@@ -471,13 +483,13 @@ class SActorCriticAlgoBase():
                 data = self._custom_env_data[dbdatan]
                 data_names = self._env.custom_db_data[dbdatan].data_names()
                 self._custom_env_data_db_dict.update({f"{dbdatan}" + "_rollout_stat_comp": 
-                        wandb.Histogram(data["rollout_stat_comp"][self._it_counter-1, :, :].numpy())})
+                        wandb.Histogram(data["rollout_stat_comp"][self._log_it_counter, :, :].numpy())})
                 self._custom_env_data_db_dict.update({f"{dbdatan}" + "_rollout_stat_comp_env_avrg": 
-                        data["rollout_stat_comp_env_avrg"][self._it_counter-1, :, :].item()})
+                        data["rollout_stat_comp_env_avrg"][self._log_it_counter, :, :].item()})
                 self._custom_env_data_db_dict.update({f"sub_env_dbdata/{dbdatan}-{data_names[i]}" + "_rollout_stat_env_avrg": 
-                       data["rollout_stat_env_avrg"][self._it_counter-1, :, i:i+1] for i in range(len(data_names))})
+                       data["rollout_stat_env_avrg"][self._log_it_counter, :, i:i+1] for i in range(len(data_names))})
                 self._custom_env_data_db_dict.update({f"sub_env_dbdata/{dbdatan}-{data_names[i]}" + "_rollout_stat": 
-                        wandb.Histogram(data["rollout_stat"].numpy()[self._it_counter-1, :, i:i+1]) for i in range(len(data_names))})
+                        wandb.Histogram(data["rollout_stat"].numpy()[self._log_it_counter, :, i:i+1]) for i in range(len(data_names))})
 
             # write debug info to shared memory    
             wandb_d.update(self._policy_update_db_data_dict)
@@ -487,17 +499,15 @@ class SActorCriticAlgoBase():
 
         if self._verbose:
             
-            info = f"\nN. SAC iterations performed: {self._it_counter}/{self._total_timesteps}\n" + \
-                f"N. policy updates performed: {self._n_policy_updates[self._it_counter-1].item()}/" + \
-                f"N. env steps performed: {self._it_counter * self._batch_size}/{self._total_timesteps}\n" + \
-                f"Elapsed minutes: {self._elapsed_min[self._it_counter-1].item()}\n" + \
+            info =f"\nN. env steps performed: {self._transition_counter}/{self._total_timesteps}\n" + \
+                f"Elapsed minutes: {self._elapsed_min[self._log_it_counter].item()}\n" + \
                 f"Estimated remaining training time: " + \
-                f"{self._elapsed_min[self._it_counter-1].item()/60 * 1/self._it_counter * (self._total_timesteps-self._it_counter)} hours\n" + \
-                f"Average episodic reward across all environments: {self._episodic_rewards_env_avrg[self._it_counter-1, :, :].item()}\n" + \
-                f"Average episodic rewards across all environments {self._reward_names_str}: {self._episodic_sub_rewards_env_avrg[self._it_counter-1, :]}\n" + \
-                f"Current rollout fps: {self._env_step_fps[self._it_counter-1].item()}, time for rollout {self._collection_dt[self._it_counter-1].item()} s\n" + \
-                f"Current rollout rt factor: {self._env_step_rt_factor[self._it_counter-1].item()}\n" + \
-                f"Current policy update fps: {self._policy_update_fps[self._it_counter-1].item()}, time for policy updates {self._policy_update_dt[self._it_counter-1].item()} s\n"
+                f"{self._elapsed_min[self._log_it_counter].item()/60 * 1/(self._transition_counter+1) * (self._total_timesteps-self._transition_counter+1)} hours\n" + \
+                f"Average episodic reward across all environments: {self._episodic_rewards_env_avrg[self._log_it_counter, :, :].item()}\n" + \
+                f"Average episodic rewards across all environments {self._reward_names_str}: {self._episodic_sub_rewards_env_avrg[self._log_it_counter, :]}\n" + \
+                f"Current env. step fps: {self._env_step_fps[self._log_it_counter].item()}, time for experience collection {self._collection_dt[self._log_it_counter].item()*self._db_frequency} s\n" + \
+                f"Current env step rt factor: {self._env_step_rt_factor[self._log_it_counter].item()}\n" + \
+                f"Current policy update fps: {self._policy_update_fps[self._log_it_counter].item()}, time for policy updates {self._policy_update_dt[self._log_it_counter].item()*self._db_frequency} s\n"
             Journal.log(self.__class__.__name__,
                 "_post_step",
                 info,
@@ -593,17 +603,16 @@ class SActorCriticAlgoBase():
         self._torch_device = torch.device("cpu") # defaults to cpu
         self._torch_deterministic = True
 
-        self._m_checkpoint_freq = 50 # n ppo iterations after which a checkpoint model is dumped
+        self._m_checkpoint_freq = 5000 # n ppo iterations after which a checkpoint model is dumped
 
         # main algo settings
-        self._warmstart_timesteps = int(20)
+        self._warmstart_timesteps = int(100)
         self._replay_buffer_size = int(1e6) # 32768
         self._batch_size = 256
         self._total_timesteps = int(1e6)
         
         self._lr_policy = 3e-4
         self._lr_q = 1e-3
-        self._anneal_lr = True
 
         self._discount_factor = 0.99
         self._smoothing_coeff = 0.005
@@ -612,17 +621,13 @@ class SActorCriticAlgoBase():
         self._policy_freq = 2
         self._trgt_net_freq = 1
 
-        self._update_epochs = 10
-
         self._autotune = False
         self._target_entropy = None
         self._log_alpha = None
         self._alpha = 0.2
         self._a_optimizer = None
         
-        self._n_policy_updates_to_be_done = self._update_epochs
-
-        self._db_frequency = 100 # log db data every n timesteps
+        self._db_frequency = 128 # log db data every n timesteps
         
         # write them to hyperparam dictionary for debugging
         self._hyperparameters["n_envs"] = self._num_envs
@@ -633,8 +638,6 @@ class SActorCriticAlgoBase():
         self._hyperparameters["seed"] = self._seed
         self._hyperparameters["using_gpu"] = self._use_gpu
         self._hyperparameters["n_iterations"] = self._total_timesteps
-        self._hyperparameters["n_policy_updates_per_batch"] = self._update_epochs 
-        self._hyperparameters["n_policy_updates_when_done"] = self._n_policy_updates_to_be_done
         self._hyperparameters["episodes timeout lb"] = self._episode_timeout_lb
         self._hyperparameters["episodes timeout ub"] = self._episode_timeout_ub
         self._hyperparameters["task rand timeout lb"] = self._task_rand_timeout_lb
@@ -642,22 +645,25 @@ class SActorCriticAlgoBase():
 
         # small debug log
         info = f"\nUsing \n" + \
-            f"per-batch update_epochs {self._update_epochs}\n" + \
-            f"iterations_n {self._total_timesteps}\n" + \
-            f"n steps per env. rollout {self._replay_buffer_size}\n" + \
+            f"total timesteps {self._total_timesteps}\n" + \
+            f"warmstart timesteps {self._warmstart_timesteps}\n" + \
+            f"replay buffer size {self._replay_buffer_size}\n" + \
+            f"batch size {self._batch_size}\n" + \
+            f"policy update freq {self._policy_freq}\n" + \
+            f"target networks freq {self._trgt_net_freq}\n" + \
             f"episode timeout max steps {self._episode_timeout_ub}\n" + \
             f"episode timeout min steps {self._episode_timeout_lb}\n" + \
             f"task rand. max n steps {self._task_rand_timeout_ub}\n" + \
             f"task rand. min n steps {self._task_rand_timeout_lb}\n" + \
-            f"number of action reps {self._env_n_action_reps}\n" + \
-            f"total_timesteps to be simulated {self._total_timesteps}\n"
+            f"number of action reps {self._env_n_action_reps}\n"
         Journal.log(self.__class__.__name__,
             "_init_params",
             info,
             LogType.INFO,
             throw_when_excep = True)
         
-        self._it_counter = 0
+        self._transition_counter = 0
+        self._log_it_counter = 0
 
     def _init_replay_buffers(self):
         
@@ -749,10 +755,6 @@ class SActorCriticAlgoBase():
                     train: bool = True):
 
         self._agent.train(train)
-        self._qf1.train(train)
-        self._qf2.train(train)
-        self._qf1_target.train(train)
-        self._qf2_target.train(train)
 
     def _init_algo_shared_data(self,
                 static_params: Dict):
