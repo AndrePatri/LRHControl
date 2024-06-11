@@ -1,6 +1,6 @@
 from typing import Tuple, Union
 
-import torch as th
+import torch
 
 class RunningMeanStd(object):
     def __init__(self, tensor_size, torch_device, dtype, epsilon: float = 1e-8):
@@ -15,9 +15,9 @@ class RunningMeanStd(object):
         """
         
         self._epsilon = epsilon
-        self.mean = th.zeros(tensor_size, device=torch_device, dtype=dtype)
-        self.var = th.ones(tensor_size, device=torch_device, dtype=dtype)
-        self.count = th.tensor(epsilon, device=torch_device, dtype=th.float64)
+        self.mean = torch.zeros(tensor_size, device=torch_device, dtype=dtype)
+        self.var = torch.ones(tensor_size, device=torch_device, dtype=dtype)
+        self.count = torch.tensor(epsilon, device=torch_device, dtype=torch.float64)
 
     def copy(self) -> "RunningMeanStd":
         """
@@ -46,13 +46,13 @@ class RunningMeanStd(object):
         """
         Combine stats from another ``RunningMeanStd`` object.
 
-        :param other: The other object to combine with.
+        :param other: The other object to combine witorch.
         """
         self.update_from_moments(other.mean, other.var, other.count)
 
     def update(self, x) -> None:
-        batch_mean = th.mean(x, dim=0)
-        batch_var = th.var(x, dim=0)
+        batch_mean = torch.mean(x, dim=0)
+        batch_var = torch.var(x, dim=0)
         batch_size = x.size()[0]
         self.update_from_moments(batch_mean, batch_var, batch_size)
 
@@ -63,13 +63,13 @@ class RunningMeanStd(object):
         new_mean = self.mean + delta * batch_size / tot_count
         m_a = self.var * self.count
         m_b = batch_var * batch_size
-        m_2 = m_a + m_b + th.square(delta) * self.count * batch_size / (self.count + batch_size)
+        m_2 = m_a + m_b + torch.square(delta) * self.count * batch_size / (self.count + batch_size)
         new_var = m_2 / (self.count + batch_size)
 
         new_count = batch_size + self.count
         
         # skip if there are infs and nans
-        if th.all(th.isfinite(new_mean)) and th.all(th.isfinite(new_var)) and th.all(th.isfinite(new_count)):
+        if torch.all(torch.isfinite(new_mean)) and torch.all(torch.isfinite(new_var)) and torch.all(torch.isfinite(new_count)):
             # use copy_() to avoid breaking buffer registration
             self.mean.copy_(new_mean)
             self.var.copy_(new_var)
@@ -77,11 +77,11 @@ class RunningMeanStd(object):
         else:
             print(f"Detected nan/inf in mean/std tracker, skipping")
 
-class RunningNormalizer(th.nn.Module):
+class RunningNormalizer(torch.nn.Module):
     def __init__(self, shape : Tuple[int,...], dtype, device, epsilon : float = 1e-8, freeze_stats: bool=True):
         super().__init__()
         self._freeze_stats = freeze_stats
-        self.register_buffer("_epsilon", th.tensor(epsilon, device = device))
+        self.register_buffer("_epsilon", torch.tensor(epsilon, device = device))
         self._running_stats = RunningMeanStd(shape, torch_device=device, dtype=dtype)
         self.register_buffer("vec_running_mean",  self._running_stats.mean)
         self.register_buffer("vec_running_var",   self._running_stats.var)
@@ -90,4 +90,4 @@ class RunningNormalizer(th.nn.Module):
     def forward(self, x):
         if not (self.training or self._freeze_stats):
             self._running_stats.update(x)
-        return (x - self._running_stats.mean)/(th.sqrt(self._running_stats.var)+self._epsilon)
+        return (x - self._running_stats.mean)/(torch.sqrt(self._running_stats.var)+self._epsilon)

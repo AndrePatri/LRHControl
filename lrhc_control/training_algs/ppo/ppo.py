@@ -163,12 +163,14 @@ class PPO(ActorCriticAlgoBase):
                 loss.backward() # compute backward pass
                     
                 # clip gradients
-                # nn.utils.clip_grad_norm_([self._agent.actor_mean.parameters()] + self._agent.actor_logstd, 
-                #                     self._max_grad_norm_actor) 
-                # nn.utils.clip_grad_norm_(self._agent.critic.parameters(), 
-                #                     self._max_grad_norm_critic)
-                nn.utils.clip_grad_norm_(self._agent.parameters(), 
-                                    self._max_grad_norm_actor)
+                nn.utils.clip_grad_norm_(self._agent.actor_mean.parameters(), 
+                                    self._max_grad_norm_actor) 
+                nn.utils.clip_grad_norm_(self._agent.actor_logstd, 
+                                    self._max_grad_norm_actor) 
+                nn.utils.clip_grad_norm_(self._agent.critic.parameters(), 
+                                    self._max_grad_norm_critic)
+                # nn.utils.clip_grad_norm_(self._agent.parameters(), 
+                #                     self._max_grad_norm_actor)
                 self._optimizer.step() # update actor's (policy) parameters
 
                 # loss_grad_norm = loss.grad.norm()
