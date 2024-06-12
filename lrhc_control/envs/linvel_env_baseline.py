@@ -120,7 +120,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         # task rand
         self._use_pof0 = True
-        self._pof0 = 0.1
+        self._pof0 = 0.2
         self._twist_ref_lb = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=-0.8) 
         self._twist_ref_ub = torch.full((1, 6), dtype=dtype, device=device,
@@ -305,8 +305,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
     def _task_err_quadv2(self, task_ref, task_meas):
         delta = 0.01 # [m/s]
         ref_norm = task_ref.norm(dim=1,keepdim=True)
+        below_thresh = ref_norm < delta
         self._ni_scaling[:, :] = ref_norm
-        self._ni_scaling[ref_norm < delta] = delta
+        self._ni_scaling[below_thresh] = delta
         task_error = (task_ref-task_meas)/(self._ni_scaling)
         task_wmse = torch.sum((task_error*task_error)*self._task_err_weights, dim=1, keepdim=True)/self._task_err_weights_sum
         return task_wmse # weighted mean square error (along task dimension)
@@ -348,8 +349,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
     def _compute_sub_rewards(self,
                     obs: torch.Tensor):
         
-        # task_error_fun = self._task_err_pseudolin
-        task_error_fun = self._task_err_pseudolinv2
+        task_error_fun = self._task_err_pseudolin
+        # task_error_fun = self._task_err_pseudolinv2
 
         # task error
         # task_meas = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu) # robot twist meas (local base if _use_local_base_frame)
