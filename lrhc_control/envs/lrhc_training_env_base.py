@@ -305,10 +305,11 @@ class LRhcTrainingEnvBase():
 
         # debug step if required (TBD before reset req processing)
         if self._is_debug:
+            episode_finished_cpu = episode_finished.cpu()
             self._debug() # copies db data on shared memory
-            self._update_custom_db_data(episode_finished=episode_finished)
+            self._update_custom_db_data(episode_finished=episode_finished_cpu)
             self._episodic_rewards_getter.update(rewards = self._rewards.get_torch_mirror(gpu=False),
-                            ep_finished = episode_finished.cpu())
+                            ep_finished=episode_finished_cpu)
             
         # remotely reset envs if either terminated or truncated (only by time limit)
         rm_reset_ok = self._remote_reset(reset_mask=torch.logical_or(terminated.cpu(),
@@ -319,9 +320,9 @@ class LRhcTrainingEnvBase():
                     episode_finished):
 
         self.custom_db_data["RhcStatusFlag"].update(new_data=self._rhc_refs.contact_flags.get_torch_mirror(gpu=False), 
-                                    ep_finished=episode_finished.cpu()) # before potentially resetting the flags, get data
+                                    ep_finished=episode_finished) # before potentially resetting the flags, get data
         self.custom_db_data["Actions"].update(new_data=self._actions.get_torch_mirror(gpu=False), 
-                                    ep_finished=episode_finished.cpu())
+                                    ep_finished=episode_finished)
         
         self._get_custom_db_data(episode_finished=episode_finished)
 

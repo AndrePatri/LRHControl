@@ -181,7 +181,10 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # custom db info 
         step_idx_data = EpisodicData("ContactIndex", self._rhc_step_var(gpu=False), self.contact_names)
         self._add_custom_db_info(db_data=step_idx_data)
-        
+        agent_twist_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=False)
+        agent_twist_ref_data = EpisodicData("AgentTwistRefs", agent_twist_ref, ["v_x", "v_y", "v_z", "omega_x", "omega_y", "omega_z"])
+        self._add_custom_db_info(db_data=agent_twist_ref_data)
+
         # other static db info 
         self.custom_db_info["add_last_action_to_obs"] = self._add_last_action_to_obs
         self.custom_db_info["use_horizontal_frame_for_refs"] = self._use_horizontal_frame_for_refs
@@ -285,10 +288,12 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
     def _get_custom_db_data(self, 
             episode_finished):
-        
+        episode_finished = episode_finished.cpu()
         self.custom_db_data["ContactIndex"].update(new_data=self._rhc_step_var(gpu=False), 
-                                    ep_finished=episode_finished.cpu())
-    
+                                    ep_finished=episode_finished)
+        self.custom_db_data["AgentTwistRefs"].update(new_data=self._agent_refs.rob_refs.root_state.get(data_type="twist",
+                                                                                            gpu=False), 
+                                    ep_finished=episode_finished)
     def _mech_power_penalty(self, jnts_vel, jnts_effort):
         tot_weighted_power = torch.sum((jnts_effort*jnts_vel)*self._power_penalty_weights, dim=1, keepdim=True)/self._power_penalty_weights_sum
         return tot_weighted_power
