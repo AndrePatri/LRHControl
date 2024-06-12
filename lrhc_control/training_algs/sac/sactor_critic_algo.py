@@ -29,6 +29,7 @@ class SActorCriticAlgoBase():
     def __init__(self,
             env, 
             debug = False,
+            remote_db = False,
             seed: int = 1):
 
         self._env = env 
@@ -38,6 +39,7 @@ class SActorCriticAlgoBase():
         self._agent = None 
         
         self._debug = debug
+        self._remote_db = remote_db
 
         self._optimizer = None
 
@@ -182,25 +184,27 @@ class SActorCriticAlgoBase():
         if (self._debug):
             
             torch.autograd.set_detect_anomaly(self._debug)
-            job_type = "evaluation" if self._eval else "training"
-            wandb.init(
-                project="LRHControl",
-                group=self._run_name,
-                name=self._unique_id,
-                id=self._unique_id,
-                job_type=job_type,
-                # tags=None,
-                notes=comment,
-                resume="never", # do not allow runs with the same unique id
-                mode="online", # "online", "offline" or "disabled"
-                entity=None,
-                sync_tensorboard=True,
-                config=self._hyperparameters,
-                monitor_gym=True,
-                save_code=True,
-                dir=self._drop_dir
-            )
-            wandb.watch(self._agent, log="all")
+
+            if self._remote_db:
+                job_type = "evaluation" if self._eval else "training"
+                wandb.init(
+                    project="LRHControl",
+                    group=self._run_name,
+                    name=self._unique_id,
+                    id=self._unique_id,
+                    job_type=job_type,
+                    # tags=None,
+                    notes=comment,
+                    resume="never", # do not allow runs with the same unique id
+                    mode="online", # "online", "offline" or "disabled"
+                    entity=None,
+                    sync_tensorboard=True,
+                    config=self._hyperparameters,
+                    monitor_gym=True,
+                    save_code=True,
+                    dir=self._drop_dir
+                )
+                wandb.watch(self._agent, log="all")
 
         if not self._eval:
             self._qf_optimizer = optim.Adam(list(self._agent.qf1.parameters()) + list(self._agent.qf2.parameters()), 
@@ -443,59 +447,58 @@ class SActorCriticAlgoBase():
     def _log_info(self):
         
         if self._debug:
-
-            info_names=["current_ppo_iteration", 
-                "n_of_performed_policy_updates",
-                "n_of_played_episodes", 
-                "n_of_timesteps_done",
-                "env_step_fps",
-                "env_step_rt_factor",
-                "policy_improv_fps",
-                "elapsed_min"
-                ]
-            info_data = [self._log_it_counter, 
-                self._n_policy_updates[self._log_it_counter].item(),
-                self._n_of_played_episodes[self._log_it_counter].item(), 
-                self._n_timesteps_done[self._log_it_counter].item(),
-                self._policy_update_dt[self._log_it_counter].item(),
-                self._env_step_fps[self._log_it_counter].item(),
-                self._env_step_rt_factor[self._log_it_counter].item(),
-                self._policy_update_fps[self._log_it_counter].item(),
-                self._elapsed_min[self._log_it_counter].item()
-                ]
-
-            # write debug info to shared memory    
-            # self._shared_algo_data.write(dyn_info_name=info_names,
-            #                         val=info_data)
-
-            wandb_d = {'tot_episodic_reward': wandb.Histogram(self._episodic_rewards[self._log_it_counter, :, :].numpy()),
-                'tot_episodic_reward_env_avrg': self._episodic_rewards_env_avrg[self._log_it_counter, :, :].item(),
-                'ppo_iteration' : self._log_it_counter}
-            wandb_d.update(dict(zip(info_names, info_data)))
-            wandb_d.update({f"sub_reward/{self._reward_names[i]}_env_avrg":
-                      self._episodic_sub_rewards_env_avrg[self._log_it_counter, :, i:i+1] for i in range(len(self._reward_names))})
-            wandb_d.update({f"sub_reward/{self._reward_names[i]}":
-                      wandb.Histogram(self._episodic_sub_rewards.numpy()[self._log_it_counter, :, i:i+1]) for i in range(len(self._reward_names))})
-            
-            # add custom env db data
+            # add custom env db data (dumped LOCALLY at the end of training)
             db_data_names = list(self._env.custom_db_data.keys())
             for dbdatan in db_data_names: 
                 data = self._custom_env_data[dbdatan]
                 data_names = self._env.custom_db_data[dbdatan].data_names()
                 self._custom_env_data_db_dict.update({f"{dbdatan}" + "_rollout_stat_comp": 
-                        wandb.Histogram(data["rollout_stat_comp"][self._log_it_counter, :, :].numpy())})
+                        wandb.Histogram(data["rollout_stat_comp"][self._it_counter-1, :, :].numpy())})
                 self._custom_env_data_db_dict.update({f"{dbdatan}" + "_rollout_stat_comp_env_avrg": 
-                        data["rollout_stat_comp_env_avrg"][self._log_it_counter, :, :].item()})
+                        data["rollout_stat_comp_env_avrg"][self._it_counter-1, :, :].item()})
                 self._custom_env_data_db_dict.update({f"sub_env_dbdata/{dbdatan}-{data_names[i]}" + "_rollout_stat_env_avrg": 
-                       data["rollout_stat_env_avrg"][self._log_it_counter, :, i:i+1] for i in range(len(data_names))})
+                       data["rollout_stat_env_avrg"][self._it_counter-1, :, i:i+1] for i in range(len(data_names))})
                 self._custom_env_data_db_dict.update({f"sub_env_dbdata/{dbdatan}-{data_names[i]}" + "_rollout_stat": 
-                        wandb.Histogram(data["rollout_stat"].numpy()[self._log_it_counter, :, i:i+1]) for i in range(len(data_names))})
+                        wandb.Histogram(data["rollout_stat"].numpy()[self._it_counter-1, :, i:i+1]) for i in range(len(data_names))})
 
-            # write debug info to shared memory    
-            wandb_d.update(self._policy_update_db_data_dict)
-            wandb_d.update(self._custom_env_data_db_dict)
+            if self._remote_db: 
+                # write general algo debug info to shared memory    
+                info_names=["current_ppo_iteration", 
+                    "n_of_performed_policy_updates",
+                    "n_of_played_episodes", 
+                    "n_of_timesteps_done",
+                    "env_step_fps",
+                    "env_step_rt_factor",
+                    "policy_improv_fps",
+                    "elapsed_min"
+                    ]
+                info_data = [self._log_it_counter, 
+                    self._n_policy_updates[self._log_it_counter].item(),
+                    self._n_of_played_episodes[self._log_it_counter].item(), 
+                    self._n_timesteps_done[self._log_it_counter].item(),
+                    self._policy_update_dt[self._log_it_counter].item(),
+                    self._env_step_fps[self._log_it_counter].item(),
+                    self._env_step_rt_factor[self._log_it_counter].item(),
+                    self._policy_update_fps[self._log_it_counter].item(),
+                    self._elapsed_min[self._log_it_counter].item()
+                    ]
+                # self._shared_algo_data.write(dyn_info_name=info_names,
+                #                         val=info_data)
 
-            wandb.log(wandb_d)
+                # write debug info to remote wandb server
+                wandb_d = {'tot_episodic_reward': wandb.Histogram(self._episodic_rewards[self._it_counter-1, :, :].numpy()),
+                    'tot_episodic_reward_env_avrg': self._episodic_rewards_env_avrg[self._it_counter-1, :, :].item(),
+                    'ppo_iteration' : self._it_counter}
+                wandb_d.update(dict(zip(info_names, info_data)))
+                wandb_d.update({f"sub_reward/{self._reward_names[i]}_env_avrg":
+                        self._episodic_sub_rewards_env_avrg[self._it_counter-1, :, i:i+1] for i in range(len(self._reward_names))})
+                wandb_d.update({f"sub_reward/{self._reward_names[i]}":
+                        wandb.Histogram(self._episodic_sub_rewards.numpy()[self._it_counter-1, :, i:i+1]) for i in range(len(self._reward_names))})
+                
+                wandb_d.update(self._policy_update_db_data_dict)
+                wandb_d.update(self._custom_env_data_db_dict)
+
+                wandb.log(wandb_d)
 
         if self._verbose:
             

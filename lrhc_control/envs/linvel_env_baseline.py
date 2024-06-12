@@ -56,8 +56,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         actions_dim = 2 + 1 + 3 + 4 # [vxy_cmd, h_cmd, twist_cmd, dostep_0, dostep_1, dostep_2, dostep_3]
 
         self._n_prev_actions = 1 if self._add_last_action_to_obs else 0
-        # obs_dim = 4+6+2*n_jnts+2+self._n_prev_actions*actions_dim
-        obs_dim = 4+6+2*n_jnts+2+2+self._n_prev_actions*actions_dim
+        obs_dim = 4+6+2*n_jnts+2+self._n_prev_actions*actions_dim
+        # obs_dim = 4+6+2*n_jnts+2+2+self._n_prev_actions*actions_dim
 
         # obs_dim = 4+6+n_jnts+2+2+self._n_prev_actions*actions_dim
         episode_timeout_lb = 2048 # episode timeouts (including env substepping when action_repeat>1)
@@ -274,10 +274,10 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         next_idx+=self._n_jnts
         obs_tensor[:, next_idx:(next_idx+2)] = agent_twist_ref[:, 0:2] # high lev agent ref (local base if self._use_local_base_frame)
         next_idx+=2
-        obs_tensor[:, next_idx:(next_idx+1)] = self._rhc_const_viol(gpu=self._use_gpu)
-        next_idx+=1
-        obs_tensor[:, next_idx:(next_idx+1)] = self._rhc_cost(gpu=self._use_gpu)
-        next_idx+=1
+        # obs_tensor[:, next_idx:(next_idx+1)] = self._rhc_const_viol(gpu=self._use_gpu)
+        # next_idx+=1
+        # obs_tensor[:, next_idx:(next_idx+1)] = self._rhc_cost(gpu=self._use_gpu)
+        # next_idx+=1
         # obs_tensor[:, next_idx:(next_idx+len(self.contact_names))] = self._rhc_step_var(gpu=self._use_gpu)
         # next_idx+=len(self.contact_names)
         # adding last action to obs at the back of the obs tensor
@@ -434,9 +434,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         #     obs_names[next_idx+i] = f"step_var_{contact}"
         #     i+=1        
         # next_idx+=len(self.contact_names)
-        obs_names[next_idx] = "rhc_const_viol"
-        obs_names[next_idx + 1] = "rhc_cost"
-        next_idx+=2
+        # obs_names[next_idx] = "rhc_const_viol"
+        # obs_names[next_idx + 1] = "rhc_cost"
+        # next_idx+=2
         action_names = self._get_action_names()
         for pre_t_idx in range(self._n_prev_actions):
             for prev_act_idx in range(self.actions_dim()):

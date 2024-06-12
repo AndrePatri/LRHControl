@@ -13,10 +13,12 @@ class SAC(SActorCriticAlgoBase):
     def __init__(self,
             env, 
             debug = False,
+            remote_db = False,
             seed: int = 1):
 
         super().__init__(env=env, 
                     debug=debug,
+                    remote_db=remote_db,
                     seed=seed)
 
         self._this_child_path = os.path.abspath(__file__) # overrides parent
