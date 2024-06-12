@@ -162,13 +162,13 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         # overriding parent's defaults 
         self._reward_thresh_lb[:, 0] = -10
-        self._reward_thresh_lb[:, 1] = -1
-        self._reward_thresh_lb[:, 2] = -1
-        self._reward_thresh_lb[:, 3] = -1
+        self._reward_thresh_lb[:, 1] = -10
+        self._reward_thresh_lb[:, 2] = -10
+        self._reward_thresh_lb[:, 3] = -10
         self._reward_thresh_ub[:, 0] = 10
-        self._reward_thresh_ub[:, 1] = 1
-        self._reward_thresh_ub[:, 2] = 1 
-        self._reward_thresh_ub[:, 3] = 1 
+        self._reward_thresh_ub[:, 1] = 10
+        self._reward_thresh_ub[:, 2] = 10
+        self._reward_thresh_ub[:, 3] = 10
 
         self._obs_threshold_lb = -1e3 # used for clipping observations
         self._obs_threshold_ub = 1e3
@@ -343,8 +343,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
     def _compute_sub_rewards(self,
                     obs: torch.Tensor):
         
-        task_error_fun = self._task_err_pseudolin
-        # task_error_fun = self._task_err_pseudolinv2
+        # task_error_fun = self._task_err_pseudolin
+        task_error_fun = self._task_err_pseudolinv2
 
         # task error
         # task_meas = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu) # robot twist meas (local base if _use_local_base_frame)
