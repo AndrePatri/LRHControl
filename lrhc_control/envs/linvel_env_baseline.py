@@ -60,8 +60,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # obs_dim = 4+6+2*n_jnts+2+2+self._n_prev_actions*actions_dim
 
         # obs_dim = 4+6+n_jnts+2+2+self._n_prev_actions*actions_dim
-        episode_timeout_lb = 2048 # episode timeouts (including env substepping when action_repeat>1)
-        episode_timeout_ub = 4096
+        episode_timeout_lb = 1024 # episode timeouts (including env substepping when action_repeat>1)
+        episode_timeout_ub = 2048
         n_steps_task_rand_lb = 256 # agent refs randomization freq
         n_steps_task_rand_ub = 512
 
@@ -71,7 +71,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         
         device = "cuda" if use_gpu else "cpu"
 
-        self._task_weight = 1.0
+        self._task_weight = 2.0
         self._task_scale = 2.0
         self._task_err_weights = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.0) 
@@ -80,7 +80,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._task_err_weights[0, 2] = 1e-3
         self._task_err_weights[0, 3] = 1e-3
         self._task_err_weights[0, 4] = 1e-3
-        self._task_err_weights[0, 5] = 1e-3
+        self._task_err_weights[0, 5] = 1e-6
         self._task_err_weights_sum = torch.sum(self._task_err_weights).item()
 
         self._rhc_cnstr_viol_weight = 1.0
@@ -92,22 +92,22 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._rhc_cost_scale = 1e-2 * 5e-3
 
         # power penalty
-        self._power_weight = 0.0
+        self._power_weight = 0.0 # 0.2
         self._power_scale = 0.1
         self._power_penalty_weights = torch.full((1, n_jnts), dtype=dtype, device=device,
                             fill_value=1.0)
         n_jnts_per_limb = round(n_jnts/n_contacts) # assuming same topology along limbs
         pow_weights_along_limb = [1.0] * n_jnts_per_limb
-        pow_weights_along_limb[0] = 1.0
-        pow_weights_along_limb[1] = 1.0
-        pow_weights_along_limb[2] = 1.0
+        pow_weights_along_limb[0] = 1.0 # strongest actuator
+        pow_weights_along_limb[1] = 1.5
+        pow_weights_along_limb[2] = 2.0 # weakest actuator
         for i in range(round(n_jnts/n_contacts)):
             self._power_penalty_weights[0, i*n_contacts:(n_contacts*(i+1))] = pow_weights_along_limb[i]
         self._power_penalty_weights_sum = torch.sum(self._power_penalty_weights).item()
 
         # jnt vel penalty 
-        self._jnt_vel_weight = 0.0
-        self._jnt_vel_scale = 0.3
+        self._jnt_vel_weight = 1.0
+        self._jnt_vel_scale = 0.08
         self._jnt_vel_penalty_weights = torch.full((1, n_jnts), dtype=dtype, device=device,
                             fill_value=1.0)
         jnt_vel_weights_along_limb = [1.0] * n_jnts_per_limb
