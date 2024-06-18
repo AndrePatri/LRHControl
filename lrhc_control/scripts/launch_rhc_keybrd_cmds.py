@@ -1,6 +1,5 @@
 from control_cluster_bridge.utilities.keyboard_cmds import RhcRefsFromKeyboard
 
-import os
 import argparse
 
 if __name__ == "__main__":  
