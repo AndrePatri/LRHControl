@@ -106,12 +106,13 @@ class SActorCriticAlgoBase():
 
         self._start_time = time.monotonic()
 
-        rollout_ok = self._play()
-        if not rollout_ok:
+        if not self._collect_transition():
             return False
 
-        self._rollout_t = time.monotonic()
-
+        self._collection_t = time.monotonic()
+        self._collection_dt[self._log_it_counter] += \
+            (self._collection_t-self._start_time)/self._db_frequency # average over collected batcp
+        
         self._post_step()
 
         return True

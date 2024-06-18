@@ -22,10 +22,6 @@ class SAC(SActorCriticAlgoBase):
                     seed=seed)
 
         self._this_child_path = os.path.abspath(__file__) # overrides parent
-
-    def eval(self):
-
-        pass
     
     def _collect_transition(self):
         
@@ -34,7 +30,8 @@ class SAC(SActorCriticAlgoBase):
 
         obs = self._env.get_obs() # also accounts for resets when envs are 
         # either terminated or truncated
-        if self._transition_counter > self._warmstart_timesteps:
+        if self._transition_counter > self._warmstart_timesteps or \
+            self._eval:
             actions, _, _ = self._agent.actor.get_action(x=obs)
             actions = actions.detach()
         else:
@@ -42,20 +39,17 @@ class SAC(SActorCriticAlgoBase):
                 
         # perform a step of the (vectorized) env and retrieve trajectory
         env_step_ok = self._env.step(actions)
-            
-        self._add_experience(obs=obs,
-                actions=actions,
-                rewards=self._env.get_rewards(),
-                next_obs=self._env.get_next_obs(),
-                terminations=self._env.get_terminations(), 
-                truncations=self._env.get_truncations()) # add experience
-        # to rollout buffer
+        
+        if not self._eval:
+            self._add_experience(obs=obs,
+                    actions=actions,
+                    rewards=self._env.get_rewards(),
+                    next_obs=self._env.get_next_obs(),
+                    terminations=self._env.get_terminations(), 
+                    truncations=self._env.get_truncations()) # add experience
+            # to rollout buffer
 
-        if not env_step_ok: # abort
-            return False
-        else:
-            return True
-
+        return env_step_ok
         
     def _update_policy(self):
         
