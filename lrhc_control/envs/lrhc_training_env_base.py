@@ -123,7 +123,7 @@ class LRhcTrainingEnvBase():
 
         self._episodic_rewards_getter = None
         
-        self._timeout = 30000
+        self._timeout = 120000
 
         self._attach_to_shared_mem()
 

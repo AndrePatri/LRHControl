@@ -51,7 +51,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
         self._wait_sol = {}
         self._cluster_dt = {}
         # remote simulation
-        self._timeout = 60000
+        self._timeout = 1200000
         self._init_steps_done = False
         self._n_init_steps = 0 # n steps to be performed before waiting for remote stepping
         self._init_step_counter = 0
