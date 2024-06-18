@@ -80,18 +80,18 @@ class SActorCriticAlgoBase():
         if not self._setup_done:
             self._should_have_called_setup()
 
-        self._start_time = time.perf_counter()
+        self._start_time = time.monotonic()
 
         if not self._collect_transition():
             return False
         
-        self._collection_t = time.perf_counter()
+        self._collection_t = time.monotonic()
         self._collection_dt[self._log_it_counter] += \
             (self._collection_t-self._start_time)/self._db_frequency # average over collected batcp
 
         self._update_policy()
 
-        self._policy_update_t = time.perf_counter()
+        self._policy_update_t = time.monotonic()
         self._policy_update_dt[self._log_it_counter] += \
             (self._policy_update_t - self._collection_t)/self._db_frequency
 
@@ -99,16 +99,29 @@ class SActorCriticAlgoBase():
 
         return True
 
+    def eval(self):
+
+        if not self._setup_done:
+            self._should_have_called_setup()
+
+        self._start_time = time.monotonic()
+
+        rollout_ok = self._play()
+        if not rollout_ok:
+            return False
+
+        self._rollout_t = time.monotonic()
+
+        self._post_step()
+
+        return True
+    
     @abstractmethod
     def _collect_transition(self)->bool:
         pass
     
     @abstractmethod
     def _update_policy(self):
-        pass
-    
-    @abstractmethod
-    def eval(self):
         pass
 
     def setup(self,
@@ -226,9 +239,9 @@ class SActorCriticAlgoBase():
 
         self._is_done = False
 
-        self._start_time_tot = time.perf_counter()
+        self._start_time_tot = time.monotonic()
 
-        self._start_time = time.perf_counter()
+        self._start_time = time.monotonic()
     
     def is_done(self):
 
@@ -404,7 +417,7 @@ class SActorCriticAlgoBase():
 
             self._policy_update_fps[self._log_it_counter] = self._n_policy_updates[self._log_it_counter]/self._policy_update_dt[self._log_it_counter]
 
-            self._elapsed_min[self._log_it_counter] = (time.perf_counter() - self._start_time_tot) / 60
+            self._elapsed_min[self._log_it_counter] = (time.monotonic() - self._start_time_tot) / 60
         
             # we get some episodic reward metrics
             self._episodic_rewards[self._log_it_counter, :, :] = self._episodic_reward_getter.get_rollout_avrg_total_reward() # total ep. rewards across envs

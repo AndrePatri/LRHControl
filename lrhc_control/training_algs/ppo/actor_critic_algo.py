@@ -192,9 +192,9 @@ class ActorCriticAlgoBase():
 
         self._is_done = False
 
-        self._start_time_tot = time.perf_counter()
+        self._start_time_tot = time.monotonic()
 
-        self._start_time = time.perf_counter()
+        self._start_time = time.monotonic()
     
     def is_done(self):
 
@@ -221,19 +221,19 @@ class ActorCriticAlgoBase():
         # debug rewards from previous rollouts
         self._env.reset_custom_db_data() # reset custom db stats for this iteration
 
-        self._start_time = time.perf_counter()
+        self._start_time = time.monotonic()
 
         rollout_ok = self._play()
         if not rollout_ok:
             return False
         
-        self._rollout_t = time.perf_counter()
+        self._rollout_t = time.monotonic()
 
         self._compute_returns()
-        self._gae_t = time.perf_counter()
+        self._gae_t = time.monotonic()
 
         self._improve_policy()
-        self._policy_update_t = time.perf_counter()
+        self._policy_update_t = time.monotonic()
 
         self._post_step()
 
@@ -246,13 +246,13 @@ class ActorCriticAlgoBase():
 
         self._episodic_reward_getter.reset()
 
-        self._start_time = time.perf_counter()
+        self._start_time = time.monotonic()
 
         rollout_ok = self._play()
         if not rollout_ok:
             return False
 
-        self._rollout_t = time.perf_counter()
+        self._rollout_t = time.monotonic()
 
         self._post_step()
 
@@ -466,7 +466,7 @@ class ActorCriticAlgoBase():
         self._n_timesteps_done[self._it_counter-1] = self._it_counter * self._batch_size
         self._n_policy_updates[self._it_counter-1] = self._it_counter * self._update_epochs * self._num_minibatches
         
-        self._elapsed_min[self._it_counter-1] = (time.perf_counter() - self._start_time_tot) / 60
+        self._elapsed_min[self._it_counter-1] = (time.monotonic() - self._start_time_tot) / 60
         
         self._learning_rates[self._it_counter-1, 0] = self._lr_now_actor
         self._learning_rates[self._it_counter-1, 0] = self._lr_now_critic
