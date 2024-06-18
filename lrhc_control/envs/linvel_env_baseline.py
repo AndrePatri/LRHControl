@@ -19,7 +19,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             vlevel: VLevel = VLevel.V1,
             use_gpu: bool = True,
             dtype: torch.dtype = torch.float32,
-            debug: bool = True):
+            debug: bool = True,
+            override_agent_refs: bool = False):
         
         action_repeat = 1
 
@@ -158,7 +159,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     vlevel=vlevel,
                     use_gpu=use_gpu,
                     dtype=dtype,
-                    debug=debug)
+                    debug=debug,
+                    override_agent_refs=override_agent_refs)
 
         # overriding parent's defaults 
         self._reward_thresh_lb[:, 0] = -10
@@ -294,6 +296,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self.custom_db_data["AgentTwistRefs"].update(new_data=self._agent_refs.rob_refs.root_state.get(data_type="twist",
                                                                                             gpu=False), 
                                     ep_finished=episode_finished)
+        
     def _mech_power_penalty(self, jnts_vel, jnts_effort):
         tot_weighted_power = torch.sum((jnts_effort*jnts_vel)*self._power_penalty_weights, dim=1, keepdim=True)/self._power_penalty_weights_sum
         return tot_weighted_power

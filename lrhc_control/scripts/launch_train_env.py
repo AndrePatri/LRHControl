@@ -37,6 +37,7 @@ if __name__ == "__main__":
     parser.add_argument('--disable_env_db', action='store_true', help='Whether to disable env db data logging on \
                         shared mem (e.g.reward metrics are not available for reading anymore)')
     parser.add_argument('--disable_rmdb', action='store_true', help='Whether to disable remote debug (e.g. data logging on remote servers)')
+    parser.add_argument('--override_agent_refs', action='store_true', help='Whether to override automatically generated agent refs (useful for debug)')
 
     args = parser.parse_args()
     
@@ -48,7 +49,8 @@ if __name__ == "__main__":
                     verbose=True,
                     vlevel=VLevel.V2,
                     use_gpu=not args.use_cpu,
-                    debug=not args.disable_env_db)
+                    debug=not args.disable_env_db,
+                    override_agent_refs=args.override_agent_refs)
     
     # getting some sim info for debugging
     sim_data = {}

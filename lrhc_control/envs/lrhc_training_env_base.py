@@ -53,7 +53,8 @@ class LRhcTrainingEnvBase():
             vlevel: VLevel = VLevel.V1,
             debug: bool = True,
             use_gpu: bool = True,
-            dtype: torch.dtype = torch.float32):
+            dtype: torch.dtype = torch.float32,
+            override_agent_refs: bool = False):
         
         self._this_path = os.path.abspath(__file__)
 
@@ -68,6 +69,8 @@ class LRhcTrainingEnvBase():
             self._action_repeat = 1
             
         self._closed = False
+
+        self._override_agent_refs = override_agent_refs
 
         self._episode_timeout_lb = round(episode_timeout_lb/self._action_repeat) # episodes durations will be randomized between
         self._episode_timeout_ub = round(episode_timeout_ub/self._action_repeat) # this bounds to remove temporal correlations
@@ -343,9 +346,12 @@ class LRhcTrainingEnvBase():
 
     def randomize_refs(self,
                 env_indxs: torch.Tensor = None):
-
-        self._randomize_refs(env_indxs=env_indxs)
-
+                    
+        if self._override_agent_refs:
+            self._override_refs(gpu=self._use_gpu)
+        else:
+            self._randomize_refs(env_indxs=env_indxs)
+            
     def reset(self):
         
         self.randomize_refs(env_indxs=None) # randomize all refs across envs
@@ -787,7 +793,16 @@ class LRhcTrainingEnvBase():
             # copies latest refs from GPU to CPU shared mem for debugging
             self._agent_refs.rob_refs.root_state.synch_mirror(from_gpu=True) 
         self._agent_refs.rob_refs.root_state.synch_all(read=False, retry = True) # write on shared mem
-        
+    
+    def _override_refs(self,
+            gpu=True):
+
+        # just used for setting agent refs externally (i.e. from shared mem on CPU)
+        self._agent_refs.rob_refs.root_state.synch_all(read=True, retry = True) # first read from mem
+        if gpu:
+            # copies latest refs to GPU 
+            self._agent_refs.rob_refs.root_state.synch_mirror(from_gpu=False) 
+
     def _clip_obs(self, 
             obs: torch.Tensor):
 
