@@ -576,7 +576,7 @@ class ActorCriticAlgoBase():
             info = f"\nN. PPO iterations performed: {self._it_counter}/{self._iterations_n}\n" + \
                 f"N. policy updates performed: {self._n_policy_updates[self._it_counter-1].item()}/" + \
                 f"{self._update_epochs * self._num_minibatches * self._iterations_n}\n" + \
-                f"N. env steps performed: {self._it_counter * self._batch_size}/{self._total_timesteps}\n" + \
+                f"Total n. timesteps simulated: {self._it_counter * self._batch_size}/{self._total_timesteps}\n" + \
                 f"Elapsed minutes: {self._elapsed_min[self._it_counter-1].item()}\n" + \
                 f"Estimated remaining training time: " + \
                 f"{self._elapsed_min[self._it_counter-1].item()/60 * 1/self._it_counter * (self._iterations_n-self._it_counter)} hours\n" + \

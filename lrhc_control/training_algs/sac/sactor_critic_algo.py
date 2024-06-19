@@ -87,13 +87,13 @@ class SActorCriticAlgoBase():
         
         self._collection_t = time.perf_counter()
         self._collection_dt[self._log_it_counter] += \
-            (self._collection_t-self._start_time)/self._db_frequency # average over collected batcp
+            (self._collection_t-self._start_time) # cumulative over db frequency
 
         self._update_policy()
 
         self._policy_update_t = time.perf_counter()
         self._policy_update_dt[self._log_it_counter] += \
-            (self._policy_update_t - self._collection_t)/self._db_frequency
+            (self._policy_update_t - self._collection_t)
 
         self._post_step()
 
@@ -111,7 +111,7 @@ class SActorCriticAlgoBase():
 
         self._collection_t = time.perf_counter()
         self._collection_dt[self._log_it_counter] += \
-            (self._collection_t-self._start_time)/self._db_frequency # average over collected batcp
+            (self._collection_t-self._start_time) # cumulative over db frequency
         
         self._post_step()
 
@@ -403,18 +403,18 @@ class SActorCriticAlgoBase():
 
     def _post_step(self):
         
-        self._transition_counter+=1
+        self._vec_transition_counter+=1
 
-        if self._transition_counter % self._db_frequency == 0:
+        if self._vec_transition_counter % self._db_vecstep_frequency== 0:
             # only log data every n timesteps 
         
-            self._env_step_fps[self._log_it_counter] = self._db_frequency / self._collection_dt[self._log_it_counter]
+            self._env_step_fps[self._log_it_counter] = (self._db_vecstep_frequency*self._num_envs)/ self._collection_dt[self._log_it_counter]
             self._env_step_rt_factor[self._log_it_counter] = self._env_step_fps[self._log_it_counter] * self._hyperparameters["control_clust_dt"]
 
             self._n_of_played_episodes[self._log_it_counter] = self._episodic_reward_getter.get_n_played_episodes()
-            self._n_timesteps_done[self._log_it_counter] = self._transition_counter
+            self._n_timesteps_done[self._log_it_counter] = self._vec_transition_counter
 
-            self._n_policy_updates[self._log_it_counter] = self._transition_counter*self._policy_freq
+            self._n_policy_updates[self._log_it_counter] = self._vec_transition_counter*self._policy_freq
 
             self._policy_update_fps[self._log_it_counter] = self._n_policy_updates[self._log_it_counter]/self._policy_update_dt[self._log_it_counter]
 
@@ -442,10 +442,10 @@ class SActorCriticAlgoBase():
             self._log_it_counter+=1 
 
             if self._dump_checkpoints and \
-                (self._transition_counter % self._m_checkpoint_freq == 0):
+                (self._vec_transition_counter % self._m_checkpoint_freq == 0):
                 self._save_model(is_checkpoint=True)
 
-        if self._transition_counter == self._total_timesteps:
+        if self._vec_transition_counter == self._total_timesteps:
             self.done()            
             
     def _should_have_called_setup(self):
@@ -516,15 +516,15 @@ class SActorCriticAlgoBase():
 
         if self._verbose:
             
-            info =f"\nN. env steps performed: {self._transition_counter}/{self._total_timesteps}\n" + \
+            info =f"\nTotal n. timesteps simulated: {self._vec_transition_counter*self._num_envs}/{self._total_timesteps}\n" + \
                 f"Elapsed minutes: {self._elapsed_min[self._log_it_counter].item()}\n" + \
                 f"Estimated remaining training time: " + \
-                f"{self._elapsed_min[self._log_it_counter].item()/60 * 1/(self._transition_counter+1) * (self._total_timesteps-self._transition_counter+1)} hours\n" + \
+                f"{self._elapsed_min[self._log_it_counter].item()/60 * 1/(self._vec_transition_counter+1) * (self._total_timesteps-self._vec_transition_counter+1)} hours\n" + \
                 f"Average episodic reward across all environments: {self._episodic_rewards_env_avrg[self._log_it_counter, :, :].item()}\n" + \
                 f"Average episodic rewards across all environments {self._reward_names_str}: {self._episodic_sub_rewards_env_avrg[self._log_it_counter, :]}\n" + \
-                f"Current env. step fps: {self._env_step_fps[self._log_it_counter].item()}, time for experience collection {self._collection_dt[self._log_it_counter].item()*self._db_frequency} s\n" + \
+                f"Current env. step fps: {self._env_step_fps[self._log_it_counter].item()}, time for experience collection {self._collection_dt[self._log_it_counter].item()} s\n" + \
                 f"Current env step rt factor: {self._env_step_rt_factor[self._log_it_counter].item()}\n" + \
-                f"Current policy update fps: {self._policy_update_fps[self._log_it_counter].item()}, time for policy updates {self._policy_update_dt[self._log_it_counter].item()*self._db_frequency} s\n"
+                f"Current policy update fps: {self._policy_update_fps[self._log_it_counter].item()}, time for policy updates {self._policy_update_dt[self._log_it_counter].item()} s\n"
             Journal.log(self.__class__.__name__,
                 "_post_step",
                 info,
@@ -620,7 +620,7 @@ class SActorCriticAlgoBase():
         self._torch_device = torch.device("cpu") # defaults to cpu
         self._torch_deterministic = True
 
-        self._m_checkpoint_freq = 5000 # n ppo iterations after which a checkpoint model is dumped
+        self._m_checkpoint_freq = 5000 # n timesteps after which a checkpoint model is dumped
 
         # main algo settings
         self._warmstart_timesteps = int(1e3)
@@ -648,7 +648,7 @@ class SActorCriticAlgoBase():
         self._alpha = 0.2
         self._a_optimizer = None
         
-        self._db_frequency = 128 # log db data every n timesteps
+        self._db_vecstep_frequency = 128 # log db data every n (vectorized) timesteps
         
         # write them to hyperparam dictionary for debugging
         self._hyperparameters["n_envs"] = self._num_envs
@@ -684,7 +684,7 @@ class SActorCriticAlgoBase():
             LogType.INFO,
             throw_when_excep = True)
         
-        self._transition_counter = 0
+        self._vec_transition_counter = 0
         self._log_it_counter = 0
 
     def _init_replay_buffers(self):

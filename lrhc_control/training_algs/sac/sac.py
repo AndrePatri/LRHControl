@@ -30,7 +30,7 @@ class SAC(SActorCriticAlgoBase):
 
         obs = self._env.get_obs() # also accounts for resets when envs are 
         # either terminated or truncated
-        if self._transition_counter > self._warmstart_vectimesteps or \
+        if self._vec_transition_counter > self._warmstart_vectimesteps or \
             self._eval:
             actions, _, _ = self._agent.actor.get_action(x=obs)
             actions = actions.detach()
@@ -54,7 +54,7 @@ class SAC(SActorCriticAlgoBase):
     def _update_policy(self):
         
         # training phase
-        if self._transition_counter > self._warmstart_vectimesteps:
+        if self._vec_transition_counter > self._warmstart_vectimesteps:
                 
             self._switch_training_mode(train=True)
 
@@ -79,7 +79,7 @@ class SAC(SActorCriticAlgoBase):
             qf_loss.backward()
             self._qf_optimizer.step()
 
-            if self._transition_counter % self._policy_freq == 0:  # TD 3 Delayed update support
+            if self._vec_transition_counter % self._policy_freq == 0:  # TD 3 Delayed update support
                 # policy update
                 for i in range(self._policy_freq): # compensate for the delay by doing 'actor_update_interval' instead of 1
                     pi, log_pi, _ = self._agent.actor.get_action(obs)
@@ -100,7 +100,7 @@ class SAC(SActorCriticAlgoBase):
                         self._alpha = self._log_alpha.exp().item()
 
             # update the target networks
-            if self._transition_counter % self._trgt_net_freq == 0:
+            if self._vec_transition_counter % self._trgt_net_freq == 0:
                 for param, target_param in zip(self._agent.qf1.parameters(), self._agent.qf1_target.parameters()):
                     target_param.data.copy_(self._smoothing_coeff * param.data + (1 - self._smoothing_coeff) * target_param.data)
                 for param, target_param in zip(self._agent.qf2.parameters(), self._agent.qf2_target.parameters()):
