@@ -30,7 +30,7 @@ class SAC(SActorCriticAlgoBase):
 
         obs = self._env.get_obs() # also accounts for resets when envs are 
         # either terminated or truncated
-        if self._transition_counter > self._warmstart_timesteps or \
+        if self._transition_counter > self._warmstart_vectimesteps or \
             self._eval:
             actions, _, _ = self._agent.actor.get_action(x=obs)
             actions = actions.detach()
@@ -54,7 +54,7 @@ class SAC(SActorCriticAlgoBase):
     def _update_policy(self):
         
         # training phase
-        if self._transition_counter > self._warmstart_timesteps:
+        if self._transition_counter > self._warmstart_vectimesteps:
                 
             self._switch_training_mode(train=True)
 

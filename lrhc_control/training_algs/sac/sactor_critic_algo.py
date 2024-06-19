@@ -624,11 +624,13 @@ class SActorCriticAlgoBase():
 
         # main algo settings
         self._warmstart_timesteps = int(1e3)
+        self._warmstart_vectimesteps = round(self._warmstart_timesteps/self._num_envs)
+
         self._replay_buffer_size_nominal = int(1e6) # 32768
         self._replay_buffer_size_vec = self._replay_buffer_size_nominal//self._num_envs # 32768
         self._replay_buffer_size = self._replay_buffer_size_vec*self._num_envs
         self._batch_size = 1048
-        self._total_timesteps = int(1e6)
+        self._total_timesteps = int(10e6)
         
         self._lr_policy = 3e-4
         self._lr_q = 1e-3
@@ -656,7 +658,7 @@ class SActorCriticAlgoBase():
         # self._hyperparameters["actor_size"] = self._actor_size
         self._hyperparameters["seed"] = self._seed
         self._hyperparameters["using_gpu"] = self._use_gpu
-        self._hyperparameters["n_iterations"] = self._total_timesteps
+        self._hyperparameters["total_timesteps"] = self._total_timesteps
         self._hyperparameters["episodes timeout lb"] = self._episode_timeout_lb
         self._hyperparameters["episodes timeout ub"] = self._episode_timeout_ub
         self._hyperparameters["task rand timeout lb"] = self._task_rand_timeout_lb
@@ -664,7 +666,7 @@ class SActorCriticAlgoBase():
 
         # small debug log
         info = f"\nUsing \n" + \
-            f"total timesteps {self._total_timesteps}\n" + \
+            f"total timesteps to be simulated{self._total_timesteps}\n" + \
             f"warmstart timesteps {self._warmstart_timesteps}\n" + \
             f"replay buffer nominal size {self._replay_buffer_size_nominal}\n" + \
             f"replay buffer size {self._replay_buffer_size}\n" + \
