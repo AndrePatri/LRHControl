@@ -80,18 +80,18 @@ class SActorCriticAlgoBase():
         if not self._setup_done:
             self._should_have_called_setup()
 
-        self._start_time = time.monotonic()
+        self._start_time = time.perf_counter()
 
         if not self._collect_transition():
             return False
         
-        self._collection_t = time.monotonic()
+        self._collection_t = time.perf_counter()
         self._collection_dt[self._log_it_counter] += \
             (self._collection_t-self._start_time)/self._db_frequency # average over collected batcp
 
         self._update_policy()
 
-        self._policy_update_t = time.monotonic()
+        self._policy_update_t = time.perf_counter()
         self._policy_update_dt[self._log_it_counter] += \
             (self._policy_update_t - self._collection_t)/self._db_frequency
 
@@ -104,12 +104,12 @@ class SActorCriticAlgoBase():
         if not self._setup_done:
             self._should_have_called_setup()
 
-        self._start_time = time.monotonic()
+        self._start_time = time.perf_counter()
 
         if not self._collect_transition():
             return False
 
-        self._collection_t = time.monotonic()
+        self._collection_t = time.perf_counter()
         self._collection_dt[self._log_it_counter] += \
             (self._collection_t-self._start_time)/self._db_frequency # average over collected batcp
         
@@ -240,9 +240,9 @@ class SActorCriticAlgoBase():
 
         self._is_done = False
 
-        self._start_time_tot = time.monotonic()
+        self._start_time_tot = time.perf_counter()
 
-        self._start_time = time.monotonic()
+        self._start_time = time.perf_counter()
     
     def is_done(self):
 
@@ -407,8 +407,8 @@ class SActorCriticAlgoBase():
 
         if self._transition_counter % self._db_frequency == 0:
             # only log data every n timesteps 
-
-            self._env_step_fps[self._log_it_counter] = (self._transition_counter-self._n_timesteps_done[self._log_it_counter]) / self._collection_dt[self._log_it_counter]
+        
+            self._env_step_fps[self._log_it_counter] = self._db_frequency / self._collection_dt[self._log_it_counter]
             self._env_step_rt_factor[self._log_it_counter] = self._env_step_fps[self._log_it_counter] * self._hyperparameters["control_clust_dt"]
 
             self._n_of_played_episodes[self._log_it_counter] = self._episodic_reward_getter.get_n_played_episodes()
@@ -418,7 +418,7 @@ class SActorCriticAlgoBase():
 
             self._policy_update_fps[self._log_it_counter] = self._n_policy_updates[self._log_it_counter]/self._policy_update_dt[self._log_it_counter]
 
-            self._elapsed_min[self._log_it_counter] = (time.monotonic() - self._start_time_tot) / 60
+            self._elapsed_min[self._log_it_counter] = (time.perf_counter() - self._start_time_tot) / 60
         
             # we get some episodic reward metrics
             self._episodic_rewards[self._log_it_counter, :, :] = self._episodic_reward_getter.get_rollout_avrg_total_reward() # total ep. rewards across envs
@@ -537,7 +537,7 @@ class SActorCriticAlgoBase():
 
         # rollout phase
         self._collection_dt = torch.full((self._total_timesteps, 1), 
-                    dtype=torch.float32, fill_value=-1.0, device="cpu")
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
         
         self._collection_t = -1.0
         self._env_step_fps = torch.full((self._total_timesteps, 1), 
@@ -547,7 +547,7 @@ class SActorCriticAlgoBase():
         
         self._policy_update_t = -1.0
         self._policy_update_dt = torch.full((self._total_timesteps, 1), 
-                    dtype=torch.float32, fill_value=-1.0, device="cpu")
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
         self._policy_update_fps = torch.full((self._total_timesteps, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
         
