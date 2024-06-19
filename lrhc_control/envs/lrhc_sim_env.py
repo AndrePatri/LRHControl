@@ -23,7 +23,8 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                 sim_device: int = 0, 
                 enable_livestream: bool = False, 
                 enable_viewport: bool = False,
-                debug = False):
+                debug = False,
+                timeout_ms: int = 60000):
 
         super().__init__(headless = headless, 
                 sim_device = sim_device, 
@@ -51,7 +52,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
         self._wait_sol = {}
         self._cluster_dt = {}
         # remote simulation
-        self._timeout = 300000
+        self._timeout = timeout_ms
         self._init_steps_done = False
         self._n_init_steps = 0 # n steps to be performed before waiting for remote stepping
         self._init_step_counter = 0
@@ -265,7 +266,8 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                         debug = cluster_client_debug, 
                         robot_name=robot_name,
                         use_gpu = task.using_gpu,
-                        force_reconnection=True)
+                        force_reconnection=True,
+                        timeout_ms=self._timeout)
             self.cluster_servers[robot_name].run()
             self._init_safe_cluster_actions(robot_name=robot_name)                    
 

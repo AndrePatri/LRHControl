@@ -16,7 +16,8 @@ class LRhcClusterServer(ControlClusterServer):
             vlevel: VLevel = VLevel.V1,
             debug: bool = False,
             use_gpu: bool = True,
-            force_reconnection: bool = True):
+            force_reconnection: bool = True,
+            timeout_ms: int = 60000):
 
         self.robot_name = robot_name
                 
@@ -32,4 +33,5 @@ class LRhcClusterServer(ControlClusterServer):
             vlevel=vlevel,
             debug=debug,
             use_gpu=use_gpu,
-            force_reconnection=force_reconnection)
+            force_reconnection=force_reconnection,
+            timeout_ms=timeout_ms)

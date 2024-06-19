@@ -19,7 +19,8 @@ class HybridQuadrupedClusterClient(LRhcClusterClient):
             verbose: bool = False,
             debug: bool = False,
             open_loop: bool = True,
-            base_dump_dir: str = "/tmp"):
+            base_dump_dir: str = "/tmp",
+            timeout_ms: int = 60000):
         
         self._open_loop = open_loop
 
@@ -27,6 +28,8 @@ class HybridQuadrupedClusterClient(LRhcClusterClient):
 
         self._codegen_dir_name = namespace
 
+        self._timeout_ms = timeout_ms
+        
         super().__init__(namespace = namespace, 
                         robot_pkg_name = robot_pkg_name,
                         cluster_size=cluster_size,

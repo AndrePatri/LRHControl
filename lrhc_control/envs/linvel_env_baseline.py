@@ -20,7 +20,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             use_gpu: bool = True,
             dtype: torch.dtype = torch.float32,
             debug: bool = True,
-            override_agent_refs: bool = False):
+            override_agent_refs: bool = False,
+            timeout_ms: int = 60000):
         
         action_repeat = 1
 
@@ -160,7 +161,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     use_gpu=use_gpu,
                     dtype=dtype,
                     debug=debug,
-                    override_agent_refs=override_agent_refs)
+                    override_agent_refs=override_agent_refs,
+                    timeout_ms=timeout_ms)
 
         # overriding parent's defaults 
         self._reward_thresh_lb[:, 0] = -10

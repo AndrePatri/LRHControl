@@ -36,6 +36,7 @@ if __name__ == '__main__':
     parser.add_argument('--enable_debug', action='store_true', help='Whether to enable debug mode (may introduce significant overhead)')
     parser.add_argument('--headless', action='store_true', help='Whether to run simulation in headless mode')
     parser.add_argument('--comment', type=str, help='Any useful comment associated with this run',default="")
+    parser.add_argument('--timeout_ms', type=int, help='connection timeout after which the script self-terminates', default=60000)
 
     args = parser.parse_args()
 
@@ -119,7 +120,8 @@ if __name__ == '__main__':
             sim_device = 0,
             enable_livestream=enable_livestream, 
             enable_viewport=enable_viewport,
-            debug = args.enable_debug) # create environment
+            debug=args.enable_debug,
+            timeout_ms=args.timeout_ms) # create environment
 
     # now we can import the task (not before, since Omni plugins are loaded 
     # upon environment initialization)

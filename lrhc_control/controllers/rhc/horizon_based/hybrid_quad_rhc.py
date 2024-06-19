@@ -31,7 +31,8 @@ class HybridQuadRhc(RHController):
             dtype = np.float32,
             verbose = False, 
             debug = False,
-            refs_in_hor_frame = True
+            refs_in_hor_frame = True,
+            timeout_ms: int = 60000
             ):
 
         self._refs_in_hor_frame = refs_in_hor_frame
@@ -69,13 +70,14 @@ class HybridQuadRhc(RHController):
             self.urdf = file.read()
         self._base_init = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0])
 
-        super().__init__(srdf_path = srdf_path,
-                        n_nodes = n_nodes,
-                        dt = dt,
-                        namespace = self.robot_name,
-                        dtype = dtype,
-                        verbose = verbose, 
-                        debug = debug)
+        super().__init__(srdf_path=srdf_path,
+                        n_nodes=n_nodes,
+                        dt=dt,
+                        namespace=self.robot_name,
+                        dtype=dtype,
+                        verbose=verbose, 
+                        debug=debug,
+                        timeout_ms=timeout_ms)
 
         self.rhc_costs={}
         self.rhc_constr={}

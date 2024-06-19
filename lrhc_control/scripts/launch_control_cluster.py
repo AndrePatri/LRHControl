@@ -38,6 +38,7 @@ if __name__ == "__main__":
             help='end index for cores over which RHC controllers will be distributed',
             default=mp.cpu_count())
     parser.add_argument('--comment', type=str, help='Any useful comment associated with this run',default="")
+    parser.add_argument('--timeout_ms', type=int, help='connection timeout after which the script self-terminates', default=60000)
 
     args = parser.parse_args()
     
@@ -67,7 +68,8 @@ if __name__ == "__main__":
                                         core_ids_override_list = core_ids_override_list,
                                         verbose=args.verbose,
                                         debug=args.enable_debug,
-                                        base_dump_dir=args.dmpdir) # this blocks until connection with the client is established
+                                        base_dump_dir=args.dmpdir,
+                                        timeout_ms=args.timeout_ms) # this blocks until connection with the client is established
     control_cluster_client.run() # spawns the controllers on separate processes
 
 

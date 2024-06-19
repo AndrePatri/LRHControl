@@ -54,7 +54,8 @@ class LRhcTrainingEnvBase():
             debug: bool = True,
             use_gpu: bool = True,
             dtype: torch.dtype = torch.float32,
-            override_agent_refs: bool = False):
+            override_agent_refs: bool = False,
+            timeout_ms: int = 60000):
         
         self._this_path = os.path.abspath(__file__)
 
@@ -126,7 +127,7 @@ class LRhcTrainingEnvBase():
 
         self._episodic_rewards_getter = None
         
-        self._timeout = 300000
+        self._timeout = timeout_ms
 
         self._attach_to_shared_mem()
 
