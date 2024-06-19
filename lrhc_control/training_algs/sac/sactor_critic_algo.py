@@ -467,13 +467,13 @@ class SActorCriticAlgoBase():
                 data = self._custom_env_data[dbdatan]
                 data_names = self._env.custom_db_data[dbdatan].data_names()
                 self._custom_env_data_db_dict.update({f"{dbdatan}" + "_rollout_stat_comp": 
-                        wandb.Histogram(data["rollout_stat_comp"][self._it_counter-1, :, :].numpy())})
+                        wandb.Histogram(data["rollout_stat_comp"][self._log_it_counter-1, :, :].numpy())})
                 self._custom_env_data_db_dict.update({f"{dbdatan}" + "_rollout_stat_comp_env_avrg": 
-                        data["rollout_stat_comp_env_avrg"][self._it_counter-1, :, :].item()})
+                        data["rollout_stat_comp_env_avrg"][self._log_it_counter-1, :, :].item()})
                 self._custom_env_data_db_dict.update({f"sub_env_dbdata/{dbdatan}-{data_names[i]}" + "_rollout_stat_env_avrg": 
-                       data["rollout_stat_env_avrg"][self._it_counter-1, :, i:i+1] for i in range(len(data_names))})
+                       data["rollout_stat_env_avrg"][self._log_it_counter-1, :, i:i+1] for i in range(len(data_names))})
                 self._custom_env_data_db_dict.update({f"sub_env_dbdata/{dbdatan}-{data_names[i]}" + "_rollout_stat": 
-                        wandb.Histogram(data["rollout_stat"].numpy()[self._it_counter-1, :, i:i+1]) for i in range(len(data_names))})
+                        wandb.Histogram(data["rollout_stat"].numpy()[self._log_it_counter-1, :, i:i+1]) for i in range(len(data_names))})
 
             if self._remote_db: 
                 # write general algo debug info to shared memory    
@@ -500,14 +500,14 @@ class SActorCriticAlgoBase():
                 #                         val=info_data)
 
                 # write debug info to remote wandb server
-                wandb_d = {'tot_episodic_reward': wandb.Histogram(self._episodic_rewards[self._it_counter-1, :, :].numpy()),
-                    'tot_episodic_reward_env_avrg': self._episodic_rewards_env_avrg[self._it_counter-1, :, :].item(),
-                    'ppo_iteration' : self._it_counter}
+                wandb_d = {'tot_episodic_reward': wandb.Histogram(self._episodic_rewards[self._log_it_counter-1, :, :].numpy()),
+                    'tot_episodic_reward_env_avrg': self._episodic_rewards_env_avrg[self._log_it_counter-1, :, :].item(),
+                    'ppo_iteration' : self._log_it_counter}
                 wandb_d.update(dict(zip(info_names, info_data)))
                 wandb_d.update({f"sub_reward/{self._reward_names[i]}_env_avrg":
-                        self._episodic_sub_rewards_env_avrg[self._it_counter-1, :, i:i+1] for i in range(len(self._reward_names))})
+                        self._episodic_sub_rewards_env_avrg[self._log_it_counter-1, :, i:i+1] for i in range(len(self._reward_names))})
                 wandb_d.update({f"sub_reward/{self._reward_names[i]}":
-                        wandb.Histogram(self._episodic_sub_rewards.numpy()[self._it_counter-1, :, i:i+1]) for i in range(len(self._reward_names))})
+                        wandb.Histogram(self._episodic_sub_rewards.numpy()[self._log_it_counter-1, :, i:i+1]) for i in range(len(self._reward_names))})
                 
                 wandb_d.update(self._policy_update_db_data_dict)
                 wandb_d.update(self._custom_env_data_db_dict)
