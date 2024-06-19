@@ -39,16 +39,6 @@ class AgentRefsFromKeyboard:
 
     def _init_shared_data(self):
 
-        self.launch_keyboard_cmds = SharedTWrapper(namespace = self.namespace,
-                basename = "KeyboardCmdsLauncher",
-                is_server = False, 
-                verbose = True, 
-                vlevel = VLevel.V2,
-                safe = False,
-                dtype=dtype.Bool)
-        
-        self.launch_keyboard_cmds.run()
-
         self.env_index = SharedTWrapper(namespace = self.namespace,
                 basename = "EnvSelector",
                 is_server = False, 
@@ -173,35 +163,28 @@ class AgentRefsFromKeyboard:
                             increment = False)
                 
     def _on_press(self, key):
-
-        if self.launch_keyboard_cmds.read_retry(row_index=0,
-                                            col_index=0)[0]:
             
-            self._synch(read=True) # updates  data like
-            # current cluster index
+        self._synch(read=True) # updates  data like
+        # current cluster index
 
-            if hasattr(key, 'char'):
-                print("AAAAAA")
-                self._set_navigation(key)
+        if hasattr(key, 'char'):
+            self._set_navigation(key)
 
-            self._synch(read=False)
+        self._synch(read=False)
 
     def _on_release(self, key):
-
-        if self.launch_keyboard_cmds.read_retry(row_index=0,
-                                            col_index=0)[0]:
             
-            if hasattr(key, 'char'):
-                
-                # nullify vel ref
-                self.agent_refs.rob_refs.root_state.set(data_type="twist",data=self._twist_null,
-                                    robot_idxs=self.cluster_idx_np)
+        if hasattr(key, 'char'):
+            
+            # nullify vel ref
+            self.agent_refs.rob_refs.root_state.set(data_type="twist",data=self._twist_null,
+                                robot_idxs=self.cluster_idx_np)
 
-                if key == keyboard.Key.esc:
+            if key == keyboard.Key.esc:
 
-                    self._close()
+                self._close()
 
-            self._synch(read=False)
+        self._synch(read=False)
 
     def run(self):
 
