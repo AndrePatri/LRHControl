@@ -21,7 +21,8 @@ class LRhcClusterClient(ControlClusterClient):
             verbose: bool = False,
             debug: bool = False,
             codegen_base_dirname: str = "CodeGen",
-            base_dump_dir: str = "/tmp"):
+            base_dump_dir: str = "/tmp",
+            codegen_override: str = None):
 
         self._base_dump_dir = base_dump_dir
 
@@ -29,6 +30,9 @@ class LRhcClusterClient(ControlClusterClient):
         
         self._codegen_base_dirname = codegen_base_dirname
         self._codegen_basedir = self._temp_path + "/" + self._codegen_base_dirname
+
+        self._codegen_override = codegen_override # can be used to manually override
+        # the default codegen dir 
 
         if not os.path.exists(self._temp_path):
             os.makedirs(self._temp_path)
@@ -53,6 +57,10 @@ class LRhcClusterClient(ControlClusterClient):
     def codegen_dir(self):
 
         return self._codegen_basedir
+    
+    def codegen_dir_override(self):
+
+        return self._codegen_override
     
     def _generate_srdf(self):
         

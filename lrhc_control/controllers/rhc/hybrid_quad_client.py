@@ -20,7 +20,8 @@ class HybridQuadrupedClusterClient(LRhcClusterClient):
             debug: bool = False,
             open_loop: bool = True,
             base_dump_dir: str = "/tmp",
-            timeout_ms: int = 60000):
+            timeout_ms: int = 60000,
+            codegen_override: str = None):
         
         self._open_loop = open_loop
 
@@ -39,7 +40,8 @@ class HybridQuadrupedClusterClient(LRhcClusterClient):
                         core_ids_override_list = core_ids_override_list,
                         verbose = verbose,
                         debug = debug,
-                        base_dump_dir=base_dump_dir)
+                        base_dump_dir=base_dump_dir,
+                        codegen_override=codegen_override)
     
     def _xrdf_cmds(self):
         cmds = get_xrdf_cmds_horizon(robot_pkg_name = self.robot_pkg_name)
@@ -48,12 +50,16 @@ class HybridQuadrupedClusterClient(LRhcClusterClient):
     def _generate_controller(self,
                         idx: int):
         
+        codegen_dir = self.codegen_dir() + f"/{self._codegen_dir_name}Rhc{idx}"
+        if self.codegen_dir_override() is not None:
+            codegen_dir = f"{self.codegen_dir_override()}{idx}"
+
         controller = HybridQuadRhc(
                 urdf_path=self._urdf_path, 
                 srdf_path=self._srdf_path,
                 config_path = self._paths.CONFIGPATH,
                 robot_name=self._namespace,
-                codegen_dir=self.codegen_dir() + f"/{self._codegen_dir_name}Rhc{idx}",
+                codegen_dir=codegen_dir,
                 n_nodes=31, 
                 dt=0.03,
                 max_solver_iter = 1,
