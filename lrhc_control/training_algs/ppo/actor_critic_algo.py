@@ -746,7 +746,7 @@ class ActorCriticAlgoBase():
         self._m_checkpoint_freq = 50 # n ppo iterations after which a checkpoint model is dumped
 
         # policy rollout and return comp./adv estimation
-        self._total_timesteps_nom = int(100e6) # atomic env steps (including substepping if action reps>1)
+        self._total_timesteps_nom = int(60e6) # atomic env steps (including substepping if action reps>1)
         self._total_timesteps_nom = self._total_timesteps_nom//self._env_n_action_reps # correct with n of action reps
         
         self._rollout_timesteps = 128 # numer of vectorized steps (does not include env substepping) 
