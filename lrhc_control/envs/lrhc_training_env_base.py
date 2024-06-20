@@ -291,14 +291,13 @@ class LRhcTrainingEnvBase():
         self._timeout_counter.increment() # first increment counters
         self._randomization_counter.increment()
         # self.randomize_refs(env_indxs=self._randomization_counter.time_limits_reached().flatten()) # randomize 
-        # # refs of envs that reached the time limit
+        # refs of envs that reached the time limit
 
         self._check_truncations() 
         self._check_terminations()
 
         terminated = self._terminations.get_torch_mirror(gpu=self._use_gpu)
         truncated = self._truncations.get_torch_mirror(gpu=self._use_gpu)
-        truncated_by_time_limit = self._timeout_counter.time_limits_reached()
 
         episode_finished = torch.logical_or(terminated,
                             truncated)
@@ -317,7 +316,7 @@ class LRhcTrainingEnvBase():
             
         # remotely reset envs if either terminated or truncated (only by time limit)
         rm_reset_ok = self._remote_reset(reset_mask=torch.logical_or(terminated.cpu(),
-                                truncated_by_time_limit))
+                                self._timeout_counter.time_limits_reached()))
         return rm_reset_ok
             
     def _update_custom_db_data(self,
@@ -899,6 +898,9 @@ class LRhcTrainingEnvBase():
         # but only reset env if time limit reached (not with ref rand. this way the agent 
         # experiences difference robot states)
         
+        # time_limits_reached = self._timeout_counter.time_limits_reached()
+        # truncations[:, :] = time_limits_reached
+
         if self._use_gpu:
             # from GPU to CPU 
             self._truncations.synch_mirror(from_gpu=True) 

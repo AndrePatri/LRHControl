@@ -63,8 +63,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         # obs_dim = 4+6+n_jnts+2+2+self._n_prev_actions*actions_dim
         episode_timeout_lb = 1024 # episode timeouts (including env substepping when action_repeat>1)
-        episode_timeout_ub = 2048
-        n_steps_task_rand_lb = 256 # agent refs randomization freq
+        episode_timeout_ub = 1280
+        n_steps_task_rand_lb = 128 # agent refs randomization freq
         n_steps_task_rand_ub = 512
 
         n_preinit_steps = 1 # one steps of the controllers to properly initialize everything
@@ -94,7 +94,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._rhc_cost_scale = 1e-2 * 5e-3
 
         # power penalty
-        self._power_weight = 1.0 
+        self._power_weight = 1.0
         self._power_scale = 0.05
         self._power_penalty_weights = torch.full((1, n_jnts), dtype=dtype, device=device,
                             fill_value=1.0)
