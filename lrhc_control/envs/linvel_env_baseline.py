@@ -85,17 +85,17 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._task_err_weights[0, 5] = 1e-6
         self._task_err_weights_sum = torch.sum(self._task_err_weights).item()
 
-        self._rhc_cnstr_viol_weight = 1.0
+        self._rhc_cnstr_viol_weight = 0.0
         # self._rhc_cnstr_viol_scale = 1.0 * 1e-3
         self._rhc_cnstr_viol_scale = 1.0 * 5e-3
 
-        self._rhc_cost_weight = 1.0
+        self._rhc_cost_weight = 0.0
         # self._rhc_cost_scale = 1e-2 * 1e-3
         self._rhc_cost_scale = 1e-2 * 5e-3
 
         # power penalty
-        self._power_weight = 0.0 # 0.2
-        self._power_scale = 0.1
+        self._power_weight = 1.0 
+        self._power_scale = 0.05
         self._power_penalty_weights = torch.full((1, n_jnts), dtype=dtype, device=device,
                             fill_value=1.0)
         n_jnts_per_limb = round(n_jnts/n_contacts) # assuming same topology along limbs
@@ -108,7 +108,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._power_penalty_weights_sum = torch.sum(self._power_penalty_weights).item()
 
         # jnt vel penalty 
-        self._jnt_vel_weight = 1.0
+        self._jnt_vel_weight = 0.0
         self._jnt_vel_scale = 0.08
         self._jnt_vel_penalty_weights = torch.full((1, n_jnts), dtype=dtype, device=device,
                             fill_value=1.0)
