@@ -302,7 +302,7 @@ class LRhcTrainingEnvBase():
 
         episode_finished = torch.logical_or(terminated,
                             truncated)
-        self._timeout_counter.reset(to_be_reset=truncated_by_time_limit, randomize_limits=True) # reset and randomize ep duration 
+        self._timeout_counter.reset(to_be_reset=episode_finished, randomize_limits=True) # reset and randomize ep duration 
         self._randomization_counter.reset(to_be_reset=episode_finished, randomize_limits=True)
         self.randomize_refs(env_indxs=episode_finished.flatten()) # randomize refs also upon
         # episode termination
