@@ -46,8 +46,13 @@ class RhcToViz2Bridge:
             with_agent_refs = False,
             rhc_refs_in_h_frame: bool = False,
             agent_refs_in_h_frame: bool = False,
-            env_idx: int = -1):
+            env_idx: int = -1,
+            sim_time_trgt: float = None):
         
+        self._sim_time_trgt = sim_time_trgt
+        if self._sim_time_trgt is None:
+            self._sim_time_trgt = np.inf # basically run indefinitely
+
         self._current_index = env_idx
         self._use_static_idx = True if env_idx >= 0 else False
 
@@ -133,6 +138,9 @@ class RhcToViz2Bridge:
         self._print_frequency = 100
         
         self._is_running = False
+
+    def __del__(self):
+        self.close()
 
     def _check_selector(self):
         
@@ -300,17 +308,11 @@ class RhcToViz2Bridge:
         while self._is_running:
 
             try:
-                
                 start_time = time.perf_counter() 
-
                 self.update()
-
                 elapsed_time = time.perf_counter() - start_time
-
                 time_to_sleep_ns = int((update_dt - elapsed_time) * 1e+9) # [ns]
-
                 if time_to_sleep_ns < 0:
-
                     warning = f": Could not match desired update dt of {update_dt} s. " + \
                         f"Elapsed time to update {elapsed_time}."
                     Journal.log(self.__class__.__name__,
@@ -319,10 +321,12 @@ class RhcToViz2Bridge:
                         LogType.WARN,
                         throw_when_excep = True)
                 else:
-
                     PerfSleep.thread_sleep(time_to_sleep_ns) 
 
-                continue
+                if self._sim_time >= self._sim_time_trgt:
+                    break
+                else:
+                    continue
 
             except KeyboardInterrupt:
 

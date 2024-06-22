@@ -25,6 +25,7 @@ if __name__ == '__main__':
     parser.add_argument('--agent_refs_in_h_frame', type=bool, default=False, help='set to true if agent refs are \
                         specified in the horizontal frame')
     parser.add_argument('--env_idx', type=int, help='env index of which data is to be published', default=-1)
+    parser.add_argument('--stime_trgt', type=float, default=None, help='sim time for which this bridge runs (None -> indefinetly)')
 
     args = parser.parse_args()
 
@@ -60,6 +61,7 @@ if __name__ == '__main__':
                         with_agent_refs=args.with_agent_refs,
                         rhc_refs_in_h_frame=args.rhc_refs_in_h_frame,
                         agent_refs_in_h_frame=args.agent_refs_in_h_frame,
-                        env_idx=args.env_idx)
+                        env_idx=args.env_idx,
+                        sim_time_trgt=args.stime_trgt)
 
     bridge.run(update_dt=update_dt)
