@@ -536,30 +536,30 @@ class SActorCriticAlgoBase():
         # initalize some debug data
 
         # rollout phase
-        self._collection_dt = torch.full((self._total_timesteps, 1), 
+        self._collection_dt = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
         
         self._collection_t = -1.0
-        self._env_step_fps = torch.full((self._total_timesteps, 1), 
+        self._env_step_fps = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._env_step_rt_factor = torch.full((self._total_timesteps, 1), 
+        self._env_step_rt_factor = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
         
         self._policy_update_t = -1.0
-        self._policy_update_dt = torch.full((self._total_timesteps, 1), 
+        self._policy_update_dt = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._policy_update_fps = torch.full((self._total_timesteps, 1), 
+        self._policy_update_fps = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
         
-        self._n_of_played_episodes = torch.full((self._total_timesteps, 1), 
+        self._n_of_played_episodes = torch.full((self._db_data_size, 1), 
                     dtype=torch.int32, fill_value=0, device="cpu")
-        self._n_timesteps_done = torch.full((self._total_timesteps, 1), 
+        self._n_timesteps_done = torch.full((self._db_data_size, 1), 
                     dtype=torch.int32, fill_value=0, device="cpu")
-        self._n_policy_updates = torch.full((self._total_timesteps, 1), 
+        self._n_policy_updates = torch.full((self._db_data_size, 1), 
                     dtype=torch.int32, fill_value=0, device="cpu")
-        self._elapsed_min = torch.full((self._total_timesteps, 1), 
+        self._elapsed_min = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=0, device="cpu")
-        self._learning_rates = torch.full((self._total_timesteps, 2), 
+        self._learning_rates = torch.full((self._db_data_size, 2), 
                     dtype=torch.float32, fill_value=0, device="cpu")
         
         # reward db data
@@ -569,13 +569,13 @@ class SActorCriticAlgoBase():
         rollout_avrg_rew_env_avrg_shape = self._episodic_reward_getter.get_rollout_reward_env_avrg().shape
         self._reward_names = self._episodic_reward_getter.reward_names()
         self._reward_names_str = "[" + ', '.join(self._reward_names) + "]"
-        self._episodic_rewards = torch.full((self._total_timesteps, tot_ep_rew_shape[0], tot_ep_rew_shape[1]), 
+        self._episodic_rewards = torch.full((self._db_data_size, tot_ep_rew_shape[0], tot_ep_rew_shape[1]), 
                                         dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._episodic_rewards_env_avrg = torch.full((self._total_timesteps, tot_ep_rew_shape_env_avrg_shape[0], tot_ep_rew_shape_env_avrg_shape[1]), 
+        self._episodic_rewards_env_avrg = torch.full((self._db_data_size, tot_ep_rew_shape_env_avrg_shape[0], tot_ep_rew_shape_env_avrg_shape[1]), 
                                         dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._episodic_sub_rewards = torch.full((self._total_timesteps, rollout_avrg_rew_shape[0], rollout_avrg_rew_shape[1]), 
+        self._episodic_sub_rewards = torch.full((self._db_data_size, rollout_avrg_rew_shape[0], rollout_avrg_rew_shape[1]), 
                                         dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._episodic_sub_rewards_env_avrg = torch.full((self._total_timesteps, rollout_avrg_rew_env_avrg_shape[0], rollout_avrg_rew_env_avrg_shape[1]), 
+        self._episodic_sub_rewards_env_avrg = torch.full((self._db_data_size, rollout_avrg_rew_env_avrg_shape[0], rollout_avrg_rew_env_avrg_shape[1]), 
                                         dtype=torch.float32, fill_value=0.0, device="cpu")
         
         # custom data from env
@@ -584,22 +584,22 @@ class SActorCriticAlgoBase():
         for dbdatan in db_data_names:
             self._custom_env_data[dbdatan] = {}
             rollout_stat=self._env.custom_db_data[dbdatan].get_rollout_stat()
-            self._custom_env_data[dbdatan]["rollout_stat"] = torch.full((self._total_timesteps, 
+            self._custom_env_data[dbdatan]["rollout_stat"] = torch.full((self._db_data_size, 
                                                                 rollout_stat.shape[0], 
                                                                 rollout_stat.shape[1]), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
             rollout_stat_env_avrg=self._env.custom_db_data[dbdatan].get_rollout_stat_env_avrg()
-            self._custom_env_data[dbdatan]["rollout_stat_env_avrg"] = torch.full((self._total_timesteps, 
+            self._custom_env_data[dbdatan]["rollout_stat_env_avrg"] = torch.full((self._db_data_size, 
                                                                         rollout_stat_env_avrg.shape[0], 
                                                                         rollout_stat_env_avrg.shape[1]), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
             rollout_stat_comp=self._env.custom_db_data[dbdatan].get_rollout_stat_comp()
-            self._custom_env_data[dbdatan]["rollout_stat_comp"] = torch.full((self._total_timesteps, 
+            self._custom_env_data[dbdatan]["rollout_stat_comp"] = torch.full((self._db_data_size, 
                                                                     rollout_stat_comp.shape[0], 
                                                                     rollout_stat_comp.shape[1]), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
             rollout_stat_comp_env_avrg=self._env.custom_db_data[dbdatan].get_rollout_stat_comp_env_avrg()
-            self._custom_env_data[dbdatan]["rollout_stat_comp_env_avrg"] = torch.full((self._total_timesteps, rollout_stat_comp_env_avrg.shape[0], rollout_stat_comp_env_avrg.shape[1]), 
+            self._custom_env_data[dbdatan]["rollout_stat_comp_env_avrg"] = torch.full((self._db_data_size, rollout_stat_comp_env_avrg.shape[0], rollout_stat_comp_env_avrg.shape[1]), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
 
     def _init_params(self):
@@ -630,7 +630,7 @@ class SActorCriticAlgoBase():
         self._replay_buffer_size_vec = self._replay_buffer_size_nominal//self._num_envs # 32768
         self._replay_buffer_size = self._replay_buffer_size_vec*self._num_envs
         self._batch_size = 1048
-        self._total_timesteps = int(10e6)
+        self._total_timesteps = int(50e6)
         
         self._lr_policy = 3e-4
         self._lr_q = 1e-3
@@ -649,7 +649,7 @@ class SActorCriticAlgoBase():
         self._a_optimizer = None
         
         self._db_vecstep_frequency = 128 # log db data every n (vectorized) timesteps
-        
+        self._db_data_size = round(self._total_timesteps/self._db_vecstep_frequency)+self._db_vecstep_frequency
         # write them to hyperparam dictionary for debugging
         self._hyperparameters["n_envs"] = self._num_envs
         self._hyperparameters["obs_dim"] = self._obs_dim
