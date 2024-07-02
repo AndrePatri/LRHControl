@@ -82,8 +82,9 @@ class SActorCriticAlgoBase():
 
         self._start_time = time.perf_counter()
 
-        if not self._collect_transition():
-            return False
+        with torch.no_grad(): # no need for gradient computation
+            if not self._collect_transition():
+                return False
         
         self._collection_t = time.perf_counter()
         self._collection_dt[self._log_it_counter] += \

@@ -33,7 +33,6 @@ class SAC(SActorCriticAlgoBase):
         if self._vec_transition_counter > self._warmstart_vectimesteps or \
             self._eval:
             actions, _, _ = self._agent.actor.get_action(x=obs)
-            actions = actions.detach()
         else:
             actions = self._sample_random_actions()
                 
@@ -45,9 +44,9 @@ class SAC(SActorCriticAlgoBase):
                     actions=actions,
                     rewards=self._env.get_rewards(),
                     next_obs=self._env.get_next_obs(),
-                    terminations=self._env.get_terminations(), 
-                    truncations=self._env.get_truncations()) # add experience
-            # to rollout buffer
+                    done=torch.logical_or(self._env.get_terminations(), 
+                                self._env.get_truncations())) # add experience
+            # to replay buffer
 
         return env_step_ok
         
@@ -58,14 +57,14 @@ class SAC(SActorCriticAlgoBase):
                 
             self._switch_training_mode(train=True)
 
-            obs,next_obs,actions,rewards,_,_,next_done = self._sample() # sample
+            obs,next_obs,actions,rewards,next_done = self._sample() # sample
             # experience from replay buffer
                 
             with torch.no_grad():
-                next_action, next_log_p, _ = self._agent.actor.get_action(next_obs)
+                next_action, next_log_pi, _ = self._agent.actor.get_action(next_obs)
                 qf1_next_target = self._agent.qf1_target(next_obs, next_action)
                 qf2_next_target = self._agent.qf2_target(next_obs, next_action)
-                min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - self._alpha * next_log_p
+                min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - self._alpha * next_log_pi
                 next_q_value = rewards.flatten() + (1 - next_done.flatten()) * self._discount_factor * (min_qf_next_target).view(-1)
 
             qf1_a_values = self._agent.qf1(obs, actions).view(-1)
