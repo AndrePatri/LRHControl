@@ -632,7 +632,7 @@ class SActorCriticAlgoBase():
         self._batch_size = 1048
         self._total_timesteps = int(50e6)
         
-        self._lr_policy = 3e-4
+        self._lr_policy = 1e-3
         self._lr_q = 1e-3
 
         self._discount_factor = 0.99
@@ -699,10 +699,6 @@ class SActorCriticAlgoBase():
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device)
-        self._values = torch.full(size=(self._replay_buffer_size_vec, self._num_envs, 1),
-                        fill_value=0,
-                        dtype=self._dtype,
-                        device=self._torch_device)
         self._rewards = torch.full(size=(self._replay_buffer_size_vec, self._num_envs, 1),
                         fill_value=0,
                         dtype=self._dtype,
@@ -711,14 +707,6 @@ class SActorCriticAlgoBase():
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device) 
-        self._next_terminal = torch.full(size=(self._replay_buffer_size_vec, self._num_envs, 1),
-                        fill_value=False,
-                        dtype=self._dtype,
-                        device=self._torch_device)
-        self._next_truncated = torch.full(size=(self._replay_buffer_size_vec, self._num_envs, 1),
-                        fill_value=False,
-                        dtype=self._dtype,
-                        device=self._torch_device)
         self._next_done = torch.full(size=(self._replay_buffer_size_vec, self._num_envs, 1),
                         fill_value=False,
                         dtype=self._dtype,
@@ -727,17 +715,13 @@ class SActorCriticAlgoBase():
     def _add_experience(self, 
             obs: torch.Tensor, actions: torch.Tensor, rewards: torch.Tensor, 
             next_obs: torch.Tensor, 
-            truncations: torch.Tensor,
-            terminations: torch.Tensor) -> None:
+            done: torch.Tensor) -> None:
         
         self._obs[self._bpos] = obs
         self._next_obs[self._bpos] = next_obs
         self._actions[self._bpos] = actions
         self._rewards[self._bpos] = rewards
-        self._next_terminal[self._bpos] = truncations
-        self._next_truncated[self._bpos] = terminations
-        self._next_done[self._bpos] = torch.logical_or(self._next_terminal[self._bpos], 
-                                        self._next_truncated[self._bpos])
+        self._next_done[self._bpos] = done
 
         self._bpos += 1
         if self._bpos == self._replay_buffer_size_vec:
@@ -746,27 +730,27 @@ class SActorCriticAlgoBase():
     
     def _sample(self):
         
-        shuffled_buffer_idxs = torch.randint(0, self._replay_buffer_size,
+        up_to = self._replay_buffer_size if self.full else self._bpos
+
+        shuffled_buffer_idxs = torch.randint(0, up_to,
                                         (self._batch_size,)) # randomizing 
 
         batched_obs = self._obs.reshape((-1, self._env.obs_dim()))
         batched_next_obs = self._next_obs.reshape((-1, self._env.obs_dim()))
         batched_actions = self._actions.reshape((-1, self._env.actions_dim()))
         batched_rewards = self._rewards.reshape(-1)
-        batched_terminal = self._next_terminal.reshape(-1)
-        batched_truncated = self._next_truncated.reshape(-1)
         batched_done = self._next_done.reshape(-1)
 
         sampled_obs = batched_obs[shuffled_buffer_idxs]
         sampled_next_obs = batched_next_obs[shuffled_buffer_idxs]
         sampled_actions = batched_actions[shuffled_buffer_idxs]
         sampled_rewards = batched_rewards[shuffled_buffer_idxs]
-        sampled_terminal = batched_terminal[shuffled_buffer_idxs]
-        sampled_truncated = batched_truncated[shuffled_buffer_idxs]
         sampled_done = batched_done[shuffled_buffer_idxs]
 
-        return sampled_obs,sampled_next_obs,sampled_actions,\
-            sampled_rewards,sampled_terminal,sampled_truncated,sampled_done
+        return sampled_obs,sampled_next_obs,\
+            sampled_actions,\
+            sampled_rewards, \
+            sampled_done
 
     def _sample_random_actions(self):
         
