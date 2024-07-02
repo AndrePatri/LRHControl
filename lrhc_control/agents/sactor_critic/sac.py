@@ -163,7 +163,7 @@ class Actor(nn.Module):
                     throw_when_excep = True)
             action_scale = torch.tensor(self._actions_scale, dtype=self._torch_dtype,device=self._torch_device).reshape(1, -1)
         else:
-            action_scale = torch.full((1, obs_dim),fill_value=1.0,dtype=self._torch_dtype,device=self._torch_device)
+            action_scale = torch.full((1, actions_dim),fill_value=1.0,dtype=self._torch_dtype,device=self._torch_device)
         self.register_buffer(
             "a_scale", action_scale
         )
@@ -176,7 +176,7 @@ class Actor(nn.Module):
                     throw_when_excep = True)
             actions_bias = torch.tensor(self._actions_bias, dtype=self._torch_dtype,device=self._torch_device).reshape(1, -1)
         else:
-            actions_bias = torch.full((1, obs_dim),fill_value=0.0,dtype=self._torch_dtype,device=self._torch_device)
+            actions_bias = torch.full((1, actions_dim),fill_value=0.0,dtype=self._torch_dtype,device=self._torch_device)
         self.register_buffer(
             "a_bias", actions_bias
         )
