@@ -73,9 +73,8 @@ class LRhcTrainingEnvBase():
 
         self._override_agent_refs = override_agent_refs
 
-        self._episode_timeout_lb = round(episode_timeout_lb/self._action_repeat) # episodes durations will be randomized between
-        self._episode_timeout_ub = round(episode_timeout_ub/self._action_repeat) # this bounds to remove temporal correlations
-        # in batch data
+        self._episode_timeout_lb = round(episode_timeout_lb/self._action_repeat) 
+        self._episode_timeout_ub = round(episode_timeout_ub/self._action_repeat)
 
         self._n_steps_task_rand_lb = round(n_steps_task_rand_lb/self._action_repeat)
         self._n_steps_task_rand_ub = round(n_steps_task_rand_ub/self._action_repeat)
@@ -291,7 +290,7 @@ class LRhcTrainingEnvBase():
         self._timeout_counter.increment() # first increment counters
         self._randomization_counter.increment()
         # self.randomize_refs(env_indxs=self._randomization_counter.time_limits_reached().flatten()) # randomize 
-        # refs of envs that reached the time limit
+        # # refs of envs that reached randomization time
 
         self._check_truncations() 
         self._check_terminations()
@@ -301,10 +300,16 @@ class LRhcTrainingEnvBase():
 
         episode_finished = torch.logical_or(terminated,
                             truncated)
-        self._timeout_counter.reset(to_be_reset=episode_finished, randomize_limits=True) # reset and randomize ep duration 
-        self._randomization_counter.reset(to_be_reset=episode_finished, randomize_limits=True)
+        
         self.randomize_refs(env_indxs=episode_finished.flatten()) # randomize refs also upon
         # episode termination
+
+        # remotely reset envs if only if terminated
+        rm_reset_ok = self._remote_reset(reset_mask=torch.logical_or(terminated.cpu(),
+                                self._timeout_counter.time_limits_reached()))
+        
+        self._timeout_counter.reset(to_be_reset=episode_finished,randomize_limits=True) # reset and randomize ep duration 
+        self._randomization_counter.reset(to_be_reset=episode_finished,randomize_limits=True)
 
         # debug step if required (TBD before reset req processing)
         if self._is_debug:
@@ -314,9 +319,7 @@ class LRhcTrainingEnvBase():
             self._episodic_rewards_getter.update(rewards = self._rewards.get_torch_mirror(gpu=False),
                             ep_finished=episode_finished_cpu)
             
-        # remotely reset envs if either terminated or truncated (only by time limit)
-        rm_reset_ok = self._remote_reset(reset_mask=torch.logical_or(terminated.cpu(),
-                                self._timeout_counter.time_limits_reached()))
+        
         return rm_reset_ok
             
     def _update_custom_db_data(self,
