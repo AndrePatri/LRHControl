@@ -624,7 +624,8 @@ class SActorCriticAlgoBase():
         self._m_checkpoint_freq = 5000 # n timesteps after which a checkpoint model is dumped
 
         # main algo settings
-        self._warmstart_timesteps = int(1e3)
+        self._replay_bf_full = False
+        self._warmstart_timesteps = int(5e3)
         self._warmstart_vectimesteps = round(self._warmstart_timesteps/self._num_envs)
 
         self._replay_buffer_size_nominal = int(1e6) # 32768
@@ -649,7 +650,7 @@ class SActorCriticAlgoBase():
         self._alpha = 0.2
         self._a_optimizer = None
         
-        self._db_vecstep_frequency = 128 # log db data every n (vectorized) timesteps
+        self._db_vecstep_frequency = 512 # log db data every n (vectorized) timesteps
         self._db_data_size = round(self._total_timesteps/self._db_vecstep_frequency)+self._db_vecstep_frequency
         # write them to hyperparam dictionary for debugging
         self._hyperparameters["n_envs"] = self._num_envs
@@ -726,12 +727,12 @@ class SActorCriticAlgoBase():
 
         self._bpos += 1
         if self._bpos == self._replay_buffer_size_vec:
-            self.full = True
+            self._replay_bf_full = True
             self._bpos = 0
     
     def _sample(self):
         
-        up_to = self._replay_buffer_size if self.full else self._bpos
+        up_to = self._replay_buffer_size if self._replay_bf_full else self._bpos
 
         shuffled_buffer_idxs = torch.randint(0, up_to,
                                         (self._batch_size,)) # randomizing 
