@@ -517,10 +517,13 @@ class SActorCriticAlgoBase():
 
         if self._verbose:
             
+            elapsed_h = self._elapsed_min[self._log_it_counter].item()/60.0
+            est_remaining_time_h =  elapsed_h * 1/self._vec_transition_counter * (self._total_timesteps_vec-self._vec_transition_counter)
+
             info =f"\nTotal n. timesteps simulated: {self._vec_transition_counter*self._num_envs}/{self._total_timesteps}\n" + \
-                f"Elapsed minutes: {self._elapsed_min[self._log_it_counter].item()}\n" + \
+                f"Elapsed time: {self._elapsed_min[self._log_it_counter].item()/60.0} h\n" + \
                 f"Estimated remaining training time: " + \
-                f"{self._elapsed_min[self._log_it_counter].item()/60 * 1/(self._vec_transition_counter+1) * (self._total_timesteps-self._vec_transition_counter+1)} hours\n" + \
+                f"{est_remaining_time_h} h\n" + \
                 f"Average episodic reward across all environments: {self._episodic_rewards_env_avrg[self._log_it_counter, :, :].item()}\n" + \
                 f"Average episodic rewards across all environments {self._reward_names_str}: {self._episodic_sub_rewards_env_avrg[self._log_it_counter, :]}\n" + \
                 f"Current env. step fps: {self._env_step_fps[self._log_it_counter].item()}, time for experience collection {self._collection_dt[self._log_it_counter].item()} s\n" + \
@@ -633,7 +636,10 @@ class SActorCriticAlgoBase():
         self._replay_buffer_size = self._replay_buffer_size_vec*self._num_envs
         self._batch_size = 1048
         self._total_timesteps = int(50e6)
-        
+        self._total_timesteps = self._total_timesteps//self._env_n_action_reps # correct with n of action reps
+        self._total_timesteps_vec = self._total_timesteps // self._num_envs
+        self._total_timesteps = self._total_timesteps_vec * self._num_envs # actual n transitions
+
         self._lr_policy = 1e-3
         self._lr_q = 1e-3
 
@@ -651,7 +657,7 @@ class SActorCriticAlgoBase():
         self._a_optimizer = None
         
         self._db_vecstep_frequency = 512 # log db data every n (vectorized) timesteps
-        self._db_data_size = round(self._total_timesteps/self._db_vecstep_frequency)+self._db_vecstep_frequency
+        self._db_data_size = round(self._total_timesteps_vec/self._db_vecstep_frequency)+self._db_vecstep_frequency
         # write them to hyperparam dictionary for debugging
         self._hyperparameters["n_envs"] = self._num_envs
         self._hyperparameters["obs_dim"] = self._obs_dim
@@ -660,7 +666,7 @@ class SActorCriticAlgoBase():
         # self._hyperparameters["actor_size"] = self._actor_size
         self._hyperparameters["seed"] = self._seed
         self._hyperparameters["using_gpu"] = self._use_gpu
-        self._hyperparameters["total_timesteps"] = self._total_timesteps
+        self._hyperparameters["total_timesteps_vec"] = self._total_timesteps_vec
         self._hyperparameters["episodes timeout lb"] = self._episode_timeout_lb
         self._hyperparameters["episodes timeout ub"] = self._episode_timeout_ub
         self._hyperparameters["task rand timeout lb"] = self._task_rand_timeout_lb
@@ -668,6 +674,7 @@ class SActorCriticAlgoBase():
 
         # small debug log
         info = f"\nUsing \n" + \
+            f"total (vectorized) timesteps to be simulated{self._total_timesteps_vec}\n" + \
             f"total timesteps to be simulated{self._total_timesteps}\n" + \
             f"warmstart timesteps {self._warmstart_timesteps}\n" + \
             f"replay buffer nominal size {self._replay_buffer_size_nominal}\n" + \
