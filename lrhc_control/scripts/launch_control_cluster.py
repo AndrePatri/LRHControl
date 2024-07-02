@@ -21,6 +21,7 @@ if __name__ == "__main__":
     parser.add_argument('--cores', nargs='+', type=int, help='List of CPU cores to set THIS script affinity to')
     parser.add_argument('--ns', type=str, help='Namespace to be used for cluster shared memory')
     parser.add_argument('--robot_pkg_name', type=str, help='Robot description package name')
+    parser.add_argument('--robot_pkg_pref_path', type=str, help='base path to where each robot decription package is located')
     parser.add_argument('--size', type=int, help='cluster size')
     parser.add_argument('--open_loop', action='store_true', help='whether use RHC controllers in open loop mode')
     parser.add_argument('--verbose', action='store_true', help='run in verbose mode')
@@ -61,6 +62,7 @@ if __name__ == "__main__":
 
     control_cluster_client = HybridQuadrupedClusterClient(namespace=namespace, 
                                         robot_pkg_name=args.robot_pkg_name,
+                                        robot_pkg_pref_path=args.robot_pkg_pref_path,
                                         cluster_size=cluster_size,
                                         open_loop = args.open_loop,
                                         set_affinity = args.set_rhc_affinity,

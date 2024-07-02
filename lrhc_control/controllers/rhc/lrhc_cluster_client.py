@@ -13,6 +13,7 @@ class LRhcClusterClient(ControlClusterClient):
     def __init__(self, 
             namespace: str, 
             robot_pkg_name: str, # robot description ros package name (used to make descr. files available to controllers)
+            robot_pkg_pref_path: str,
             cluster_size: int,
             set_affinity: bool = False,
             use_mp_fork: bool = False,
@@ -40,7 +41,8 @@ class LRhcClusterClient(ControlClusterClient):
             os.makedirs(self._codegen_basedir)
 
         self.robot_pkg_name = robot_pkg_name
-
+        self.robot_pkg_pref_path = robot_pkg_pref_path
+        
         self._generate_srdf()
 
         self._generate_urdf()
@@ -71,11 +73,10 @@ class LRhcClusterClient(ControlClusterClient):
                         throw_when_excep = True)
 
         # we generate the URDF where the Kyon description package is located
-        import rospkg
-        rospackage = rospkg.RosPack()
+
         xacro_name = self.robot_pkg_name
         self._srdf_path = self._temp_path + "/" + xacro_name + ".srdf"
-        xacro_path = rospackage.get_path(self.robot_pkg_name + "_srdf") + "/srdf/" + xacro_name + ".srdf.xacro"
+        xacro_path = self.robot_pkg_pref_path + f"/{self.robot_pkg_name}_srdf" + "/srdf/" + xacro_name + ".srdf.xacro"
         
         cmds = self._xrdf_cmds()
         if cmds is None:
@@ -109,11 +110,9 @@ class LRhcClusterClient(ControlClusterClient):
                         throw_when_excep = True)
         
         # we generate the URDF where the Kyon description package is located
-        import rospkg
-        rospackage = rospkg.RosPack()
         xacro_name = self.robot_pkg_name
         self._urdf_path = self._temp_path + "/" + xacro_name + ".urdf"
-        xacro_path = rospackage.get_path(self.robot_pkg_name + "_urdf") + "/urdf/" + xacro_name + ".urdf.xacro"
+        xacro_path = self.robot_pkg_pref_path + f"/{self.robot_pkg_name}_urdf" + "/urdf/" + xacro_name + ".urdf.xacro"
         
         cmds = self._xrdf_cmds()
         if cmds is None:

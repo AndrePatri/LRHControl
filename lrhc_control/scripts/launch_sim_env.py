@@ -24,6 +24,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Sim. env launcher")
     parser.add_argument('--robot_name', type=str, help='Alias to be used for the robot and also shared memory')
     parser.add_argument('--robot_pkg_name', type=str, help='Name of the package for robot description')
+    parser.add_argument('--robot_pkg_pref_path', type=str, help='base path to where each robot decription package is located')
     parser.add_argument('--num_envs', type=int)
     parser.add_argument('--cluster_dt', type=float, default=0.03, help='dt at which the control cluster runs')
     parser.add_argument('--dmpdir', type=str, help='directory where data is dumped',default="/root/aux_data")
@@ -130,6 +131,7 @@ if __name__ == '__main__':
     task = HybridQuadTask(
             robot_name=robot_name,
             robot_pkg_name=args.robot_pkg_name,
+            robot_pkg_pref_path=args.robot_pkg_pref_path,
             integration_dt = sim_params["physics_dt"],
             num_envs = num_envs, 
             cloning_offset = np.array([[0.0, 0.0, 0.55]] * num_envs), 

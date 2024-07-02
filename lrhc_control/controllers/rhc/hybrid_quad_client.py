@@ -11,6 +11,7 @@ class HybridQuadrupedClusterClient(LRhcClusterClient):
     def __init__(self, 
             namespace: str, 
             robot_pkg_name: str,
+            robot_pkg_pref_path: str,
             cluster_size: int,
             set_affinity: bool = False,
             use_mp_fork: bool = False,
@@ -33,6 +34,7 @@ class HybridQuadrupedClusterClient(LRhcClusterClient):
         
         super().__init__(namespace = namespace, 
                         robot_pkg_name = robot_pkg_name,
+                        robot_pkg_pref_path = robot_pkg_pref_path,
                         cluster_size=cluster_size,
                         set_affinity = set_affinity,
                         use_mp_fork = use_mp_fork,
@@ -44,7 +46,8 @@ class HybridQuadrupedClusterClient(LRhcClusterClient):
                         codegen_override=codegen_override)
     
     def _xrdf_cmds(self):
-        cmds = get_xrdf_cmds_horizon(robot_pkg_name = self.robot_pkg_name)
+        cmds = get_xrdf_cmds_horizon(robot_pkg_name = self.robot_pkg_name,
+                            robot_pkg_pref_path=self.robot_pkg_pref_path)
         return cmds
 
     def _generate_controller(self,

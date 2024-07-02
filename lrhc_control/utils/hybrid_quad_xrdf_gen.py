@@ -1,6 +1,7 @@
 from typing import List
 
 def get_xrdf_cmds_isaac(robot_pkg_name: str = None,
+                robot_pkg_pref_path: str = None,
                 robot_names: List[str] = None):
 
         cmds = {}
@@ -23,9 +24,7 @@ def get_xrdf_cmds_isaac(robot_pkg_name: str = None,
         cmds_aux.append("payload:=" + payload)
         cmds_aux.append("use_abs_mesh_paths:=true") # use absolute paths for meshes
         
-        import rospkg
-        rospackage = rospkg.RosPack()
-        package_root_path = rospackage.get_path(robot_pkg_name + "_urdf")
+        package_root_path = robot_pkg_pref_path + "/" + f"{robot_pkg_name}_urdf"
         cmds_aux.append(robot_pkg_name + "_root:=" + package_root_path)
 
         for name in robot_names:
@@ -33,7 +32,8 @@ def get_xrdf_cmds_isaac(robot_pkg_name: str = None,
 
         return cmds
 
-def get_xrdf_cmds_horizon(robot_pkg_name: str = None):
+def get_xrdf_cmds_horizon(robot_pkg_name: str = None,
+                robot_pkg_pref_path: str = None):
 
         cmds = []
         
@@ -56,9 +56,7 @@ def get_xrdf_cmds_horizon(robot_pkg_name: str = None):
         
         if robot_pkg_name is not None:
 
-                import rospkg
-                rospackage = rospkg.RosPack()
-                package_root_path = rospackage.get_path(robot_pkg_name + "_urdf")
+                package_root_path = robot_pkg_pref_path + "/" + f"{robot_pkg_name}_urdf"
                 cmds.append(robot_pkg_name + "_root:=" + package_root_path)
 
         return cmds
