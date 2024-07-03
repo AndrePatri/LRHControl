@@ -39,7 +39,9 @@ class PPO(ActorCriticAlgoBase):
 
             # sample actions from latest policy (actor) and state value from latest value function (critic)
             action, logprob, _ = self._agent.get_action(self._obs[transition], only_mean=self._eval) # when evaluating, use only mean
-            self._values[transition] = self._agent.get_value(self._obs[transition]).reshape(-1, 1)
+            action = action.detach() # do not record gradients
+            logprob = logprob.detach()
+            self._values[transition] = self._agent.get_value(self._obs[transition]).reshape(-1, 1).detach()
 
             # perform a step of the (vectorized) env and retrieve trajectory
             env_step_ok = self._env.step(action)
@@ -50,7 +52,7 @@ class PPO(ActorCriticAlgoBase):
             # holds the current obs even in case of resets. It includes both terminal and 
             # truncation states. It is the "true" state.)
             
-            self._next_values[transition] = self._agent.get_value(self._next_obs[transition]).reshape(-1, 1)
+            self._next_values[transition] = self._agent.get_value(self._next_obs[transition]).detach().reshape(-1, 1)
             self._rewards[transition] = self._env.get_rewards()
             self._next_terminations[transition] = self._env.get_terminations()
             self._next_dones[transition] = torch.logical_or(self._env.get_terminations(), self._env.get_truncations())
