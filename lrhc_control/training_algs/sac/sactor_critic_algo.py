@@ -441,9 +441,9 @@ class SActorCriticAlgoBase():
 
             self._log_it_counter+=1 
 
-            if self._dump_checkpoints and \
-                (self._vec_transition_counter % self._m_checkpoint_freq == 0):
-                self._save_model(is_checkpoint=True)
+        if self._dump_checkpoints and \
+            (self._vec_transition_counter % self._m_checkpoint_freq == 0):
+            self._save_model(is_checkpoint=True)
 
         if self._vec_transition_counter == self._total_timesteps_vec:
             self.done()            
@@ -623,8 +623,6 @@ class SActorCriticAlgoBase():
         self._torch_device = torch.device("cpu") # defaults to cpu
         self._torch_deterministic = True
 
-        self._m_checkpoint_freq = 5120 # n timesteps after which a checkpoint model is dumped
-
         # main algo settings
         self._replay_bf_full = False
         self._warmstart_timesteps = int(5e3)
@@ -655,7 +653,10 @@ class SActorCriticAlgoBase():
         self._alpha = 0.2
         self._a_optimizer = None
         
+        # debug
+        self._m_checkpoint_freq = 5120 # n timesteps after which a checkpoint model is dumped
         self._db_vecstep_frequency = 512 # log db data every n (vectorized) timesteps
+        
         self._db_data_size = round(self._total_timesteps_vec/self._db_vecstep_frequency)+self._db_vecstep_frequency
         # write them to hyperparam dictionary for debugging
         self._hyperparameters["n_envs"] = self._num_envs
