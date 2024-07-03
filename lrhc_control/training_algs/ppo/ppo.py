@@ -191,64 +191,66 @@ class PPO(ActorCriticAlgoBase):
                 break
             
         # ppo-iteration db data 
-        y_pred, y_true = batched_values.cpu(), batched_returns.cpu()
-        var_y = torch.var(y_true)
-        explained_var = torch.nan if var_y == 0 else 1 - torch.var(y_true - y_pred) / var_y
+        if (self._vec_transition_counter+self._rollout_timesteps) % self._db_vecstep_frequency== 0:
 
-        self._tot_loss_mean[self._it_counter, 0] = torch.mean(torch.tensor(tloss))
-        self._value_loss_mean[self._it_counter, 0] = torch.mean(torch.tensor(vlosses))
-        self._policy_loss_mean[self._it_counter, 0] = torch.mean(torch.tensor(pglosses))
-        self._entropy_loss_mean[self._it_counter, 0] = torch.mean(torch.tensor(eplosses))
-        # self._tot_loss_grad_norm_mean[self._it_counter, 0] = torch.mean(torch.tensor(tot_loss_grads))
-        # self._actor_loss_grad_norm_mean[self._it_counter, 0] = torch.mean(torch.tensor(actor_loss_grads))
+            y_pred, y_true = batched_values.cpu(), batched_returns.cpu()
+            var_y = torch.var(y_true)
+            explained_var = torch.nan if var_y == 0 else 1 - torch.var(y_true - y_pred) / var_y
 
-        self._tot_loss_std[self._it_counter, 0] = torch.std(torch.tensor(tloss))
-        self._value_loss_std[self._it_counter, 0] = torch.std(torch.tensor(vlosses))
-        self._policy_loss_std[self._it_counter, 0] = torch.std(torch.tensor(pglosses))
-        self._entropy_loss_std[self._it_counter, 0] = torch.std(torch.tensor(eplosses))
-        # self._tot_loss_grad_norm_std[self._it_counter, 0] = torch.std(torch.tensor(tot_loss_grads))
-        # self._actor_loss_grad_norm_std[self._it_counter, 0] = torch.std(torch.tensor(actor_loss_grads))
+            self._tot_loss_mean[self._log_it_counter, 0] = torch.mean(torch.tensor(tloss))
+            self._value_loss_mean[self._log_it_counter, 0] = torch.mean(torch.tensor(vlosses))
+            self._policy_loss_mean[self._log_it_counter, 0] = torch.mean(torch.tensor(pglosses))
+            self._entropy_loss_mean[self._log_it_counter, 0] = torch.mean(torch.tensor(eplosses))
+            # self._tot_loss_grad_norm_mean[self._log_it_counter, 0] = torch.mean(torch.tensor(tot_loss_grads))
+            # self._actor_loss_grad_norm_mean[self._log_it_counter, 0] = torch.mean(torch.tensor(actor_loss_grads))
 
-        self._old_approx_kl_mean[self._it_counter, 0] = torch.mean(torch.tensor(old_approx_kls))
-        self._approx_kl_mean[self._it_counter, 0] = torch.mean(torch.tensor(approx_kls))
-        self._old_approx_kl_std[self._it_counter, 0] = torch.std(torch.tensor(old_approx_kls))
-        self._approx_kl_std[self._it_counter, 0] = torch.std(torch.tensor(approx_kls))
+            self._tot_loss_std[self._log_it_counter, 0] = torch.std(torch.tensor(tloss))
+            self._value_loss_std[self._log_it_counter, 0] = torch.std(torch.tensor(vlosses))
+            self._policy_loss_std[self._log_it_counter, 0] = torch.std(torch.tensor(pglosses))
+            self._entropy_loss_std[self._log_it_counter, 0] = torch.std(torch.tensor(eplosses))
+            # self._tot_loss_grad_norm_std[self._log_it_counter, 0] = torch.std(torch.tensor(tot_loss_grads))
+            # self._actor_loss_grad_norm_std[self._log_it_counter, 0] = torch.std(torch.tensor(actor_loss_grads))
 
-        self._clipfrac_mean[self._it_counter, 0] = torch.mean(torch.tensor(clipfracs))
-        self._clipfrac_std[self._it_counter, 0] = torch.std(torch.tensor(clipfracs))
+            self._old_approx_kl_mean[self._log_it_counter, 0] = torch.mean(torch.tensor(old_approx_kls))
+            self._approx_kl_mean[self._log_it_counter, 0] = torch.mean(torch.tensor(approx_kls))
+            self._old_approx_kl_std[self._log_it_counter, 0] = torch.std(torch.tensor(old_approx_kls))
+            self._approx_kl_std[self._log_it_counter, 0] = torch.std(torch.tensor(approx_kls))
 
-        self._explained_variance[self._it_counter, 0] = explained_var
+            self._clipfrac_mean[self._log_it_counter, 0] = torch.mean(torch.tensor(clipfracs))
+            self._clipfrac_std[self._log_it_counter, 0] = torch.std(torch.tensor(clipfracs))
 
-        self._batch_returns_std[self._it_counter, 0] = batched_returns.std().item() 
-        self._batch_returns_mean[self._it_counter, 0] = batched_returns.mean().item()
-        self._batch_adv_std[self._it_counter, 0] = batched_advantages.std().item() 
-        self._batch_adv_mean[self._it_counter, 0] = batched_advantages.mean().item()
-        self._batch_val_std[self._it_counter, 0] = batched_values.std().item() 
-        self._batch_val_mean[self._it_counter, 0] = batched_values.mean().item()
-        
-        self._policy_update_db_data_dict.update({
-                                        "it_info_losses_mean/tot_loss_mean": self._tot_loss_mean[self._it_counter, 0],
-                                        "it_info_losses_mean/value_loss_mean": self._value_loss_mean[self._it_counter, 0],
-                                        "it_info_losses_mean/policy_loss_mean": self._policy_loss_mean[self._it_counter, 0],
-                                        "it_info_losses_mean/entropy_loss_mean": self._entropy_loss_mean[self._it_counter, 0],
-                                        # "it_info/tot_loss_grad_norm_mean": self._tot_loss_grad_norm_mean[self._it_counter, 0],
-                                        # "it_info/actor_loss_grad_norm_mean": self._actor_loss_grad_norm_mean[self._it_counter, 0],
-                                        "it_info/old_approx_kl_mean": self._old_approx_kl_mean[self._it_counter, 0],
-                                        "it_info/approx_kl_mean": self._approx_kl_mean[self._it_counter, 0],
-                                        "it_info_losses_std/tot_loss_std": self._tot_loss_std[self._it_counter, 0],
-                                        "it_info_losses_std/value_loss_std": self._value_loss_std[self._it_counter, 0],
-                                        "it_info_losses_std/policy_loss_std": self._policy_loss_std[self._it_counter, 0],
-                                        "it_info_losses_std/entropy_loss_std": self._entropy_loss_std[self._it_counter, 0],
-                                        # "it_info/tot_loss_grad_norm_std": self._tot_loss_grad_norm_std[self._it_counter, 0],
-                                        # "it_info/actor_loss_grad_norm_std": self._actor_loss_grad_norm_std[self._it_counter, 0],
-                                        "it_info/old_approx_kl_std": self._old_approx_kl_std[self._it_counter, 0],
-                                        "it_info/approx_kl_std": self._approx_kl_std[self._it_counter, 0],
-                                        "it_info/clipfrac_mean": self._clipfrac_mean[self._it_counter, 0],
-                                        "it_info/clipfrac_std": self._clipfrac_std[self._it_counter, 0],
-                                        "it_info/explained_variance": self._explained_variance[self._it_counter, 0],
-                                        "it_info_GAE/breturn_std: ": self._batch_returns_std[self._it_counter, 0],
-                                        "it_info_GAE/breturn_mean: ": self._batch_returns_mean[self._it_counter, 0],
-                                        "it_info_GAE/badv_std: ": self._batch_adv_std[self._it_counter, 0],
-                                        "it_info_GAE/badv_mean: ": self._batch_adv_mean[self._it_counter, 0],
-                                        "it_info_GAE/bval_std: ": self._batch_val_std[self._it_counter, 0],
-                                        "it_info_GAE/bval_mean: ": self._batch_val_mean[self._it_counter, 0]}) 
+            self._explained_variance[self._log_it_counter, 0] = explained_var
+
+            self._batch_returns_std[self._log_it_counter, 0] = batched_returns.std().item() 
+            self._batch_returns_mean[self._log_it_counter, 0] = batched_returns.mean().item()
+            self._batch_adv_std[self._log_it_counter, 0] = batched_advantages.std().item() 
+            self._batch_adv_mean[self._log_it_counter, 0] = batched_advantages.mean().item()
+            self._batch_val_std[self._log_it_counter, 0] = batched_values.std().item() 
+            self._batch_val_mean[self._log_it_counter, 0] = batched_values.mean().item()
+            
+            self._policy_update_db_data_dict.update({
+                                            "it_info_losses_mean/tot_loss_mean": self._tot_loss_mean[self._log_it_counter, 0],
+                                            "it_info_losses_mean/value_loss_mean": self._value_loss_mean[self._log_it_counter, 0],
+                                            "it_info_losses_mean/policy_loss_mean": self._policy_loss_mean[self._log_it_counter, 0],
+                                            "it_info_losses_mean/entropy_loss_mean": self._entropy_loss_mean[self._log_it_counter, 0],
+                                            # "it_info/tot_loss_grad_norm_mean": self._tot_loss_grad_norm_mean[self._log_it_counter, 0],
+                                            # "it_info/actor_loss_grad_norm_mean": self._actor_loss_grad_norm_mean[self._log_it_counter, 0],
+                                            "it_info/old_approx_kl_mean": self._old_approx_kl_mean[self._log_it_counter, 0],
+                                            "it_info/approx_kl_mean": self._approx_kl_mean[self._log_it_counter, 0],
+                                            "it_info_losses_std/tot_loss_std": self._tot_loss_std[self._log_it_counter, 0],
+                                            "it_info_losses_std/value_loss_std": self._value_loss_std[self._log_it_counter, 0],
+                                            "it_info_losses_std/policy_loss_std": self._policy_loss_std[self._log_it_counter, 0],
+                                            "it_info_losses_std/entropy_loss_std": self._entropy_loss_std[self._log_it_counter, 0],
+                                            # "it_info/tot_loss_grad_norm_std": self._tot_loss_grad_norm_std[self._log_it_counter, 0],
+                                            # "it_info/actor_loss_grad_norm_std": self._actor_loss_grad_norm_std[self._log_it_counter, 0],
+                                            "it_info/old_approx_kl_std": self._old_approx_kl_std[self._log_it_counter, 0],
+                                            "it_info/approx_kl_std": self._approx_kl_std[self._log_it_counter, 0],
+                                            "it_info/clipfrac_mean": self._clipfrac_mean[self._log_it_counter, 0],
+                                            "it_info/clipfrac_std": self._clipfrac_std[self._log_it_counter, 0],
+                                            "it_info/explained_variance": self._explained_variance[self._log_it_counter, 0],
+                                            "it_info_GAE/breturn_std: ": self._batch_returns_std[self._log_it_counter, 0],
+                                            "it_info_GAE/breturn_mean: ": self._batch_returns_mean[self._log_it_counter, 0],
+                                            "it_info_GAE/badv_std: ": self._batch_adv_std[self._log_it_counter, 0],
+                                            "it_info_GAE/badv_mean: ": self._batch_adv_mean[self._log_it_counter, 0],
+                                            "it_info_GAE/bval_std: ": self._batch_val_std[self._log_it_counter, 0],
+                                            "it_info_GAE/bval_mean: ": self._batch_val_mean[self._log_it_counter, 0]}) 

@@ -472,9 +472,9 @@ class ActorCriticAlgoBase():
             self._learning_rates[self._log_it_counter, 0] = self._lr_now_actor
             self._learning_rates[self._log_it_counter, 0] = self._lr_now_critic
 
-            self._env_step_fps[self._log_it_counter] = self._it_counter * self._batch_size / self._rollout_dt[self._log_it_counter]
+            self._env_step_fps[self._log_it_counter] = self._db_vecstep_freq_it * self._batch_size / self._rollout_dt[self._log_it_counter]
             self._env_step_rt_factor[self._log_it_counter] = self._env_step_fps[self._log_it_counter] * self._hyperparameters["control_clust_dt"]
-            self._policy_update_fps[self._log_it_counter] = self._it_counter * self._update_epochs * self._num_minibatches / self._policy_update_dt[self._log_it_counter]
+            self._policy_update_fps[self._log_it_counter] = self._db_vecstep_freq_it * self._update_epochs * self._num_minibatches / self._policy_update_dt[self._log_it_counter]
 
             # after rolling out policy, we get the episodic reward for the current policy
             self._episodic_rewards[self._log_it_counter, :, :] = self._episodic_reward_getter.get_rollout_avrg_total_reward() # total ep. rewards across envs
@@ -498,9 +498,9 @@ class ActorCriticAlgoBase():
             
             self._log_it_counter+=1
 
-            if self._dump_checkpoints and \
-                (self._vec_transition_counter % self._m_checkpoint_freq == 0):
-                self._save_model(is_checkpoint=True)
+        if self._dump_checkpoints and \
+            (self._vec_transition_counter % self._m_checkpoint_freq == 0):
+            self._save_model(is_checkpoint=True)
 
         if self._it_counter==self._iterations_n:
             self.done()
@@ -792,6 +792,11 @@ class ActorCriticAlgoBase():
         #debug
         self._m_checkpoint_freq = 5120 # n (vectorized) timesteps after which a checkpoint model is dumped 
         self._db_vecstep_frequency = 1024 # log db data every n (vectorized) timesteps
+
+        self._checkpoint_nit = round(self._m_checkpoint_freq/self._rollout_timesteps)
+        self._m_checkpoint_freq = self._rollout_timesteps*self._checkpoint_nit # ensuring _m_checkpoint_freq
+        # is a multiple of self._rollout_timesteps
+
         self._db_vecstep_freq_it = round(self._db_vecstep_frequency/self._rollout_timesteps)
         self._db_vecstep_frequency = self._rollout_timesteps*self._db_vecstep_freq_it # ensuring _db_vecstep_frequency
         # is a multiple of self._rollout_timesteps
