@@ -605,6 +605,24 @@ class SActorCriticAlgoBase():
             self._custom_env_data[dbdatan]["rollout_stat_comp_env_avrg"] = torch.full((self._db_data_size, rollout_stat_comp_env_avrg.shape[0], rollout_stat_comp_env_avrg.shape[1]), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
 
+        # algorithm-specific db info
+        self._qf1_vals = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._qf2_vals = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._qf1_loss = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._qf2_loss = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._qf_loss = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._actor_loss = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._alpha = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._alpha_loss = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        
     def _init_params(self):
 
         self._dtype = self._env.dtype()
@@ -671,6 +689,26 @@ class SActorCriticAlgoBase():
         self._hyperparameters["episodes timeout ub"] = self._episode_timeout_ub
         self._hyperparameters["task rand timeout lb"] = self._task_rand_timeout_lb
         self._hyperparameters["task rand timeout ub"] = self._task_rand_timeout_ub
+        
+        self._hyperparameters["warmstart_timesteps"] = self._warmstart_timesteps
+        self._hyperparameters["_warmstart_vectimesteps"] = self._warmstart_vectimesteps
+        self._hyperparameters["_replay_buffer_size_nominal"] = self._replay_buffer_size_nominal
+        self._hyperparameters["_batch_size"] = self._batch_size
+        self._hyperparameters["_total_timesteps"] = self._total_timesteps
+        self._hyperparameters["_lr_policy"] = self._lr_policy
+        self._hyperparameters["_lr_q"] = self._lr_q
+        self._hyperparameters["_discount_factor"] = self._discount_factor
+        self._hyperparameters["_smoothing_coeff"] = self._smoothing_coeff
+        self._hyperparameters["_noise_clip"] = self._noise_clip
+        self._hyperparameters["_policy_freq"] = self._policy_freq
+        self._hyperparameters["_trgt_net_freq"] = self._trgt_net_freq
+        self._hyperparameters["_autotune"] = self._autotune
+        self._hyperparameters["_target_entropy"] = self._target_entropy
+        self._hyperparameters["_log_alpha"] = self._log_alpha
+        self._hyperparameters["_alpha"] = self._alpha
+        self._hyperparameters["_m_checkpoint_freq"] = self._m_checkpoint_freq
+        self._hyperparameters["_db_vecstep_frequency"] = self._db_vecstep_frequency
+        self._hyperparameters["_m_checkpoint_freq"] = self._m_checkpoint_freq
 
         # small debug log
         info = f"\nUsing \n" + \

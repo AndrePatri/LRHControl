@@ -104,3 +104,24 @@ class SAC(SActorCriticAlgoBase):
                 for param, target_param in zip(self._agent.qf2.parameters(), self._agent.qf2_target.parameters()):
                     target_param.data.copy_(self._smoothing_coeff * param.data + (1 - self._smoothing_coeff) * target_param.data)
             
+            # add db info to wandb
+            self._qf1_vals[self._log_it_counter, 0] = qf1_a_values.mean().item()
+            self._qf2_vals[self._log_it_counter, 0] = qf1_a_values.mean().item()
+            self._qf1_loss[self._log_it_counter, 0] = qf1_a_values.mean().item()
+            self._qf2_loss[self._log_it_counter, 0] = qf1_a_values.mean().item()
+            self._qf_loss[self._log_it_counter, 0] = qf1_a_values.mean().item()
+            self._actor_loss[self._log_it_counter, 0] = qf1_a_values.mean().item()
+            self._alpha[self._log_it_counter, 0] = qf1_a_values.mean().item()
+            if self._autotune:
+                self._alpha_loss[self._log_it_counter, 0] = alpha_loss.mean().item()
+            
+            self._policy_update_db_data_dict.update({
+                                            "sac_info/qf1_vals": self._qf1_vals[self._log_it_counter, 0],
+                                            "sac_info/_qf2_vals": self._qf2_vals[self._log_it_counter, 0],
+                                            "sac_info/_qf1_loss": self._qf1_loss[self._log_it_counter, 0],
+                                            "sac_info/_qf2_loss": self._qf2_loss[self._log_it_counter, 0],
+                                            "sac_info/_qf_loss": self._qf_loss[self._log_it_counter, 0],
+                                            "sac_info/_actor_loss": self._actor_loss[self._log_it_counter, 0],
+                                            "sac_info/_alpha": self._alpha[self._log_it_counter, 0],
+                                            "sac_info/_alpha_loss": self._alpha_loss[self._log_it_counter, 0]}) 
+            
