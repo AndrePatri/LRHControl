@@ -716,7 +716,7 @@ class SActorCriticAlgoBase():
                         fill_value=0,
                         dtype=self._dtype,
                         device=self._torch_device) 
-        self._next_done = torch.full(size=(self._replay_buffer_size_vec, self._num_envs, 1),
+        self._next_terminal = torch.full(size=(self._replay_buffer_size_vec, self._num_envs, 1),
                         fill_value=False,
                         dtype=self._dtype,
                         device=self._torch_device)
@@ -724,13 +724,13 @@ class SActorCriticAlgoBase():
     def _add_experience(self, 
             obs: torch.Tensor, actions: torch.Tensor, rewards: torch.Tensor, 
             next_obs: torch.Tensor, 
-            done: torch.Tensor) -> None:
+            next_terminal: torch.Tensor) -> None:
         
         self._obs[self._bpos] = obs
         self._next_obs[self._bpos] = next_obs
         self._actions[self._bpos] = actions
         self._rewards[self._bpos] = rewards
-        self._next_done[self._bpos] = done
+        self._next_terminal[self._bpos] = next_terminal
 
         self._bpos += 1
         if self._bpos == self._replay_buffer_size_vec:
@@ -748,18 +748,18 @@ class SActorCriticAlgoBase():
         batched_next_obs = self._next_obs.reshape((-1, self._env.obs_dim()))
         batched_actions = self._actions.reshape((-1, self._env.actions_dim()))
         batched_rewards = self._rewards.reshape(-1)
-        batched_done = self._next_done.reshape(-1)
+        batched_terminal = self._next_terminal.reshape(-1)
 
         sampled_obs = batched_obs[shuffled_buffer_idxs]
         sampled_next_obs = batched_next_obs[shuffled_buffer_idxs]
         sampled_actions = batched_actions[shuffled_buffer_idxs]
         sampled_rewards = batched_rewards[shuffled_buffer_idxs]
-        sampled_done = batched_done[shuffled_buffer_idxs]
+        sampled_terminal = batched_terminal[shuffled_buffer_idxs]
 
         return sampled_obs,sampled_next_obs,\
             sampled_actions,\
             sampled_rewards, \
-            sampled_done
+            sampled_terminal
 
     def _sample_random_actions(self):
         
