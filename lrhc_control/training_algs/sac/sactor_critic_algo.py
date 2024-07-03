@@ -82,9 +82,9 @@ class SActorCriticAlgoBase():
 
         self._start_time = time.perf_counter()
 
-        # with torch.no_grad(): # no need for gradient computation
-        if not self._collect_transition():
-            return False
+        with torch.no_grad(): # no need for gradient computation
+            if not self._collect_transition():
+                return False
         
         self._collection_t = time.perf_counter()
         
@@ -607,21 +607,21 @@ class SActorCriticAlgoBase():
 
         # algorithm-specific db info
         self._qf1_vals = torch.full((self._db_data_size, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
         self._qf2_vals = torch.full((self._db_data_size, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
         self._qf1_loss = torch.full((self._db_data_size, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
         self._qf2_loss = torch.full((self._db_data_size, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
         self._qf_loss = torch.full((self._db_data_size, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
         self._actor_loss = torch.full((self._db_data_size, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._alpha = torch.full((self._db_data_size, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
+        self._alphas = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
         self._alpha_loss = torch.full((self._db_data_size, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
         
     def _init_params(self):
 
