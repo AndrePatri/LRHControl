@@ -454,43 +454,41 @@ class ActorCriticAlgoBase():
         self._it_counter +=1 
         self._vec_transition_counter+=self._rollout_timesteps
 
-        self._rollout_dt[self._log_it_counter-1] += \
+        self._rollout_dt[self._log_it_counter] += \
             self._rollout_t -self._start_time
-        self._gae_dt[self._log_it_counter-1] += \
+        self._gae_dt[self._log_it_counter] += \
             self._gae_t - self._rollout_t
-        self._policy_update_dt[self._log_it_counter-1] += \
+        self._policy_update_dt[self._log_it_counter] += \
             self._policy_update_t - self._gae_t
 
         if self._vec_transition_counter % self._db_vecstep_frequency== 0:
-
-            self._log_it_counter+=1 # 1-based
            
-            self._n_of_played_episodes[self._log_it_counter-1] = self._episodic_reward_getter.get_n_played_episodes()
-            self._n_timesteps_done[self._log_it_counter-1] = self._it_counter * self._batch_size
-            self._n_policy_updates[self._log_it_counter-1] = self._it_counter * self._update_epochs * self._num_minibatches
+            self._n_of_played_episodes[self._log_it_counter] = self._episodic_reward_getter.get_n_played_episodes()
+            self._n_timesteps_done[self._log_it_counter] = self._it_counter * self._batch_size
+            self._n_policy_updates[self._log_it_counter] = self._it_counter * self._update_epochs * self._num_minibatches
             
-            self._elapsed_min[self._log_it_counter-1] = (time.perf_counter() - self._start_time_tot) / 60
+            self._elapsed_min[self._log_it_counter] = (time.perf_counter() - self._start_time_tot) / 60
             
-            self._learning_rates[self._log_it_counter-1, 0] = self._lr_now_actor
-            self._learning_rates[self._log_it_counter-1, 0] = self._lr_now_critic
+            self._learning_rates[self._log_it_counter, 0] = self._lr_now_actor
+            self._learning_rates[self._log_it_counter, 0] = self._lr_now_critic
 
-            self._env_step_fps[self._log_it_counter-1] = self._it_counter * self._batch_size / self._rollout_dt[self._log_it_counter-1]
-            self._env_step_rt_factor[self._log_it_counter-1] = self._env_step_fps[self._log_it_counter-1] * self._hyperparameters["control_clust_dt"]
-            self._policy_update_fps[self._log_it_counter-1] = self._it_counter * self._update_epochs * self._num_minibatches / self._policy_update_dt[self._log_it_counter-1]
+            self._env_step_fps[self._log_it_counter] = self._it_counter * self._batch_size / self._rollout_dt[self._log_it_counter]
+            self._env_step_rt_factor[self._log_it_counter] = self._env_step_fps[self._log_it_counter] * self._hyperparameters["control_clust_dt"]
+            self._policy_update_fps[self._log_it_counter] = self._it_counter * self._update_epochs * self._num_minibatches / self._policy_update_dt[self._log_it_counter]
 
             # after rolling out policy, we get the episodic reward for the current policy
-            self._episodic_rewards[self._log_it_counter-1, :, :] = self._episodic_reward_getter.get_rollout_avrg_total_reward() # total ep. rewards across envs
-            self._episodic_rewards_env_avrg[self._log_it_counter-1, :, :] = self._episodic_reward_getter.get_rollout_avrg_total_reward_env_avrg() # tot, avrg over envs
-            self._episodic_sub_rewards[self._log_it_counter-1, :, :] = self._episodic_reward_getter.get_rollout_avrg_reward() # sub-episodic rewards across envs
-            self._episodic_sub_rewards_env_avrg[self._log_it_counter-1, :, :] = self._episodic_reward_getter.get_rollout_reward_env_avrg() # avrg over envs
+            self._episodic_rewards[self._log_it_counter, :, :] = self._episodic_reward_getter.get_rollout_avrg_total_reward() # total ep. rewards across envs
+            self._episodic_rewards_env_avrg[self._log_it_counter, :, :] = self._episodic_reward_getter.get_rollout_avrg_total_reward_env_avrg() # tot, avrg over envs
+            self._episodic_sub_rewards[self._log_it_counter, :, :] = self._episodic_reward_getter.get_rollout_avrg_reward() # sub-episodic rewards across envs
+            self._episodic_sub_rewards_env_avrg[self._log_it_counter, :, :] = self._episodic_reward_getter.get_rollout_reward_env_avrg() # avrg over envs
 
             # fill env db info
             db_data_names = list(self._env.custom_db_data.keys())
             for dbdatan in db_data_names:
-                self._custom_env_data[dbdatan]["rollout_stat"][self._log_it_counter-1, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat()
-                self._custom_env_data[dbdatan]["rollout_stat_env_avrg"][self._log_it_counter-1, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat_env_avrg()
-                self._custom_env_data[dbdatan]["rollout_stat_comp"][self._log_it_counter-1, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat_comp()
-                self._custom_env_data[dbdatan]["rollout_stat_comp_env_avrg"][self._log_it_counter-1, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat_comp_env_avrg()
+                self._custom_env_data[dbdatan]["rollout_stat"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat()
+                self._custom_env_data[dbdatan]["rollout_stat_env_avrg"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat_env_avrg()
+                self._custom_env_data[dbdatan]["rollout_stat_comp"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat_comp()
+                self._custom_env_data[dbdatan]["rollout_stat_comp_env_avrg"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat_comp_env_avrg()
 
             self._episodic_reward_getter.reset() # necessary, we don't want to accumulate 
             # debug rewards from previous debug iterations
@@ -498,6 +496,8 @@ class ActorCriticAlgoBase():
 
             self._log_info()
             
+            self._log_it_counter+=1
+
             if self._dump_checkpoints and \
                 (self._vec_transition_counter % self._m_checkpoint_freq == 0):
                 self._save_model(is_checkpoint=True)
@@ -524,13 +524,13 @@ class ActorCriticAlgoBase():
                 data = self._custom_env_data[dbdatan]
                 data_names = self._env.custom_db_data[dbdatan].data_names()
                 self._custom_env_data_db_dict.update({f"{dbdatan}" + "_rollout_stat_comp": 
-                        wandb.Histogram(data["rollout_stat_comp"][self._log_it_counter-1, :, :].numpy())})
+                        wandb.Histogram(data["rollout_stat_comp"][self._log_it_counter, :, :].numpy())})
                 self._custom_env_data_db_dict.update({f"{dbdatan}" + "_rollout_stat_comp_env_avrg": 
-                        data["rollout_stat_comp_env_avrg"][self._log_it_counter-1, :, :].item()})
+                        data["rollout_stat_comp_env_avrg"][self._log_it_counter, :, :].item()})
                 self._custom_env_data_db_dict.update({f"sub_env_dbdata/{dbdatan}-{data_names[i]}" + "_rollout_stat_env_avrg": 
-                       data["rollout_stat_env_avrg"][self._log_it_counter-1, :, i:i+1] for i in range(len(data_names))})
+                       data["rollout_stat_env_avrg"][self._log_it_counter, :, i:i+1] for i in range(len(data_names))})
                 self._custom_env_data_db_dict.update({f"sub_env_dbdata/{dbdatan}-{data_names[i]}" + "_rollout_stat": 
-                        wandb.Histogram(data["rollout_stat"].numpy()[self._log_it_counter-1, :, i:i+1]) for i in range(len(data_names))})
+                        wandb.Histogram(data["rollout_stat"].numpy()[self._log_it_counter, :, i:i+1]) for i in range(len(data_names))})
 
             if self._remote_db: 
                 # write general algo debug info to shared memory    
@@ -549,31 +549,31 @@ class ActorCriticAlgoBase():
                     "elapsed_min"
                     ]
                 info_data = [self._it_counter, 
-                    self._n_policy_updates[self._log_it_counter-1].item(),
-                    self._n_of_played_episodes[self._log_it_counter-1].item(), 
-                    self._n_timesteps_done[self._log_it_counter-1].item(),
+                    self._n_policy_updates[self._log_it_counter].item(),
+                    self._n_of_played_episodes[self._log_it_counter].item(), 
+                    self._n_timesteps_done[self._log_it_counter].item(),
                     self._lr_now_actor,
                     self._lr_now_critic,
-                    self._rollout_dt[self._log_it_counter-1].item(),
-                    self._gae_dt[self._log_it_counter-1].item(),
-                    self._policy_update_dt[self._log_it_counter-1].item(),
-                    self._env_step_fps[self._log_it_counter-1].item(),
-                    self._env_step_rt_factor[self._log_it_counter-1].item(),
-                    self._policy_update_fps[self._log_it_counter-1].item(),
-                    self._elapsed_min[self._log_it_counter-1].item()
+                    self._rollout_dt[self._log_it_counter].item(),
+                    self._gae_dt[self._log_it_counter].item(),
+                    self._policy_update_dt[self._log_it_counter].item(),
+                    self._env_step_fps[self._log_it_counter].item(),
+                    self._env_step_rt_factor[self._log_it_counter].item(),
+                    self._policy_update_fps[self._log_it_counter].item(),
+                    self._elapsed_min[self._log_it_counter].item()
                     ]
                 self._shared_algo_data.write(dyn_info_name=info_names,
                                         val=info_data)
                 
                 # write debug info to remote wandb server
-                wandb_d = {'tot_episodic_reward': wandb.Histogram(self._episodic_rewards[self._log_it_counter-1, :, :].numpy()),
-                    'tot_episodic_reward_env_avrg': self._episodic_rewards_env_avrg[self._log_it_counter-1, :, :].item(),
+                wandb_d = {'tot_episodic_reward': wandb.Histogram(self._episodic_rewards[self._log_it_counter, :, :].numpy()),
+                    'tot_episodic_reward_env_avrg': self._episodic_rewards_env_avrg[self._log_it_counter, :, :].item(),
                     'ppo_iteration' : self._log_it_counter}
                 wandb_d.update(dict(zip(info_names, info_data)))
                 wandb_d.update({f"sub_reward/{self._reward_names[i]}_env_avrg":
-                        self._episodic_sub_rewards_env_avrg[self._log_it_counter-1, :, i:i+1] for i in range(len(self._reward_names))})
+                        self._episodic_sub_rewards_env_avrg[self._log_it_counter, :, i:i+1] for i in range(len(self._reward_names))})
                 wandb_d.update({f"sub_reward/{self._reward_names[i]}":
-                        wandb.Histogram(self._episodic_sub_rewards.numpy()[self._log_it_counter-1, :, i:i+1]) for i in range(len(self._reward_names))})
+                        wandb.Histogram(self._episodic_sub_rewards.numpy()[self._log_it_counter, :, i:i+1]) for i in range(len(self._reward_names))})
                 
                 wandb_d.update(self._policy_update_db_data_dict)
                 wandb_d.update(self._custom_env_data_db_dict)
@@ -582,18 +582,18 @@ class ActorCriticAlgoBase():
 
         if self._verbose:
             info = f"\nN. PPO iterations performed: {self._it_counter}/{self._iterations_n}\n" + \
-                f"N. policy updates performed: {self._n_policy_updates[self._log_it_counter-1].item()}/" + \
+                f"N. policy updates performed: {self._n_policy_updates[self._log_it_counter].item()}/" + \
                 f"{self._update_epochs * self._num_minibatches * self._iterations_n}\n" + \
                 f"Total n. timesteps simulated: {self._it_counter * self._batch_size}/{self._total_timesteps_vec}\n" + \
-                f"Elapsed time: {self._elapsed_min[self._log_it_counter-1].item()/60.0} h\n" + \
+                f"Elapsed time: {self._elapsed_min[self._log_it_counter].item()/60.0} h\n" + \
                 f"Estimated remaining training time: " + \
-                f"{self._elapsed_min[self._log_it_counter-1].item()/60 * 1/self._it_counter * (self._iterations_n-self._it_counter)} h\n" + \
-                f"Average episodic reward across all environments: {self._episodic_rewards_env_avrg[self._log_it_counter-1, :, :].item()}\n" + \
-                f"Average episodic rewards across all environments {self._reward_names_str}: {self._episodic_sub_rewards_env_avrg[self._log_it_counter-1, :]}\n" + \
-                f"Current rollout fps: {self._env_step_fps[self._log_it_counter-1].item()}, time for rollout {self._rollout_dt[self._log_it_counter-1].item()} s\n" + \
-                f"Current rollout rt factor: {self._env_step_rt_factor[self._log_it_counter-1].item()}\n" + \
-                f"Time to compute bootstrap {self._gae_dt[self._log_it_counter-1].item()} s\n" + \
-                f"Current policy update fps: {self._policy_update_fps[self._log_it_counter-1].item()}, time for policy updates {self._policy_update_dt[self._log_it_counter-1].item()} s\n"
+                f"{self._elapsed_min[self._log_it_counter].item()/60 * 1/self._it_counter * (self._iterations_n-self._it_counter)} h\n" + \
+                f"Average episodic reward across all environments: {self._episodic_rewards_env_avrg[self._log_it_counter, :, :].item()}\n" + \
+                f"Average episodic rewards across all environments {self._reward_names_str}: {self._episodic_sub_rewards_env_avrg[self._log_it_counter, :]}\n" + \
+                f"Current rollout fps: {self._env_step_fps[self._log_it_counter].item()}, time for rollout {self._rollout_dt[self._log_it_counter].item()} s\n" + \
+                f"Current rollout rt factor: {self._env_step_rt_factor[self._log_it_counter].item()}\n" + \
+                f"Time to compute bootstrap {self._gae_dt[self._log_it_counter].item()} s\n" + \
+                f"Current policy update fps: {self._policy_update_fps[self._log_it_counter].item()}, time for policy updates {self._policy_update_dt[self._log_it_counter].item()} s\n"
             Journal.log(self.__class__.__name__,
                 "_post_step",
                 info,
