@@ -86,23 +86,19 @@ class CriticQ(nn.Module):
         self._q_net_dim = self._obs_dim+self._actions_dim
 
         size_internal_layer = 256
+    
+        self._q_net = nn.Sequential(
+            self._layer_init(layer=nn.Linear(self._q_net_dim, size_internal_layer),device=self._torch_device,dtype=self._torch_dtype),
+            nn.ReLU(),
+            self._layer_init(layer=nn.Linear(size_internal_layer, size_internal_layer), device=self._torch_device,dtype=self._torch_dtype),
+            nn.ReLU(),
+            self._layer_init(layer=nn.Linear(size_internal_layer, 1), device=self._torch_device,dtype=self._torch_dtype),
+        )
+
+        self._running_norm = None
         if self._normalize_obs:
-            self._q_net = nn.Sequential(
-                RunningNormalizer((self._q_net_dim,), epsilon=1e-8, device=self._torch_device, dtype=self._torch_dtype, freeze_stats=self._is_eval),
-                self._layer_init(layer=nn.Linear(self._q_net_dim, size_internal_layer),device=self._torch_device,dtype=self._torch_dtype),
-                nn.ReLU(),
-                self._layer_init(layer=nn.Linear(size_internal_layer, size_internal_layer), device=self._torch_device,dtype=self._torch_dtype),
-                nn.ReLU(),
-                self._layer_init(layer=nn.Linear(size_internal_layer, 1), device=self._torch_device,dtype=self._torch_dtype),
-            )
-        else:
-            self._q_net = nn.Sequential(
-                self._layer_init(layer=nn.Linear(self._q_net_dim, size_internal_layer),device=self._torch_device,dtype=self._torch_dtype),
-                nn.ReLU(),
-                self._layer_init(layer=nn.Linear(size_internal_layer, size_internal_layer), device=self._torch_device,dtype=self._torch_dtype),
-                nn.ReLU(),
-                self._layer_init(layer=nn.Linear(size_internal_layer, 1), device=self._torch_device,dtype=self._torch_dtype),
-            )
+            self._running_norm = RunningNormalizer((self._obs_dim,), epsilon=1e-8, 
+                                    device=self._torch_device, dtype=self._torch_dtype, freeze_stats=self._is_eval)
 
     def get_n_params(self):
         return sum(p.numel() for p in self.parameters())
@@ -123,6 +119,8 @@ class CriticQ(nn.Module):
         return layer
     
     def forward(self, x, a):
+        if self._running_norm is not None:
+            x = self._running_norm(x)
         x = torch.cat([x, a], dim=1)
         return self._q_net(x)
 
