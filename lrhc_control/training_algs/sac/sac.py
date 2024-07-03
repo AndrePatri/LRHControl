@@ -33,6 +33,7 @@ class SAC(SActorCriticAlgoBase):
         if self._vec_transition_counter+1 > self._warmstart_vectimesteps or \
             self._eval:
             actions, _, _ = self._agent.actor.get_action(x=obs)
+            actions = actions.detach()
         else:
             actions = self._sample_random_actions()
                 
