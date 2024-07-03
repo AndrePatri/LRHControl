@@ -56,7 +56,7 @@ class SAC(SActorCriticAlgoBase):
                 
             self._switch_training_mode(train=True)
 
-            obs,next_obs,actions,rewards,next_terminal = self._sample() # sample
+            obs,actions,next_obs,rewards,next_terminal = self._sample() # sample
             # experience from replay buffer
                 
             with torch.no_grad():

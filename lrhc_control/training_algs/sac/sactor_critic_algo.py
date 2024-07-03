@@ -82,9 +82,9 @@ class SActorCriticAlgoBase():
 
         self._start_time = time.perf_counter()
 
-        with torch.no_grad(): # no need for gradient computation
-            if not self._collect_transition():
-                return False
+        # with torch.no_grad(): # no need for gradient computation
+        if not self._collect_transition():
+            return False
         
         self._collection_t = time.perf_counter()
         
@@ -631,13 +631,13 @@ class SActorCriticAlgoBase():
         self._replay_buffer_size_nominal = int(1e6) # 32768
         self._replay_buffer_size_vec = self._replay_buffer_size_nominal//self._num_envs # 32768
         self._replay_buffer_size = self._replay_buffer_size_vec*self._num_envs
-        self._batch_size = 1048
-        self._total_timesteps = int(50e6)
+        self._batch_size = 256
+        self._total_timesteps = int(1e6)
         self._total_timesteps = self._total_timesteps//self._env_n_action_reps # correct with n of action reps
         self._total_timesteps_vec = self._total_timesteps // self._num_envs
         self._total_timesteps = self._total_timesteps_vec * self._num_envs # actual n transitions
 
-        self._lr_policy = 1e-3
+        self._lr_policy = 3e-4
         self._lr_q = 1e-3
 
         self._discount_factor = 0.99
@@ -647,7 +647,7 @@ class SActorCriticAlgoBase():
         self._policy_freq = 2
         self._trgt_net_freq = 1
 
-        self._autotune = False
+        self._autotune = True
         self._target_entropy = None
         self._log_alpha = None
         self._alpha = 0.2
@@ -756,8 +756,8 @@ class SActorCriticAlgoBase():
         sampled_rewards = batched_rewards[shuffled_buffer_idxs]
         sampled_terminal = batched_terminal[shuffled_buffer_idxs]
 
-        return sampled_obs,sampled_next_obs,\
-            sampled_actions,\
+        return sampled_obs, sampled_actions,\
+            sampled_next_obs,\
             sampled_rewards, \
             sampled_terminal
 
