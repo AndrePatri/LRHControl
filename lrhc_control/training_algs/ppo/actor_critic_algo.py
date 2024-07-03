@@ -788,7 +788,7 @@ class ActorCriticAlgoBase():
 
         #debug
         self._m_checkpoint_freq = 5120 # n (vectorized) timesteps after which a checkpoint model is dumped 
-        self._db_vecstep_frequency = 128 # log db data every n (vectorized) timesteps
+        self._db_vecstep_frequency = 1024 # log db data every n (vectorized) timesteps
         self._db_vecstep_freq_it = round(self._db_vecstep_frequency/self._rollout_timesteps)
         self._db_vecstep_frequency = self._rollout_timesteps*self._db_vecstep_freq_it # ensuring _db_vecstep_frequency
         # is a multiple of self._rollout_timesteps
