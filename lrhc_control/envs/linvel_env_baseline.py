@@ -178,10 +178,10 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._obs_threshold_lb = -1e3 # used for clipping observations
         self._obs_threshold_ub = 1e3
 
-        self._actions_offsets[:, :] = 0.0 # default to no offset and scaling
-        self._actions_scalings[:, :] = 1.0 
-        self._actions_offsets[:, 6:10] = 0.0 # stepping flags 
-        self._actions_scalings[:, 6:10] =  1.0 
+        self._actions_ub[:, :] = 1.0
+        self._actions_ub[:, 6:10] = 1.0 
+        self._actions_lb[:, :] = -1.0
+        self._actions_lb[:, 6:10] = -1.0 
 
         # custom db info 
         step_idx_data = EpisodicData("ContactIndex", self._rhc_step_var(gpu=False), self.contact_names)

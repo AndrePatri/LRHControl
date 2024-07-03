@@ -16,8 +16,8 @@ class SACAgent(nn.Module):
     def __init__(self,
             obs_dim: int, 
             actions_dim: int,
-            actions_scale: List[float] = None,
-            actions_bias: List[float] = None,
+            actions_ub: List[float] = None,
+            actions_lb: List[float] = None,
             norm_obs: bool = True,
             device:str="cuda",
             dtype=torch.float32,
@@ -26,8 +26,8 @@ class SACAgent(nn.Module):
 
         self.actor = Actor(obs_dim=obs_dim,
                     actions_dim=actions_dim,
-                    actions_scale=actions_scale,
-                    actions_bias=actions_bias,
+                    actions_ub=actions_ub,
+                    actions_lb=actions_lb,
                     norm_obs=norm_obs,
                     device=device,
                     dtype=dtype,
@@ -130,8 +130,8 @@ class Actor(nn.Module):
     def __init__(self,
             obs_dim: int, 
             actions_dim: int,
-            actions_scale: List[float] = None,
-            actions_bias: List[float] = None,
+            actions_ub: List[float] = None,
+            actions_lb: List[float] = None,
             norm_obs: bool = True,
             device:str="cuda",
             dtype=torch.float32,
@@ -146,40 +146,48 @@ class Actor(nn.Module):
 
         self._obs_dim = obs_dim
         self._actions_dim = actions_dim
-        self._actions_scale = actions_scale
-        self._actions_bias = actions_bias
+        
+        # action scale and bias
+        if actions_ub is None:
+            actions_ub = [1] * actions_dim
+        if actions_lb is None:
+            actions_lb = [-1] * actions_dim
+        if (len(actions_ub) != actions_dim):
+            Journal.log(self.__class__.__name__,
+                "__init__",
+                f"Actions ub list length should be equal to {actions_dim}, but got {len(actions_ub)}",
+                LogType.EXCEP,
+                throw_when_excep = True)
+        if (len(actions_lb) != actions_dim):
+            Journal.log(self.__class__.__name__,
+                "__init__",
+                f"Actions lb list length should be equal to {actions_dim}, but got {len(actions_lb)}",
+                LogType.EXCEP,
+                throw_when_excep = True)
+        self._actions_ub = torch.tensor(actions_ub, dtype=self._torch_dtype, 
+                                device=self._torch_device)
+        self._actions_lb = torch.tensor(actions_lb, dtype=self._torch_dtype,
+                                device=self._torch_device)
+        action_scale = torch.full((actions_dim, ),
+                            fill_value=0.0,
+                            dtype=self._torch_dtype,
+                            device=self._torch_device)
+        action_scale[:] = (self._actions_ub-self._actions_lb)/2.0
+        self.register_buffer(
+            "action_scale", action_scale
+        )
+        actions_bias = torch.full((actions_dim, ),
+                            fill_value=0.0,
+                            dtype=self._torch_dtype,
+                            device=self._torch_device)
+        actions_bias[:] = (self._actions_ub+self._actions_lb)/2.0
+        self.register_buffer(
+            "action_bias", actions_bias
+        )
 
         size_internal_layer = 256
         self.LOG_STD_MAX = 2
         self.LOG_STD_MIN = -5
-
-        # action rescaling
-        if self._actions_scale is not None:
-            if (len(self._actions_scale) != actions_dim):
-                Journal.log(self.__class__.__name__,
-                    "__init__",
-                    f"Action scale list length should be equal to {actions_dim}, but got {len(self._actions_scale)}",
-                    LogType.EXCEP,
-                    throw_when_excep = True)
-            action_scale = torch.tensor(self._actions_scale, dtype=self._torch_dtype,device=self._torch_device).reshape(1, -1)
-        else:
-            action_scale = torch.full((1, actions_dim),fill_value=1.0,dtype=self._torch_dtype,device=self._torch_device)
-        self.register_buffer(
-            "a_scale", action_scale
-        )
-        if self._actions_bias is not None:
-            if (len(self._actions_bias) != actions_dim):
-                Journal.log(self.__class__.__name__,
-                    "__init__",
-                    f"Action actions_bias list length should be equal to {actions_dim}, but got {len(self._actions_bias)}",
-                    LogType.EXCEP,
-                    throw_when_excep = True)
-            actions_bias = torch.tensor(self._actions_bias, dtype=self._torch_dtype,device=self._torch_device).reshape(1, -1)
-        else:
-            actions_bias = torch.full((1, actions_dim),fill_value=0.0,dtype=self._torch_dtype,device=self._torch_device)
-        self.register_buffer(
-            "a_bias", actions_bias
-        )
 
         if self._normalize_obs:
             self._fc12 = nn.Sequential(
@@ -197,8 +205,8 @@ class Actor(nn.Module):
                 nn.ReLU(),
             )
         
-        self.fc_mean = nn.Linear(256, self._actions_dim,device=self._torch_device,dtype=self._torch_dtype)
-        self.fc_logstd = nn.Linear(256, self._actions_dim,device=self._torch_device,dtype=self._torch_dtype)
+        self.fc_mean = nn.Linear(size_internal_layer, self._actions_dim,device=self._torch_device,dtype=self._torch_dtype)
+        self.fc_logstd = nn.Linear(size_internal_layer, self._actions_dim,device=self._torch_device,dtype=self._torch_dtype)
 
     def get_n_params(self):
         return sum(p.numel() for p in self.parameters())

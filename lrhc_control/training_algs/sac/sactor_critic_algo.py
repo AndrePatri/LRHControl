@@ -151,8 +151,8 @@ class SActorCriticAlgoBase():
 
         self._agent = SACAgent(obs_dim=self._env.obs_dim(),
                     actions_dim=self._env.actions_dim(),
-                    actions_scale=self._env.get_action_scaling()[0, :].tolist(),
-                    actions_bias=self._env.get_action_offsets()[0, :].tolist(),
+                    actions_ub=self._env.get_actions_ub().flatten().tolist(),
+                    actions_lb=self._env.get_actions_lb().flatten().tolist(),
                     norm_obs=norm_obs,
                     device=self._torch_device,
                     dtype=self._dtype,
@@ -628,7 +628,7 @@ class SActorCriticAlgoBase():
         self._warmstart_timesteps = int(5e3)
         self._warmstart_vectimesteps = round(self._warmstart_timesteps/self._num_envs)
 
-        self._replay_buffer_size_nominal = int(10e6) # 32768
+        self._replay_buffer_size_nominal = int(1e6) # 32768
         self._replay_buffer_size_vec = self._replay_buffer_size_nominal//self._num_envs # 32768
         self._replay_buffer_size = self._replay_buffer_size_vec*self._num_envs
         self._batch_size = 1048

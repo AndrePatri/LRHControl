@@ -117,8 +117,8 @@ class LRhcTrainingEnvBase():
         self._obs = None
         self._next_obs = None
         self._actions = None
-        self._actions_offsets = None
-        self._actions_scalings = None
+        self._actions_ub = None
+        self._actions_lb = None
         self._tot_rewards = None
         self._rewards = None
         self._terminations = None
@@ -256,7 +256,6 @@ class LRhcTrainingEnvBase():
         # set action from agent
         actions = self._actions.get_torch_mirror(gpu=self._use_gpu)
         actions[:, :] = action # writes actions
-        self._apply_scaling_to_actions(actions) # in place scaling and offset of actions
         
         self._apply_actions_to_rhc() # apply agent actions to rhc controller
 
@@ -512,10 +511,10 @@ class LRhcTrainingEnvBase():
         
         device = "cuda" if self._use_gpu else "cpu"
         # action scalings to be applied to agent's output
-        self._actions_offsets = torch.full((self._n_envs, actions_dim), dtype=self._dtype, device=device,
-                                        fill_value=0.0) 
-        self._actions_scalings = torch.full((self._n_envs, actions_dim), dtype=self._dtype, device=device,
+        self._actions_ub = torch.full((1, actions_dim), dtype=self._dtype, device=device,
                                         fill_value=1.0) 
+        self._actions_lb = torch.full((1, actions_dim), dtype=self._dtype, device=device,
+                                        fill_value=-1.0)
 
         self._actions = Actions(namespace=self._namespace,
                             n_envs=self._n_envs,
@@ -827,15 +826,11 @@ class LRhcTrainingEnvBase():
 
         rewards.clamp_(self._reward_thresh_lb, self._reward_thresh_ub)
 
-    def _apply_scaling_to_actions(self, actions):
+    def get_actions_lb(self):
+        return self._actions_lb
 
-        actions.mul_(self._actions_scalings).add_(self._actions_offsets)
-
-    def get_action_scaling(self):
-        return self._actions_scalings
-
-    def get_action_offsets(self):
-        return self._actions_offsets
+    def get_actions_ub(self):
+        return self._actions_ub
     
     def _check_finite(self, 
                 tensor: torch.Tensor,
