@@ -271,9 +271,9 @@ class ActorCriticAlgoBase():
         path = self._model_path
         if is_checkpoint: # use iteration as id
             path = path + "_checkpoint" + str(self._it_counter)
-        info = f"Saving model to {path}"
+        info = f"Saving model to {path}\n"
         Journal.log(self.__class__.__name__,
-            "done",
+            "_save_model",
             info,
             LogType.INFO,
             throw_when_excep = True)
