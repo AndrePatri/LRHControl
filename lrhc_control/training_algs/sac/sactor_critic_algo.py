@@ -87,14 +87,10 @@ class SActorCriticAlgoBase():
                 return False
         
         self._collection_t = time.perf_counter()
-        self._collection_dt[self._log_it_counter] += \
-            (self._collection_t-self._start_time) # cumulative over db frequency
-
+        
         self._update_policy()
 
         self._policy_update_t = time.perf_counter()
-        self._policy_update_dt[self._log_it_counter] += \
-            (self._policy_update_t - self._collection_t)
 
         self._post_step()
 
@@ -111,8 +107,6 @@ class SActorCriticAlgoBase():
             return False
 
         self._collection_t = time.perf_counter()
-        self._collection_dt[self._log_it_counter] += \
-            (self._collection_t-self._start_time) # cumulative over db frequency
         
         self._post_step()
 
@@ -405,7 +399,12 @@ class SActorCriticAlgoBase():
     def _post_step(self):
         
         self._vec_transition_counter+=1
-
+        
+        self._collection_dt[self._log_it_counter] += \
+            (self._collection_t-self._start_time) 
+        self._policy_update_dt[self._log_it_counter] += \
+            (self._policy_update_t - self._collection_t)
+        
         if self._vec_transition_counter % self._db_vecstep_frequency== 0:
             # only log data every n timesteps 
         
