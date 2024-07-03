@@ -606,7 +606,7 @@ class ActorCriticAlgoBase():
 
         # rollout phase
         self._rollout_dt = torch.full((self._db_data_size, 1), 
-                    dtype=torch.float32, fill_value=-1.0, device="cpu")
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
         self._rollout_t = -1.0
         self._env_step_fps = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
@@ -616,12 +616,12 @@ class ActorCriticAlgoBase():
         # gae computation
         self._gae_t = -1.0
         self._gae_dt = torch.full((self._db_data_size, 1), 
-                    dtype=torch.float32, fill_value=-1.0, device="cpu")
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
 
         # ppo iteration
         self._policy_update_t = -1.0
         self._policy_update_dt = torch.full((self._db_data_size, 1), 
-                    dtype=torch.float32, fill_value=-1.0, device="cpu")
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
         self._policy_update_fps = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
         
