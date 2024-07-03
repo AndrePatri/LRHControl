@@ -454,14 +454,17 @@ class ActorCriticAlgoBase():
         self._it_counter +=1 
         self._vec_transition_counter+=self._rollout_timesteps
 
+        self._rollout_dt[self._log_it_counter-1] += \
+            self._rollout_t -self._start_time
+        self._gae_dt[self._log_it_counter-1] += \
+            self._gae_t - self._rollout_t
+        self._policy_update_dt[self._log_it_counter-1] += \
+            self._policy_update_t - self._gae_t
+
         if self._vec_transition_counter % self._db_vecstep_frequency== 0:
 
             self._log_it_counter+=1 # 1-based
-
-            self._rollout_dt[self._log_it_counter-1] = self._rollout_t -self._start_time
-            self._gae_dt[self._log_it_counter-1] = self._gae_t - self._rollout_t
-            self._policy_update_dt[self._log_it_counter-1] = self._policy_update_t - self._gae_t
-            
+           
             self._n_of_played_episodes[self._log_it_counter-1] = self._episodic_reward_getter.get_n_played_episodes()
             self._n_timesteps_done[self._log_it_counter-1] = self._it_counter * self._batch_size
             self._n_policy_updates[self._log_it_counter-1] = self._it_counter * self._update_epochs * self._num_minibatches
@@ -471,9 +474,9 @@ class ActorCriticAlgoBase():
             self._learning_rates[self._log_it_counter-1, 0] = self._lr_now_actor
             self._learning_rates[self._log_it_counter-1, 0] = self._lr_now_critic
 
-            self._env_step_fps[self._log_it_counter-1] = self._batch_size / self._rollout_dt[self._log_it_counter-1]
+            self._env_step_fps[self._log_it_counter-1] = self._it_counter * self._batch_size / self._rollout_dt[self._log_it_counter-1]
             self._env_step_rt_factor[self._log_it_counter-1] = self._env_step_fps[self._log_it_counter-1] * self._hyperparameters["control_clust_dt"]
-            self._policy_update_fps[self._log_it_counter-1] = self._update_epochs * self._num_minibatches / self._policy_update_dt[self._log_it_counter-1]
+            self._policy_update_fps[self._log_it_counter-1] = self._it_counter * self._update_epochs * self._num_minibatches / self._policy_update_dt[self._log_it_counter-1]
 
             # after rolling out policy, we get the episodic reward for the current policy
             self._episodic_rewards[self._log_it_counter-1, :, :] = self._episodic_reward_getter.get_rollout_avrg_total_reward() # total ep. rewards across envs
