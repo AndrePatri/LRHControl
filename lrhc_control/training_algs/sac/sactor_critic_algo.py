@@ -628,7 +628,7 @@ class SActorCriticAlgoBase():
         self._warmstart_timesteps = int(5e3)
         self._warmstart_vectimesteps = round(self._warmstart_timesteps/self._num_envs)
 
-        self._replay_buffer_size_nominal = int(1e6) # 32768
+        self._replay_buffer_size_nominal = int(10e6) # 32768
         self._replay_buffer_size_vec = self._replay_buffer_size_nominal//self._num_envs # 32768
         self._replay_buffer_size = self._replay_buffer_size_vec*self._num_envs
         self._batch_size = 1048
