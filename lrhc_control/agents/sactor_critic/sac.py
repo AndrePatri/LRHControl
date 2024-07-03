@@ -88,11 +88,11 @@ class CriticQ(nn.Module):
         size_internal_layer = 256
     
         self._q_net = nn.Sequential(
-            self._layer_init(layer=nn.Linear(self._q_net_dim, size_internal_layer),device=self._torch_device,dtype=self._torch_dtype),
+            nn.Linear(self._q_net_dim, size_internal_layer,device=self._torch_device, dtype=self._torch_dtype),
             nn.ReLU(),
-            self._layer_init(layer=nn.Linear(size_internal_layer, size_internal_layer), device=self._torch_device,dtype=self._torch_dtype),
+            nn.Linear(size_internal_layer, size_internal_layer,device=self._torch_device, dtype=self._torch_dtype),
             nn.ReLU(),
-            self._layer_init(layer=nn.Linear(size_internal_layer, 1), device=self._torch_device,dtype=self._torch_dtype),
+            nn.Linear(size_internal_layer, 1,device=self._torch_device, dtype=self._torch_dtype),
         )
 
         self._running_norm = None
@@ -190,17 +190,17 @@ class Actor(nn.Module):
         if self._normalize_obs:
             self._fc12 = nn.Sequential(
                 RunningNormalizer((self._obs_dim,), epsilon=1e-8, device=self._torch_device, dtype=self._torch_dtype,freeze_stats=self._is_eval),
-                self._layer_init(layer=nn.Linear(self._obs_dim, size_internal_layer),device=self._torch_device,dtype=self._torch_dtype),
+                nn.Linear(self._obs_dim, size_internal_layer,device=self._torch_device, dtype=self._torch_dtype),
                 nn.ReLU(),
-                self._layer_init(layer=nn.Linear(size_internal_layer, size_internal_layer), device=self._torch_device,dtype=self._torch_dtype),
+                nn.Linear(size_internal_layer, size_internal_layer,device=self._torch_device, dtype=self._torch_dtype),
                 nn.ReLU()
             )
         else:
             self._fc12 = nn.Sequential(
-                self._layer_init(layer=nn.Linear(self._obs_dim, size_internal_layer),device=self._torch_device,dtype=self._torch_dtype),
+                nn.Linear(self._obs_dim, size_internal_layer,device=self._torch_device, dtype=self._torch_dtype),
                 nn.ReLU(),
-                self._layer_init(layer=nn.Linear(size_internal_layer, size_internal_layer), device=self._torch_device,dtype=self._torch_dtype),
-                nn.ReLU(),
+                nn.Linear(size_internal_layer, size_internal_layer,device=self._torch_device, dtype=self._torch_dtype),
+                nn.ReLU()
             )
         
         self.fc_mean = nn.Linear(size_internal_layer, self._actions_dim,device=self._torch_device,dtype=self._torch_dtype)
