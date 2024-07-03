@@ -217,7 +217,6 @@ class RhcToViz2Bridge:
                                 verbose=True,
                                 vlevel=VLevel.V2)
         self._sim_data.run()
-        self._sim_time = 0
         self._sim_datanames = self._sim_data.param_keys
         self._simtime_idx = self._sim_datanames.index("cluster_time")
         self._ros2_clock = Clock()
@@ -305,6 +304,9 @@ class RhcToViz2Bridge:
             LogType.INFO,
             throw_when_excep = True)
 
+        self._sim_time = 0 
+        self._sim_time_init = self._sim_data.get()[self._simtime_idx].item()
+
         while self._is_running:
 
             try:
@@ -350,7 +352,7 @@ class RhcToViz2Bridge:
                 if self._with_agent_refs:
                     self.agent_refs.rob_refs.synch_from_shared_mem()
                 self.rhc_internal_clients[self._current_index].synch(read=True)
-                self._sim_time = self._sim_data.get()[self._simtime_idx].item()
+                self._sim_time = self._sim_data.get()[self._simtime_idx].item() - self._sim_time_init
                 self._publish()
             
         else:
