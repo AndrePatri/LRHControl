@@ -674,8 +674,8 @@ class SActorCriticAlgoBase():
 
         # small debug log
         info = f"\nUsing \n" + \
-            f"total (vectorized) timesteps to be simulated{self._total_timesteps_vec}\n" + \
-            f"total timesteps to be simulated{self._total_timesteps}\n" + \
+            f"total (vectorized) timesteps to be simulated {self._total_timesteps_vec}\n" + \
+            f"total timesteps to be simulated {self._total_timesteps}\n" + \
             f"warmstart timesteps {self._warmstart_timesteps}\n" + \
             f"replay buffer nominal size {self._replay_buffer_size_nominal}\n" + \
             f"replay buffer size {self._replay_buffer_size}\n" + \
@@ -765,7 +765,12 @@ class SActorCriticAlgoBase():
         
         actions = self._env.get_actions()
 
-        return torch.rand_like(actions)
+        action_scale = (self._env.get_actions_ub()-self._env.get_actions_lb())/2.0
+        action_offset = (self._env.get_actions_ub()+self._env.get_actions_lb())/2.0
+
+        random_actions = torch.randn_like(actions) * action_scale + action_offset
+
+        return random_actions
     
     def _switch_training_mode(self, 
                     train: bool = True):

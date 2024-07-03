@@ -123,7 +123,7 @@ class CriticQ(nn.Module):
         return layer
     
     def forward(self, x, a):
-        x = torch.cat((x, a), dim=1)
+        x = torch.cat([x, a], dim=1)
         return self._q_net(x)
 
 class Actor(nn.Module):
