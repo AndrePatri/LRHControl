@@ -427,7 +427,7 @@ class SActorCriticAlgoBase():
             self._episodic_sub_rewards[self._log_it_counter, :, :] = self._episodic_reward_getter.get_rollout_avrg_reward() # sub-episodic rewards across envs
             self._episodic_sub_rewards_env_avrg[self._log_it_counter, :, :] = self._episodic_reward_getter.get_rollout_reward_env_avrg() # avrg over envs
             self._episodic_reward_getter.reset() # necessary, we don't want to accumulate 
-            # debug rewards from previous iterations
+            # debug rewards from previous db iterations
 
             # fill env custom db metrics
             db_data_names = list(self._env.custom_db_data.keys())

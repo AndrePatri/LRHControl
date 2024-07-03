@@ -62,10 +62,11 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # obs_dim = 4+6+2*n_jnts+2+2+self._n_prev_actions*actions_dim
 
         # obs_dim = 4+6+n_jnts+2+2+self._n_prev_actions*actions_dim
-        episode_timeout_lb = 1024 # episode timeouts (including env substepping when action_repeat>1)
-        episode_timeout_ub = 1280
-        n_steps_task_rand_lb = 128 # agent refs randomization freq
-        n_steps_task_rand_ub = 512
+        episode_timeout_lb = 1020 # episode timeouts (including env substepping when action_repeat>1)
+        episode_timeout_ub = 1024
+        n_steps_task_rand_lb = 250 # agent refs randomization freq
+        n_steps_task_rand_ub = 256 # lb not eq. to ub to remove correlations between episodes
+        # across diff envs
 
         n_preinit_steps = 1 # one steps of the controllers to properly initialize everything
 
@@ -85,16 +86,16 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._task_err_weights[0, 5] = 1e-6
         self._task_err_weights_sum = torch.sum(self._task_err_weights).item()
 
-        self._rhc_cnstr_viol_weight = 0.0
+        self._rhc_cnstr_viol_weight = 1.0
         # self._rhc_cnstr_viol_scale = 1.0 * 1e-3
         self._rhc_cnstr_viol_scale = 1.0 * 5e-3
 
-        self._rhc_cost_weight = 0.0
+        self._rhc_cost_weight = 1.0
         # self._rhc_cost_scale = 1e-2 * 1e-3
         self._rhc_cost_scale = 1e-2 * 5e-3
 
         # power penalty
-        self._power_weight = 1.0
+        self._power_weight = 0.0
         self._power_scale = 0.05
         self._power_penalty_weights = torch.full((1, n_jnts), dtype=dtype, device=device,
                             fill_value=1.0)
@@ -121,7 +122,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._jnt_vel_penalty_weights_sum = torch.sum(self._jnt_vel_penalty_weights).item()
 
         # task rand
-        self._use_pof0 = True
+        self._use_pof0 = False
         self._pof0 = 0.2
         self._twist_ref_lb = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=-0.8) 
