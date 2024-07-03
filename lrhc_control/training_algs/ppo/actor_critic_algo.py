@@ -217,10 +217,6 @@ class ActorCriticAlgoBase():
             self._optimizer.param_groups[0]["lr"] = self._lr_now_actor
             # self._optimizer.param_groups[1]["lr"] = self._lr_now_critic
 
-        self._episodic_reward_getter.reset() # necessary, we don't want to accumulate 
-        # debug rewards from previous rollouts
-        self._env.reset_custom_db_data() # reset custom db stats for this iteration
-
         self._start_time = time.perf_counter()
 
         rollout_ok = self._play()
@@ -457,45 +453,55 @@ class ActorCriticAlgoBase():
     def _post_step(self):
 
         self._it_counter +=1 
+        self._vec_transition_counter+=self._rollout_timesteps
 
-        self._rollout_dt[self._it_counter-1] = self._rollout_t -self._start_time
-        self._gae_dt[self._it_counter-1] = self._gae_t - self._rollout_t
-        self._policy_update_dt[self._it_counter-1] = self._policy_update_t - self._gae_t
-        
-        self._n_of_played_episodes[self._it_counter-1] = self._episodic_reward_getter.get_n_played_episodes()
-        self._n_timesteps_done[self._it_counter-1] = self._it_counter * self._batch_size
-        self._n_policy_updates[self._it_counter-1] = self._it_counter * self._update_epochs * self._num_minibatches
-        
-        self._elapsed_min[self._it_counter-1] = (time.perf_counter() - self._start_time_tot) / 60
-        
-        self._learning_rates[self._it_counter-1, 0] = self._lr_now_actor
-        self._learning_rates[self._it_counter-1, 0] = self._lr_now_critic
+        if self._vec_transition_counter % self._db_vecstep_frequency== 0:
 
-        self._env_step_fps[self._it_counter-1] = self._batch_size / self._rollout_dt[self._it_counter-1]
-        self._env_step_rt_factor[self._it_counter-1] = self._env_step_fps[self._it_counter-1] * self._hyperparameters["control_clust_dt"]
-        self._policy_update_fps[self._it_counter-1] = self._update_epochs * self._num_minibatches / self._policy_update_dt[self._it_counter-1]
+            self._log_it_counter+=1 # 1-based
 
-        # after rolling out policy, we get the episodic reward for the current policy
-        self._episodic_rewards[self._it_counter-1, :, :] = self._episodic_reward_getter.get_rollout_avrg_total_reward() # total ep. rewards across envs
-        self._episodic_rewards_env_avrg[self._it_counter-1, :, :] = self._episodic_reward_getter.get_rollout_avrg_total_reward_env_avrg() # tot, avrg over envs
-        self._episodic_sub_rewards[self._it_counter-1, :, :] = self._episodic_reward_getter.get_rollout_avrg_reward() # sub-episodic rewards across envs
-        self._episodic_sub_rewards_env_avrg[self._it_counter-1, :, :] = self._episodic_reward_getter.get_rollout_reward_env_avrg() # avrg over envs
+            self._rollout_dt[self._log_it_counter-1] = self._rollout_t -self._start_time
+            self._gae_dt[self._log_it_counter-1] = self._gae_t - self._rollout_t
+            self._policy_update_dt[self._log_it_counter-1] = self._policy_update_t - self._gae_t
+            
+            self._n_of_played_episodes[self._log_it_counter-1] = self._episodic_reward_getter.get_n_played_episodes()
+            self._n_timesteps_done[self._log_it_counter-1] = self._it_counter * self._batch_size
+            self._n_policy_updates[self._log_it_counter-1] = self._it_counter * self._update_epochs * self._num_minibatches
+            
+            self._elapsed_min[self._log_it_counter-1] = (time.perf_counter() - self._start_time_tot) / 60
+            
+            self._learning_rates[self._log_it_counter-1, 0] = self._lr_now_actor
+            self._learning_rates[self._log_it_counter-1, 0] = self._lr_now_critic
 
-        # fill env db info
-        db_data_names = list(self._env.custom_db_data.keys())
-        for dbdatan in db_data_names:
-            self._custom_env_data[dbdatan]["rollout_stat"][self._it_counter-1, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat()
-            self._custom_env_data[dbdatan]["rollout_stat_env_avrg"][self._it_counter-1, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat_env_avrg()
-            self._custom_env_data[dbdatan]["rollout_stat_comp"][self._it_counter-1, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat_comp()
-            self._custom_env_data[dbdatan]["rollout_stat_comp_env_avrg"][self._it_counter-1, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat_comp_env_avrg()
+            self._env_step_fps[self._log_it_counter-1] = self._batch_size / self._rollout_dt[self._log_it_counter-1]
+            self._env_step_rt_factor[self._log_it_counter-1] = self._env_step_fps[self._log_it_counter-1] * self._hyperparameters["control_clust_dt"]
+            self._policy_update_fps[self._log_it_counter-1] = self._update_epochs * self._num_minibatches / self._policy_update_dt[self._log_it_counter-1]
 
-        self._log_info()
+            # after rolling out policy, we get the episodic reward for the current policy
+            self._episodic_rewards[self._log_it_counter-1, :, :] = self._episodic_reward_getter.get_rollout_avrg_total_reward() # total ep. rewards across envs
+            self._episodic_rewards_env_avrg[self._log_it_counter-1, :, :] = self._episodic_reward_getter.get_rollout_avrg_total_reward_env_avrg() # tot, avrg over envs
+            self._episodic_sub_rewards[self._log_it_counter-1, :, :] = self._episodic_reward_getter.get_rollout_avrg_reward() # sub-episodic rewards across envs
+            self._episodic_sub_rewards_env_avrg[self._log_it_counter-1, :, :] = self._episodic_reward_getter.get_rollout_reward_env_avrg() # avrg over envs
 
-        if self._it_counter == self._iterations_n:
-            self.done()
-        else:
-            if self._dump_checkpoints and (self._it_counter % self._m_checkpoint_freq == 0):
+            # fill env db info
+            db_data_names = list(self._env.custom_db_data.keys())
+            for dbdatan in db_data_names:
+                self._custom_env_data[dbdatan]["rollout_stat"][self._log_it_counter-1, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat()
+                self._custom_env_data[dbdatan]["rollout_stat_env_avrg"][self._log_it_counter-1, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat_env_avrg()
+                self._custom_env_data[dbdatan]["rollout_stat_comp"][self._log_it_counter-1, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat_comp()
+                self._custom_env_data[dbdatan]["rollout_stat_comp_env_avrg"][self._log_it_counter-1, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat_comp_env_avrg()
+
+            self._episodic_reward_getter.reset() # necessary, we don't want to accumulate 
+            # debug rewards from previous debug iterations
+            self._env.reset_custom_db_data() # reset custom db stats for this debug iteration
+
+            self._log_info()
+            
+            if self._dump_checkpoints and \
+                (self._vec_transition_counter % self._m_checkpoint_freq == 0):
                 self._save_model(is_checkpoint=True)
+
+        if self._it_counter==self._iterations_n:
+            self.done()
             
     def _should_have_called_setup(self):
 
@@ -516,13 +522,13 @@ class ActorCriticAlgoBase():
                 data = self._custom_env_data[dbdatan]
                 data_names = self._env.custom_db_data[dbdatan].data_names()
                 self._custom_env_data_db_dict.update({f"{dbdatan}" + "_rollout_stat_comp": 
-                        wandb.Histogram(data["rollout_stat_comp"][self._it_counter-1, :, :].numpy())})
+                        wandb.Histogram(data["rollout_stat_comp"][self._log_it_counter-1, :, :].numpy())})
                 self._custom_env_data_db_dict.update({f"{dbdatan}" + "_rollout_stat_comp_env_avrg": 
-                        data["rollout_stat_comp_env_avrg"][self._it_counter-1, :, :].item()})
+                        data["rollout_stat_comp_env_avrg"][self._log_it_counter-1, :, :].item()})
                 self._custom_env_data_db_dict.update({f"sub_env_dbdata/{dbdatan}-{data_names[i]}" + "_rollout_stat_env_avrg": 
-                       data["rollout_stat_env_avrg"][self._it_counter-1, :, i:i+1] for i in range(len(data_names))})
+                       data["rollout_stat_env_avrg"][self._log_it_counter-1, :, i:i+1] for i in range(len(data_names))})
                 self._custom_env_data_db_dict.update({f"sub_env_dbdata/{dbdatan}-{data_names[i]}" + "_rollout_stat": 
-                        wandb.Histogram(data["rollout_stat"].numpy()[self._it_counter-1, :, i:i+1]) for i in range(len(data_names))})
+                        wandb.Histogram(data["rollout_stat"].numpy()[self._log_it_counter-1, :, i:i+1]) for i in range(len(data_names))})
 
             if self._remote_db: 
                 # write general algo debug info to shared memory    
@@ -541,31 +547,31 @@ class ActorCriticAlgoBase():
                     "elapsed_min"
                     ]
                 info_data = [self._it_counter, 
-                    self._n_policy_updates[self._it_counter-1].item(),
-                    self._n_of_played_episodes[self._it_counter-1].item(), 
-                    self._n_timesteps_done[self._it_counter-1].item(),
+                    self._n_policy_updates[self._log_it_counter-1].item(),
+                    self._n_of_played_episodes[self._log_it_counter-1].item(), 
+                    self._n_timesteps_done[self._log_it_counter-1].item(),
                     self._lr_now_actor,
                     self._lr_now_critic,
-                    self._rollout_dt[self._it_counter-1].item(),
-                    self._gae_dt[self._it_counter-1].item(),
-                    self._policy_update_dt[self._it_counter-1].item(),
-                    self._env_step_fps[self._it_counter-1].item(),
-                    self._env_step_rt_factor[self._it_counter-1].item(),
-                    self._policy_update_fps[self._it_counter-1].item(),
-                    self._elapsed_min[self._it_counter-1].item()
+                    self._rollout_dt[self._log_it_counter-1].item(),
+                    self._gae_dt[self._log_it_counter-1].item(),
+                    self._policy_update_dt[self._log_it_counter-1].item(),
+                    self._env_step_fps[self._log_it_counter-1].item(),
+                    self._env_step_rt_factor[self._log_it_counter-1].item(),
+                    self._policy_update_fps[self._log_it_counter-1].item(),
+                    self._elapsed_min[self._log_it_counter-1].item()
                     ]
                 self._shared_algo_data.write(dyn_info_name=info_names,
                                         val=info_data)
                 
                 # write debug info to remote wandb server
-                wandb_d = {'tot_episodic_reward': wandb.Histogram(self._episodic_rewards[self._it_counter-1, :, :].numpy()),
-                    'tot_episodic_reward_env_avrg': self._episodic_rewards_env_avrg[self._it_counter-1, :, :].item(),
-                    'ppo_iteration' : self._it_counter}
+                wandb_d = {'tot_episodic_reward': wandb.Histogram(self._episodic_rewards[self._log_it_counter-1, :, :].numpy()),
+                    'tot_episodic_reward_env_avrg': self._episodic_rewards_env_avrg[self._log_it_counter-1, :, :].item(),
+                    'ppo_iteration' : self._log_it_counter}
                 wandb_d.update(dict(zip(info_names, info_data)))
                 wandb_d.update({f"sub_reward/{self._reward_names[i]}_env_avrg":
-                        self._episodic_sub_rewards_env_avrg[self._it_counter-1, :, i:i+1] for i in range(len(self._reward_names))})
+                        self._episodic_sub_rewards_env_avrg[self._log_it_counter-1, :, i:i+1] for i in range(len(self._reward_names))})
                 wandb_d.update({f"sub_reward/{self._reward_names[i]}":
-                        wandb.Histogram(self._episodic_sub_rewards.numpy()[self._it_counter-1, :, i:i+1]) for i in range(len(self._reward_names))})
+                        wandb.Histogram(self._episodic_sub_rewards.numpy()[self._log_it_counter-1, :, i:i+1]) for i in range(len(self._reward_names))})
                 
                 wandb_d.update(self._policy_update_db_data_dict)
                 wandb_d.update(self._custom_env_data_db_dict)
@@ -574,18 +580,18 @@ class ActorCriticAlgoBase():
 
         if self._verbose:
             info = f"\nN. PPO iterations performed: {self._it_counter}/{self._iterations_n}\n" + \
-                f"N. policy updates performed: {self._n_policy_updates[self._it_counter-1].item()}/" + \
+                f"N. policy updates performed: {self._n_policy_updates[self._log_it_counter-1].item()}/" + \
                 f"{self._update_epochs * self._num_minibatches * self._iterations_n}\n" + \
-                f"Total n. timesteps simulated: {self._it_counter * self._batch_size}/{self._total_timesteps}\n" + \
-                f"Elapsed time: {self._elapsed_min[self._it_counter-1].item()/60.0} h\n" + \
+                f"Total n. timesteps simulated: {self._it_counter * self._batch_size}/{self._total_timesteps_vec}\n" + \
+                f"Elapsed time: {self._elapsed_min[self._log_it_counter-1].item()/60.0} h\n" + \
                 f"Estimated remaining training time: " + \
-                f"{self._elapsed_min[self._it_counter-1].item()/60 * 1/self._it_counter * (self._iterations_n-self._it_counter)} h\n" + \
-                f"Average episodic reward across all environments: {self._episodic_rewards_env_avrg[self._it_counter-1, :, :].item()}\n" + \
-                f"Average episodic rewards across all environments {self._reward_names_str}: {self._episodic_sub_rewards_env_avrg[self._it_counter-1, :]}\n" + \
-                f"Current rollout fps: {self._env_step_fps[self._it_counter-1].item()}, time for rollout {self._rollout_dt[self._it_counter-1].item()} s\n" + \
-                f"Current rollout rt factor: {self._env_step_rt_factor[self._it_counter-1].item()}\n" + \
-                f"Time to compute bootstrap {self._gae_dt[self._it_counter-1].item()} s\n" + \
-                f"Current policy update fps: {self._policy_update_fps[self._it_counter-1].item()}, time for policy updates {self._policy_update_dt[self._it_counter-1].item()} s\n"
+                f"{self._elapsed_min[self._log_it_counter-1].item()/60 * 1/self._it_counter * (self._iterations_n-self._it_counter)} h\n" + \
+                f"Average episodic reward across all environments: {self._episodic_rewards_env_avrg[self._log_it_counter-1, :, :].item()}\n" + \
+                f"Average episodic rewards across all environments {self._reward_names_str}: {self._episodic_sub_rewards_env_avrg[self._log_it_counter-1, :]}\n" + \
+                f"Current rollout fps: {self._env_step_fps[self._log_it_counter-1].item()}, time for rollout {self._rollout_dt[self._log_it_counter-1].item()} s\n" + \
+                f"Current rollout rt factor: {self._env_step_rt_factor[self._log_it_counter-1].item()}\n" + \
+                f"Time to compute bootstrap {self._gae_dt[self._log_it_counter-1].item()} s\n" + \
+                f"Current policy update fps: {self._policy_update_fps[self._log_it_counter-1].item()}, time for policy updates {self._policy_update_dt[self._log_it_counter-1].item()} s\n"
             Journal.log(self.__class__.__name__,
                 "_post_step",
                 info,
@@ -597,35 +603,35 @@ class ActorCriticAlgoBase():
         # initalize some debug data
 
         # rollout phase
-        self._rollout_dt = torch.full((self._iterations_n, 1), 
+        self._rollout_dt = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=-1.0, device="cpu")
         self._rollout_t = -1.0
-        self._env_step_fps = torch.full((self._iterations_n, 1), 
+        self._env_step_fps = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._env_step_rt_factor = torch.full((self._iterations_n, 1), 
+        self._env_step_rt_factor = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
         
         # gae computation
         self._gae_t = -1.0
-        self._gae_dt = torch.full((self._iterations_n, 1), 
+        self._gae_dt = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=-1.0, device="cpu")
 
         # ppo iteration
         self._policy_update_t = -1.0
-        self._policy_update_dt = torch.full((self._iterations_n, 1), 
+        self._policy_update_dt = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=-1.0, device="cpu")
-        self._policy_update_fps = torch.full((self._iterations_n, 1), 
+        self._policy_update_fps = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
         
-        self._n_of_played_episodes = torch.full((self._iterations_n, 1), 
+        self._n_of_played_episodes = torch.full((self._db_data_size, 1), 
                     dtype=torch.int32, fill_value=0, device="cpu")
-        self._n_timesteps_done = torch.full((self._iterations_n, 1), 
+        self._n_timesteps_done = torch.full((self._db_data_size, 1), 
                     dtype=torch.int32, fill_value=0, device="cpu")
-        self._n_policy_updates = torch.full((self._iterations_n, 1), 
+        self._n_policy_updates = torch.full((self._db_data_size, 1), 
                     dtype=torch.int32, fill_value=0, device="cpu")
-        self._elapsed_min = torch.full((self._iterations_n, 1), 
+        self._elapsed_min = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=0, device="cpu")
-        self._learning_rates = torch.full((self._iterations_n, 2), 
+        self._learning_rates = torch.full((self._db_data_size, 2), 
                     dtype=torch.float32, fill_value=0, device="cpu")
         
         # reward db data
@@ -635,70 +641,70 @@ class ActorCriticAlgoBase():
         rollout_avrg_rew_env_avrg_shape = self._episodic_reward_getter.get_rollout_reward_env_avrg().shape
         self._reward_names = self._episodic_reward_getter.reward_names()
         self._reward_names_str = "[" + ', '.join(self._reward_names) + "]"
-        self._episodic_rewards = torch.full((self._iterations_n, tot_ep_rew_shape[0], tot_ep_rew_shape[1]), 
+        self._episodic_rewards = torch.full((self._db_data_size, tot_ep_rew_shape[0], tot_ep_rew_shape[1]), 
                                         dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._episodic_rewards_env_avrg = torch.full((self._iterations_n, tot_ep_rew_shape_env_avrg_shape[0], tot_ep_rew_shape_env_avrg_shape[1]), 
+        self._episodic_rewards_env_avrg = torch.full((self._db_data_size, tot_ep_rew_shape_env_avrg_shape[0], tot_ep_rew_shape_env_avrg_shape[1]), 
                                         dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._episodic_sub_rewards = torch.full((self._iterations_n, rollout_avrg_rew_shape[0], rollout_avrg_rew_shape[1]), 
+        self._episodic_sub_rewards = torch.full((self._db_data_size, rollout_avrg_rew_shape[0], rollout_avrg_rew_shape[1]), 
                                         dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._episodic_sub_rewards_env_avrg = torch.full((self._iterations_n, rollout_avrg_rew_env_avrg_shape[0], rollout_avrg_rew_env_avrg_shape[1]), 
+        self._episodic_sub_rewards_env_avrg = torch.full((self._db_data_size, rollout_avrg_rew_env_avrg_shape[0], rollout_avrg_rew_env_avrg_shape[1]), 
                                         dtype=torch.float32, fill_value=0.0, device="cpu")
 
         # ppo iteration db data
-        self._tot_loss_mean = torch.full((self._iterations_n, 1), 
+        self._tot_loss_mean = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._value_loss_mean = torch.full((self._iterations_n, 1), 
+        self._value_loss_mean = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._policy_loss_mean = torch.full((self._iterations_n, 1), 
+        self._policy_loss_mean = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._entropy_loss_mean = torch.full((self._iterations_n, 1), 
+        self._entropy_loss_mean = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._tot_loss_grad_norm_mean = torch.full((self._iterations_n, 1), 
+        self._tot_loss_grad_norm_mean = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._actor_loss_grad_norm_mean = torch.full((self._iterations_n, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
-        
-        self._tot_loss_std = torch.full((self._iterations_n, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._value_loss_std = torch.full((self._iterations_n, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._policy_loss_std = torch.full((self._iterations_n, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._entropy_loss_std = torch.full((self._iterations_n, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._tot_loss_grad_norm_std = torch.full((self._iterations_n, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._actor_loss_grad_norm_std = torch.full((self._iterations_n, 1), 
+        self._actor_loss_grad_norm_mean = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
         
-        self._old_approx_kl_mean = torch.full((self._iterations_n, 1), 
+        self._tot_loss_std = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._approx_kl_mean = torch.full((self._iterations_n, 1), 
+        self._value_loss_std = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._old_approx_kl_std = torch.full((self._iterations_n, 1), 
+        self._policy_loss_std = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._approx_kl_std = torch.full((self._iterations_n, 1), 
+        self._entropy_loss_std = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
-        
-        self._clipfrac_mean = torch.full((self._iterations_n, 1), 
+        self._tot_loss_grad_norm_std = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._clipfrac_std= torch.full((self._iterations_n, 1), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
-        
-        self._explained_variance = torch.full((self._iterations_n, 1), 
+        self._actor_loss_grad_norm_std = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
         
-        self._batch_returns_std = torch.full((self._iterations_n, 1), 
+        self._old_approx_kl_mean = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._batch_returns_mean = torch.full((self._iterations_n, 1), 
+        self._approx_kl_mean = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._batch_adv_std = torch.full((self._iterations_n, 1), 
+        self._old_approx_kl_std = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._batch_adv_mean = torch.full((self._iterations_n, 1), 
+        self._approx_kl_std = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._batch_val_std = torch.full((self._iterations_n, 1), 
+        
+        self._clipfrac_mean = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._batch_val_mean = torch.full((self._iterations_n, 1), 
+        self._clipfrac_std= torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        
+        self._explained_variance = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        
+        self._batch_returns_std = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._batch_returns_mean = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._batch_adv_std = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._batch_adv_mean = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._batch_val_std = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._batch_val_mean = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
         
         # custom data from env
@@ -707,22 +713,22 @@ class ActorCriticAlgoBase():
         for dbdatan in db_data_names:
             self._custom_env_data[dbdatan] = {}
             rollout_stat=self._env.custom_db_data[dbdatan].get_rollout_stat()
-            self._custom_env_data[dbdatan]["rollout_stat"] = torch.full((self._iterations_n, 
+            self._custom_env_data[dbdatan]["rollout_stat"] = torch.full((self._db_data_size, 
                                                                 rollout_stat.shape[0], 
                                                                 rollout_stat.shape[1]), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
             rollout_stat_env_avrg=self._env.custom_db_data[dbdatan].get_rollout_stat_env_avrg()
-            self._custom_env_data[dbdatan]["rollout_stat_env_avrg"] = torch.full((self._iterations_n, 
+            self._custom_env_data[dbdatan]["rollout_stat_env_avrg"] = torch.full((self._db_data_size, 
                                                                         rollout_stat_env_avrg.shape[0], 
                                                                         rollout_stat_env_avrg.shape[1]), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
             rollout_stat_comp=self._env.custom_db_data[dbdatan].get_rollout_stat_comp()
-            self._custom_env_data[dbdatan]["rollout_stat_comp"] = torch.full((self._iterations_n, 
+            self._custom_env_data[dbdatan]["rollout_stat_comp"] = torch.full((self._db_data_size, 
                                                                     rollout_stat_comp.shape[0], 
                                                                     rollout_stat_comp.shape[1]), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
             rollout_stat_comp_env_avrg=self._env.custom_db_data[dbdatan].get_rollout_stat_comp_env_avrg()
-            self._custom_env_data[dbdatan]["rollout_stat_comp_env_avrg"] = torch.full((self._iterations_n, rollout_stat_comp_env_avrg.shape[0], rollout_stat_comp_env_avrg.shape[1]), 
+            self._custom_env_data[dbdatan]["rollout_stat_comp_env_avrg"] = torch.full((self._db_data_size, rollout_stat_comp_env_avrg.shape[0], rollout_stat_comp_env_avrg.shape[1]), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
 
     def _init_params(self):
@@ -743,18 +749,16 @@ class ActorCriticAlgoBase():
         self._torch_device = torch.device("cpu") # defaults to cpu
         self._torch_deterministic = True
 
-        self._m_checkpoint_freq = 50 # n ppo iterations after which a checkpoint model is dumped
-
         # policy rollout and return comp./adv estimation
-        self._total_timesteps_nom = int(60e6) # atomic env steps (including substepping if action reps>1)
-        self._total_timesteps_nom = self._total_timesteps_nom//self._env_n_action_reps # correct with n of action reps
+        self._total_timesteps_vec_nom = int(100e6) # atomic env steps (including substepping if action reps>1)
+        self._total_timesteps_vec_nom = self._total_timesteps_vec_nom//self._env_n_action_reps # correct with n of action reps
         
-        self._rollout_timesteps = 128 # numer of vectorized steps (does not include env substepping) 
+        self._rollout_timesteps = 64 # numer of vectorized steps (does not include env substepping) 
         # to be done per policy rollout (influences adv estimation!!!)
         self._batch_size = self._rollout_timesteps * self._num_envs # 16384 stable bsize
 
-        self._iterations_n = self._total_timesteps_nom//self._batch_size # number of ppo iterations
-        self._total_timesteps = self._iterations_n*self._batch_size
+        self._iterations_n = self._total_timesteps_vec_nom//self._batch_size # number of ppo iterations
+        self._total_timesteps_vec = self._iterations_n*self._batch_size
         
         # policy update
         self._num_minibatches = 8
@@ -775,13 +779,23 @@ class ActorCriticAlgoBase():
         self._clip_vloss = False
         self._clip_coef_vf = 0.2 # IMPORTANT: this clipping depends on the reward scaling (only used if clip_vloss)
         self._clip_coef = 0.2
-        self._entropy_coeff = 1e-3
+        self._entropy_coeff = 5e-3
         self._val_f_coeff = 0.5
         self._max_grad_norm_actor = 0.5
         self._max_grad_norm_critic = 0.5
         self._target_kl = None
 
         self._n_policy_updates_to_be_done = self._update_epochs * self._num_minibatches * self._iterations_n
+
+        #debug
+        self._m_checkpoint_freq = 5120 # n (vectorized) timesteps after which a checkpoint model is dumped 
+        self._db_vecstep_frequency = 128 # log db data every n (vectorized) timesteps
+        self._db_vecstep_freq_it = round(self._db_vecstep_frequency/self._rollout_timesteps)
+        self._db_vecstep_frequency = self._rollout_timesteps*self._db_vecstep_freq_it # ensuring _db_vecstep_frequency
+        # is a multiple of self._rollout_timesteps
+
+        self._db_data_size = round(self._total_timesteps_vec/self._db_vecstep_frequency)+self._db_vecstep_frequency
+        # ensuring db_data fits 
 
         # write them to hyperparam dictionary for debugging
         self._hyperparameters["n_envs"] = self._num_envs
@@ -803,10 +817,10 @@ class ActorCriticAlgoBase():
         self._hyperparameters["per-batch update_epochs"] = self._update_epochs
         self._hyperparameters["per-epoch policy updates"] = self._num_minibatches
         self._hyperparameters["total policy updates to be performed"] = self._update_epochs * self._num_minibatches * self._iterations_n
-        self._hyperparameters["total_timesteps to be simulated"] = self._total_timesteps
+        self._hyperparameters["total_timesteps to be simulated"] = self._total_timesteps_vec
         self._hyperparameters["batch_size"] = self._batch_size
         self._hyperparameters["minibatch_size"] = self._minibatch_size
-        self._hyperparameters["total_timesteps"] = self._total_timesteps
+        self._hyperparameters["total_timesteps"] = self._total_timesteps_vec
         self._hyperparameters["base_lr_actor"] = self._base_lr_actor
         self._hyperparameters["base_lr_critic"] = self._base_lr_critic
         self._hyperparameters["anneal_lr"] = self._anneal_lr
@@ -836,7 +850,7 @@ class ActorCriticAlgoBase():
             f"task rand. min n steps {self._task_rand_timeout_lb}\n" + \
             f"number of action reps {self._env_n_action_reps}\n" + \
             f"total policy updates to be performed {self._update_epochs * self._num_minibatches * self._iterations_n}\n" + \
-            f"total_timesteps to be simulated {self._total_timesteps}\n"
+            f"total_timesteps to be simulated {self._total_timesteps_vec}\n"
         Journal.log(self.__class__.__name__,
             "_init_params",
             info,
@@ -844,6 +858,8 @@ class ActorCriticAlgoBase():
             throw_when_excep = True)
         
         self._it_counter = 0
+        self._vec_transition_counter = 0
+        self._log_it_counter = 0
 
     def _init_buffers(self):
 
