@@ -38,9 +38,8 @@ class PPO(ActorCriticAlgoBase):
             # either terminated or truncated
 
             # sample actions from latest policy (actor) and state value from latest value function (critic)
-            with torch.no_grad(): # no need for gradient computation
-                action, logprob, _ = self._agent.get_action(self._obs[transition], only_mean=self._eval) # when evaluating, use only mean
-                self._values[transition] = self._agent.get_value(self._obs[transition]).reshape(-1, 1)
+            action, logprob, _ = self._agent.get_action(self._obs[transition], only_mean=self._eval) # when evaluating, use only mean
+            self._values[transition] = self._agent.get_value(self._obs[transition]).reshape(-1, 1)
 
             # perform a step of the (vectorized) env and retrieve trajectory
             env_step_ok = self._env.step(action)
@@ -50,8 +49,8 @@ class PPO(ActorCriticAlgoBase):
             self._next_obs[transition] = self._env.get_next_obs() # state after env step (get_next_obs
             # holds the current obs even in case of resets. It includes both terminal and 
             # truncation states. It is the "true" state.)
-            with torch.no_grad(): # no need for gradient computation
-                self._next_values[transition] = self._agent.get_value(self._next_obs[transition]).reshape(-1, 1)
+            
+            self._next_values[transition] = self._agent.get_value(self._next_obs[transition]).reshape(-1, 1)
             self._rewards[transition] = self._env.get_rewards()
             self._next_terminations[transition] = self._env.get_terminations()
             self._next_dones[transition] = torch.logical_or(self._env.get_terminations(), self._env.get_truncations())
@@ -63,26 +62,25 @@ class PPO(ActorCriticAlgoBase):
     def _compute_returns(self):
 
         # bootstrap: compute advantages and returns
-        with torch.no_grad():
-            self._advantages.zero_() # reset advantages
-            lastgaelam = 0
-            for t in reversed(range(self._rollout_timesteps)):
-                # loop over state transitions
-                
-                # temporal difference error computation (if next obs is a terminal state, no rewards are available in
-                # the future)
-                nextnonterminal = 1.0 - self._next_terminations[t]
-                actual_reward_discounted = self._rewards[t] + self._discount_factor * self._next_values[t] * nextnonterminal
-                td_error = actual_reward_discounted - self._values[t] # meas. - est. reward
+        self._advantages.zero_() # reset advantages
+        lastgaelam = 0
+        for t in reversed(range(self._rollout_timesteps)):
+            # loop over state transitions
+            
+            # temporal difference error computation (if next obs is a terminal state, no rewards are available in
+            # the future)
+            nextnonterminal = 1.0 - self._next_terminations[t]
+            actual_reward_discounted = self._rewards[t] + self._discount_factor * self._next_values[t] * nextnonterminal
+            td_error = actual_reward_discounted - self._values[t] # meas. - est. reward
 
-                # compute advantages using the Generalized Advantage Estimation (GAE) 
-                # GAE estimation needs successive transitions, so we need to stop when the trajectory is either 
-                # truncated or terminated (that's why nextnondone is used)
-                # note that longer trajectories reduce the bias in the GAE estimator
-                nextnondone = 1.0 - self._next_dones[t]
-                self._advantages[t] = lastgaelam = td_error + self._discount_factor * self._gae_lambda * nextnondone * lastgaelam
-            #   cumulative rewards from each time step to the end of the episode
-            self._returns[:, :] = self._advantages + self._values
+            # compute advantages using the Generalized Advantage Estimation (GAE) 
+            # GAE estimation needs successive transitions, so we need to stop when the trajectory is either 
+            # truncated or terminated (that's why nextnondone is used)
+            # note that longer trajectories reduce the bias in the GAE estimator
+            nextnondone = 1.0 - self._next_dones[t]
+            self._advantages[t] = lastgaelam = td_error + self._discount_factor * self._gae_lambda * nextnondone * lastgaelam
+        #   cumulative rewards from each time step to the end of the episode
+        self._returns[:, :] = self._advantages + self._values
 
     def _improve_policy(self):
         
