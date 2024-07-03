@@ -244,12 +244,12 @@ class Actor(nn.Module):
         normal = torch.distributions.Normal(mean, std)
         x_t = normal.rsample()  # for reparameterization trick (mean + std * N(0,1))
         y_t = torch.tanh(x_t)
-        action = y_t * self.a_scale + self.a_bias
+        action = y_t * self.action_scale + self.action_bias
         log_prob = normal.log_prob(x_t)
         # Enforcing Action Bound
-        log_prob -= torch.log(self.a_scale * (1 - y_t.pow(2)) + 1e-6)
+        log_prob -= torch.log(self.action_scale * (1 - y_t.pow(2)) + 1e-6)
         log_prob = log_prob.sum(1, keepdim=True)
-        mean = torch.tanh(mean) * self.a_scale + self.a_bias
+        mean = torch.tanh(mean) * self.action_scale + self.action_bias
         return action, log_prob, mean
 
 if __name__ == "__main__":  
@@ -271,7 +271,7 @@ if __name__ == "__main__":
     print(q_v)
 
     actor = Actor(obs_dim=5,actions_dim=3,
-            actions_scale=[1.0, 1.0, 1.0],actions_bias=[0.0,0.0,0.0],
+            actions_lb=[-1.0, -1.0, -1.0],actions_ub=[1.0, 1.0, 1.0],
             norm_obs=True,
             device=device,
             dtype=torch.float32,
