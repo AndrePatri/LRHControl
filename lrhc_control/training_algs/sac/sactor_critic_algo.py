@@ -446,7 +446,7 @@ class SActorCriticAlgoBase():
                 (self._vec_transition_counter % self._m_checkpoint_freq == 0):
                 self._save_model(is_checkpoint=True)
 
-        if self._vec_transition_counter == self._total_timesteps:
+        if self._vec_transition_counter == self._total_timesteps_vec:
             self.done()            
             
     def _should_have_called_setup(self):
@@ -624,7 +624,7 @@ class SActorCriticAlgoBase():
         self._torch_device = torch.device("cpu") # defaults to cpu
         self._torch_deterministic = True
 
-        self._m_checkpoint_freq = 5000 # n timesteps after which a checkpoint model is dumped
+        self._m_checkpoint_freq = 5120 # n timesteps after which a checkpoint model is dumped
 
         # main algo settings
         self._replay_bf_full = False
