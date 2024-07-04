@@ -387,6 +387,11 @@ class ActorCriticAlgoBase():
             db_info_names = list(self._env.custom_db_info.keys())
             for db_info in db_info_names:
                 hf.create_dataset(db_info, data=self._env.custom_db_info[db_info])
+        
+            # other data 
+            hf.create_dataset('running_mean_obs', data=self._running_mean_obs.numpy())
+            hf.create_dataset('running_std_obs', data=self._running_std_obs.numpy())
+
         info = f"done."
         Journal.log(self.__class__.__name__,
             "_dump_dbinfo_to_file",
@@ -483,6 +488,8 @@ class ActorCriticAlgoBase():
             self._episodic_rewards_env_avrg[self._log_it_counter, :, :] = self._episodic_reward_getter.get_rollout_avrg_total_reward_env_avrg() # tot, avrg over envs
             self._episodic_sub_rewards[self._log_it_counter, :, :] = self._episodic_reward_getter.get_rollout_avrg_reward() # sub-episodic rewards across envs
             self._episodic_sub_rewards_env_avrg[self._log_it_counter, :, :] = self._episodic_reward_getter.get_rollout_reward_env_avrg() # avrg over envs
+            self._episodic_reward_getter.reset() # necessary, we don't want to accumulate 
+            # debug rewards from previous debug iterations
 
             # fill env db info
             db_data_names = list(self._env.custom_db_data.keys())
@@ -491,10 +498,12 @@ class ActorCriticAlgoBase():
                 self._custom_env_data[dbdatan]["rollout_stat_env_avrg"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat_env_avrg()
                 self._custom_env_data[dbdatan]["rollout_stat_comp"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat_comp()
                 self._custom_env_data[dbdatan]["rollout_stat_comp_env_avrg"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat_comp_env_avrg()
-
-            self._episodic_reward_getter.reset() # necessary, we don't want to accumulate 
-            # debug rewards from previous debug iterations
             self._env.reset_custom_db_data() # reset custom db stats for this debug iteration
+
+            # other data
+            if self._agent._normalizer is not None:
+                self._running_mean_obs[self._log_it_counter, :] = self._agent._normalizer.get_current_mean()
+                self._running_std_obs[self._log_it_counter, :] = self._agent._normalizer.get_current_std()
 
             self._log_info()
             
@@ -579,7 +588,7 @@ class ActorCriticAlgoBase():
                 
                 wandb_d.update(self._policy_update_db_data_dict)
                 wandb_d.update(self._custom_env_data_db_dict)
-
+                
                 wandb.log(wandb_d)
 
         if self._verbose:
@@ -733,6 +742,12 @@ class ActorCriticAlgoBase():
                     dtype=torch.float32, fill_value=0.0, device="cpu")
             rollout_stat_comp_env_avrg=self._env.custom_db_data[dbdatan].get_rollout_stat_comp_env_avrg()
             self._custom_env_data[dbdatan]["rollout_stat_comp_env_avrg"] = torch.full((self._db_data_size, rollout_stat_comp_env_avrg.shape[0], rollout_stat_comp_env_avrg.shape[1]), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+
+        # other data
+        self._running_mean_obs = torch.full((self._db_data_size, self._env.obs_dim()), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._running_std_obs = torch.full((self._db_data_size, self._env.obs_dim()), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
 
     def _init_params(self):

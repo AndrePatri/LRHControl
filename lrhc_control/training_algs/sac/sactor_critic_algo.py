@@ -321,6 +321,16 @@ class SActorCriticAlgoBase():
             hf.create_dataset('n_policy_updates', data=self._n_policy_updates.numpy())
             hf.create_dataset('elapsed_min', data=self._elapsed_min.numpy())
 
+            # algo data 
+            hf.create_dataset('qf1_vals', data=self._qf1_vals.numpy())
+            hf.create_dataset('qf2_vals', data=self._qf2_vals.numpy())
+            hf.create_dataset('qf1_loss', data=self._qf1_loss.numpy())
+            hf.create_dataset('qf2_loss', data=self._qf2_loss.numpy())
+            hf.create_dataset('qf_loss', data=self._qf_loss.numpy())
+            hf.create_dataset('actor_loss', data=self._actor_loss.numpy())
+            hf.create_dataset('alphas', data=self._alphas.numpy())
+            hf.create_dataset('alpha_loss', data=self._alpha_loss.numpy())
+
             # dump all custom env data
             db_data_names = list(self._env.custom_db_data.keys())
             for db_dname in db_data_names:
@@ -332,6 +342,11 @@ class SActorCriticAlgoBase():
             db_info_names = list(self._env.custom_db_info.keys())
             for db_info in db_info_names:
                 hf.create_dataset(db_info, data=self._env.custom_db_info[db_info])
+            
+            # other data
+            hf.create_dataset('running_mean_obs', data=self._running_mean_obs.numpy())
+            hf.create_dataset('running_std_obs', data=self._running_std_obs.numpy())
+        
         info = f"done."
         Journal.log(self.__class__.__name__,
             "_dump_dbinfo_to_file",
@@ -436,6 +451,11 @@ class SActorCriticAlgoBase():
                 self._custom_env_data[dbdatan]["rollout_stat_comp"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat_comp()
                 self._custom_env_data[dbdatan]["rollout_stat_comp_env_avrg"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat_comp_env_avrg()
             self._env.reset_custom_db_data() # reset custom db stats for this iteration
+
+            # other data
+            if self._agent._normalizer is not None:
+                self._running_mean_obs[self._log_it_counter, :] = self._agent._normalizer.get_current_mean()
+                self._running_std_obs[self._log_it_counter, :] = self._agent._normalizer.get_current_std()
 
             self._log_info()
 
@@ -562,8 +582,6 @@ class SActorCriticAlgoBase():
                     dtype=torch.int32, fill_value=0, device="cpu")
         self._elapsed_min = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=0, device="cpu")
-        self._learning_rates = torch.full((self._db_data_size, 2), 
-                    dtype=torch.float32, fill_value=0, device="cpu")
         
         # reward db data
         tot_ep_rew_shape = self._episodic_reward_getter.get_rollout_avrg_total_reward().shape
@@ -622,6 +640,12 @@ class SActorCriticAlgoBase():
                     dtype=torch.float32, fill_value=torch.nan, device="cpu")
         self._alpha_loss = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=torch.nan, device="cpu")
+
+        # other data
+        self._running_mean_obs = torch.full((self._db_data_size, self._env.obs_dim()), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._running_std_obs = torch.full((self._db_data_size, self._env.obs_dim()), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
         
     def _init_params(self):
 
