@@ -739,19 +739,19 @@ class SActorCriticAlgoBase():
         self._bpos = 0
 
         self._obs = torch.full(size=(self._replay_buffer_size_vec, self._num_envs, self._obs_dim),
-                        fill_value=0,
+                        fill_value=torch.nan,
                         dtype=self._dtype,
                         device=self._torch_device) 
         self._actions = torch.full(size=(self._replay_buffer_size_vec, self._num_envs, self._actions_dim),
-                        fill_value=0,
+                        fill_value=torch.nan,
                         dtype=self._dtype,
                         device=self._torch_device)
         self._rewards = torch.full(size=(self._replay_buffer_size_vec, self._num_envs, 1),
-                        fill_value=0,
+                        fill_value=torch.nan,
                         dtype=self._dtype,
                         device=self._torch_device)
         self._next_obs = torch.full(size=(self._replay_buffer_size_vec, self._num_envs, self._obs_dim),
-                        fill_value=0,
+                        fill_value=torch.nan,
                         dtype=self._dtype,
                         device=self._torch_device) 
         self._next_terminal = torch.full(size=(self._replay_buffer_size_vec, self._num_envs, 1),
