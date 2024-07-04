@@ -62,8 +62,6 @@ class LRhcTrainingEnvBase():
         self.custom_db_data = None
         
         self.custom_db_info = {}
-
-        self._env_index = 0
         
         self._action_repeat = action_repeat
         if self._action_repeat <=0: 
@@ -164,7 +162,7 @@ class LRhcTrainingEnvBase():
         empty_list = []
         return empty_list
 
-    def get_aux_dirs(self):
+    def get_aux_dir(self):
         empty_list = []
         return empty_list
     
@@ -395,6 +393,7 @@ class LRhcTrainingEnvBase():
 
             # closing env.-specific shared data
             self._obs.close()
+            self._next_obs.close()
             self._actions.close()
             self._rewards.close()
             self._tot_rewards.close()
