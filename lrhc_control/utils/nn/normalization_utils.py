@@ -90,4 +90,25 @@ class RunningNormalizer(torch.nn.Module):
     def forward(self, x):
         if not (self.training or self._freeze_stats):
             self._running_stats.update(x)
+        
         return (x - self._running_stats.mean)/(torch.sqrt(self._running_stats.var)+self._epsilon)
+
+if __name__ == "__main__":  
+    
+    device = "cuda"
+    obs_dim = 4
+    n_envs = 20
+    dummy_obs = torch.full(size=(n_envs, obs_dim),dtype=torch.float32,device=device,fill_value=0) 
+    
+    normalizer = RunningNormalizer((obs_dim,), epsilon=1e-8, device=device, dtype=torch.float32,freeze_stats=False)
+    normalizer.train(False)
+
+    n_samples = 100000
+    for i in range(n_samples):
+        normalizer.forward(torch.randn_like(dummy_obs))
+    
+    print("running mean")
+    print(normalizer._running_stats.mean)
+    print("running std")
+    print(torch.sqrt(normalizer._running_stats.var))
+    # we should expect std 1 and mean 0
