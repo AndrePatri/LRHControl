@@ -105,10 +105,12 @@ if __name__ == "__main__":
 
     n_samples = 100000
     for i in range(n_samples):
-        normalizer.forward(torch.randn_like(dummy_obs))
+        normalizer(torch.randn_like(dummy_obs))
     
     print("running mean")
     print(normalizer._running_stats.mean)
     print("running std")
     print(torch.sqrt(normalizer._running_stats.var))
+    print("traning")
+    print(normalizer.training)
     # we should expect std 1 and mean 0

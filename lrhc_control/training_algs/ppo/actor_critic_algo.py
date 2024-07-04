@@ -1,4 +1,4 @@
-from lrhc_control.agents.actor_critic.ppo_tanh import ActorCriticTanh
+from lrhc_control.agents.actor_critic.ppo import ACAgent
 
 from lrhc_control.utils.shared_data.algo_infos import SharedRLAlgorithmInfo
 import torch 
@@ -107,7 +107,7 @@ class ActorCriticAlgoBase():
 
         self._torch_device = torch.device("cuda" if torch.cuda.is_available() and self._use_gpu else "cpu")
 
-        self._agent = ActorCriticTanh(obs_dim=self._env.obs_dim(),
+        self._agent = ACAgent(obs_dim=self._env.obs_dim(),
                         actions_dim=self._env.actions_dim(),
                         actor_std=0.01,
                         critic_std=1.0,
