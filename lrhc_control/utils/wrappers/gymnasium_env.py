@@ -211,6 +211,30 @@ class Gymnasium2LRHCEnv():
     def actions_dim(self):
         return self._actions_dim
     
+    def get_obs(self):
+    
+        return self._obs.get_torch_mirror(gpu=self._use_gpu)
+
+    def get_next_obs(self):
+    
+        return self._next_obs.get_torch_mirror(gpu=self._use_gpu)
+
+    def get_actions(self):
+    
+        return self._actions.get_torch_mirror(gpu=self._use_gpu)
+    
+    def get_rewards(self):
+
+        return self._tot_rewards.get_torch_mirror(gpu=self._use_gpu)
+
+    def get_terminations(self):
+        
+        return self._terminations.get_torch_mirror(gpu=self._use_gpu)
+
+    def get_truncations(self):
+                                 
+        return self._truncations.get_torch_mirror(gpu=self._use_gpu)
+
     def get_actions_lb(self):
         return self._actions_lb
 
@@ -258,11 +282,45 @@ class Gymnasium2LRHCEnv():
         stepping_ok = True
 
         # step gymnasium env using the given action
-        
+        actions = action.cpu().numpy()
+
+        print(actions)
+        print(actions.shape)
+
+        observations, rewards, termination, truncation, infos = self._env.step(actions)
+
+        print(observations)
+        print(rewards)
+        print(termination)
+
+        exit()
+
         self.post_step()
 
         return stepping_ok
     
+    def _debug(self):
+        
+        if self._use_gpu:
+            self._obs.synch_mirror(from_gpu=True) # copy data from gpu to cpu view
+            self._next_obs.synch_mirror(from_gpu=True)
+            self._actions.synch_mirror(from_gpu=True)
+            self._tot_rewards.synch_mirror(from_gpu=True)
+
+        self._obs.synch_all(read=False, retry=True) # copies data on CPU shared mem
+        self._next_obs.synch_all(read=False, retry=True)
+        self._actions.synch_all(read=False, retry=True) 
+        self._tot_rewards.synch_all(read=False, retry=True)
+
+    def _update_custom_db_data(self,
+                    episode_finished):
+        pass
+    
+    def reset_custom_db_data(self):
+        # to be called periodically to reset custom db data stat. collection 
+        for custom_db_data in self.custom_db_data.values():
+            custom_db_data.reset()
+
     def post_step(self):
         if self._is_debug:
             terminated = self._terminations.get_torch_mirror(gpu=self._use_gpu)
@@ -278,6 +336,7 @@ class Gymnasium2LRHCEnv():
 if __name__ == "__main__":  
 
     from lrhc_control.training_algs.sac.sac import SAC
+    from lrhc_control.utils.wrappers.env_transform_utils import DtypeObservation
 
     import gymnasium as gym
 
@@ -300,11 +359,14 @@ if __name__ == "__main__":
     parser.add_argument('--use_cpu', action=argparse.BooleanOptionalAction, default=False, help='If set, all the training (data included) will be perfomed on CPU')
 
     parser.add_argument('--ns', type=str, help='Namespace to be used for shared memory', default="Gymnasium2LRHCEnv")
-    parser.add_argument('--num_envs', type=int, help='seed', default=1)
+    parser.add_argument('--num_envs', type=int, help='seed', default=3)
 
     args = parser.parse_args()
 
     env = gym.make_vec('InvertedPendulum-v4', num_envs=args.num_envs)
+    
+    env = DtypeObservation(env, dtype=np.float32) # converting to dtype
+
     env_wrapper = Gymnasium2LRHCEnv(gymnasium_env=env,
                         namespace=args.ns,
                         verbose=True,
