@@ -30,6 +30,7 @@ class ActorCriticAlgoBase():
             env, 
             debug = False,
             remote_db = False,
+            anomaly_detect = False,
             seed: int = 1):
 
         self._env = env 
@@ -40,6 +41,8 @@ class ActorCriticAlgoBase():
         
         self._debug = debug
         self._remote_db = remote_db
+
+        self._anomaly_detect = anomaly_detect
 
         self._optimizer = None
 
@@ -145,10 +148,9 @@ class ActorCriticAlgoBase():
             
         # seeding + deterministic behavior for reproducibility
         self._set_all_deterministic()
+        torch.autograd.set_detect_anomaly(self._anomaly_detect)
 
         if (self._debug):
-            
-            torch.autograd.set_detect_anomaly(self._debug)
             if self._remote_db:
                 job_type = "evaluation" if self._eval else "training"
                 wandb.init(

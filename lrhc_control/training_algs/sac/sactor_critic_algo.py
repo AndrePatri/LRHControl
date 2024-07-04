@@ -30,6 +30,7 @@ class SActorCriticAlgoBase():
             env, 
             debug = False,
             remote_db = False,
+            anomaly_detect = False,
             seed: int = 1):
 
         self._env = env 
@@ -40,6 +41,8 @@ class SActorCriticAlgoBase():
         
         self._debug = debug
         self._remote_db = remote_db
+
+        self._anomaly_detect = anomaly_detect
 
         self._optimizer = None
 
@@ -188,11 +191,9 @@ class SActorCriticAlgoBase():
             
         # seeding + deterministic behavior for reproducibility
         self._set_all_deterministic()
+        torch.autograd.set_detect_anomaly(self._anomaly_detect)
 
         if (self._debug):
-            
-            torch.autograd.set_detect_anomaly(self._debug)
-
             if self._remote_db:
                 job_type = "evaluation" if self._eval else "training"
                 wandb.init(
@@ -655,7 +656,7 @@ class SActorCriticAlgoBase():
         self._total_timesteps = self._total_timesteps_vec * self._num_envs # actual n transitions
 
         self._lr_policy = 3e-4
-        self._lr_q = 1e-3
+        self._lr_q = 3e-4
 
         self._discount_factor = 0.99
         self._smoothing_coeff = 0.005
