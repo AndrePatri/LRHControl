@@ -501,9 +501,9 @@ class ActorCriticAlgoBase():
             self._env.reset_custom_db_data() # reset custom db stats for this debug iteration
 
             # other data
-            if self._agent._normalizer is not None:
-                self._running_mean_obs[self._log_it_counter, :] = self._agent._normalizer.get_current_mean()
-                self._running_std_obs[self._log_it_counter, :] = self._agent._normalizer.get_current_std()
+            if self._agent.running_norm is not None:
+                self._running_mean_obs[self._log_it_counter, :] = self._agent.running_norm.get_current_mean()
+                self._running_std_obs[self._log_it_counter, :] = self._agent.running_norm.get_current_std()
 
             self._log_info()
             

@@ -453,9 +453,9 @@ class SActorCriticAlgoBase():
             self._env.reset_custom_db_data() # reset custom db stats for this iteration
 
             # other data
-            if self._agent._normalizer is not None:
-                self._running_mean_obs[self._log_it_counter, :] = self._agent._normalizer.get_current_mean()
-                self._running_std_obs[self._log_it_counter, :] = self._agent._normalizer.get_current_std()
+            if self._agent.running_norm is not None:
+                self._running_mean_obs[self._log_it_counter, :] = self._agent.running_norm.get_current_mean()
+                self._running_std_obs[self._log_it_counter, :] = self._agent.running_norm.get_current_std()
 
             self._log_info()
 
@@ -670,11 +670,11 @@ class SActorCriticAlgoBase():
         self._warmstart_timesteps = int(5e3)
         self._warmstart_vectimesteps = round(self._warmstart_timesteps/self._num_envs)
 
-        self._replay_buffer_size_nominal = int(1e6) # 32768
+        self._replay_buffer_size_nominal = int(10e6) # 32768
         self._replay_buffer_size_vec = self._replay_buffer_size_nominal//self._num_envs # 32768
         self._replay_buffer_size = self._replay_buffer_size_vec*self._num_envs
         self._batch_size = 256
-        self._total_timesteps = int(1e6)
+        self._total_timesteps = int(10e6)
         self._total_timesteps = self._total_timesteps//self._env_n_action_reps # correct with n of action reps
         self._total_timesteps_vec = self._total_timesteps // self._num_envs
         self._total_timesteps = self._total_timesteps_vec * self._num_envs # actual n transitions
