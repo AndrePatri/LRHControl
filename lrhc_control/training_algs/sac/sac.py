@@ -61,14 +61,14 @@ class SAC(SActorCriticAlgoBase):
             # experience from replay buffer
                 
             with torch.no_grad():
-                next_action, next_log_pi, _ = self._agent.actor.get_action(next_obs)
-                qf1_next_target = self._agent.qf1_target(next_obs, next_action)
-                qf2_next_target = self._agent.qf2_target(next_obs, next_action)
+                next_action, next_log_pi, _ = self._agent.get_action(next_obs)
+                qf1_next_target = self._agent.get_qf1t_val(next_obs, next_action)
+                qf2_next_target = self._agent.get_qf2t_val(next_obs, next_action)
                 min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - self._alpha * next_log_pi
                 next_q_value = rewards.flatten() + (1 - next_terminal.flatten()) * self._discount_factor * (min_qf_next_target).view(-1)
 
-            qf1_a_values = self._agent.qf1(obs, actions).view(-1)
-            qf2_a_values = self._agent.qf2(obs, actions).view(-1)
+            qf1_a_values = self._agent.get_qf1_val(obs, actions).view(-1)
+            qf2_a_values = self._agent.get_qf2_val(obs, actions).view(-1)
             qf1_loss = F.mse_loss(qf1_a_values, next_q_value)
             qf2_loss = F.mse_loss(qf2_a_values, next_q_value)
             qf_loss = qf1_loss + qf2_loss
@@ -81,9 +81,9 @@ class SAC(SActorCriticAlgoBase):
             if self._vec_transition_counter % self._policy_freq == 0:  # TD 3 Delayed update support
                 # policy update
                 for i in range(self._policy_freq): # compensate for the delay by doing 'actor_update_interval' instead of 1
-                    pi, log_pi, _ = self._agent.actor.get_action(obs)
-                    qf1_pi = self._agent.qf1(obs, pi)
-                    qf2_pi = self._agent.qf2(obs, pi)
+                    pi, log_pi, _ = self._agent.get_action(obs)
+                    qf1_pi = self._agent.get_qf1_val(obs, pi)
+                    qf2_pi = self._agent.get_qf1_val(obs, pi)
                     min_qf_pi = torch.min(qf1_pi, qf2_pi)
                     actor_loss = ((self._alpha * log_pi) - min_qf_pi).mean()
                     self._actor_optimizer.zero_grad()
@@ -91,7 +91,7 @@ class SAC(SActorCriticAlgoBase):
                     self._actor_optimizer.step()
                     if self._autotune:
                         with torch.no_grad():
-                            _, log_pi, _ = self._agent.actor.get_action(obs)
+                            _, log_pi, _ = self._agent.get_action(obs)
                         alpha_loss = (-self._log_alpha.exp() * (log_pi + self._target_entropy)).mean()
                         self._a_optimizer.zero_grad()
                         alpha_loss.backward()

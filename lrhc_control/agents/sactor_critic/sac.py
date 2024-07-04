@@ -21,8 +21,12 @@ class SACAgent(nn.Module):
             norm_obs: bool = True,
             device:str="cuda",
             dtype=torch.float32,
-            is_eval:bool=False):
+            is_eval:bool=False,
+            epsilon:float=1e-8):
+
         super().__init__()
+
+        self._normalize_obs = norm_obs
 
         self.actor = Actor(obs_dim=obs_dim,
                     actions_dim=actions_dim,
@@ -60,23 +64,49 @@ class SACAgent(nn.Module):
         
         self.qf1_target.load_state_dict(self.qf1.state_dict())
         self.qf2_target.load_state_dict(self.qf2.state_dict())
-    
+
+        self.running_norm = None
+        if self._normalize_obs:
+            self.running_norm = RunningNormalizer((obs_dim,), epsilon=epsilon, 
+                                    device=device, dtype=dtype, freeze_stats=is_eval)
+
     def get_impl_path(self):
         import os 
         return os.path.abspath(__file__)
     
+    def get_action(self, x):
+        if self.running_norm is not None:
+            x = self.runnning_norm(x)
+        return self.actor.get_action(x)
+    
+    def get_qf1_val(self, x, a):
+        if self.running_norm is not None:
+            x = self.runnning_norm(x)
+        return self.qf1(x, a)
+
+    def get_qf2_val(self, x, a):
+        if self.running_norm is not None:
+            x = self.runnning_norm(x)
+        return self.qf2(x, a)
+    
+    def get_qf1t_val(self, x, a):
+        if self.running_norm is not None:
+            x = self.runnning_norm(x)
+        return self.qf1_target(x, a)
+    
+    def get_qf2t_val(self, x, a):
+        if self.running_norm is not None:
+            x = self.runnning_norm(x)
+        return self.qf2_target(x, a)
+
 class CriticQ(nn.Module):
     def __init__(self,
             obs_dim: int, 
             actions_dim: int,
-            norm_obs: bool = True,
             device:str="cuda",
-            dtype=torch.float32,
-            is_eval:bool=False):
-        super().__init__()
+            dtype=torch.float32):
 
-        self._normalize_obs = norm_obs
-        self._is_eval = is_eval
+        super().__init__()
 
         self._torch_device = device
         self._torch_dtype = dtype
@@ -94,11 +124,6 @@ class CriticQ(nn.Module):
             nn.ReLU(),
             nn.Linear(size_internal_layer, 1,device=self._torch_device, dtype=self._torch_dtype),
         )
-
-        self._running_norm = None
-        if self._normalize_obs:
-            self._running_norm = RunningNormalizer((self._obs_dim,), epsilon=1e-8, 
-                                    device=self._torch_device, dtype=self._torch_dtype, freeze_stats=self._is_eval)
 
     def get_n_params(self):
         return sum(p.numel() for p in self.parameters())
@@ -119,8 +144,6 @@ class CriticQ(nn.Module):
         return layer
     
     def forward(self, x, a):
-        if self._running_norm is not None:
-            x = self._running_norm(x)
         x = torch.cat([x, a], dim=1)
         return self._q_net(x)
 
@@ -130,14 +153,9 @@ class Actor(nn.Module):
             actions_dim: int,
             actions_ub: List[float] = None,
             actions_lb: List[float] = None,
-            norm_obs: bool = True,
             device:str="cuda",
-            dtype=torch.float32,
-            is_eval:bool=False):
+            dtype=torch.float32):
         super().__init__()
-
-        self._normalize_obs = norm_obs
-        self._is_eval = is_eval
 
         self._torch_device = device
         self._torch_dtype = dtype
@@ -187,21 +205,12 @@ class Actor(nn.Module):
         self.LOG_STD_MAX = 2
         self.LOG_STD_MIN = -5
 
-        if self._normalize_obs:
-            self._fc12 = nn.Sequential(
-                RunningNormalizer((self._obs_dim,), epsilon=1e-8, device=self._torch_device, dtype=self._torch_dtype,freeze_stats=self._is_eval),
-                nn.Linear(self._obs_dim, size_internal_layer,device=self._torch_device, dtype=self._torch_dtype),
-                nn.ReLU(),
-                nn.Linear(size_internal_layer, size_internal_layer,device=self._torch_device, dtype=self._torch_dtype),
-                nn.ReLU()
-            )
-        else:
-            self._fc12 = nn.Sequential(
-                nn.Linear(self._obs_dim, size_internal_layer,device=self._torch_device, dtype=self._torch_dtype),
-                nn.ReLU(),
-                nn.Linear(size_internal_layer, size_internal_layer,device=self._torch_device, dtype=self._torch_dtype),
-                nn.ReLU()
-            )
+        self._fc12 = nn.Sequential(
+            nn.Linear(self._obs_dim, size_internal_layer,device=self._torch_device, dtype=self._torch_dtype),
+            nn.ReLU(),
+            nn.Linear(size_internal_layer, size_internal_layer,device=self._torch_device, dtype=self._torch_dtype),
+            nn.ReLU()
+        )
         
         self.fc_mean = nn.Linear(size_internal_layer, self._actions_dim,device=self._torch_device,dtype=self._torch_dtype)
         self.fc_logstd = nn.Linear(size_internal_layer, self._actions_dim,device=self._torch_device,dtype=self._torch_dtype)
