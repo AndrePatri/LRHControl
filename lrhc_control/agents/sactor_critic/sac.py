@@ -32,35 +32,25 @@ class SACAgent(nn.Module):
                     actions_dim=actions_dim,
                     actions_ub=actions_ub,
                     actions_lb=actions_lb,
-                    norm_obs=norm_obs,
                     device=device,
                     dtype=dtype,
-                    is_eval=is_eval
                     )
         self.qf1 = CriticQ(obs_dim=obs_dim,
                     actions_dim=actions_dim,
-                    norm_obs=norm_obs,
                     device=device,
-                    dtype=dtype,
-                    is_eval=is_eval)
+                    dtype=dtype)
         self.qf1_target = CriticQ(obs_dim=obs_dim,
                     actions_dim=actions_dim,
-                    norm_obs=norm_obs,
                     device=device,
-                    dtype=dtype,
-                    is_eval=is_eval)
+                    dtype=dtype)
         self.qf2 = CriticQ(obs_dim=obs_dim,
                     actions_dim=actions_dim,
-                    norm_obs=norm_obs,
                     device=device,
-                    dtype=dtype,
-                    is_eval=is_eval)
+                    dtype=dtype)
         self.qf2_target = CriticQ(obs_dim=obs_dim,
                     actions_dim=actions_dim,
-                    norm_obs=norm_obs,
                     device=device,
-                    dtype=dtype,
-                    is_eval=is_eval)
+                    dtype=dtype)
         
         self.qf1_target.load_state_dict(self.qf1.state_dict())
         self.qf2_target.load_state_dict(self.qf2.state_dict())
@@ -76,27 +66,27 @@ class SACAgent(nn.Module):
     
     def get_action(self, x):
         if self.running_norm is not None:
-            x = self.runnning_norm(x)
+            x = self.running_norm(x)
         return self.actor.get_action(x)
     
     def get_qf1_val(self, x, a):
         if self.running_norm is not None:
-            x = self.runnning_norm(x)
+            x = self.running_norm(x)
         return self.qf1(x, a)
 
     def get_qf2_val(self, x, a):
         if self.running_norm is not None:
-            x = self.runnning_norm(x)
+            x = self.running_norm(x)
         return self.qf2(x, a)
     
     def get_qf1t_val(self, x, a):
         if self.running_norm is not None:
-            x = self.runnning_norm(x)
+            x = self.running_norm(x)
         return self.qf1_target(x, a)
     
     def get_qf2t_val(self, x, a):
         if self.running_norm is not None:
-            x = self.runnning_norm(x)
+            x = self.running_norm(x)
         return self.qf2_target(x, a)
 
 class CriticQ(nn.Module):

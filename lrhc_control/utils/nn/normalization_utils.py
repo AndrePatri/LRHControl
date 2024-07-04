@@ -93,6 +93,12 @@ class RunningNormalizer(torch.nn.Module):
         
         return (x - self._running_stats.mean)/(torch.sqrt(self._running_stats.var)+self._epsilon)
 
+    def get_current_mean(self):
+        return self._running_stats.mean.detach().copy()
+    
+    def get_current_std(self):
+        return torch.sqrt(self._running_stats.var.detach().copy())
+    
 if __name__ == "__main__":  
     
     device = "cuda"
