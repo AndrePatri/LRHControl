@@ -684,7 +684,6 @@ class SActorCriticAlgoBase():
 
         self._discount_factor = 0.99
         self._smoothing_coeff = 0.005
-        self._noise_clip = 0.5
 
         self._policy_freq = 2
         self._trgt_net_freq = 1
@@ -723,7 +722,6 @@ class SActorCriticAlgoBase():
         self._hyperparameters["_lr_q"] = self._lr_q
         self._hyperparameters["_discount_factor"] = self._discount_factor
         self._hyperparameters["_smoothing_coeff"] = self._smoothing_coeff
-        self._hyperparameters["_noise_clip"] = self._noise_clip
         self._hyperparameters["_policy_freq"] = self._policy_freq
         self._hyperparameters["_trgt_net_freq"] = self._trgt_net_freq
         self._hyperparameters["_autotune"] = self._autotune
