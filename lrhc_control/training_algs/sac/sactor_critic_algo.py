@@ -428,7 +428,7 @@ class SActorCriticAlgoBase():
                 self._env_step_rt_factor[self._log_it_counter] = self._env_step_fps[self._log_it_counter] * self._hyperparameters["control_clust_dt"]
 
             self._n_of_played_episodes[self._log_it_counter] = self._episodic_reward_getter.get_n_played_episodes()
-            self._n_timesteps_done[self._log_it_counter] = self._vec_transition_counter
+            self._n_timesteps_done[self._log_it_counter] = self._vec_transition_counter * self._db_vecstep_frequency
 
             self._n_policy_updates[self._log_it_counter] = self._vec_transition_counter*self._policy_freq
 
@@ -671,7 +671,7 @@ class SActorCriticAlgoBase():
         self._warmstart_timesteps = int(5e3)
         self._warmstart_vectimesteps = round(self._warmstart_timesteps/self._num_envs)
 
-        self._replay_buffer_size_nominal = int(10e6) # 32768
+        self._replay_buffer_size_nominal = int(1e6) # 32768
         self._replay_buffer_size_vec = self._replay_buffer_size_nominal//self._num_envs # 32768
         self._replay_buffer_size = self._replay_buffer_size_vec*self._num_envs
         self._batch_size = 256
@@ -697,7 +697,7 @@ class SActorCriticAlgoBase():
         
         # debug
         self._m_checkpoint_freq = 5120 # n timesteps after which a checkpoint model is dumped
-        self._db_vecstep_frequency = 512 # log db data every n (vectorized) timesteps
+        self._db_vecstep_frequency = 2048 # log db data every n (vectorized) timesteps
         
         self._db_data_size = round(self._total_timesteps_vec/self._db_vecstep_frequency)+self._db_vecstep_frequency
         # write them to hyperparam dictionary for debugging
