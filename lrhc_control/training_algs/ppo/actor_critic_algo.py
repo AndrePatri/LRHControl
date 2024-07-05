@@ -596,7 +596,7 @@ class ActorCriticAlgoBase():
             info = f"\nN. PPO iterations performed: {self._it_counter}/{self._iterations_n}\n" + \
                 f"N. policy updates performed: {self._n_policy_updates[self._log_it_counter].item()}/" + \
                 f"{self._update_epochs * self._num_minibatches * self._iterations_n}\n" + \
-                f"Total n. timesteps simulated: {self._it_counter * self._batch_size}/{self._total_timesteps_vec}\n" + \
+                f"Total n. timesteps simulated: {self._it_counter * self._batch_size}/{self._total_timesteps}\n" + \
                 f"Elapsed time: {self._elapsed_min[self._log_it_counter].item()/60.0} h\n" + \
                 f"Estimated remaining training time: " + \
                 f"{self._elapsed_min[self._log_it_counter].item()/60 * 1/self._it_counter * (self._iterations_n-self._it_counter)} h\n" + \
@@ -770,18 +770,19 @@ class ActorCriticAlgoBase():
         self._torch_deterministic = True
 
         # policy rollout and return comp./adv estimation
-        self._total_timesteps_vec_nom = int(100e6) # atomic env steps (including substepping if action reps>1)
-        self._total_timesteps_vec_nom = self._total_timesteps_vec_nom//self._env_n_action_reps # correct with n of action reps
+        self._total_timesteps = int(1e6) # total timesteps to be collected (including sub envs)
+        self._total_timesteps = self._total_timesteps//self._env_n_action_reps # correct with n of action reps
         
-        self._rollout_timesteps = 64 # numer of vectorized steps (does not include env substepping) 
+        self._rollout_timesteps = 2048 # numer of vectorized steps (does not include env substepping) 
         # to be done per policy rollout (influences adv estimation!!!)
-        self._batch_size = self._rollout_timesteps * self._num_envs # 16384 stable bsize
+        self._batch_size = self._rollout_timesteps * self._num_envs
 
-        self._iterations_n = self._total_timesteps_vec_nom//self._batch_size # number of ppo iterations
-        self._total_timesteps_vec = self._iterations_n*self._batch_size
-        
+        self._iterations_n = self._total_timesteps//self._batch_size # number of ppo iterations
+        self._total_timesteps = self._iterations_n*self._batch_size # actual number of total tsteps to be simulated
+        self._total_timesteps_vec = self._iterations_n*self._rollout_timesteps
+
         # policy update
-        self._num_minibatches = 8
+        self._num_minibatches = 32
         self._minibatch_size = self._batch_size // self._num_minibatches
         
         self._base_lr_actor = 3e-4
@@ -799,7 +800,7 @@ class ActorCriticAlgoBase():
         self._clip_vloss = False
         self._clip_coef_vf = 0.2 # IMPORTANT: this clipping depends on the reward scaling (only used if clip_vloss)
         self._clip_coef = 0.2
-        self._entropy_coeff = 5e-3
+        self._entropy_coeff = 0.0
         self._val_f_coeff = 0.5
         self._max_grad_norm_actor = 0.5
         self._max_grad_norm_critic = 0.5
@@ -809,7 +810,7 @@ class ActorCriticAlgoBase():
 
         #debug
         self._m_checkpoint_freq = 5120 # n (vectorized) timesteps after which a checkpoint model is dumped 
-        self._db_vecstep_frequency = 1024 # log db data every n (vectorized) timesteps
+        self._db_vecstep_frequency = 2048 # log db data every n (vectorized) timesteps
 
         self._checkpoint_nit = round(self._m_checkpoint_freq/self._rollout_timesteps)
         self._m_checkpoint_freq = self._rollout_timesteps*self._checkpoint_nit # ensuring _m_checkpoint_freq
@@ -842,10 +843,10 @@ class ActorCriticAlgoBase():
         self._hyperparameters["per-batch update_epochs"] = self._update_epochs
         self._hyperparameters["per-epoch policy updates"] = self._num_minibatches
         self._hyperparameters["total policy updates to be performed"] = self._update_epochs * self._num_minibatches * self._iterations_n
-        self._hyperparameters["total_timesteps to be simulated"] = self._total_timesteps_vec
+        self._hyperparameters["total_timesteps"] = self._total_timesteps
+        self._hyperparameters["total_timesteps_vec"] = self._total_timesteps_vec
         self._hyperparameters["batch_size"] = self._batch_size
         self._hyperparameters["minibatch_size"] = self._minibatch_size
-        self._hyperparameters["total_timesteps"] = self._total_timesteps_vec
         self._hyperparameters["base_lr_actor"] = self._base_lr_actor
         self._hyperparameters["base_lr_critic"] = self._base_lr_critic
         self._hyperparameters["anneal_lr"] = self._anneal_lr
@@ -875,7 +876,7 @@ class ActorCriticAlgoBase():
             f"task rand. min n steps {self._task_rand_timeout_lb}\n" + \
             f"number of action reps {self._env_n_action_reps}\n" + \
             f"total policy updates to be performed {self._update_epochs * self._num_minibatches * self._iterations_n}\n" + \
-            f"total_timesteps to be simulated {self._total_timesteps_vec}\n"
+            f"total_timesteps to be simulated {self._total_timesteps}\n"
         Journal.log(self.__class__.__name__,
             "_init_params",
             info,
