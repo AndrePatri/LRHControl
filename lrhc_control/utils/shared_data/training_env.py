@@ -25,7 +25,8 @@ class TrainingEnvDebData(SharedTWrapper):
         verbose: bool = False, 
         vlevel: VLevel = VLevel.V0,
         force_reconnection: bool = False,
-        safe: bool = True):
+        safe: bool = True,
+        dtype: sharsor_dtype=sharsor_dtype.Float):
 
         basename = "TrainingEnvDebData" 
 
@@ -36,7 +37,7 @@ class TrainingEnvDebData(SharedTWrapper):
             n_cols = 1, 
             verbose = verbose, 
             vlevel = vlevel,
-            dtype=sharsor_dtype.Float,
+            dtype=dtype,
             fill_value=np.nan,
             safe = safe,
             force_reconnection=force_reconnection)
@@ -298,7 +299,8 @@ class Rewards(NamedSharedTWrapper):
             safe: bool = True,
             force_reconnection: bool = False,
             with_gpu_mirror: bool = False,
-            fill_value = 0.0):
+            fill_value = 0.0,
+            dtype: sharsor_dtype=sharsor_dtype.Float):
 
         basename = "Rewards"
 
@@ -306,7 +308,7 @@ class Rewards(NamedSharedTWrapper):
                     basename=basename,
                     n_rows=n_envs,
                     n_cols=n_rewards,
-                    dtype=sharsor_dtype.Float,
+                    dtype=dtype,
                     col_names=reward_names,
                     row_names=env_names,
                     is_server=is_server,
@@ -330,7 +332,8 @@ class TotRewards(NamedSharedTWrapper):
             safe: bool = True,
             force_reconnection: bool = False,
             with_gpu_mirror: bool = False,
-            fill_value = 0.0):
+            fill_value = 0.0,
+            dtype: sharsor_dtype=sharsor_dtype.Float):
 
         basename = "TotRewards"
 
@@ -338,7 +341,7 @@ class TotRewards(NamedSharedTWrapper):
                     basename=basename,
                     n_rows=n_envs,
                     n_cols=1,
-                    dtype=sharsor_dtype.Float,
+                    dtype=dtype,
                     col_names=reward_names,
                     row_names=env_names,
                     is_server=is_server,
@@ -363,7 +366,8 @@ class Observations(NamedSharedTWrapper):
             safe: bool = True,
             force_reconnection: bool = False,
             with_gpu_mirror: bool = False,
-            fill_value = 0.0):
+            fill_value = 0.0,
+            dtype: sharsor_dtype=sharsor_dtype.Float):
 
         basename = "Observations"
 
@@ -371,7 +375,7 @@ class Observations(NamedSharedTWrapper):
                     basename=basename,
                     n_rows=n_envs,
                     n_cols=obs_dim,
-                    dtype=sharsor_dtype.Float,
+                    dtype=dtype,
                     col_names=obs_names,
                     row_names=env_names,
                     is_server=is_server,
@@ -396,7 +400,8 @@ class NextObservations(NamedSharedTWrapper):
             safe: bool = True,
             force_reconnection: bool = False,
             with_gpu_mirror: bool = False,
-            fill_value = 0.0):
+            fill_value = 0.0,
+            dtype: sharsor_dtype=sharsor_dtype.Float):
 
         basename = "NextObservations"
 
@@ -404,7 +409,7 @@ class NextObservations(NamedSharedTWrapper):
                     basename=basename,
                     n_rows=n_envs,
                     n_cols=obs_dim,
-                    dtype=sharsor_dtype.Float,
+                    dtype=dtype,
                     col_names=obs_names,
                     row_names=env_names,
                     is_server=is_server,
@@ -429,7 +434,8 @@ class Actions(NamedSharedTWrapper):
             safe: bool = True,
             force_reconnection: bool = False,
             with_gpu_mirror: bool = False,
-            fill_value = 0.0):
+            fill_value = 0.0,
+            dtype: sharsor_dtype=sharsor_dtype.Float):
 
         basename = "Actions"
 
@@ -437,7 +443,7 @@ class Actions(NamedSharedTWrapper):
                     basename=basename,
                     n_rows=n_envs,
                     n_cols=action_dim,
-                    dtype=sharsor_dtype.Float,
+                    dtype=dtype,
                     col_names=action_names,
                     row_names=env_names,
                     is_server=is_server,
