@@ -59,6 +59,7 @@ class SACAgent(nn.Module):
         if self._normalize_obs:
             self.running_norm = RunningNormalizer((obs_dim,), epsilon=epsilon, 
                                     device=device, dtype=dtype, freeze_stats=is_eval)
+            self.running_norm.type(dtype) # ensuring correct dtype for whole module
 
     def get_impl_path(self):
         import os 
@@ -114,6 +115,7 @@ class CriticQ(nn.Module):
             nn.ReLU(),
             nn.Linear(size_internal_layer, 1,device=self._torch_device, dtype=self._torch_dtype),
         )
+        self._q_net.type(self._torch_dtype) # ensuring compatible dtypes
 
     def get_n_params(self):
         return sum(p.numel() for p in self.parameters())
@@ -201,9 +203,13 @@ class Actor(nn.Module):
             nn.Linear(size_internal_layer, size_internal_layer,device=self._torch_device, dtype=self._torch_dtype),
             nn.ReLU()
         )
-        
         self.fc_mean = nn.Linear(size_internal_layer, self._actions_dim,device=self._torch_device,dtype=self._torch_dtype)
         self.fc_logstd = nn.Linear(size_internal_layer, self._actions_dim,device=self._torch_device,dtype=self._torch_dtype)
+
+        # ensuring correct dtypes
+        self._fc12.type(self._torch_dtype)
+        self.fc_mean.type(self._torch_dtype)
+        self.fc_logstd.type(self._torch_dtype)
 
     def get_n_params(self):
         return sum(p.numel() for p in self.parameters())

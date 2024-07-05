@@ -45,6 +45,7 @@ class ACAgent(nn.Module):
             nn.Tanh(),
             self._layer_init(layer=nn.Linear(size_critic, 1), std=self._critic_std, device=self._torch_device,dtype=self._torch_dtype),
         ) # (stochastic critic)
+        self.critic.type(self._torch_dtype) # ensuring correct dtype
 
         self.actor_mean = nn.Sequential(
             self._layer_init(layer=nn.Linear(self._obs_dim, size_actor), device=self._torch_device,dtype=self._torch_dtype),
@@ -53,6 +54,7 @@ class ACAgent(nn.Module):
             nn.Tanh(),
             self._layer_init(layer=nn.Linear(size_actor, self._actions_dim), std=self._actor_std, device=self._torch_device,dtype=self._torch_dtype),
         ) # (stochastic actor)
+        self.actor_mean.type(self._torch_dtype) # ensuring correct dtype
 
         self.actor_logstd = nn.Parameter(torch.zeros(1, self._actions_dim, device=self._torch_device,dtype=self._torch_dtype))
     
