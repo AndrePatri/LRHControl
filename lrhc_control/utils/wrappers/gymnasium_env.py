@@ -9,6 +9,7 @@ from lrhc_control.utils.episodic_rewards import EpisodicRewards
 from SharsorIPCpp.PySharsorIPC import VLevel
 from SharsorIPCpp.PySharsorIPC import LogType
 from SharsorIPCpp.PySharsorIPC import Journal
+from SharsorIPCpp.PySharsorIPC import dtype as sharsor_dtype
 
 import torch
 import numpy  as np
@@ -21,7 +22,9 @@ class Gymnasium2LRHCEnv():
             verbose: bool = False,
             vlevel: VLevel = VLevel.V1,
             debug: bool = True,
-            use_gpu: bool = True):
+            use_gpu: bool = True,
+            render: bool = False,
+            seed: int = 1):
         
         # dtype mapping dictionary
         self._dtype_mapping = {
@@ -29,8 +32,18 @@ class Gymnasium2LRHCEnv():
             'float64': torch.float64
         }
 
+        self._sharsor_dtype_mapping = {
+            torch.float32: sharsor_dtype.Float,
+            torch.float64: sharsor_dtype.Double
+        }
+
         self._env = gymnasium_env
         
+        self._seed = seed
+
+        self._render = render
+        # self._env.render_mode = "human" if self._render else None
+
         self._namespace = namespace
         self._action_repeat = 1
         if self._action_repeat <=0: 
@@ -43,10 +56,11 @@ class Gymnasium2LRHCEnv():
 
         self._obs_dim = torch.tensor(self._env.single_observation_space.shape).prod().item()
         self._actions_dim = torch.tensor(self._env.single_action_space.shape).prod().item()
-
+        self._env_dt = 0.0
         self._use_gpu = use_gpu
-        
-        self._dtype = self._dtype_mapping[str(self._env.single_observation_space.dtype)]
+        self._torch_device = "cuda" if self._use_gpu else "cpu"
+
+        self._torch_dtype = self._dtype_mapping[str(self._env.single_observation_space.dtype)]
         
         self._verbose = verbose
         self._vlevel = vlevel
@@ -54,17 +68,16 @@ class Gymnasium2LRHCEnv():
         
         self._n_envs = self._env.num_envs
 
-        device = "cuda" if self._use_gpu else "cpu"
+        
         # action scalings to be applied to agent's output
-        self._actions_ub = torch.full((1, self._actions_dim), dtype=self._dtype, device=device,
+        self._actions_ub = torch.full((1, self._actions_dim), dtype=self._torch_dtype, device=self._torch_device,
                                         fill_value=1.0)
-        self._actions_lb = torch.full((1, self._actions_dim), dtype=self._dtype, device=device,
+        self._actions_lb = torch.full((1, self._actions_dim), dtype=self._torch_dtype, device=self._torch_device,
                                         fill_value=-1.0)
         
         reward_thresh_default = 1.0
-        device = "cuda" if self._use_gpu else "cpu"
-        self._reward_thresh_lb = torch.full((1, 1), dtype=self._dtype, fill_value=-reward_thresh_default, device=device) # used for clipping rewards
-        self._reward_thresh_ub = torch.full((1, 1), dtype=self._dtype, fill_value=reward_thresh_default, device=device) 
+        self._reward_thresh_lb = torch.full((1, 1), dtype=self._torch_dtype, fill_value=-reward_thresh_default, device=self._torch_device) # used for clipping rewards
+        self._reward_thresh_ub = torch.full((1, 1), dtype=self._torch_dtype, fill_value=reward_thresh_default, device=self._torch_device) 
 
         self._obs = None
         self._next_obs = None
@@ -74,6 +87,7 @@ class Gymnasium2LRHCEnv():
         self._truncations = None
         
         self.custom_db_data = {}
+        self.custom_db_info = {}
 
         self._episodic_rewards_getter = None
         self._episode_duration_ub = 100
@@ -85,6 +99,8 @@ class Gymnasium2LRHCEnv():
         self._n_steps_task_rand_ub = -1
 
         self._init_shared_data()
+        
+        self.reset()
 
     def __del__(self):
         self.close()
@@ -92,7 +108,6 @@ class Gymnasium2LRHCEnv():
     def close(self):
         
         if not self._closed:
-            
             self._next_obs.close()
             self._obs.close()
             self._actions.close()
@@ -101,6 +116,7 @@ class Gymnasium2LRHCEnv():
             self._terminations.close()
             self._truncations.close()
 
+            self._env.close()
             self._closed = True
 
     def _init_shared_data(self):
@@ -124,7 +140,8 @@ class Gymnasium2LRHCEnv():
                             safe=True,
                             force_reconnection=True,
                             with_gpu_mirror=self._use_gpu,
-                            fill_value=0.0)
+                            fill_value=0.0,
+                            dtype=self._sharsor_dtype_mapping[self._torch_dtype])
         
         self._next_obs = NextObservations(namespace=self._namespace,
                             n_envs=self._n_envs,
@@ -137,7 +154,8 @@ class Gymnasium2LRHCEnv():
                             safe=True,
                             force_reconnection=True,
                             with_gpu_mirror=self._use_gpu,
-                            fill_value=0.0)
+                            fill_value=0.0,
+                            dtype=self._sharsor_dtype_mapping[self._torch_dtype])
         
         self._actions = Actions(namespace=self._namespace,
                             n_envs=self._n_envs,
@@ -150,7 +168,8 @@ class Gymnasium2LRHCEnv():
                             safe=True,
                             force_reconnection=True,
                             with_gpu_mirror=self._use_gpu,
-                            fill_value=0.0)
+                            fill_value=0.0,
+                            dtype=self._sharsor_dtype_mapping[self._torch_dtype])
         
         self._tot_rewards = TotRewards(namespace=self._namespace,
                             n_envs=self._n_envs,
@@ -162,7 +181,8 @@ class Gymnasium2LRHCEnv():
                             safe=True,
                             force_reconnection=True,
                             with_gpu_mirror=self._use_gpu,
-                            fill_value=0.0)
+                            fill_value=0.0,
+                            dtype=self._sharsor_dtype_mapping[self._torch_dtype])
         
         self._terminations = Terminations(namespace=self._namespace,
                             n_envs=self._n_envs,
@@ -196,11 +216,14 @@ class Gymnasium2LRHCEnv():
                                         max_episode_length=self._episode_duration_ub)
         self._episodic_rewards_getter.set_constant_data_scaling(scaling=self._episode_duration_ub)
     
+    def gym_env(self):
+        return self._env
+    
     def ep_reward_getter(self):
         return self._episodic_rewards_getter
     
     def dtype(self):
-        return self._dtype 
+        return self._torch_dtype 
     
     def n_envs(self):
         return self._n_envs
@@ -274,6 +297,9 @@ class Gymnasium2LRHCEnv():
         self._terminations.reset()
         self._truncations.reset()
 
+        obs, _ = self._env.reset(seed=self._seed)
+        self._to_torch(data=obs,output=self.get_obs())
+
         # fill obs from gymansium env
 
     def step(self, 
@@ -284,21 +310,39 @@ class Gymnasium2LRHCEnv():
         # step gymnasium env using the given action
         actions = action.cpu().numpy()
 
-        print(actions)
-        print(actions.shape)
+        observations, rewards, terminations, truncations, infos = self._env.step(actions)
 
-        observations, rewards, termination, truncation, infos = self._env.step(actions)
+        if self._render:
+            self._env.render()
 
-        print(observations)
-        print(rewards)
-        print(termination)
+        # if bool(infos): # info dict not empty --> when terminatin
+        #     Journal.log(self.__class__.__name__,
+        #         "step",
+        #         "gymnasium env returned non-empty info dictionary!! You may want to check the data!!",
+        #         LogType.EXCEP,
+        #         throw_when_excep = False)
 
-        exit()
+        # fill transition data from gymansium env
+        self._to_torch(data=observations,output=self.get_obs())
+        self._to_torch(data=rewards.reshape(-1, 1),output=self.get_rewards())
+        self._to_torch(data=terminations.reshape(-1, 1),output=self.get_terminations())
+        self._to_torch(data=truncations.reshape(-1, 1),output=self.get_truncations())
+        # handle terminations (next obs have to be the )
+        if "final_observation" in infos:  # some sub-envs have terminated
+            terminal_obs = np.full_like(observations[terminations, :], 0.0)
+            for env_idx in range(infos["final_observation"][terminations].size):
+                terminal_obs[env_idx, :] = infos["final_observation"][terminations][env_idx]
+            observations[terminations, :] = terminal_obs
+        self._to_torch(data=observations,output=self.get_next_obs()) # next obs always holds the 
+        # real state after stepping, even when terminations occur
 
         self.post_step()
 
         return stepping_ok
     
+    def _to_torch(self, data, output):
+        output[:, :]=torch.tensor(data,dtype=self._torch_dtype,device=self._torch_device)
+
     def _debug(self):
         
         if self._use_gpu:
@@ -336,6 +380,7 @@ class Gymnasium2LRHCEnv():
 if __name__ == "__main__":  
 
     from lrhc_control.training_algs.sac.sac import SAC
+    from lrhc_control.training_algs.ppo.ppo import PPO
     from lrhc_control.utils.wrappers.env_transform_utils import DtypeObservation
 
     import gymnasium as gym
@@ -361,9 +406,18 @@ if __name__ == "__main__":
     parser.add_argument('--ns', type=str, help='Namespace to be used for shared memory', default="Gymnasium2LRHCEnv")
     parser.add_argument('--num_envs', type=int, help='seed', default=3)
 
+    parser.add_argument('--render', action=argparse.BooleanOptionalAction, default=False, help='Whether to render environemnt')
+
     args = parser.parse_args()
 
-    env = gym.make_vec('InvertedPendulum-v4', num_envs=args.num_envs)
+    render_mode = "human" if args.render else None
+    env = gym.vector.make('InvertedPendulum-v4', 
+                    num_envs=args.num_envs,
+                    asynchronous=True,
+                    render_mode=render_mode)
+                    # shared_memory=True,
+                    # context="fork",
+                    # daemon=True) # gym.make_vec is broken (pipes issue)
     
     env = DtypeObservation(env, dtype=np.float32) # converting to dtype
 
@@ -372,12 +426,18 @@ if __name__ == "__main__":
                         verbose=True,
                         vlevel=VLevel.V2,
                         debug=args.env_db,
-                        use_gpu=not args.use_cpu)
-
+                        use_gpu=not args.use_cpu,
+                        render=args.render,
+                        seed=args.seed)
     algo = SAC(env=env_wrapper, 
             debug=args.db, 
             remote_db=args.rmdb,
             seed=args.seed)
+    # algo = PPO(env=env_wrapper, 
+    #         debug=args.db, 
+    #         remote_db=args.rmdb,
+    #         seed=args.seed)
+    
     algo.setup(run_name=args.run_name, 
         verbose=True,
         drop_dir_name=args.drop_dir,
