@@ -109,11 +109,11 @@ class CriticQ(nn.Module):
         size_internal_layer = 256
     
         self._q_net = nn.Sequential(
-            nn.Linear(self._q_net_dim, size_internal_layer,device=self._torch_device, dtype=self._torch_dtype),
+            self._layer_init(layer=nn.Linear(self._q_net_dim, size_internal_layer), device=self._torch_device,dtype=self._torch_dtype),
             nn.ReLU(),
-            nn.Linear(size_internal_layer, size_internal_layer,device=self._torch_device, dtype=self._torch_dtype),
+            self._layer_init(layer=nn.Linear(size_internal_layer, size_internal_layer), device=self._torch_device,dtype=self._torch_dtype),
             nn.ReLU(),
-            nn.Linear(size_internal_layer, 1,device=self._torch_device, dtype=self._torch_dtype),
+            self._layer_init(layer=nn.Linear(size_internal_layer, 1), device=self._torch_device,dtype=self._torch_dtype),
         )
         self._q_net.type(self._torch_dtype) # ensuring compatible dtypes
 
@@ -198,13 +198,13 @@ class Actor(nn.Module):
         self.LOG_STD_MIN = -5
 
         self._fc12 = nn.Sequential(
-            nn.Linear(self._obs_dim, size_internal_layer,device=self._torch_device, dtype=self._torch_dtype),
+            self._layer_init(layer=nn.Linear(self._obs_dim, size_internal_layer), device=self._torch_device,dtype=self._torch_dtype),
             nn.ReLU(),
-            nn.Linear(size_internal_layer, size_internal_layer,device=self._torch_device, dtype=self._torch_dtype),
+            self._layer_init(layer=nn.Linear(size_internal_layer, size_internal_layer), device=self._torch_device,dtype=self._torch_dtype),
             nn.ReLU()
         )
-        self.fc_mean = nn.Linear(size_internal_layer, self._actions_dim,device=self._torch_device,dtype=self._torch_dtype)
-        self.fc_logstd = nn.Linear(size_internal_layer, self._actions_dim,device=self._torch_device,dtype=self._torch_dtype)
+        self.fc_mean = self._layer_init(layer=nn.Linear(size_internal_layer, self._actions_dim), device=self._torch_device,dtype=self._torch_dtype)
+        self.fc_logstd = self._layer_init(layer=nn.Linear(size_internal_layer, self._actions_dim), device=self._torch_device,dtype=self._torch_dtype)
 
         # ensuring correct dtypes
         self._fc12.type(self._torch_dtype)
