@@ -57,7 +57,7 @@ class ActorCriticAlgoBase():
         self._custom_env_data_db_dict = {}
         self._hyperparameters = {}
         
-        self._episodic_reward_getter = self._env.ep_reward_getter()
+        self._episodic_reward_getter = self._env.ep_rewards_metrics()
         
         self._init_params()
         
@@ -212,7 +212,7 @@ class ActorCriticAlgoBase():
 
         # annealing the learning rate if enabled (may improve convergence)
         if self._anneal_lr:
-            frac = 1.0 - (self._it_counter - 1.0) / self._iterations_n
+            frac = 1.0 - (self._it_counter) / self._iterations_n
             self._lr_now_actor = frac * self._base_lr_actor
             self._lr_now_critic = frac * self._base_lr_critic
             self._optimizer.param_groups[0]["lr"] = self._lr_now_actor
@@ -514,7 +514,7 @@ class ActorCriticAlgoBase():
             (self._vec_transition_counter % self._m_checkpoint_freq == 0):
             self._save_model(is_checkpoint=True)
 
-        if self._it_counter==self._iterations_n:
+        if self._vec_transition_counter==self._total_timesteps_vec:
             self.done()
             
     def _should_have_called_setup(self):
@@ -770,7 +770,7 @@ class ActorCriticAlgoBase():
         self._torch_deterministic = True
 
         # policy rollout and return comp./adv estimation
-        self._total_timesteps = int(1e6) # total timesteps to be collected (including sub envs)
+        self._total_timesteps = int(20e6) # total timesteps to be collected (including sub envs)
         self._total_timesteps = self._total_timesteps//self._env_n_action_reps # correct with n of action reps
         
         self._rollout_timesteps = 2048 # numer of vectorized steps (does not include env substepping) 

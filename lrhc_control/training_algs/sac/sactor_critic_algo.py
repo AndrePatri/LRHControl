@@ -57,7 +57,7 @@ class SActorCriticAlgoBase():
         self._custom_env_data_db_dict = {}
         self._hyperparameters = {}
         
-        self._episodic_reward_getter = self._env.ep_reward_getter()
+        self._episodic_reward_getter = self._env.ep_rewards_metrics()
         
         self._init_params()
         
@@ -498,10 +498,11 @@ class SActorCriticAlgoBase():
 
             if self._remote_db: 
                 # write general algo debug info to shared memory    
-                info_names=["current_ppo_iteration", 
+                info_names=["log_iteration", 
                     "n_of_performed_policy_updates",
                     "n_of_played_episodes", 
                     "n_of_timesteps_done",
+                    "policy_update_dt",
                     "env_step_fps",
                     "env_step_rt_factor",
                     "policy_improv_fps",
@@ -668,7 +669,7 @@ class SActorCriticAlgoBase():
 
         # main algo settings
         self._replay_bf_full = False
-        self._warmstart_timesteps = int(5e3)
+        self._warmstart_timesteps = int(5e6)
         self._warmstart_vectimesteps = round(self._warmstart_timesteps/self._num_envs)
 
         self._replay_buffer_size_nominal = int(1e6) # 32768

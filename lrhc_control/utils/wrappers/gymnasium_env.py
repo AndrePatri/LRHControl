@@ -38,16 +38,16 @@ class Gymnasium2LRHCEnv():
         }
 
         self._env = gymnasium_env
-        
+
+        self._action_repeat = self._env.get_attr(name="frame_skip")[0]
+
         self._seed = seed
 
         self._render = render
         # self._env.render_mode = "human" if self._render else None
 
         self._namespace = namespace
-        self._action_repeat = 1
-        if self._action_repeat <=0: 
-            self._action_repeat = 1
+        
 
         self._with_gpu_mirror = True
         self._safe_shared_mem = False
@@ -89,8 +89,9 @@ class Gymnasium2LRHCEnv():
         self.custom_db_data = {}
         self.custom_db_info = {}
 
-        self._episodic_rewards_getter = None
-        self._episode_duration_ub = 100
+        self._episodic_rewards_metrics = None
+
+        self._episode_duration_ub = 1
 
         self._episode_timeout_lb = self._episode_duration_ub
         self._episode_timeout_ub = self._episode_duration_ub
@@ -211,16 +212,15 @@ class Gymnasium2LRHCEnv():
         self._truncations.run()
         self._terminations.run()
         
-        self._episodic_rewards_getter = EpisodicRewards(reward_tensor=self._tot_rewards.get_torch_mirror(),
-                                        reward_names=["total_reward"],
-                                        max_episode_length=self._episode_duration_ub)
-        self._episodic_rewards_getter.set_constant_data_scaling(scaling=self._episode_duration_ub)
+        self._episodic_rewards_metrics = EpisodicRewards(reward_tensor=self._tot_rewards.get_torch_mirror(),
+                                        reward_names=["total_reward"])
+        self._episodic_rewards_metrics.set_constant_data_scaling(scaling=1)
     
     def gym_env(self):
         return self._env
     
-    def ep_reward_getter(self):
-        return self._episodic_rewards_getter
+    def ep_rewards_metrics(self):
+        return self._episodic_rewards_metrics
     
     def dtype(self):
         return self._torch_dtype 
@@ -374,7 +374,7 @@ class Gymnasium2LRHCEnv():
             episode_finished_cpu = episode_finished.cpu()
             self._debug() # copies db data on shared memory
             self._update_custom_db_data(episode_finished=episode_finished_cpu)
-            self._episodic_rewards_getter.update(rewards = self._tot_rewards.get_torch_mirror(gpu=False),
+            self._episodic_rewards_metrics.update(rewards = self._tot_rewards.get_torch_mirror(gpu=False),
                             ep_finished=episode_finished_cpu)
 
 if __name__ == "__main__":  
@@ -411,7 +411,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     render_mode = "human" if args.render else None
-    env = gym.vector.make('InvertedPendulum-v4', 
+    env = gym.vector.make('Humanoid-v4', 
                     num_envs=args.num_envs,
                     asynchronous=True,
                     render_mode=render_mode)
@@ -420,7 +420,6 @@ if __name__ == "__main__":
                     # daemon=True) # gym.make_vec is broken (pipes issue)
     
     env = DtypeObservation(env, dtype=np.float32) # converting to dtype
-
     env_wrapper = Gymnasium2LRHCEnv(gymnasium_env=env,
                         namespace=args.ns,
                         verbose=True,
@@ -429,14 +428,14 @@ if __name__ == "__main__":
                         use_gpu=not args.use_cpu,
                         render=args.render,
                         seed=args.seed)
-    algo = SAC(env=env_wrapper, 
-            debug=args.db, 
-            remote_db=args.rmdb,
-            seed=args.seed)
-    # algo = PPO(env=env_wrapper, 
+    # algo = SAC(env=env_wrapper, 
     #         debug=args.db, 
     #         remote_db=args.rmdb,
     #         seed=args.seed)
+    algo = PPO(env=env_wrapper, 
+            debug=args.db, 
+            remote_db=args.rmdb,
+            seed=args.seed)
     
     algo.setup(run_name=args.run_name, 
         verbose=True,

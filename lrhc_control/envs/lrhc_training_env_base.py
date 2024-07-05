@@ -122,7 +122,7 @@ class LRhcTrainingEnvBase():
         self._terminations = None
         self._truncations = None
 
-        self._episodic_rewards_getter = None
+        self._episodic_rewards_metrics = None
         
         self._timeout = timeout_ms
 
@@ -313,7 +313,7 @@ class LRhcTrainingEnvBase():
             episode_finished_cpu = episode_finished.cpu()
             self._debug() # copies db data on shared memory
             self._update_custom_db_data(episode_finished=episode_finished_cpu)
-            self._episodic_rewards_getter.update(rewards = self._rewards.get_torch_mirror(gpu=False),
+            self._episodic_rewards_metrics.update(rewards = self._rewards.get_torch_mirror(gpu=False),
                             ep_finished=episode_finished_cpu)
             
         
@@ -435,9 +435,9 @@ class LRhcTrainingEnvBase():
 
         return self._actions_dim
     
-    def ep_reward_getter(self):
+    def ep_rewards_metrics(self):
 
-        return self._episodic_rewards_getter
+        return self._episodic_rewards_metrics
     
     def using_gpu(self):
 
@@ -566,7 +566,7 @@ class LRhcTrainingEnvBase():
         self._rewards.run()
         self._tot_rewards.run()
 
-        self._episodic_rewards_getter = EpisodicRewards(reward_tensor=self._rewards.get_torch_mirror(),
+        self._episodic_rewards_metrics = EpisodicRewards(reward_tensor=self._rewards.get_torch_mirror(),
                                         reward_names=self._get_rewards_names(),
                                         max_episode_length=self._episode_timeout_ub)
         self._set_ep_rewards_scaling(scaling=self._n_steps_task_rand_ub)
@@ -574,7 +574,7 @@ class LRhcTrainingEnvBase():
     def _set_ep_rewards_scaling(self,
                         scaling: int):
         
-        self._episodic_rewards_getter.set_constant_data_scaling(scaling=scaling)
+        self._episodic_rewards_metrics.set_constant_data_scaling(scaling=scaling)
         
     def _init_infos(self):
 
