@@ -376,6 +376,9 @@ class LRhcTrainingEnvBase():
         self._clip_obs(obs) # to avoid bad things
         self._clip_obs(next_obs)
 
+        self.reset_custom_db_data(keep_track=False)
+        self._episodic_rewards_metrics.reset(keep_track=False)
+
     def close(self):
         
         if not self._closed:

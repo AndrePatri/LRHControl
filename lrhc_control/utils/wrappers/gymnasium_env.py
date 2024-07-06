@@ -314,7 +314,8 @@ class Gymnasium2LRHCEnv():
         obs, _ = self._env.reset(seed=self._seed)
         self._to_torch(data=obs,output=self.get_obs())
 
-        # fill obs from gymansium env
+        self.reset_custom_db_data(keep_track=False)
+        self._episodic_rewards_metrics.reset(keep_track=False)
 
     def step(self, 
             action):
@@ -423,7 +424,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     render_mode = "human" if args.render else None
-    env_type = 'InvertedPendulum-v4'
+    env_type = 'Humanoid-v4'
 
     env_wrapper = Gymnasium2LRHCEnv(env_type=env_type,
                         namespace=args.ns,
