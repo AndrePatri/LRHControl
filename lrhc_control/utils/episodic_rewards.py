@@ -24,7 +24,10 @@ class EpisodicRewards(EpisodicData):
                     fill_value=scaling,
                     dtype=torch.int32,device="cpu") # reward metrics are scaled using
         super().set_constant_data_scaling(enable=True,scaling=scaling)
-        
+    
+    def enable_timestep_scaling(self):
+        super().set_constant_data_scaling(enable=False)
+
     def update(self, 
         rewards: torch.Tensor,
         ep_finished: torch.Tensor):
@@ -33,18 +36,6 @@ class EpisodicRewards(EpisodicData):
 
     def reward_names(self):
         return self._data_names
-    
-    def get_rollout_avrg_reward(self):
-        return self.get_rollout_stat()
-
-    def get_rollout_reward_env_avrg(self):
-        return self.get_rollout_stat_env_avrg()
-    
-    def get_rollout_avrg_total_reward(self):
-        return self.get_rollout_stat_comp()
-            
-    def get_rollout_avrg_total_reward_env_avrg(self):
-        return self.get_rollout_stat_comp_env_avrg()
 
 class EpisodicRewardsOld():
 
@@ -130,11 +121,11 @@ class EpisodicRewardsOld():
 
         return self._reward_names
     
-    def step_countersself):
+    def step_counters(self):
 
         return self._steps_counter
     
-    def get_rollout_avrg_reward(self, 
+    def get_sub_avrg_over_eps(self, 
             average: bool = True):
     
         # average reward over the performed episodes for each env
@@ -145,7 +136,7 @@ class EpisodicRewardsOld():
         else:
             return self._avrg_episodic_return
 
-    def get_rollout_reward_env_avrg(self,
+    def get_sub_env_avrg_over_eps(self,
                 average: bool = True):
 
         return torch.sum(self.get(average=average), dim=0, keepdim=True)/self._n_envs
@@ -205,13 +196,13 @@ if __name__ == "__main__":
                 ep_finished=ep_finished)
 
     print("get_rollout_stat:")
-    print(reward_data.get_rollout_avrg_reward())
+    print(reward_data.get_sub_avrg_over_eps())
 
     print("get_rollout_stat_env_avrg:")
-    print(reward_data.get_rollout_reward_env_avrg())
+    print(reward_data.get_sub_env_avrg_over_eps())
 
     print("get_rollout_stat_comp:")
-    print(reward_data.get_rollout_avrg_total_reward())
+    print(reward_data.get_avrg_over_eps())
 
     print("get_rollout_stat_comp_env_avrg:")
-    print(reward_data.get_rollout_avrg_total_reward_env_avrg())
+    print(reward_data.get_tot_avrg())

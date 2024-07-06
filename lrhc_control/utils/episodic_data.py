@@ -71,21 +71,20 @@ class EpisodicData():
     def _init_data(self):
         
         # undiscounted sum of each env, during a single episode
-        self._episodic_sum = torch.full(size=(self._n_envs, self._data_size), 
+        self._current_ep_sum = torch.full(size=(self._n_envs, self._data_size), 
                                     fill_value=0.0,
                                     dtype=torch.float32, device="cpu") # we don't need it on GPU
-        
         # avrg data of each env, during a single episode, over the number of transitions
-        self._episodic_avrg = torch.full(size=(self._n_envs, self._data_size), 
+        self._current_ep_sum_scaled = torch.full(size=(self._n_envs, self._data_size), 
                                     fill_value=0.0,
                                     dtype=torch.float32, device="cpu")
         
         # avrg data of each env, over all the ALREADY played episodes.
-        self._rollout_sum = torch.full(size=(self._n_envs, self._data_size), 
+        self._tot_sum_up_to_now = torch.full(size=(self._n_envs, self._data_size), 
                                     fill_value=0.0,
                                     dtype=torch.float32, device="cpu")
         # avrg over n of episodes (including the current one)
-        self._rollout_sum_avrg = torch.full(size=(self._n_envs, self._data_size), 
+        self._average_over_eps = torch.full(size=(self._n_envs, self._data_size), 
                                     fill_value=0.0,
                                     dtype=torch.float32, device="cpu")
         # current episode index
@@ -94,7 +93,7 @@ class EpisodicData():
                                     dtype=torch.int32, device="cpu")
         # current ste counter (within this episode)
         self._steps_counter = torch.full(size=(self._n_envs, 1), 
-                                    fill_value=1,
+                                    fill_value=0,
                                     dtype=torch.int32, device="cpu")
 
         self._scale_now = torch.full(size=(self._n_envs, 1), 
@@ -106,14 +105,19 @@ class EpisodicData():
                                     fill_value=1,
                                     dtype=torch.int32, device="cpu") # default to scaling 1
         
-    def reset(self):
-        # reset all data
-        self._episodic_sum.zero_()
-        self._episodic_avrg.zero_()
-        self._rollout_sum.zero_()
-        self._rollout_sum_avrg.zero_()
+    def reset(self,
+            keep_track: bool = False):
+
+        if not keep_track: # if not, we propagate ep sum and steps 
+            # from before this reset call 
+            self._current_ep_sum.zero_()
+            self._steps_counter.zero_()
+            
+        self._current_ep_sum_scaled.zero_()
+        self._tot_sum_up_to_now.zero_()
+        self._average_over_eps.zero_()
         self._current_ep_idx.fill_(1)
-        self._steps_counter.fill_(1)
+        
         self._scale_now.fill_(1)
 
     def update(self, 
@@ -150,22 +154,25 @@ class EpisodicData():
                 throw_when_excep=True)
         
         if not self._use_constant_scaling:
-            self._scale_now[:, :] = self._steps_counter # use current n of timesteps as scale 
+            self._scale_now[:, :] = self._steps_counter+1 # use current n of timesteps as scale 
         else:
             self._scale_now[:, :] = self._scaling # constant scaling
 
-        self._episodic_sum[:, :] = self._episodic_sum + new_data # sum over the current episode
-        self._episodic_avrg[:, :] = self._episodic_sum[:, :] / self._scale_now[:, :] # average bover the played timesteps
+        self._current_ep_sum[:, :] = self._current_ep_sum + new_data # sum over the current episode
+        self._current_ep_sum_scaled[:, :] = self._current_ep_sum[:, :] / self._scale_now[:, :] # average bover the played timesteps
         
-        self._rollout_sum_avrg[:, :] = (self._rollout_sum + self._episodic_avrg) / self._current_ep_idx[:, :] # average sum over episodes (including current)
-        self._rollout_sum[ep_finished.flatten(), :] += self._episodic_avrg[ep_finished.flatten(), :] # sum over ALREADY played episodes
+        self._tot_sum_up_to_now[ep_finished.flatten(), :] += self._current_ep_sum_scaled[ep_finished.flatten(), :]
 
-        self._episodic_sum[ep_finished.flatten(), :] = 0 # if finished, reset (undiscounted) ep data
+        self._average_over_eps[ep_finished.flatten(), :] = \
+            (self._tot_sum_up_to_now[ep_finished.flatten(), :]) / \
+                self._current_ep_idx[ep_finished.flatten(), :] 
+        
+        self._current_ep_sum[ep_finished.flatten(), :] = 0 # if finished, reset current sum
 
         # increment counters
-        self._current_ep_idx[ep_finished.flatten(), 0] = self._current_ep_idx[ep_finished.flatten(), 0] + 1 # an episode has been played
+        self._current_ep_idx[ep_finished.flatten(), 0] += 1 # an episode has been played
         self._steps_counter[~ep_finished.flatten(), :] +=1 # step performed
-        self._steps_counter[ep_finished.flatten(), :] = 1 # reset step counters
+        self._steps_counter[ep_finished.flatten(), :] =0 # reset step counters
 
     def data_names(self):
         return self._data_names
@@ -173,17 +180,17 @@ class EpisodicData():
     def step_counters(self):
         return self._steps_counter
     
-    def get_rollout_stat(self):
-        return self._rollout_sum_avrg
+    def get_sub_avrg_over_eps(self):
+        return self._average_over_eps
 
-    def get_rollout_stat_env_avrg(self):
-        return torch.sum(self.get_rollout_stat(), dim=0, keepdim=True)/self._n_envs
+    def get_sub_env_avrg_over_eps(self):
+        return torch.sum(self.get_sub_avrg_over_eps(), dim=0, keepdim=True)/self._n_envs
     
-    def get_rollout_stat_comp(self):
-        return torch.sum(self._rollout_sum_avrg, dim=1, keepdim=True)
+    def get_avrg_over_eps(self):
+        return torch.sum(self._average_over_eps, dim=1, keepdim=True)
             
-    def get_rollout_stat_comp_env_avrg(self):
-        return torch.sum(self.get_rollout_stat_comp(), dim=0, keepdim=True)/self._n_envs
+    def get_tot_avrg(self):
+        return torch.sum(self.get_avrg_over_eps(), dim=0, keepdim=True)/self._n_envs
 
     def get_n_played_episodes(self):
         return torch.sum(self._current_ep_idx).item()
@@ -209,74 +216,79 @@ if __name__ == "__main__":
     test_data.reset()
     ep_finished[:, :] = False
     new_data[0, 0] = 1
-    new_data[0, 1] = 2
-    new_data[0, 2] = 3
+    new_data[0, 1] = 1
+    new_data[0, 2] = 1
 
-    test_data.update(new_data=new_data,
-                ep_finished=ep_finished)
-
-    ep_finished[:, :] = False
-    new_data+=1 
-
-    test_data.update(new_data=new_data,
-                ep_finished=ep_finished)
+    for i in range(10):
+        if i == 9:
+            ep_finished[:, :] = True
+        test_data.update(new_data=new_data,
+                    ep_finished=ep_finished)
     
     ep_finished[:, :] = False
-    new_data+=1 
+    for i in range(5):
+        # if i == 4:
+            # ep_finished[:, :] = True
+        test_data.update(new_data=new_data,
+                    ep_finished=ep_finished)
 
-    test_data.update(new_data=new_data,
-                ep_finished=ep_finished)
-
+    test_data.reset(keep_track=False)
     
+    for i in range(5):
+        if i == 4:
+            ep_finished[:, :] = True
+        test_data.update(new_data=new_data,
+                    ep_finished=ep_finished)
+        
     print("get_rollout_stat:")
-    print(test_data.get_rollout_stat())
+    print(test_data.get_sub_avrg_over_eps())
 
     print("get_rollout_stat_env_avrg:")
-    print(test_data.get_rollout_stat_env_avrg())
+    print(test_data.get_sub_env_avrg_over_eps())
 
     print("get_rollout_stat_comp:")
-    print(test_data.get_rollout_stat_comp())
+    print(test_data.get_avrg_over_eps())
 
     print("get_rollout_stat_comp_env_avrg:")
-    print(test_data.get_rollout_stat_comp_env_avrg())
+    print(test_data.get_tot_avrg())
 
     # with adaptive scaling
     print("###### ADAPTIVE SCALING #######")
-    test_data.set_constant_data_scaling(enable=False,
-                scaling=None)
-    test_data.reset()
-    ep_finished[:, :] = False
-    new_data[0, 0] = 1
-    new_data[0, 1] = 2
-    new_data[0, 2] = 3
+    # test_data.set_constant_data_scaling(enable=False,
+    #             scaling=None)
+    # test_data.reset()
+    # ep_finished[:, :] = False
+    # new_data[0, 0] = 1
+    # new_data[0, 1] = 2
+    # new_data[0, 2] = 3
 
-    test_data.update(new_data=new_data,
-                ep_finished=ep_finished)
+    # test_data.update(new_data=new_data,
+    #             ep_finished=ep_finished)
 
-    ep_finished[:, :] = False
-    new_data+=1 
+    # ep_finished[:, :] = False
+    # new_data+=1 
 
-    test_data.update(new_data=new_data,
-                ep_finished=ep_finished)
+    # test_data.update(new_data=new_data,
+    #             ep_finished=ep_finished)
     
-    ep_finished[:, :] = False
-    new_data+=1 
+    # ep_finished[:, :] = False
+    # new_data+=1 
 
-    test_data.update(new_data=new_data,
-                ep_finished=ep_finished)
+    # test_data.update(new_data=new_data,
+    #             ep_finished=ep_finished)
 
     
-    print("get_rollout_stat:")
-    print(test_data.get_rollout_stat())
+    # print("get_rollout_stat:")
+    # print(test_data.get_sub_avrg_over_eps())
 
-    print("get_rollout_stat_env_avrg:")
-    print(test_data.get_rollout_stat_env_avrg())
+    # print("get_rollout_stat_env_avrg:")
+    # print(test_data.get_sub_env_avrg_over_eps())
 
-    print("get_rollout_stat_comp:")
-    print(test_data.get_rollout_stat_comp())
+    # print("get_rollout_stat_comp:")
+    # print(test_data.get_avrg_over_eps())
 
-    print("get_rollout_stat_comp_env_avrg:")
-    print(test_data.get_rollout_stat_comp_env_avrg())
+    # print("get_rollout_stat_comp_env_avrg:")
+    # print(test_data.get_tot_avrg())
 
-    print("get_rollout_stat_comp_env_avrg:")
-    print(test_data.get_rollout_stat_comp_env_avrg())
+    # print("get_rollout_stat_comp_env_avrg:")
+    # print(test_data.get_tot_avrg())

@@ -14,17 +14,22 @@ from SharsorIPCpp.PySharsorIPC import dtype as sharsor_dtype
 import torch
 import numpy  as np
 
+import gymnasium as gym
+from lrhc_control.utils.wrappers.env_transform_utils import DtypeObservation
+
 class Gymnasium2LRHCEnv():
 
     def __init__(self,
-            gymnasium_env,
+            env_type: str,
             namespace: str = "Gymnasium2LRHCEnv",
             verbose: bool = False,
             vlevel: VLevel = VLevel.V1,
             debug: bool = True,
             use_gpu: bool = True,
             render: bool = False,
-            seed: int = 1):
+            seed: int = 1,
+            gym_env_dtype: str = np.float32,
+            handle_terminal_obs: bool = True):
         
         # dtype mapping dictionary
         self._dtype_mapping = {
@@ -37,18 +42,27 @@ class Gymnasium2LRHCEnv():
             torch.float64: sharsor_dtype.Double
         }
 
-        self._env = gymnasium_env
+        self._render = render
+        self._render_mode = "human" if self._render else None
+
+        self._handle_terminal_obs = handle_terminal_obs
+
+        self._env_type = env_type
+        self._env = gym.vector.make(env_type, 
+                    num_envs=args.num_envs,
+                    asynchronous=True,
+                    render_mode=self._render_mode)
+                    # shared_memory=True,
+                    # context="fork",
+                    # daemon=True) # gym.make_vec is broken (pipes issue)
+        # self._env = DtypeObservation(self._env, dtype=gym_env_dtype) # converting to dtype
 
         self._action_repeat = self._env.get_attr(name="frame_skip")[0]
 
         self._seed = seed
 
-        self._render = render
-        # self._env.render_mode = "human" if self._render else None
-
         self._namespace = namespace
         
-
         self._with_gpu_mirror = True
         self._safe_shared_mem = False
         
@@ -215,7 +229,7 @@ class Gymnasium2LRHCEnv():
         self._episodic_rewards_metrics = EpisodicRewards(reward_tensor=self._tot_rewards.get_torch_mirror(),
                                         reward_names=["total_reward"])
         self._episodic_rewards_metrics.set_constant_data_scaling(scaling=1)
-    
+
     def gym_env(self):
         return self._env
     
@@ -328,7 +342,7 @@ class Gymnasium2LRHCEnv():
         self._to_torch(data=terminations.reshape(-1, 1),output=self.get_terminations())
         self._to_torch(data=truncations.reshape(-1, 1),output=self.get_truncations())
         # handle terminations (next obs have to be the )
-        if "final_observation" in infos:  # some sub-envs have terminated
+        if self._handle_terminal_obs and ("final_observation" in infos):  # some sub-envs have terminated
             terminal_obs = np.full_like(observations[terminations, :], 0.0)
             for env_idx in range(infos["final_observation"][terminations].size):
                 terminal_obs[env_idx, :] = infos["final_observation"][terminations][env_idx]
@@ -360,10 +374,10 @@ class Gymnasium2LRHCEnv():
                     episode_finished):
         pass
     
-    def reset_custom_db_data(self):
+    def reset_custom_db_data(self, keep_track: bool = True):
         # to be called periodically to reset custom db data stat. collection 
         for custom_db_data in self.custom_db_data.values():
-            custom_db_data.reset()
+            custom_db_data.reset(keep_track=keep_track)
 
     def post_step(self):
         if self._is_debug:
@@ -381,9 +395,6 @@ if __name__ == "__main__":
 
     from lrhc_control.training_algs.sac.sac import SAC
     from lrhc_control.training_algs.ppo.ppo import PPO
-    from lrhc_control.utils.wrappers.env_transform_utils import DtypeObservation
-
-    import gymnasium as gym
 
     import argparse
     parser = argparse.ArgumentParser(description="Set CPU affinity for the script.")
@@ -407,27 +418,23 @@ if __name__ == "__main__":
     parser.add_argument('--num_envs', type=int, help='seed', default=3)
 
     parser.add_argument('--render', action=argparse.BooleanOptionalAction, default=False, help='Whether to render environemnt')
+    parser.add_argument('--handle_term_obs', action=argparse.BooleanOptionalAction, default=True, help='Whether to handle terminal obs properly')
 
     args = parser.parse_args()
 
     render_mode = "human" if args.render else None
-    env = gym.vector.make('Humanoid-v4', 
-                    num_envs=args.num_envs,
-                    asynchronous=True,
-                    render_mode=render_mode)
-                    # shared_memory=True,
-                    # context="fork",
-                    # daemon=True) # gym.make_vec is broken (pipes issue)
-    
-    env = DtypeObservation(env, dtype=np.float32) # converting to dtype
-    env_wrapper = Gymnasium2LRHCEnv(gymnasium_env=env,
+    env_type = 'InvertedPendulum-v4'
+
+    env_wrapper = Gymnasium2LRHCEnv(env_type=env_type,
                         namespace=args.ns,
                         verbose=True,
                         vlevel=VLevel.V2,
                         debug=args.env_db,
                         use_gpu=not args.use_cpu,
                         render=args.render,
-                        seed=args.seed)
+                        seed=args.seed,
+                        gym_env_dtype=np.float32,
+                        handle_terminal_obs=args.handle_term_obs)
     # algo = SAC(env=env_wrapper, 
     #         debug=args.db, 
     #         remote_db=args.rmdb,
@@ -440,7 +447,7 @@ if __name__ == "__main__":
     algo.setup(run_name=args.run_name, 
         verbose=True,
         drop_dir_name=args.drop_dir,
-        custom_args = {},
+        custom_args = {"gymansium_env_type": env_type},
         comment=args.comment,
         eval=args.eval,
         model_path=args.mpath,

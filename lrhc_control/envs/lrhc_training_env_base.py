@@ -329,10 +329,10 @@ class LRhcTrainingEnvBase():
         
         self._get_custom_db_data(episode_finished=episode_finished)
 
-    def reset_custom_db_data(self):
+    def reset_custom_db_data(self, keep_track: bool = True):
         # to be called periodically to reset custom db data stat. collection 
         for custom_db_data in self.custom_db_data.values():
-            custom_db_data.reset()
+            custom_db_data.reset(keep_track=keep_track)
 
     def _assemble_rewards(self):
 

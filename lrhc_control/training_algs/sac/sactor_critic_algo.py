@@ -57,7 +57,7 @@ class SActorCriticAlgoBase():
         self._custom_env_data_db_dict = {}
         self._hyperparameters = {}
         
-        self._episodic_reward_getter = self._env.ep_rewards_metrics()
+        self._episodic_reward_metrics = self._env.ep_rewards_metrics()
         
         self._init_params()
         
@@ -427,7 +427,7 @@ class SActorCriticAlgoBase():
             if "control_clust_dt" in self._hyperparameters:
                 self._env_step_rt_factor[self._log_it_counter] = self._env_step_fps[self._log_it_counter] * self._hyperparameters["control_clust_dt"]
 
-            self._n_of_played_episodes[self._log_it_counter] = self._episodic_reward_getter.get_n_played_episodes()
+            self._n_of_played_episodes[self._log_it_counter] = self._episodic_reward_metrics.get_n_played_episodes()
             self._n_timesteps_done[self._log_it_counter] = self._vec_transition_counter * self._db_vecstep_frequency
 
             self._n_policy_updates[self._log_it_counter] = self._vec_transition_counter*self._policy_freq
@@ -437,21 +437,21 @@ class SActorCriticAlgoBase():
             self._elapsed_min[self._log_it_counter] = (time.perf_counter() - self._start_time_tot) / 60
         
             # we get some episodic reward metrics
-            self._episodic_rewards[self._log_it_counter, :, :] = self._episodic_reward_getter.get_rollout_avrg_total_reward() # total ep. rewards across envs
-            self._episodic_rewards_env_avrg[self._log_it_counter, :, :] = self._episodic_reward_getter.get_rollout_avrg_total_reward_env_avrg() # tot, avrg over envs
-            self._episodic_sub_rewards[self._log_it_counter, :, :] = self._episodic_reward_getter.get_rollout_avrg_reward() # sub-episodic rewards across envs
-            self._episodic_sub_rewards_env_avrg[self._log_it_counter, :, :] = self._episodic_reward_getter.get_rollout_reward_env_avrg() # avrg over envs
-            self._episodic_reward_getter.reset() # necessary, we don't want to accumulate 
+            self._episodic_rewards[self._log_it_counter, :, :] = self._episodic_reward_metrics.get_avrg_over_eps() # total ep. rewards across envs
+            self._episodic_rewards_env_avrg[self._log_it_counter, :, :] = self._episodic_reward_metrics.get_tot_avrg() # tot, avrg over envs
+            self._episodic_sub_rewards[self._log_it_counter, :, :] = self._episodic_reward_metrics.get_sub_avrg_over_eps() # sub-episodic rewards across envs
+            self._episodic_sub_rewards_env_avrg[self._log_it_counter, :, :] = self._episodic_reward_metrics.get_sub_env_avrg_over_eps() # avrg over envs
+            self._episodic_reward_metrics.reset(keep_track=True) # necessary, we don't want to accumulate 
             # debug rewards from previous db iterations
 
             # fill env custom db metrics
             db_data_names = list(self._env.custom_db_data.keys())
             for dbdatan in db_data_names:
-                self._custom_env_data[dbdatan]["rollout_stat"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat()
-                self._custom_env_data[dbdatan]["rollout_stat_env_avrg"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat_env_avrg()
-                self._custom_env_data[dbdatan]["rollout_stat_comp"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat_comp()
-                self._custom_env_data[dbdatan]["rollout_stat_comp_env_avrg"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_rollout_stat_comp_env_avrg()
-            self._env.reset_custom_db_data() # reset custom db stats for this iteration
+                self._custom_env_data[dbdatan]["rollout_stat"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_sub_avrg_over_eps()
+                self._custom_env_data[dbdatan]["rollout_stat_env_avrg"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_sub_env_avrg_over_eps()
+                self._custom_env_data[dbdatan]["rollout_stat_comp"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_avrg_over_eps()
+                self._custom_env_data[dbdatan]["rollout_stat_comp_env_avrg"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_tot_avrg()
+            self._env.reset_custom_db_data(keep_track=True) # reset custom db stats for this iteration
 
             # other data
             if self._agent.running_norm is not None:
@@ -586,11 +586,11 @@ class SActorCriticAlgoBase():
                     dtype=torch.float32, fill_value=0, device="cpu")
         
         # reward db data
-        tot_ep_rew_shape = self._episodic_reward_getter.get_rollout_avrg_total_reward().shape
-        tot_ep_rew_shape_env_avrg_shape = self._episodic_reward_getter.get_rollout_avrg_total_reward_env_avrg().shape
-        rollout_avrg_rew_shape = self._episodic_reward_getter.get_rollout_avrg_reward().shape
-        rollout_avrg_rew_env_avrg_shape = self._episodic_reward_getter.get_rollout_reward_env_avrg().shape
-        self._reward_names = self._episodic_reward_getter.reward_names()
+        tot_ep_rew_shape = self._episodic_reward_metrics.get_avrg_over_eps().shape
+        tot_ep_rew_shape_env_avrg_shape = self._episodic_reward_metrics.get_tot_avrg().shape
+        rollout_avrg_rew_shape = self._episodic_reward_metrics.get_sub_avrg_over_eps().shape
+        rollout_avrg_rew_env_avrg_shape = self._episodic_reward_metrics.get_sub_env_avrg_over_eps().shape
+        self._reward_names = self._episodic_reward_metrics.reward_names()
         self._reward_names_str = "[" + ', '.join(self._reward_names) + "]"
         self._episodic_rewards = torch.full((self._db_data_size, tot_ep_rew_shape[0], tot_ep_rew_shape[1]), 
                                         dtype=torch.float32, fill_value=0.0, device="cpu")
@@ -606,22 +606,22 @@ class SActorCriticAlgoBase():
         db_data_names = list(self._env.custom_db_data.keys())
         for dbdatan in db_data_names:
             self._custom_env_data[dbdatan] = {}
-            rollout_stat=self._env.custom_db_data[dbdatan].get_rollout_stat()
+            rollout_stat=self._env.custom_db_data[dbdatan].get_sub_avrg_over_eps()
             self._custom_env_data[dbdatan]["rollout_stat"] = torch.full((self._db_data_size, 
                                                                 rollout_stat.shape[0], 
                                                                 rollout_stat.shape[1]), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
-            rollout_stat_env_avrg=self._env.custom_db_data[dbdatan].get_rollout_stat_env_avrg()
+            rollout_stat_env_avrg=self._env.custom_db_data[dbdatan].get_sub_env_avrg_over_eps()
             self._custom_env_data[dbdatan]["rollout_stat_env_avrg"] = torch.full((self._db_data_size, 
                                                                         rollout_stat_env_avrg.shape[0], 
                                                                         rollout_stat_env_avrg.shape[1]), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
-            rollout_stat_comp=self._env.custom_db_data[dbdatan].get_rollout_stat_comp()
+            rollout_stat_comp=self._env.custom_db_data[dbdatan].get_avrg_over_eps()
             self._custom_env_data[dbdatan]["rollout_stat_comp"] = torch.full((self._db_data_size, 
                                                                     rollout_stat_comp.shape[0], 
                                                                     rollout_stat_comp.shape[1]), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
-            rollout_stat_comp_env_avrg=self._env.custom_db_data[dbdatan].get_rollout_stat_comp_env_avrg()
+            rollout_stat_comp_env_avrg=self._env.custom_db_data[dbdatan].get_tot_avrg()
             self._custom_env_data[dbdatan]["rollout_stat_comp_env_avrg"] = torch.full((self._db_data_size, rollout_stat_comp_env_avrg.shape[0], rollout_stat_comp_env_avrg.shape[1]), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
 
