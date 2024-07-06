@@ -321,6 +321,9 @@ class Gymnasium2LRHCEnv():
             action):
         
         stepping_ok = True
+        
+        actions = self._actions.get_torch_mirror(gpu=self._use_gpu)
+        actions[:, :] = action # writes actions
 
         # step gymnasium env using the given action
         actions = action.cpu().numpy()
@@ -359,17 +362,21 @@ class Gymnasium2LRHCEnv():
         output[:, :]=torch.tensor(data,dtype=self._torch_dtype,device=self._torch_device)
 
     def _debug(self):
-        
+
         if self._use_gpu:
             self._obs.synch_mirror(from_gpu=True) # copy data from gpu to cpu view
             self._next_obs.synch_mirror(from_gpu=True)
             self._actions.synch_mirror(from_gpu=True)
             self._tot_rewards.synch_mirror(from_gpu=True)
+            self._truncations.synch_mirror(from_gpu=True) 
+            self._terminations.synch_mirror(from_gpu=True) 
 
         self._obs.synch_all(read=False, retry=True) # copies data on CPU shared mem
         self._next_obs.synch_all(read=False, retry=True)
         self._actions.synch_all(read=False, retry=True) 
         self._tot_rewards.synch_all(read=False, retry=True)
+        self._truncations.synch_all(read=False, retry = True)
+        self._terminations.synch_all(read=False, retry = True)
 
     def _update_custom_db_data(self,
                     episode_finished):
@@ -424,7 +431,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     render_mode = "human" if args.render else None
-    env_type = 'Humanoid-v4'
+    env_type = 'InvertedPendulum-v4'
 
     env_wrapper = Gymnasium2LRHCEnv(env_type=env_type,
                         namespace=args.ns,
