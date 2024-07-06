@@ -130,7 +130,7 @@ class EpisodicRewardsOld():
 
         return self._reward_names
     
-    def step_idx(self):
+    def step_countersself):
 
         return self._steps_counter
     

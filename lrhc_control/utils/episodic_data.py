@@ -170,7 +170,7 @@ class EpisodicData():
     def data_names(self):
         return self._data_names
     
-    def step_idx(self):
+    def step_counters(self):
         return self._steps_counter
     
     def get_rollout_stat(self):
