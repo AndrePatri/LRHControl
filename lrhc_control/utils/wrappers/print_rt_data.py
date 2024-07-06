@@ -12,6 +12,8 @@ from SharsorIPCpp.PySharsorIPC import LogType
 from SharsorIPCpp.PySharsorIPC import Journal
 from SharsorIPCpp.PySharsorIPC import dtype as sharsor_dtype
 
+import torch
+
 if __name__ == "__main__":  
 
     import argparse
@@ -66,11 +68,11 @@ if __name__ == "__main__":
             term.synch_all(read=True, retry=True)
 
             print("observations:")
-            print(obs.get_torch_mirror(gpu=False)[idx, :])
+            print(torch.round(obs.get_torch_mirror(gpu=False)[idx, :], decimals=2))
             print("\nactions:")
-            print(act.get_torch_mirror(gpu=False)[idx, :])
+            print(torch.round(act.get_torch_mirror(gpu=False)[idx, :], decimals=2))
             print("\nrewards:")
-            print(trunc.get_torch_mirror(gpu=False)[idx, :])
+            print(torch.round(rew.get_torch_mirror(gpu=False)[idx, :], decimals=2))
             print("\nterminations:")
             print(term.get_torch_mirror(gpu=False)[idx, :])
             print("\ntruncations:")

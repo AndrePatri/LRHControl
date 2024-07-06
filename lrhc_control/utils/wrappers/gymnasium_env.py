@@ -431,7 +431,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     render_mode = "human" if args.render else None
-    env_type = 'InvertedPendulum-v4'
+    env_type = 'Pusher-v4'
 
     env_wrapper = Gymnasium2LRHCEnv(env_type=env_type,
                         namespace=args.ns,
