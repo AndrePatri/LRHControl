@@ -23,6 +23,7 @@ if __name__ == "__main__":
     parser.add_argument('--run_for_nominal', type=float, help='[s]]', default=10.0)
     parser.add_argument('--ns', type=str, help='', default="")
     parser.add_argument('--env_idx', type=int, help='', default=0)
+    parser.add_argument('--dtype', type=str, help='', default="float")
 
     args = parser.parse_args()
 
@@ -32,7 +33,10 @@ if __name__ == "__main__":
     idx=args.env_idx
     elapsed_tot_nom = 0
     
-    dtype=sharsor_dtype.Double
+    dtype=sharsor_dtype.Float
+    if args.dtype == "double":
+        dtype=sharsor_dtype.Double
+
     obs = Observations(namespace=namespace,is_server=False,verbose=True, 
                 vlevel=VLevel.V2,safe=False,
                 with_gpu_mirror=False,dtype=dtype)
@@ -54,6 +58,8 @@ if __name__ == "__main__":
     trunc.run()
     term.run()
 
+    torch.set_printoptions(precision=2,sci_mode=False,linewidth=50)
+
     while True:
         try:
             start_time = time.perf_counter() 
@@ -68,11 +74,11 @@ if __name__ == "__main__":
             term.synch_all(read=True, retry=True)
 
             print("observations:")
-            print(torch.round(obs.get_torch_mirror(gpu=False)[idx, :], decimals=2))
+            print(obs.get_torch_mirror(gpu=False)[idx, :])
             print("\nactions:")
-            print(torch.round(act.get_torch_mirror(gpu=False)[idx, :], decimals=2))
+            print(act.get_torch_mirror(gpu=False)[idx, :])
             print("\nrewards:")
-            print(torch.round(rew.get_torch_mirror(gpu=False)[idx, :], decimals=2))
+            print(rew.get_torch_mirror(gpu=False)[idx, :])
             print("\nterminations:")
             print(term.get_torch_mirror(gpu=False)[idx, :])
             print("\ntruncations:")

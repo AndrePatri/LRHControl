@@ -72,14 +72,14 @@ if __name__ == "__main__":
     for i in range(len(sim_info_keys)):
         sim_data[sim_info_keys[i]] = sim_info_data[i]
     
-    #algo = PPO(env=env, 
-    #        debug=not args.disable_db, 
-    #        remote_db=not args.disable_rmdb,
-    #        seed=args.seed)
-    algo = SAC(env=env, 
-            debug=args.db, 
-            remote_db=args.rmdb,
-            seed=args.seed)
+    algo = PPO(env=env, 
+           debug=args.db, 
+           remote_db=args.rmdb,
+           seed=args.seed)
+    # algo = SAC(env=env, 
+    #         debug=args.db, 
+    #         remote_db=args.rmdb,
+    #         seed=args.seed)
     algo.setup(run_name=args.run_name, 
         verbose=True,
         drop_dir_name=args.drop_dir,
