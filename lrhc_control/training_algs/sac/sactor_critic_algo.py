@@ -545,8 +545,8 @@ class SActorCriticAlgoBase():
                 f"Elapsed time: {self._elapsed_min[self._log_it_counter].item()/60.0} h\n" + \
                 f"Estimated remaining training time: " + \
                 f"{est_remaining_time_h} h\n" + \
-                f"Average episodic reward across all environments: {self._episodic_rewards_env_avrg[self._log_it_counter, :, :].item()}\n" + \
-                f"Average episodic rewards across all environments {self._reward_names_str}: {self._episodic_sub_rewards_env_avrg[self._log_it_counter, :]}\n" + \
+                f"Average episodic return across all environments: {self._episodic_rewards_env_avrg[self._log_it_counter, :, :].item()}\n" + \
+                f"Average episodic returns across all environments {self._reward_names_str}: {self._episodic_sub_rewards_env_avrg[self._log_it_counter, :]}\n" + \
                 f"Current env. step fps: {self._env_step_fps[self._log_it_counter].item()}, time for experience collection {self._collection_dt[self._log_it_counter].item()} s\n" + \
                 f"Current env step rt factor: {self._env_step_rt_factor[self._log_it_counter].item()}\n" + \
                 f"Current policy update fps: {self._policy_update_fps[self._log_it_counter].item()}, time for policy updates {self._policy_update_dt[self._log_it_counter].item()} s\n"
