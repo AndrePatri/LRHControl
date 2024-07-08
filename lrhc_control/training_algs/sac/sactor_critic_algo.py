@@ -44,8 +44,6 @@ class SActorCriticAlgoBase():
 
         self._anomaly_detect = anomaly_detect
 
-        self._optimizer = None
-
         self._writer = None
         
         self._run_name = None
@@ -669,7 +667,7 @@ class SActorCriticAlgoBase():
 
         # main algo settings
         self._replay_bf_full = False
-        self._warmstart_timesteps = int(5e6)
+        self._warmstart_timesteps = int(5e3)
         self._warmstart_vectimesteps = round(self._warmstart_timesteps/self._num_envs)
 
         self._replay_buffer_size_nominal = int(1e6) # 32768
@@ -698,7 +696,7 @@ class SActorCriticAlgoBase():
         
         # debug
         self._m_checkpoint_freq = 5120 # n timesteps after which a checkpoint model is dumped
-        self._db_vecstep_frequency = 2048 # log db data every n (vectorized) timesteps
+        self._db_vecstep_frequency = 512 # log db data every n (vectorized) timesteps
         
         self._db_data_size = round(self._total_timesteps_vec/self._db_vecstep_frequency)+self._db_vecstep_frequency
         # write them to hyperparam dictionary for debugging
@@ -801,17 +799,18 @@ class SActorCriticAlgoBase():
     
     def _sample(self):
         
-        up_to = self._replay_buffer_size if self._replay_bf_full else self._bpos
-
-        shuffled_buffer_idxs = torch.randint(0, up_to,
-                                        (self._batch_size,)) # randomizing 
-
         batched_obs = self._obs.reshape((-1, self._env.obs_dim()))
         batched_next_obs = self._next_obs.reshape((-1, self._env.obs_dim()))
         batched_actions = self._actions.reshape((-1, self._env.actions_dim()))
         batched_rewards = self._rewards.reshape(-1)
         batched_terminal = self._next_terminal.reshape(-1)
 
+        # sampling from the batched buffer (useful to remove possible correlations
+        # between environments)
+        up_to = self._replay_buffer_size if self._replay_bf_full else self._bpos*self._num_envs
+        shuffled_buffer_idxs = torch.randint(0, up_to,
+                                        (self._batch_size,)) 
+        
         sampled_obs = batched_obs[shuffled_buffer_idxs]
         sampled_next_obs = batched_next_obs[shuffled_buffer_idxs]
         sampled_actions = batched_actions[shuffled_buffer_idxs]
