@@ -799,11 +799,11 @@ class SActorCriticAlgoBase():
     
     def _sample(self):
         
-        batched_obs = self._obs.reshape((-1, self._env.obs_dim()))
-        batched_next_obs = self._next_obs.reshape((-1, self._env.obs_dim()))
-        batched_actions = self._actions.reshape((-1, self._env.actions_dim()))
-        batched_rewards = self._rewards.reshape(-1)
-        batched_terminal = self._next_terminal.reshape(-1)
+        batched_obs = self._obs.view((-1, self._env.obs_dim()))
+        batched_next_obs = self._next_obs.view((-1, self._env.obs_dim()))
+        batched_actions = self._actions.view((-1, self._env.actions_dim()))
+        batched_rewards = self._rewards.view(-1)
+        batched_terminal = self._next_terminal.view(-1)
 
         # sampling from the batched buffer (useful to remove possible correlations
         # between environments)
