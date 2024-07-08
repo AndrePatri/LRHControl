@@ -107,11 +107,11 @@ if __name__ == "__main__":
             if ep_counter is not None:
                 ep_counter.counter().synch_all(read=True, retry=True)
                 print("\nep. counter:")
-                print(ep_counter.counter().get_torch_view(gpu=False)[idx:idx+env_range, :])
+                print(ep_counter.counter().get_torch_mirror(gpu=False)[idx:idx+env_range, :])
             if task_counter is not None:
                 task_counter.counter().synch_all(read=True, retry=True)
                 print("\ntask counter:")
-                print(task_counter.counter().get_torch_view(gpu=False)[idx:idx+env_range, :])
+                print(task_counter.counter().get_torch_mirror(gpu=False)[idx:idx+env_range, :])
 
             elapsed_time = time.perf_counter() - start_time
             time_to_sleep_ns = int((update_dt - elapsed_time) * 1e+9) # [ns]
