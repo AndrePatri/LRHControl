@@ -110,7 +110,7 @@ class LRhcTrainingEnvBase():
 
         self._n_preinit_steps = n_preinit_steps
         
-        self._timeout_counter = None
+        self._ep_timeout_counter = None
         self._randomization_counter = None
         self._obs = None
         self._next_obs = None
@@ -284,11 +284,12 @@ class LRhcTrainingEnvBase():
     
     def _post_step(self):
         
-        self._timeout_counter.increment() # first increment counters
+        self._ep_timeout_counter.increment() # first increment counters
         self._randomization_counter.increment()
         # self.randomize_refs(env_indxs=self._randomization_counter.time_limits_reached().flatten()) # randomize 
         # # refs of envs that reached randomization time
 
+        # check truncation and termination conditions 
         self._check_truncations() 
         self._check_terminations()
 
@@ -298,14 +299,14 @@ class LRhcTrainingEnvBase():
         episode_finished = torch.logical_or(terminated,
                             truncated)
         
-        self.randomize_refs(env_indxs=episode_finished.flatten()) # randomize refs also upon
-        # episode termination
+        self.randomize_refs(env_indxs=episode_finished.flatten())
 
         # remotely reset envs if only if terminated
         rm_reset_ok = self._remote_reset(reset_mask=torch.logical_or(terminated.cpu(),
-                                self._timeout_counter.time_limits_reached()))
+                                self._ep_timeout_counter.time_limits_reached()))
         
-        self._timeout_counter.reset(to_be_reset=episode_finished,randomize_limits=True) # reset and randomize ep duration 
+        # synchronize and reset counters when episode finishes
+        self._ep_timeout_counter.reset(to_be_reset=episode_finished,randomize_limits=True) # reset and randomize ep duration 
         self._randomization_counter.reset(to_be_reset=episode_finished,randomize_limits=True)
 
         # debug step if required (TBD before reset req processing)
@@ -322,6 +323,7 @@ class LRhcTrainingEnvBase():
     def _update_custom_db_data(self,
                     episode_finished):
 
+        # update defaults
         self.custom_db_data["RhcStatusFlag"].update(new_data=self._rhc_refs.contact_flags.get_torch_mirror(gpu=False), 
                                     ep_finished=episode_finished) # before potentially resetting the flags, get data
         self.custom_db_data["Actions"].update(new_data=self._actions.get_torch_mirror(gpu=False), 
@@ -365,7 +367,7 @@ class LRhcTrainingEnvBase():
         self._terminations.reset()
         self._truncations.reset()
 
-        self._timeout_counter.reset()
+        self._ep_timeout_counter.reset()
         self._randomization_counter.reset()
 
         self._synch_obs(gpu=self._use_gpu) # read obs from shared mem
@@ -391,7 +393,7 @@ class LRhcTrainingEnvBase():
             
             self._remote_stepper.close()
             
-            self._timeout_counter.close()
+            self._ep_timeout_counter.close()
             self._randomization_counter.close()
 
             # closing env.-specific shared data
@@ -708,7 +710,7 @@ class LRhcTrainingEnvBase():
 
         # episode steps counters (for detecting episode truncations for 
         # time limits) 
-        self._timeout_counter = EpisodesCounter(namespace=self._namespace,
+        self._ep_timeout_counter = EpisodesCounter(namespace=self._namespace,
                             n_envs=self._n_envs,
                             n_steps_lb=self._episode_timeout_lb,
                             n_steps_ub=self._episode_timeout_ub,
@@ -718,7 +720,7 @@ class LRhcTrainingEnvBase():
                             safe=True,
                             force_reconnection=True,
                             with_gpu_mirror=False) # handles step counter through episodes and through envs
-        self._timeout_counter.run()
+        self._ep_timeout_counter.run()
         self._randomization_counter = TaskRandCounter(namespace=self._namespace,
                             n_envs=self._n_envs,
                             n_steps_lb=self._n_steps_task_rand_lb,
@@ -815,7 +817,6 @@ class LRhcTrainingEnvBase():
         #     self._check_finite(obs, "observations", False)
 
         torch.nan_to_num(input=obs, out=obs, nan=torch.inf, posinf=None, neginf=None) # prevent nans
-
         obs.clamp_(self._obs_threshold_lb, self._obs_threshold_ub)
     
     def _clip_rewards(self, 
@@ -825,7 +826,6 @@ class LRhcTrainingEnvBase():
             self._check_finite(rewards, "rewards", False)
 
         torch.nan_to_num(input=rewards, out=rewards, nan=torch.inf, posinf=None, neginf=None) # prevent nans
-
         rewards.clamp_(self._reward_thresh_lb, self._reward_thresh_ub)
 
     def get_actions_lb(self):
@@ -885,60 +885,32 @@ class LRhcTrainingEnvBase():
                     throw_when_excep = False)
                 return False
             return True
-                
-    def _check_truncations(self):
-
-        truncations = self._truncations.get_torch_mirror(gpu=self._use_gpu)
-
-        # time unlimited episodes, using time limits just for diversifying 
-        # experience
-        time_limits_reached = self._timeout_counter.time_limits_reached()
-        time_to_randomize_refs = self._randomization_counter.time_limits_reached()
-        truncations[:, :] = torch.logical_or(time_limits_reached, 
-                                    time_to_randomize_refs) # truncate when reference changes
-        # but only reset env if time limit reached (not with ref rand. this way the agent 
-        # experiences difference robot states)
-        
-        # time_limits_reached = self._timeout_counter.time_limits_reached()
-        # truncations[:, :] = time_limits_reached
-
-        if self._use_gpu:
-            # from GPU to CPU 
-            self._truncations.synch_mirror(from_gpu=True) 
-        self._truncations.synch_all(read=False, retry = True) # writes on shared mem
     
+    @abstractmethod
+    def _check_truncations(self):
+        pass
+
+    @abstractmethod
     def _check_terminations(self):
-
-        terminations = self._terminations.get_torch_mirror(gpu=self._use_gpu)
-        # handle episodes termination
-        terminations[:, :] = self._rhc_status.fails.get_torch_mirror(gpu=self._use_gpu)
-
-        if self._use_gpu:
-            # from GPU to CPU 
-            self._terminations.synch_mirror(from_gpu=True) 
-        self._terminations.synch_all(read=False, retry = True) # writes on shared mem
+        pass
 
     @abstractmethod
     def _apply_actions_to_rhc(self):
-
         pass
 
     @abstractmethod
     def _compute_sub_rewards(self,
             obs_tensor: torch.Tensor):
-        
         pass
 
     @abstractmethod
     def _fill_obs(self,
             obs_tensor: torch.Tensor):
-    
         pass
 
     @abstractmethod
     def _randomize_refs(self,
                 env_indxs: torch.Tensor = None):
-        
         pass
 
     def _custom_post_init(self):

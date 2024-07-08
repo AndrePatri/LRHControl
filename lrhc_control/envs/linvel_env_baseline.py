@@ -368,6 +368,38 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             to_be_cat.append(torch.sum(step_var[:, start_idx:end_idx], dim=1, keepdim=True)/self.n_nodes)
         return self._rhc_step_var_scale * torch.cat(to_be_cat, dim=1) 
     
+    def _check_truncations(self):
+
+        truncations = self._truncations.get_torch_mirror(gpu=self._use_gpu)
+
+        # time unlimited episodes, using time limits just for diversifying 
+        # experience
+        time_limits_reached = self._ep_timeout_counter.time_limits_reached()
+        time_to_randomize_refs = self._randomization_counter.time_limits_reached()
+        truncations[:, :] = torch.logical_or(time_limits_reached, 
+                                    time_to_randomize_refs) # truncate when reference changes
+        # but only reset env if time limit reached (not with ref rand. this way the agent 
+        # experiences difference robot states)
+        
+        # time_limits_reached = self._ep_timeout_counter.time_limits_reached()
+        # truncations[:, :] = time_limits_reached
+
+        if self._use_gpu:
+            # from GPU to CPU 
+            self._truncations.synch_mirror(from_gpu=True) 
+        self._truncations.synch_all(read=False, retry = True) # writes on shared mem
+    
+    def _check_terminations(self):
+
+        terminations = self._terminations.get_torch_mirror(gpu=self._use_gpu)
+        # handle episodes termination
+        terminations[:, :] = self._rhc_status.fails.get_torch_mirror(gpu=self._use_gpu)
+
+        if self._use_gpu:
+            # from GPU to CPU 
+            self._terminations.synch_mirror(from_gpu=True) 
+        self._terminations.synch_all(read=False, retry = True) # writes on shared mem
+
     def _compute_sub_rewards(self,
                     obs: torch.Tensor):
         
