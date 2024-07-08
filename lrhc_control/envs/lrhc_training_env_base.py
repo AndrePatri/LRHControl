@@ -888,11 +888,26 @@ class LRhcTrainingEnvBase():
     
     @abstractmethod
     def _check_truncations(self):
-        pass
+        # default behaviour-> to be overriden by child
+        truncations = self._truncations.get_torch_mirror(gpu=self._use_gpu)
+        time_limits_reached = self._ep_timeout_counter.time_limits_reached()
+        # truncate when episode timeout occurs
+        truncations[:, :] = time_limits_reached
+        if self._use_gpu:
+            # from GPU to CPU 
+            self._truncations.synch_mirror(from_gpu=True) 
+        self._truncations.synch_all(read=False, retry = True) # writes on shared mem
 
     @abstractmethod
     def _check_terminations(self):
-        pass
+        # default behaviour-> to be overriden by child
+        terminations = self._terminations.get_torch_mirror(gpu=self._use_gpu)
+        # terminate upon controller failure
+        terminations[:, :] = self._rhc_status.fails.get_torch_mirror(gpu=self._use_gpu)
+        if self._use_gpu:
+            # from GPU to CPU 
+            self._terminations.synch_mirror(from_gpu=True) 
+        self._terminations.synch_all(read=False, retry = True) # writes on shared mem
 
     @abstractmethod
     def _apply_actions_to_rhc(self):
