@@ -251,30 +251,44 @@ class Gymnasium2LRHCEnv():
     def actions_dim(self):
         return self._actions_dim
     
-    def get_obs(self):
-    
-        return self._obs.get_torch_mirror(gpu=self._use_gpu)
+    def get_obs(self, clone:bool=False):
+        if clone:
+            return self._obs.get_torch_mirror(gpu=self._use_gpu).clone()
+        else:
+            return self._obs.get_torch_mirror(gpu=self._use_gpu)
 
-    def get_next_obs(self):
-    
-        return self._next_obs.get_torch_mirror(gpu=self._use_gpu)
+    def get_next_obs(self, clone:bool=False):
+        if clone:
+            return self._next_obs.get_torch_mirror(gpu=self._use_gpu).clone()
+        else:
+            return self._next_obs.get_torch_mirror(gpu=self._use_gpu)
+        
+    def get_actions(self, clone:bool=False):
+        if clone:
+            return self._actions.get_torch_mirror(gpu=self._use_gpu).clone()
+        else:
+            return self._actions.get_torch_mirror(gpu=self._use_gpu)
+            
+    def get_rewards(self, clone:bool=False):
+        if clone:
+            return self._tot_rewards.get_torch_mirror(gpu=self._use_gpu).clone()
+        else:
+            return self._tot_rewards.get_torch_mirror(gpu=self._use_gpu)
 
-    def get_actions(self):
-    
-        return self._actions.get_torch_mirror(gpu=self._use_gpu)
-    
-    def get_rewards(self):
-
-        return self._tot_rewards.get_torch_mirror(gpu=self._use_gpu)
-
-    def get_terminations(self):
+    def get_terminations(self, clone:bool=False):
+        if clone:
+            return self._terminations.get_torch_mirror(gpu=self._use_gpu).clone()
+        else:
+            return self._terminations.get_torch_mirror(gpu=self._use_gpu)
         
         return self._terminations.get_torch_mirror(gpu=self._use_gpu)
 
-    def get_truncations(self):
-                                 
-        return self._truncations.get_torch_mirror(gpu=self._use_gpu)
-
+    def get_truncations(self, clone:bool=False):
+        if clone:
+            return self._truncations.get_torch_mirror(gpu=self._use_gpu).clone()
+        else:
+            return self._truncations.get_torch_mirror(gpu=self._use_gpu)
+        
     def get_actions_lb(self):
         return self._actions_lb
 
@@ -442,14 +456,14 @@ if __name__ == "__main__":
                         seed=args.seed,
                         gym_env_dtype=np.float32,
                         handle_final_obs=args.handle_final_obs)
-    # algo = SAC(env=env_wrapper, 
-    #         debug=args.db, 
-    #         remote_db=args.rmdb,
-    #         seed=args.seed)
-    algo = PPO(env=env_wrapper, 
+    algo = SAC(env=env_wrapper, 
             debug=args.db, 
             remote_db=args.rmdb,
             seed=args.seed)
+    # algo = PPO(env=env_wrapper, 
+    #         debug=args.db, 
+    #         remote_db=args.rmdb,
+    #         seed=args.seed)
     
     algo.setup(run_name=args.run_name, 
         verbose=True,

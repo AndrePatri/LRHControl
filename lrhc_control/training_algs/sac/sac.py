@@ -25,41 +25,41 @@ class SAC(SActorCriticAlgoBase):
     
     def _collect_transition(self):
         
-        # experience collection
-        self._switch_training_mode(train=False)
+            # experience collection
+            self._switch_training_mode(train=False)
 
-        obs = self._env.get_obs() # also accounts for resets when envs are 
-        # either terminated or truncated
-        if self._vec_transition_counter > self._warmstart_vectimesteps or \
-            self._eval:
-            actions, _, _ = self._agent.actor.get_action(x=obs)
-            actions = actions.detach()
-        else:
-            actions = self._sample_random_actions()
-                
-        # perform a step of the (vectorized) env and retrieve trajectory
-        env_step_ok = self._env.step(actions)
-        
-        if not self._eval:
-            self._add_experience(obs=obs,
-                    actions=actions,
-                    rewards=self._env.get_rewards(),
-                    next_obs=self._env.get_next_obs(),
-                    next_terminal=self._env.get_terminations()) # add experience
-            # to replay buffer
+            obs = self._env.get_obs(clone=True) # also accounts for resets when envs are 
+            # either terminated or truncated
+            if self._vec_transition_counter >= self._warmstart_vectimesteps or \
+                self._eval:
+                actions, _, _ = self._agent.actor.get_action(x=obs)
+                actions = actions.detach()
+            else:
+                actions = self._sample_random_actions()
+                    
+            # perform a step of the (vectorized) env and retrieve trajectory
+            env_step_ok = self._env.step(actions)
+            
+            if not self._eval:
+                self._add_experience(obs=obs,
+                        actions=actions,
+                        rewards=self._env.get_rewards(clone=True),
+                        next_obs=self._env.get_next_obs(clone=True),
+                        next_terminal=self._env.get_terminations(clone=True)) # add experience
+                # to replay buffer
 
-        return env_step_ok
+            return env_step_ok
         
     def _update_policy(self):
         
         # training phase
-        if self._vec_transition_counter> self._warmstart_vectimesteps:
+        if self._vec_transition_counter>self._warmstart_vectimesteps:
                 
             self._switch_training_mode(train=True)
 
             obs,actions,next_obs,rewards,next_terminal = self._sample() # sample
             # experience from replay buffer
-                
+
             with torch.no_grad():
                 next_action, next_log_pi, _ = self._agent.get_action(next_obs)
                 qf1_next_target = self._agent.get_qf1t_val(next_obs, next_action)
@@ -83,7 +83,7 @@ class SAC(SActorCriticAlgoBase):
                 for i in range(self._policy_freq): # compensate for the delay by doing 'actor_update_interval' instead of 1
                     pi, log_pi, _ = self._agent.get_action(obs)
                     qf1_pi = self._agent.get_qf1_val(obs, pi)
-                    qf2_pi = self._agent.get_qf1_val(obs, pi)
+                    qf2_pi = self._agent.get_qf2_val(obs, pi)
                     min_qf_pi = torch.min(qf1_pi, qf2_pi)
                     actor_loss = ((self._alpha * log_pi) - min_qf_pi).mean()
                     self._actor_optimizer.zero_grad()
