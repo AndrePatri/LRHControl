@@ -41,18 +41,18 @@ class PPO(ActorCriticAlgoBase):
             action, logprob, _ = self._agent.get_action(self._obs[transition], only_mean=self._eval) # when evaluating, use only mean
             action = action.detach() # do not record gradients
             logprob = logprob.detach()
-            self._values[transition] = self._agent.get_value(self._obs[transition]).reshape(-1, 1).detach()
+            self._values[transition] = self._agent.get_value(self._obs[transition]).view(-1, 1).detach()
 
             # perform a step of the (vectorized) env and retrieve trajectory
             env_step_ok = self._env.step(action)
 
             self._actions[transition] = action
-            self._logprobs[transition] = logprob.reshape(-1, 1)
+            self._logprobs[transition] = logprob.view(-1, 1)
             self._next_obs[transition] = self._env.get_next_obs() # state after env step (get_next_obs
             # holds the current obs even in case of resets. It includes both terminal and 
             # truncation states. It is the "true" state.)
             
-            self._next_values[transition] = self._agent.get_value(self._next_obs[transition]).detach().reshape(-1, 1)
+            self._next_values[transition] = self._agent.get_value(self._next_obs[transition]).detach().view(-1, 1)
             self._rewards[transition] = self._env.get_rewards()
             self._next_terminations[transition] = self._env.get_terminations()
             self._next_dones[transition] = torch.logical_or(self._env.get_terminations(), self._env.get_truncations())
@@ -89,12 +89,12 @@ class PPO(ActorCriticAlgoBase):
         self._agent.train(True) # switch agent to training mode (e.g. freezes running normalizer stats)
 
         # flatten batches before policy update
-        batched_obs = self._obs.reshape((-1, self._env.obs_dim()))
-        batched_logprobs = self._logprobs.reshape(-1)
-        batched_actions = self._actions.reshape((-1, self._env.actions_dim()))
-        batched_advantages = self._advantages.reshape(-1)
-        batched_returns = self._returns.reshape(-1)
-        batched_values = self._values.reshape(-1)
+        batched_obs = self._obs.view((-1, self._env.obs_dim()))
+        batched_logprobs = self._logprobs.view(-1)
+        batched_actions = self._actions.view((-1, self._env.actions_dim()))
+        batched_advantages = self._advantages.view(-1)
+        batched_returns = self._returns.view(-1)
+        batched_values = self._values.view(-1)
 
         # optimize policy and value network
         clipfracs = []
