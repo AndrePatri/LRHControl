@@ -29,7 +29,7 @@ class Gymnasium2LRHCEnv():
             render: bool = False,
             seed: int = 1,
             gym_env_dtype: str = np.float32,
-            handle_terminal_obs: bool = True):
+            handle_final_obs: bool = True):
         
         # dtype mapping dictionary
         self._dtype_mapping = {
@@ -45,7 +45,7 @@ class Gymnasium2LRHCEnv():
         self._render = render
         self._render_mode = "human" if self._render else None
 
-        self._handle_terminal_obs = handle_terminal_obs
+        self._handle_final_obs = handle_final_obs
 
         self._env_type = env_type
         self._env = gym.vector.make(env_type, 
@@ -88,7 +88,10 @@ class Gymnasium2LRHCEnv():
                                         fill_value=1.0)
         self._actions_lb = torch.full((1, self._actions_dim), dtype=self._torch_dtype, device=self._torch_device,
                                         fill_value=-1.0)
-        
+        # read bounds from actions space
+        self._actions_ub[:, :] = torch.from_numpy(self._env.single_action_space.high)
+        self._actions_lb[:, :] = torch.from_numpy(self._env.single_action_space.low)
+
         reward_thresh_default = 1.0
         self._reward_thresh_lb = torch.full((1, 1), dtype=self._torch_dtype, fill_value=-reward_thresh_default, device=self._torch_device) # used for clipping rewards
         self._reward_thresh_ub = torch.full((1, 1), dtype=self._torch_dtype, fill_value=reward_thresh_default, device=self._torch_device) 
@@ -333,24 +336,19 @@ class Gymnasium2LRHCEnv():
         if self._render:
             self._env.render()
 
-        # if bool(infos): # info dict not empty --> when terminatin
-        #     Journal.log(self.__class__.__name__,
-        #         "step",
-        #         "gymnasium env returned non-empty info dictionary!! You may want to check the data!!",
-        #         LogType.EXCEP,
-        #         throw_when_excep = False)
-
         # fill transition data from gymansium env
         self._to_torch(data=observations,output=self.get_obs())
         self._to_torch(data=rewards.reshape(-1, 1),output=self.get_rewards())
         self._to_torch(data=terminations.reshape(-1, 1),output=self.get_terminations())
         self._to_torch(data=truncations.reshape(-1, 1),output=self.get_truncations())
-        # handle terminations (next obs have to be the )
-        if self._handle_terminal_obs and ("final_observation" in infos):  # some sub-envs have terminated
-            terminal_obs = np.full_like(observations[terminations, :], 0.0)
-            for env_idx in range(infos["final_observation"][terminations].size):
-                terminal_obs[env_idx, :] = infos["final_observation"][terminations][env_idx]
-            observations[terminations, :] = terminal_obs
+
+        # handle final observations (next obs has to be the actual one)
+        if self._handle_final_obs and ("final_observation" in infos):  # some sub-envs have terminated
+            ep_finished = np.logical_or(terminations, truncations).flatten()
+            real_next_obs = np.full_like(observations[ep_finished, :], 0.0)
+            for env_idx in range(infos["final_observation"][ep_finished].size):
+                real_next_obs[env_idx, :] = infos["final_observation"][ep_finished][env_idx]
+            observations[ep_finished, :] = real_next_obs
         self._to_torch(data=observations,output=self.get_next_obs()) # next obs always holds the 
         # real state after stepping, even when terminations occur
 
@@ -426,12 +424,13 @@ if __name__ == "__main__":
     parser.add_argument('--num_envs', type=int, help='seed', default=3)
 
     parser.add_argument('--render', action=argparse.BooleanOptionalAction, default=False, help='Whether to render environemnt')
-    parser.add_argument('--handle_term_obs', action=argparse.BooleanOptionalAction, default=True, help='Whether to handle terminal obs properly')
+    parser.add_argument('--handle_final_obs', action=argparse.BooleanOptionalAction, default=True, help='Whether to handle terminal obs properly')
 
     args = parser.parse_args()
 
     render_mode = "human" if args.render else None
-    env_type = 'Pusher-v4'
+    env_type = 'InvertedPendulum-v4'
+    # env_type = 'HalfCheetah-v4'
 
     env_wrapper = Gymnasium2LRHCEnv(env_type=env_type,
                         namespace=args.ns,
@@ -442,7 +441,7 @@ if __name__ == "__main__":
                         render=args.render,
                         seed=args.seed,
                         gym_env_dtype=np.float32,
-                        handle_terminal_obs=args.handle_term_obs)
+                        handle_final_obs=args.handle_final_obs)
     # algo = SAC(env=env_wrapper, 
     #         debug=args.db, 
     #         remote_db=args.rmdb,
