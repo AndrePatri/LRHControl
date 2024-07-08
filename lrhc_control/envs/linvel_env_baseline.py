@@ -200,6 +200,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self.custom_db_info["add_last_action_to_obs"] = self._add_last_action_to_obs
         self.custom_db_info["use_horizontal_frame_for_refs"] = self._use_horizontal_frame_for_refs
         self.custom_db_info["use_local_base_frame"] = self._use_local_base_frame
+        self.custom_db_info["use_pof0"] = self._use_pof0
+        self.custom_db_info["pof0"] = self._pof0
 
     def _custom_post_init(self):
         # some aux data to avoid allocations at training runtime
