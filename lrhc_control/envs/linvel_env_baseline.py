@@ -25,7 +25,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         
         action_repeat = 1
 
-        self._add_last_action_to_obs = False
+        self._add_last_action_to_obs = True
         self._use_horizontal_frame_for_refs = False # usually impractical for task rand to set this to True 
         self._use_local_base_frame = True
 
@@ -120,7 +120,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         for i in range(round(n_jnts/n_contacts)):
             self._jnt_vel_penalty_weights[0, i*n_contacts:(n_contacts*(i+1))] = jnt_vel_weights_along_limb[i]
         self._jnt_vel_penalty_weights_sum = torch.sum(self._jnt_vel_penalty_weights).item()
-
+        
         # task rand
         self._use_pof0 = False
         self._pof0 = 0.2
@@ -189,6 +189,15 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._actions_lb[:, 6:10] = -1.0 # contact flags
         self._actions_ub[:, 6:10] = 1.0 
 
+        # action regularization
+        self._actions_diff_rew_weight = 1.0
+        self._action_diff_weights = torch.full((1, actions_dim), dtype=dtype, device=device,
+                            fill_value=1.0)
+        self._prev_actions = torch.full_like(input=self.get_actions(),fill_value=0.0)
+        self._prev_actions[:, :] = self.get_actions()
+        scale=(self._actions_ub-self._actions_lb)/2.0
+        self._action_diff_weights[:, :]=1.0/scale
+        self._action_diff_w_sum = torch.sum(self._action_diff_weights).item()
         # custom db info 
         step_idx_data = EpisodicData("ContactIndex", self._rhc_step_var(gpu=False), self.contact_names)
         self._add_custom_db_info(db_data=step_idx_data)
@@ -239,6 +248,12 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         aux_dirs.append(path_getter.RHCDIR)
         return aux_dirs
+
+    def _pre_step(self,new_action):
+        # this is called before updating the action tensor with new_action
+
+        # we store the previous action
+        self._prev_actions[:, :] = self._actions.get_torch_mirror(gpu=self._use_gpu)
 
     def _apply_actions_to_rhc(self):
         
@@ -368,6 +383,13 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             to_be_cat.append(torch.sum(step_var[:, start_idx:end_idx], dim=1, keepdim=True)/self.n_nodes)
         return self._rhc_step_var_scale * torch.cat(to_be_cat, dim=1) 
     
+    def _weighted_actions_diff(self, gpu: bool):
+
+        last_actions = self.get_actions()
+        weighted_actions_diff = torch.sum((last_actions-self._prev_actions)*self._action_diff_weights,dim=1,keepdim=True)/self._action_diff_w_sum
+        
+        return weighted_actions_diff
+
     def _check_truncations(self):
 
         truncations = self._truncations.get_torch_mirror(gpu=self._use_gpu)
@@ -451,7 +473,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         sub_rewards[:, 3:4] = self._rhc_cnstr_viol_weight * (1.0 - self._rhc_const_viol(gpu=self._use_gpu))
         sub_rewards[:, 4:5] = self._rhc_cost_weight * (1.0 - self._rhc_cost(gpu=self._use_gpu))
         sub_rewards[:, 5:6] = 1 # health reward
-        
+        sub_rewards[:, 6:7] = self._actions_diff_rew_weight * (1.0 - self._weighted_actions_diff(gpu=self._use_gpu)) # action regularization reward
+
     def _randomize_refs(self,
                 env_indxs: torch.Tensor = None):
         
@@ -528,7 +551,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
     def _get_rewards_names(self):
 
-        n_rewards = 6
+        n_rewards = 7
         reward_names = [""] * n_rewards
 
         reward_names[0] = "task_error"
@@ -537,5 +560,6 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         reward_names[3] = "rhc_const_viol"
         reward_names[4] = "rhc_cost"
         reward_names[5] = "health"
+        reward_names[6] = "action_reg"
 
         return reward_names
