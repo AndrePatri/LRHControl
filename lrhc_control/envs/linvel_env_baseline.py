@@ -393,7 +393,17 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         terminations = self._terminations.get_torch_mirror(gpu=self._use_gpu)
         # handle episodes termination
-        terminations[:, :] = self._rhc_status.fails.get_torch_mirror(gpu=self._use_gpu)
+
+        # terminations[:, :] = self._rhc_status.fails.get_torch_mirror(gpu=self._use_gpu) # terminate when controller fails
+        
+        # more restrictive -> use totatl cost and viol 
+        rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_mirror(gpu=self._use_gpu)
+        rhc_cost = self._rhc_status.rhc_cost.get_torch_mirror(gpu=self._use_gpu)
+
+        rescale_coeff = 2*1e-4# tuned from batch db data
+        explosion_idx_thresh = 2.0 # terminate if above this threshold
+        explosion_idx = rhc_const_viol+rhc_cost*rescale_coeff 
+        terminations[:, :] = explosion_idx > explosion_idx_thresh
 
         if self._use_gpu:
             # from GPU to CPU 
@@ -456,6 +466,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             agent_twist_ref_current[env_indxs, :] = agent_twist_ref_current[env_indxs, :]*self._bernoulli_coeffs[env_indxs, :]
         self._agent_refs.rob_refs.root_state.set(data_type="twist", data=agent_twist_ref_current,
                                             gpu=self._use_gpu)
+        
         self._synch_refs(gpu=self._use_gpu)
     
     def _get_obs_names(self):
