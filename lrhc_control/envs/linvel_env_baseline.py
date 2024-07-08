@@ -86,11 +86,11 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._task_err_weights[0, 5] = 1e-6
         self._task_err_weights_sum = torch.sum(self._task_err_weights).item()
 
-        self._rhc_cnstr_viol_weight = 1.0
+        self._rhc_cnstr_viol_weight = 0.0
         # self._rhc_cnstr_viol_scale = 1.0 * 1e-3
         self._rhc_cnstr_viol_scale = 1.0 * 5e-3
 
-        self._rhc_cost_weight = 1.0
+        self._rhc_cost_weight = 0.0
         # self._rhc_cost_scale = 1e-2 * 1e-3
         self._rhc_cost_scale = 1e-2 * 5e-3
 
@@ -166,14 +166,14 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     timeout_ms=timeout_ms)
 
         # overriding parent's defaults 
-        self._reward_thresh_lb[:, 0] = -10
-        self._reward_thresh_lb[:, 1] = -10
-        self._reward_thresh_lb[:, 2] = -10
-        self._reward_thresh_lb[:, 3] = -10
-        self._reward_thresh_ub[:, 0] = 10
-        self._reward_thresh_ub[:, 1] = 10
-        self._reward_thresh_ub[:, 2] = 10
-        self._reward_thresh_ub[:, 3] = 10
+        self._reward_thresh_lb[:, 0] = -1
+        self._reward_thresh_lb[:, 1] = -1
+        self._reward_thresh_lb[:, 2] = -1
+        self._reward_thresh_lb[:, 3] = -1
+        self._reward_thresh_ub[:, 0] = 1
+        self._reward_thresh_ub[:, 1] = 1
+        self._reward_thresh_ub[:, 2] = 1
+        self._reward_thresh_ub[:, 3] = 1
 
         self._obs_threshold_lb = -1e3 # used for clipping observations
         self._obs_threshold_ub = 1e3
@@ -195,6 +195,10 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         agent_twist_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=False)
         agent_twist_ref_data = EpisodicData("AgentTwistRefs", agent_twist_ref, ["v_x", "v_y", "v_z", "omega_x", "omega_y", "omega_z"])
         self._add_custom_db_info(db_data=agent_twist_ref_data)
+        rhc_cost = EpisodicData("RhcCost", self._rhc_status.rhc_cost.get_torch_mirror(gpu=False), ["rhc_cost"])
+        rhc_viol = EpisodicData("RhcViol", self._rhc_status.rhc_constr_viol.get_torch_mirror(gpu=False), ["rhc_viol"])
+        self._add_custom_db_info(db_data=rhc_cost)
+        self._add_custom_db_info(db_data=rhc_viol)
 
         # other static db info 
         self.custom_db_info["add_last_action_to_obs"] = self._add_last_action_to_obs
@@ -307,7 +311,11 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self.custom_db_data["AgentTwistRefs"].update(new_data=self._agent_refs.rob_refs.root_state.get(data_type="twist",
                                                                                             gpu=False), 
                                     ep_finished=episode_finished)
-        
+        self.custom_db_data["RhcCost"].update(new_data= self._rhc_status.rhc_cost.get_torch_mirror(gpu=False), 
+                                    ep_finished=episode_finished)
+        self.custom_db_data["RhcViol"].update(new_data=self._rhc_status.rhc_constr_viol.get_torch_mirror(gpu=False), 
+                                    ep_finished=episode_finished)
+
     def _mech_power_penalty(self, jnts_vel, jnts_effort):
         tot_weighted_power = torch.sum((jnts_effort*jnts_vel)*self._power_penalty_weights, dim=1, keepdim=True)/self._power_penalty_weights_sum
         return tot_weighted_power
@@ -400,6 +408,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         sub_rewards[:, 2:3] = self._jnt_vel_weight * (1.0 - self._jnt_vel_scale * weighted_jnt_vel)
         sub_rewards[:, 3:4] = self._rhc_cnstr_viol_weight * (1.0 - self._rhc_const_viol(gpu=self._use_gpu))
         sub_rewards[:, 4:5] = self._rhc_cost_weight * (1.0 - self._rhc_cost(gpu=self._use_gpu))
+        sub_rewards[:, 5:6] = 1 # health reward
         
     def _randomize_refs(self,
                 env_indxs: torch.Tensor = None):
@@ -476,7 +485,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
     def _get_rewards_names(self):
 
-        n_rewards = 5
+        n_rewards = 6
         reward_names = [""] * n_rewards
 
         reward_names[0] = "task_error"
@@ -484,5 +493,6 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         reward_names[2] = "jnt_vel"
         reward_names[3] = "rhc_const_viol"
         reward_names[4] = "rhc_cost"
+        reward_names[5] = "health"
 
         return reward_names
