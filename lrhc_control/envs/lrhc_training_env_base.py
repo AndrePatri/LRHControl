@@ -251,6 +251,8 @@ class LRhcTrainingEnvBase():
     def step(self, 
             action):
 
+        self._pre_step(new_action=action)
+
         # set action from agent
         actions = self._actions.get_torch_mirror(gpu=self._use_gpu)
         actions[:, :] = action # writes actions
@@ -908,6 +910,10 @@ class LRhcTrainingEnvBase():
             # from GPU to CPU 
             self._terminations.synch_mirror(from_gpu=True) 
         self._terminations.synch_all(read=False, retry = True) # writes on shared mem
+    
+    @abstractmethod
+    def _pre_step(self,new_action):
+        pass
 
     @abstractmethod
     def _apply_actions_to_rhc(self):
