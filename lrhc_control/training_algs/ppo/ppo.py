@@ -34,7 +34,7 @@ class PPO(ActorCriticAlgoBase):
         # collect data from current policy over a number of timesteps
         for transition in range(self._rollout_timesteps):
 
-            self._obs[transition] = self._env.get_obs() # also accounts for resets when envs are 
+            self._obs[transition] = self._env.get_obs(clone=True) # also accounts for resets when envs are 
             # either terminated or truncated
 
             # sample actions from latest policy (actor) and state value from latest value function (critic)
@@ -48,14 +48,14 @@ class PPO(ActorCriticAlgoBase):
 
             self._actions[transition] = action
             self._logprobs[transition] = logprob.view(-1, 1)
-            self._next_obs[transition] = self._env.get_next_obs() # state after env step (get_next_obs
+            self._next_obs[transition] = self._env.get_next_obs(clone=True) # state after env step (get_next_obs
             # holds the current obs even in case of resets. It includes both terminal and 
             # truncation states. It is the "true" state.)
-            
+        
             self._next_values[transition] = self._agent.get_value(self._next_obs[transition]).detach().view(-1, 1)
-            self._rewards[transition] = self._env.get_rewards()
-            self._next_terminations[transition] = self._env.get_terminations()
-            self._next_dones[transition] = torch.logical_or(self._env.get_terminations(), self._env.get_truncations())
+            self._rewards[transition] = self._env.get_rewards(clone=True)
+            self._next_terminations[transition] = self._env.get_terminations(clone=True)
+            self._next_dones[transition] = torch.logical_or(self._env.get_terminations(clone=True), self._env.get_truncations(clone=True))
             if not env_step_ok:
                 return False
         
