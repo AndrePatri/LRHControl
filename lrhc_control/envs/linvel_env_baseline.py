@@ -401,7 +401,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         rhc_cost = self._rhc_status.rhc_cost.get_torch_mirror(gpu=self._use_gpu)
 
         rescale_coeff = 2*1e-4# tuned from batch db data
-        explosion_idx_thresh = 2.0 # terminate if above this threshold
+        explosion_idx_thresh = 4.0 # terminate if above this threshold
         explosion_idx = rhc_const_viol+rhc_cost*rescale_coeff 
         terminations[:, :] = explosion_idx > explosion_idx_thresh
 
