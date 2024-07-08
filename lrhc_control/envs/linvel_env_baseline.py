@@ -191,6 +191,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         # action regularization
         self._actions_diff_rew_weight = 1.0
+        self._actions_diff_scale = 1.0
         self._action_diff_weights = torch.full((1, actions_dim), dtype=dtype, device=device,
                             fill_value=1.0)
         self._prev_actions = torch.full_like(input=self.get_actions(),fill_value=0.0)
@@ -473,7 +474,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         sub_rewards[:, 3:4] = self._rhc_cnstr_viol_weight * (1.0 - self._rhc_const_viol(gpu=self._use_gpu))
         sub_rewards[:, 4:5] = self._rhc_cost_weight * (1.0 - self._rhc_cost(gpu=self._use_gpu))
         sub_rewards[:, 5:6] = 1 # health reward
-        sub_rewards[:, 6:7] = self._actions_diff_rew_weight * (1.0 - self._weighted_actions_diff(gpu=self._use_gpu)) # action regularization reward
+        sub_rewards[:, 6:7] = self._actions_diff_rew_weight * (1.0 - \
+                                        self._actions_diff_scale*self._weighted_actions_diff(gpu=self._use_gpu)) # action regularization reward
 
     def _randomize_refs(self,
                 env_indxs: torch.Tensor = None):
