@@ -3,6 +3,7 @@ from lrhc_control.utils.shared_data.training_env import TotRewards
 from lrhc_control.utils.shared_data.training_env import Actions
 from lrhc_control.utils.shared_data.training_env import Terminations
 from lrhc_control.utils.shared_data.training_env import Truncations
+from lrhc_control.utils.shared_data.training_env import EpisodesCounter, TaskRandCounter
 
 import time 
 from perf_sleep.pyperfsleep import PerfSleep
@@ -23,7 +24,9 @@ if __name__ == "__main__":
     parser.add_argument('--run_for_nominal', type=float, help='[s]]', default=10.0)
     parser.add_argument('--ns', type=str, help='', default="")
     parser.add_argument('--env_idx', type=int, help='', default=0)
+    parser.add_argument('--env_range', type=int, help='', default=1)
     parser.add_argument('--dtype', type=str, help='', default="float")
+    parser.add_argument('--with_counters', action=argparse.BooleanOptionalAction, default=False, help='')
 
     args = parser.parse_args()
 
@@ -31,8 +34,10 @@ if __name__ == "__main__":
     run_for=args.run_for_nominal
     namespace=args.ns
     idx=args.env_idx
+    env_range=args.env_range
     elapsed_tot_nom = 0
-    
+    with_counters = args.with_counters
+
     dtype=sharsor_dtype.Float
     if args.dtype == "double":
         dtype=sharsor_dtype.Double
@@ -57,6 +62,22 @@ if __name__ == "__main__":
     rew.run()
     trunc.run()
     term.run()
+    
+    ep_counter = None
+    task_counter = None
+    if with_counters:
+        ep_counter=EpisodesCounter(namespace=namespace,
+                    is_server=False,
+                    verbose=True,
+                    vlevel=VLevel.V2,
+                    with_gpu_mirror=False)
+        task_counter=TaskRandCounter(namespace=namespace,
+                    is_server=False,
+                    verbose=True,
+                    vlevel=VLevel.V2,
+                    with_gpu_mirror=False)
+        ep_counter.run()
+        task_counter.run()
 
     torch.set_printoptions(precision=2,sci_mode=False,linewidth=50)
 
@@ -74,15 +95,23 @@ if __name__ == "__main__":
             term.synch_all(read=True, retry=True)
 
             print("observations:")
-            print(obs.get_torch_mirror(gpu=False)[idx, :])
+            print(obs.get_torch_mirror(gpu=False)[idx:idx+env_range, :])
             print("\nactions:")
-            print(act.get_torch_mirror(gpu=False)[idx, :])
+            print(act.get_torch_mirror(gpu=False)[idx:idx+env_range, :])
             print("\nrewards:")
-            print(rew.get_torch_mirror(gpu=False)[idx, :])
+            print(rew.get_torch_mirror(gpu=False)[idx:idx+env_range, :])
             print("\nterminations:")
-            print(term.get_torch_mirror(gpu=False)[idx, :])
+            print(term.get_torch_mirror(gpu=False)[idx:idx+env_range, :])
             print("\ntruncations:")
-            print(trunc.get_torch_mirror(gpu=False)[idx, :])
+            print(trunc.get_torch_mirror(gpu=False)[idx:idx+env_range, :])
+            if ep_counter is not None:
+                ep_counter.counter().synch_all(read=True, retry=True)
+                print("\nep. counter:")
+                print(ep_counter.counter().get_torch_view(gpu=False)[idx:idx+env_range, :])
+            if task_counter is not None:
+                task_counter.counter().synch_all(read=True, retry=True)
+                print("\ntask counter:")
+                print(task_counter.counter().get_torch_view(gpu=False)[idx:idx+env_range, :])
 
             elapsed_time = time.perf_counter() - start_time
             time_to_sleep_ns = int((update_dt - elapsed_time) * 1e+9) # [ns]
