@@ -431,7 +431,7 @@ if __name__ == "__main__":
     parser.add_argument('--mpath', type=str, help='Model path to be used for policy evaluation',default=None)
     parser.add_argument('--n_evals', type=int, help='N. of evaluation rollouts to be performed', default=None)
     parser.add_argument('--n_timesteps', type=int, help='Toal n. of timesteps for each evaluation rollout', default=None)
-    parser.add_argument('--dump_checkpoints', action=argparse.BooleanOptionalAction, default=True, help='Whether to dump model checkpoints during training')
+    parser.add_argument('--dump_checkpoints', action=argparse.BooleanOptionalAction, default=False, help='Whether to dump model checkpoints during training')
     parser.add_argument('--use_cpu', action=argparse.BooleanOptionalAction, default=False, help='If set, all the training (data included) will be perfomed on CPU')
 
     parser.add_argument('--ns', type=str, help='Namespace to be used for shared memory', default="Gymnasium2LRHCEnv")
@@ -443,7 +443,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     render_mode = "human" if args.render else None
-    env_type = 'InvertedPendulum-v4'
+    env_type = 'HalfCheetah-v4'
     # env_type = 'HalfCheetah-v4'
 
     env_wrapper = Gymnasium2LRHCEnv(env_type=env_type,
