@@ -48,6 +48,7 @@ if __name__ == "__main__":
                 help='Whether to override automatically generated agent refs (useful for debug)')
 
     args = parser.parse_args()
+    args_dict = vars(args)
 
     # Set CPU affinity if cores are provided
     if args.cores:
@@ -80,10 +81,13 @@ if __name__ == "__main__":
     #         debug=args.db, 
     #         remote_db=args.rmdb,
     #         seed=args.seed)
+    custom_args={}
+    custom_args.update(args_dict)
+    custom_args.update(sim_data)
     algo.setup(run_name=args.run_name, 
         verbose=True,
         drop_dir_name=args.drop_dir,
-        custom_args = sim_data,
+        custom_args=custom_args,
         comment=args.comment,
         eval=args.eval,
         model_path=args.mpath,

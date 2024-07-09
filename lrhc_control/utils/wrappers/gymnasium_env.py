@@ -441,9 +441,9 @@ if __name__ == "__main__":
     parser.add_argument('--handle_final_obs', action=argparse.BooleanOptionalAction, default=True, help='Whether to handle terminal obs properly')
 
     args = parser.parse_args()
-
+    args_dict = vars(args)
     render_mode = "human" if args.render else None
-    env_type = 'HalfCheetah-v4'
+    env_type = 'Pusher-v4'
     # env_type = 'HalfCheetah-v4'
 
     env_wrapper = Gymnasium2LRHCEnv(env_type=env_type,
@@ -465,10 +465,14 @@ if __name__ == "__main__":
     #         remote_db=args.rmdb,
     #         seed=args.seed)
     
+    custom_args_dict = {}
+    custom_args_dict.update(args_dict)
+    custom_args_dict.update({"gymansium_env_type": env_type})
+
     algo.setup(run_name=args.run_name, 
         verbose=True,
         drop_dir_name=args.drop_dir,
-        custom_args = {"gymansium_env_type": env_type},
+        custom_args = custom_args_dict,
         comment=args.comment,
         eval=args.eval,
         model_path=args.mpath,
