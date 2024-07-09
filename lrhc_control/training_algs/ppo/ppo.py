@@ -34,30 +34,31 @@ class PPO(ActorCriticAlgoBase):
 
         # collect data from current policy over a number of timesteps
         for transition in range(self._rollout_timesteps):
-
-            self._obs[transition] = self._env.get_obs(clone=False) # also accounts for resets in case envs were 
-            # either terminated or truncated during the last call to step
+            
+            obs = self._env.get_obs(clone=True) # we need a copy
 
             # sample actions from latest policy (actor) and state value from latest value function (critic)
-            action, logprob, _ = self._agent.get_action(self._obs[transition], only_mean=self._eval) # when evaluating, use only mean
+            action, logprob, _ = self._agent.get_action(obs, only_mean=self._eval) # when evaluating, use only mean
             action = action.detach() # do not record gradients
             logprob = logprob.detach()
-            self._values[transition] = self._agent.get_value(self._obs[transition]).view(-1, 1).detach()
 
             # perform a step of the (vectorized) env and retrieve trajectory
             env_step_ok = self._env.step(action)
 
-            self._actions[transition] = action
-            self._logprobs[transition] = logprob.view(-1, 1)
-            self._next_obs[transition] = self._env.get_next_obs(clone=False) # state after env step (get_next_obs
-            # holds the current obs even in case of resets. It includes both terminal and 
-            # truncation states. It is the "true" state.)
-        
-            self._next_values[transition] = self._agent.get_value(self._next_obs[transition]).detach().view(-1, 1)
-            self._rewards[transition] = self._env.get_rewards(clone=False)
-            self._next_terminations[transition] = self._env.get_terminations(clone=False)
-            self._next_dones[transition] = torch.logical_or(self._env.get_terminations(clone=False), 
-                                                    self._env.get_truncations(clone=False))
+            if not self._eval: # training
+                # update rollout buffer
+                self._obs[transition] = obs
+                self._actions[transition] = action
+                self._values[transition] = self._agent.get_value(obs).view(-1, 1).detach()
+                self._logprobs[transition] = logprob.view(-1, 1)
+                self._next_obs[transition] = self._env.get_next_obs(clone=False) # state after env step (get_next_obs
+                # holds the current obs even in case of resets. It includes both terminal and 
+                # truncation states. It is the "true" state.)
+                self._next_values[transition] = self._agent.get_value(self._next_obs[transition]).detach().view(-1, 1)
+                self._rewards[transition] = self._env.get_rewards(clone=False)
+                self._next_terminations[transition] = self._env.get_terminations(clone=False)
+                self._next_dones[transition] = torch.logical_or(self._env.get_terminations(clone=False), 
+                                                        self._env.get_truncations(clone=False))
             if not env_step_ok:
                 return False
         

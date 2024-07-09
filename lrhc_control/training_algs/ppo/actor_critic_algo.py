@@ -186,7 +186,7 @@ class ActorCriticAlgoBase():
             #     lr=self._base_lr_actor, # default to actor lr (e.g. lfor ogstd parameter)
             #     eps=1e-5 # small constant added to the optimization
             #     )
-        self._init_buffers()
+            self._init_buffers() # only needed if training
         
         # self._env.reset()
 
@@ -774,7 +774,7 @@ class ActorCriticAlgoBase():
         self._total_timesteps = int(50e6) # total timesteps to be collected (including sub envs)
         self._total_timesteps = self._total_timesteps//self._env_n_action_reps # correct with n of action reps
         
-        self._rollout_timesteps = 256 # numer of vectorized steps (does not include env substepping) 
+        self._rollout_timesteps = 2048 # numer of vectorized steps (does not include env substepping) 
         # to be done per policy rollout (influences adv estimation!!!)
         self._batch_size = self._rollout_timesteps * self._num_envs
 

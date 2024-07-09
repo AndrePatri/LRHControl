@@ -219,7 +219,7 @@ class SActorCriticAlgoBase():
             self._actor_optimizer = optim.Adam(list(self._agent.actor.parameters()), 
                                     lr=self._lr_policy)
 
-        self._init_replay_buffers()
+            self._init_replay_buffers() # only needed when training
         
         if self._autotune:
             self._target_entropy = -self._env.actions_dim()

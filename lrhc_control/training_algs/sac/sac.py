@@ -25,31 +25,31 @@ class SAC(SActorCriticAlgoBase):
     
     def _collect_transition(self):
         
-            # experience collection
-            self._switch_training_mode(train=False)
+        # experience collection
+        self._switch_training_mode(train=False)
 
-            obs = self._env.get_obs(clone=True) # also accounts for resets when envs are 
-            # either terminated or truncated. CRUCIAL: we need to clone, 
-            # otherwise obs is be a view and will be overridden in the call to step
-            # with next_obs!!!
-            if self._vec_transition_counter >= self._warmstart_vectimesteps or \
-                self._eval:
-                actions, _, _ = self._agent.actor.get_action(x=obs)
-                actions = actions.detach()
-            else:
-                actions = self._sample_random_actions()
-                    
-            # perform a step of the (vectorized) env and retrieve trajectory
-            env_step_ok = self._env.step(actions)
-            
-            if not self._eval: # add experience to replay buffer
-                self._add_experience(obs=obs,
-                        actions=actions,
-                        rewards=self._env.get_rewards(clone=False), # no need to clone 
-                        next_obs=self._env.get_next_obs(clone=False), # data is copied anyway
-                        next_terminal=self._env.get_terminations(clone=False)) 
+        obs = self._env.get_obs(clone=True) # also accounts for resets when envs are 
+        # either terminated or truncated. CRUCIAL: we need to clone, 
+        # otherwise obs is be a view and will be overridden in the call to step
+        # with next_obs!!!
+        if self._vec_transition_counter >= self._warmstart_vectimesteps or \
+            self._eval:
+            actions, _, _ = self._agent.actor.get_action(x=obs)
+            actions = actions.detach()
+        else:
+            actions = self._sample_random_actions()
+                
+        # perform a step of the (vectorized) env and retrieve trajectory
+        env_step_ok = self._env.step(actions)
+        
+        if not self._eval: # add experience to replay buffer
+            self._add_experience(obs=obs,
+                    actions=actions,
+                    rewards=self._env.get_rewards(clone=False), # no need to clone 
+                    next_obs=self._env.get_next_obs(clone=False), # data is copied anyway
+                    next_terminal=self._env.get_terminations(clone=False)) 
 
-            return env_step_ok
+        return env_step_ok
         
     def _update_policy(self):
         
