@@ -674,7 +674,7 @@ class SActorCriticAlgoBase():
         self._replay_buffer_size_vec = self._replay_buffer_size_nominal//self._num_envs # 32768
         self._replay_buffer_size = self._replay_buffer_size_vec*self._num_envs
         self._batch_size = 256
-        self._total_timesteps = int(1e6)
+        self._total_timesteps = int(50e6)
         self._total_timesteps = self._total_timesteps//self._env_n_action_reps # correct with n of action reps
         self._total_timesteps_vec = self._total_timesteps // self._num_envs
         self._total_timesteps = self._total_timesteps_vec * self._num_envs # actual n transitions
@@ -696,7 +696,7 @@ class SActorCriticAlgoBase():
         
         # debug
         self._m_checkpoint_freq = 5120 # n timesteps after which a checkpoint model is dumped
-        self._db_vecstep_frequency = 512 # log db data every n (vectorized) timesteps
+        self._db_vecstep_frequency = 1024 # log db data every n (vectorized) timesteps
         
         self._db_data_size = round(self._total_timesteps_vec/self._db_vecstep_frequency)+self._db_vecstep_frequency
         # write them to hyperparam dictionary for debugging

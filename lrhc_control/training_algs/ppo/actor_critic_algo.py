@@ -800,7 +800,7 @@ class ActorCriticAlgoBase():
         self._clip_vloss = False
         self._clip_coef_vf = 0.2 # IMPORTANT: this clipping depends on the reward scaling (only used if clip_vloss)
         self._clip_coef = 0.2
-        self._entropy_coeff = 0.0
+        self._entropy_coeff = 1e-4
         self._val_f_coeff = 0.5
         self._max_grad_norm_actor = 0.5
         self._max_grad_norm_critic = 0.5
@@ -939,6 +939,10 @@ class ActorCriticAlgoBase():
                         dtype=self._dtype,
                         device=self._torch_device)
 
+    def _switch_training_mode(self, 
+                    train: bool = True):
+        self._agent.train(train)
+        
     def _init_algo_shared_data(self,
                 static_params: Dict):
 
