@@ -256,6 +256,44 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # we store the previous action
         self._prev_actions[:, :] = self._actions.get_torch_mirror(gpu=self._use_gpu)
 
+    def _check_truncations(self):
+
+        truncations = self._truncations.get_torch_mirror(gpu=self._use_gpu)
+
+        # time unlimited episodes, using time limits just for diversifying 
+        # experience
+        ep_time_limits_reached = self._ep_timeout_counter.time_limits_reached()
+        time_to_randomize_refs = self._task_rand_counter.time_limits_reached()
+        truncations[:, :] = torch.logical_or(ep_time_limits_reached, 
+                                    time_to_randomize_refs) # truncate when reference changes
+        # but only reset env if time limit reached (not with ref rand. this way the agent 
+        # experiences difference robot states)
+        
+        # time_limits_reached = self._ep_timeout_counter.time_limits_reached()
+        # truncations[:, :] = time_limits_reached
+
+    def _check_terminations(self):
+
+        terminations = self._terminations.get_torch_mirror(gpu=self._use_gpu)
+
+        # terminate when controller fails
+        # terminations[:, :] = self._rhc_status.fails.get_torch_mirror(gpu=self._use_gpu) 
+        
+        # more restrictive -> use total cost and viol 
+        rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_mirror(gpu=self._use_gpu)
+        rhc_cost = self._rhc_status.rhc_cost.get_torch_mirror(gpu=self._use_gpu)
+
+        rescale_coeff = 2*1e-4#tuned from batch db data
+        explosion_idx_thresh = 8.0 # terminate if above this threshold
+        explosion_idx = rhc_const_viol+rhc_cost*rescale_coeff 
+        terminations[:, :] = explosion_idx > explosion_idx_thresh
+
+    def _custom_post_step(self,episode_finished):
+        # executed after checking truncations and terminations
+        # self.randomize_task_refs(env_indxs=self._task_rand_counter.time_limits_reached().flatten()) # randomize 
+        # refs of envs that reached task randomization time
+        self.randomize_task_refs(env_indxs=episode_finished.flatten())
+
     def _apply_actions_to_rhc(self):
         
         agent_action = self.get_actions() # see _get_action_names() to get 
@@ -391,48 +429,6 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         
         return weighted_actions_diff
 
-    def _check_truncations(self):
-
-        truncations = self._truncations.get_torch_mirror(gpu=self._use_gpu)
-
-        # time unlimited episodes, using time limits just for diversifying 
-        # experience
-        time_limits_reached = self._ep_timeout_counter.time_limits_reached()
-        time_to_randomize_refs = self._randomization_counter.time_limits_reached()
-        truncations[:, :] = torch.logical_or(time_limits_reached, 
-                                    time_to_randomize_refs) # truncate when reference changes
-        # but only reset env if time limit reached (not with ref rand. this way the agent 
-        # experiences difference robot states)
-        
-        # time_limits_reached = self._ep_timeout_counter.time_limits_reached()
-        # truncations[:, :] = time_limits_reached
-
-        if self._use_gpu:
-            # from GPU to CPU 
-            self._truncations.synch_mirror(from_gpu=True) 
-        self._truncations.synch_all(read=False, retry = True) # writes on shared mem
-    
-    def _check_terminations(self):
-
-        terminations = self._terminations.get_torch_mirror(gpu=self._use_gpu)
-        # handle episodes termination
-
-        # terminations[:, :] = self._rhc_status.fails.get_torch_mirror(gpu=self._use_gpu) # terminate when controller fails
-        
-        # more restrictive -> use totatl cost and viol 
-        rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_mirror(gpu=self._use_gpu)
-        rhc_cost = self._rhc_status.rhc_cost.get_torch_mirror(gpu=self._use_gpu)
-
-        rescale_coeff = 2*1e-4#tuned from batch db data
-        explosion_idx_thresh = 8.0 # terminate if above this threshold
-        explosion_idx = rhc_const_viol+rhc_cost*rescale_coeff 
-        terminations[:, :] = explosion_idx > explosion_idx_thresh
-
-        if self._use_gpu:
-            # from GPU to CPU 
-            self._terminations.synch_mirror(from_gpu=True) 
-        self._terminations.synch_all(read=False, retry = True) # writes on shared mem
-
     def _compute_sub_rewards(self,
                     obs: torch.Tensor):
         
@@ -477,7 +473,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         sub_rewards[:, 6:7] = self._actions_diff_rew_weight * (1.0 - \
                                         self._actions_diff_scale*self._weighted_actions_diff(gpu=self._use_gpu)) # action regularization reward
 
-    def _randomize_refs(self,
+    def _randomize_task_refs(self,
                 env_indxs: torch.Tensor = None):
         
         agent_twist_ref_current = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu)

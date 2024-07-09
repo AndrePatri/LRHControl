@@ -111,7 +111,7 @@ class LRhcTrainingEnvBase():
         self._n_preinit_steps = n_preinit_steps
         
         self._ep_timeout_counter = None
-        self._randomization_counter = None
+        self._task_rand_counter = None
         self._obs = None
         self._next_obs = None
         self._actions = None
@@ -169,7 +169,6 @@ class LRhcTrainingEnvBase():
     def _init_step(self):
         
         self._check_controllers_registered(retry=True)
-
         self._activate_rhc_controllers()
 
         # just an auxiliary tensor
@@ -186,6 +185,8 @@ class LRhcTrainingEnvBase():
         self.reset()
 
     def _debug(self):
+        if self._use_gpu:
+            # from GPU to CPU 
         
         if self._use_gpu:
             self._obs.synch_mirror(from_gpu=True) # copy data from gpu to cpu view
@@ -193,13 +194,17 @@ class LRhcTrainingEnvBase():
             self._actions.synch_mirror(from_gpu=True)
             self._tot_rewards.synch_mirror(from_gpu=True)
             self._rewards.synch_mirror(from_gpu=True)
+            self._truncations.synch_mirror(from_gpu=True) 
+            self._terminations.synch_mirror(from_gpu=True)
 
         self._obs.synch_all(read=False, retry=True) # copies data on CPU shared mem
         self._next_obs.synch_all(read=False, retry=True)
         self._actions.synch_all(read=False, retry=True) 
         self._tot_rewards.synch_all(read=False, retry=True)
         self._rewards.synch_all(read=False, retry=True)
-        
+        self._truncations.synch_all(read=False, retry = True) # writes on shared mem
+        self._terminations.synch_all(read=False, retry = True) # writes on shared mem
+
     def _remote_sim_step(self):
 
         self._remote_stepper.trigger() # triggers simulation + RHC
@@ -220,19 +225,20 @@ class LRhcTrainingEnvBase():
             # the remote envs
             reset_reqs[:, :] = False
         else:
-            reset_reqs[:, :] = reset_mask # remotely reset envs for which 
-            # the episode is terminated
-
-        self._remote_reset_req.synch_all(read=False, retry=True) # write
-        remote_reset_ok = self._send_remote_reset_req()
+            reset_reqs[:, :] = reset_mask # remotely reset envs corresponding to
+            # the mask (True--> to be reset)
+        self._remote_reset_req.synch_all(read=False, retry=True) # write on shared buffer
+        remote_reset_ok = self._send_remote_reset_req() # process remote request
 
         if reset_mask is not None:
             self._synch_obs(gpu=self._use_gpu) # if some env was reset, we use _obs
             # to hold the states, including resets, while _next_obs will always hold the 
             # state right after stepping the sim env
+            # (could be a bit more efficient, since in theory we only need to read the envs
+            # corresponding to the reset_mask)
             obs = self._obs.get_torch_mirror(gpu=self._use_gpu)
             self._fill_obs(obs)
-            self._clip_obs(obs)
+            self._clamp_obs(obs)
         
         return remote_reset_ok
     
@@ -270,51 +276,49 @@ class LRhcTrainingEnvBase():
             self._synch_obs(gpu=self._use_gpu) # read obs from shared mem (done in substeps also, 
             # since substeps rewards will need updated substep obs)
             next_obs = self._next_obs.get_torch_mirror(gpu=self._use_gpu)
-            self._fill_obs(next_obs)
-            self._clip_obs(next_obs) # good practice
-            obs = self._obs.get_torch_mirror(gpu=self._use_gpu)
-            obs[:, :] = next_obs
+            self._fill_obs(next_obs) # update next obs
+            self._clamp_obs(next_obs) # good practice
             self._compute_sub_rewards(next_obs)
             self._assemble_rewards() # includes rewards clipping
-    
-            if not i==(self._action_repeat-1):
-                stepping_ok = stepping_ok and self._remote_reset(reset_mask=None) # just sends reset signal, but does not reset any remote env
+            obs = self._obs.get_torch_mirror(gpu=self._use_gpu)
+            obs[:, :] = next_obs # start from next observation
+
+            if not i==(self._action_repeat-1): # just sends reset signal to complete remote step sequence,
+                # but does not reset any remote env
+                stepping_ok = stepping_ok and self._remote_reset(reset_mask=None) 
             if not stepping_ok:
                 return False
             
         stepping_ok =  stepping_ok and self._post_step() # post sub-stepping operations
         # (if action_repeat > 1, then just the db data at the last substep is logged)
+        # also, if a reset of an env occurs, obs will hold the reset state
 
         return stepping_ok 
     
     def _post_step(self):
         
         self._ep_timeout_counter.increment() # first increment counters
-        self._randomization_counter.increment()
-        # self.randomize_refs(env_indxs=self._randomization_counter.time_limits_reached().flatten()) # randomize 
-        # # refs of envs that reached randomization time
-
+        self._task_rand_counter.increment()
+    
         # check truncation and termination conditions 
         self._check_truncations() 
         self._check_terminations()
-
         terminated = self._terminations.get_torch_mirror(gpu=self._use_gpu)
         truncated = self._truncations.get_torch_mirror(gpu=self._use_gpu)
-
         episode_finished = torch.logical_or(terminated,
                             truncated)
-        
-        self.randomize_refs(env_indxs=episode_finished.flatten())
+                            
+        self._custom_post_step(episode_finished=episode_finished) # any additional logic from child env        
 
-        # remotely reset envs if only if terminated
+        # remotely reset envs only if terminated or if a timeout is reached
         rm_reset_ok = self._remote_reset(reset_mask=torch.logical_or(terminated.cpu(),
                                 self._ep_timeout_counter.time_limits_reached()))
         
-        # synchronize and reset counters when episode finishes
-        self._ep_timeout_counter.reset(to_be_reset=episode_finished,randomize_limits=True) # reset and randomize ep duration 
-        self._randomization_counter.reset(to_be_reset=episode_finished,randomize_limits=True)
+        # synchronize and reset counters for finished episodes
+        self._ep_timeout_counter.reset(to_be_reset=episode_finished,randomize_limits=True)# reset and randomize duration 
+        self._task_rand_counter.reset(to_be_reset=episode_finished,randomize_limits=True)# reset and randomize duration 
 
-        # debug step if required (TBD before reset req processing)
+        # debug step if required
         if self._is_debug:
             episode_finished_cpu = episode_finished.cpu()
             self._debug() # copies db data on shared memory
@@ -336,7 +340,7 @@ class LRhcTrainingEnvBase():
         
         self._get_custom_db_data(episode_finished=episode_finished)
 
-    def reset_custom_db_data(self, keep_track: bool = True):
+    def reset_custom_db_data(self, keep_track: bool = False):
         # to be called periodically to reset custom db data stat. collection 
         for custom_db_data in self.custom_db_data.values():
             custom_db_data.reset(keep_track=keep_track)
@@ -346,42 +350,41 @@ class LRhcTrainingEnvBase():
         tot_rewards = self._tot_rewards.get_torch_mirror(gpu=self._use_gpu)
 
         sub_rewards = self._rewards.get_torch_mirror(gpu=self._use_gpu)
-        self._clip_rewards(sub_rewards) # clipping rewards in a range
+        self._clamp_rewards(sub_rewards) # clipping rewards in a range
 
         # average over substeps
         tot_rewards[:, :] = tot_rewards + torch.sum(sub_rewards, dim=1, keepdim=True)/self._action_repeat
 
-    def randomize_refs(self,
+    def randomize_task_refs(self,
                 env_indxs: torch.Tensor = None):
                     
         if self._override_agent_refs:
             self._override_refs(gpu=self._use_gpu)
         else:
-            self._randomize_refs(env_indxs=env_indxs)
+            self._randomize_task_refs(env_indxs=env_indxs)
             
     def reset(self):
         
-        self.randomize_refs(env_indxs=None) # randomize all refs across envs
+        self.randomize_task_refs(env_indxs=None) # randomize all refs across envs
 
-        self._actions.reset()
         self._obs.reset()
+        self._actions.reset()
         self._next_obs.reset()
         self._rewards.reset()
         self._tot_rewards.reset()
-
         self._terminations.reset()
         self._truncations.reset()
 
         self._ep_timeout_counter.reset()
-        self._randomization_counter.reset()
+        self._task_rand_counter.reset()
 
         self._synch_obs(gpu=self._use_gpu) # read obs from shared mem
         obs = self._obs.get_torch_mirror(gpu=self._use_gpu)
         next_obs = self._next_obs.get_torch_mirror(gpu=self._use_gpu)
         self._fill_obs(obs) # initialize observations 
+        self._clamp_obs(obs) # to avoid bad things
         self._fill_obs(next_obs) # and next obs
-        self._clip_obs(obs) # to avoid bad things
-        self._clip_obs(next_obs)
+        self._clamp_obs(next_obs)
 
         self.reset_custom_db_data(keep_track=False)
         self._episodic_rewards_metrics.reset(keep_track=False)
@@ -399,7 +402,7 @@ class LRhcTrainingEnvBase():
             self._remote_stepper.close()
             
             self._ep_timeout_counter.close()
-            self._randomization_counter.close()
+            self._task_rand_counter.close()
 
             # closing env.-specific shared data
             self._obs.close()
@@ -738,7 +741,7 @@ class LRhcTrainingEnvBase():
                             force_reconnection=True,
                             with_gpu_mirror=False) # handles step counter through episodes and through envs
         self._ep_timeout_counter.run()
-        self._randomization_counter = TaskRandCounter(namespace=self._namespace,
+        self._task_rand_counter = TaskRandCounter(namespace=self._namespace,
                             n_envs=self._n_envs,
                             n_steps_lb=self._n_steps_task_rand_lb,
                             n_steps_ub=self._n_steps_task_rand_ub,
@@ -748,7 +751,7 @@ class LRhcTrainingEnvBase():
                             safe=True,
                             force_reconnection=True,
                             with_gpu_mirror=False) # handles step counter through episodes and through envs
-        self._randomization_counter.run()
+        self._task_rand_counter.run()
 
         # debug data servers
         traing_env_param_dict = {}
@@ -767,9 +770,7 @@ class LRhcTrainingEnvBase():
         self._training_sim_info.run()
         
     def _activate_rhc_controllers(self):
-
         self._rhc_status.activation_state.get_torch_mirror()[:, :] = True
-
         self._rhc_status.activation_state.synch_all(read=False, retry=True) # activates all controllers
     
     def _synch_obs(self,
@@ -827,21 +828,17 @@ class LRhcTrainingEnvBase():
             # copies latest refs to GPU 
             self._agent_refs.rob_refs.root_state.synch_mirror(from_gpu=False) 
 
-    def _clip_obs(self, 
+    def _clamp_obs(self, 
             obs: torch.Tensor):
-
-        # if self._is_debug:
-        #     self._check_finite(obs, "observations", False)
-
+        if self._is_debug:
+            self._check_finite(obs, "observations", False)
         torch.nan_to_num(input=obs, out=obs, nan=torch.inf, posinf=None, neginf=None) # prevent nans
         obs.clamp_(self._obs_threshold_lb, self._obs_threshold_ub)
     
-    def _clip_rewards(self, 
+    def _clamp_rewards(self, 
             rewards: torch.Tensor):
-
         if self._is_debug:
             self._check_finite(rewards, "rewards", False)
-
         torch.nan_to_num(input=rewards, out=rewards, nan=torch.inf, posinf=None, neginf=None) # prevent nans
         rewards.clamp_(self._reward_thresh_lb, self._reward_thresh_ub)
 
@@ -929,6 +926,10 @@ class LRhcTrainingEnvBase():
     @abstractmethod
     def _pre_step(self,new_action):
         pass
+    
+    @abstractmethod
+    def _custom_post_step(self,episode_finished):
+        pass
 
     @abstractmethod
     def _apply_actions_to_rhc(self):
@@ -945,7 +946,7 @@ class LRhcTrainingEnvBase():
         pass
 
     @abstractmethod
-    def _randomize_refs(self,
+    def _randomize_task_refs(self,
                 env_indxs: torch.Tensor = None):
         pass
 
