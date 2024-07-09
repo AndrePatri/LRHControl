@@ -185,9 +185,7 @@ class LRhcTrainingEnvBase():
         self.reset()
 
     def _debug(self):
-        if self._use_gpu:
-            # from GPU to CPU 
-        
+
         if self._use_gpu:
             self._obs.synch_mirror(from_gpu=True) # copy data from gpu to cpu view
             self._next_obs.synch_mirror(from_gpu=True)
