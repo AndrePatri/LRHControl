@@ -15,7 +15,10 @@ class ACAgent(nn.Module):
             norm_obs: bool = True,
             device:str="cuda",
             dtype=torch.float32,
-            is_eval:bool=False):
+            is_eval:bool=False,
+            debug:bool=False):
+
+        self._debug = debug
 
         self._actor_std = actor_std
         self._critic_std = critic_std
@@ -36,7 +39,10 @@ class ACAgent(nn.Module):
         
         self.running_norm = None
         if self._normalize_obs:
-            self.running_norm = RunningNormalizer((self._obs_dim,), epsilon=1e-8, device=self._torch_device, dtype=self._torch_dtype, freeze_stats=self._is_eval)
+            self.running_norm = RunningNormalizer((self._obs_dim,), epsilon=1e-8, 
+                                device=self._torch_device, dtype=self._torch_dtype, 
+                                freeze_stats=self._is_eval,
+                                debug=self._debug)
 
         self.critic = nn.Sequential(
             self._layer_init(layer=nn.Linear(self._obs_dim, size_critic), device=self._torch_device,dtype=self._torch_dtype),

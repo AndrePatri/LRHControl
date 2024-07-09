@@ -22,11 +22,14 @@ class SACAgent(nn.Module):
             device:str="cuda",
             dtype=torch.float32,
             is_eval:bool=False,
-            epsilon:float=1e-8):
+            epsilon:float=1e-8,
+            debug:bool=False):
 
         super().__init__()
 
         self._normalize_obs = norm_obs
+
+        self._debug = debug
 
         self.actor = Actor(obs_dim=obs_dim,
                     actions_dim=actions_dim,
@@ -51,14 +54,16 @@ class SACAgent(nn.Module):
                     actions_dim=actions_dim,
                     device=device,
                     dtype=dtype)
-        
+      
         self.qf1_target.load_state_dict(self.qf1.state_dict())
         self.qf2_target.load_state_dict(self.qf2.state_dict())
 
         self.running_norm = None
         if self._normalize_obs:
             self.running_norm = RunningNormalizer((obs_dim,), epsilon=epsilon, 
-                                    device=device, dtype=dtype, freeze_stats=is_eval)
+                                    device=device, dtype=dtype, 
+                                    freeze_stats=is_eval,
+                                    debug=self._debug)
             self.running_norm.type(dtype) # ensuring correct dtype for whole module
 
     def get_impl_path(self):
@@ -106,7 +111,7 @@ class CriticQ(nn.Module):
         self._actions_dim = actions_dim
         self._q_net_dim = self._obs_dim+self._actions_dim
 
-        size_internal_layer = 256
+        size_internal_layer = 128
     
         self._q_net = nn.Sequential(
             self._layer_init(layer=nn.Linear(self._q_net_dim, size_internal_layer), device=self._torch_device,dtype=self._torch_dtype),
@@ -193,7 +198,7 @@ class Actor(nn.Module):
             "action_bias", actions_bias
         )
 
-        size_internal_layer = 256
+        size_internal_layer = 64
         self.LOG_STD_MAX = 2
         self.LOG_STD_MIN = -5
 

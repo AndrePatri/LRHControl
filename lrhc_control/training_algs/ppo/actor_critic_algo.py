@@ -114,7 +114,8 @@ class ActorCriticAlgoBase():
                         norm_obs=norm_obs,
                         device=self._torch_device,
                         dtype=self._dtype,
-                        is_eval=self._eval)
+                        is_eval=self._eval,
+                        debug=self._debug)
         # self._agent.to(self._torch_device) # move agent to target device
 
         # load model if necessary 

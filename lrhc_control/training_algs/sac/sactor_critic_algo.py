@@ -156,8 +156,8 @@ class SActorCriticAlgoBase():
                     norm_obs=norm_obs,
                     device=self._torch_device,
                     dtype=self._dtype,
-                    is_eval=self._eval
-                    )
+                    is_eval=self._eval,
+                    debug=self._debug)
 
         # load model if necessary 
         if self._eval: # load pretrained model

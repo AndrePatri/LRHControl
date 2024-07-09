@@ -2,8 +2,13 @@ from typing import Tuple, Union
 
 import torch
 
+from SharsorIPCpp.PySharsorIPC import LogType
+from SharsorIPCpp.PySharsorIPC import Journal
+from SharsorIPCpp.PySharsorIPC import VLevel
+
 class RunningMeanStd(object):
-    def __init__(self, tensor_size, torch_device, dtype, epsilon: float = 1e-8):
+    def __init__(self, tensor_size, torch_device, dtype, epsilon: float = 1e-8,
+                debug: bool = False):
         """
         Torch version of the same from stable_baselines3 (credits @c-rizz; Carlo Rizzardo)
 
@@ -18,6 +23,7 @@ class RunningMeanStd(object):
         self.mean = torch.zeros(tensor_size, device=torch_device, dtype=dtype)
         self.var = torch.ones(tensor_size, device=torch_device, dtype=dtype)
         self.count = torch.tensor(epsilon, device=torch_device, dtype=torch.float64)
+        self.debug = debug
 
     def copy(self) -> "RunningMeanStd":
         """
@@ -26,7 +32,8 @@ class RunningMeanStd(object):
         new_object = RunningMeanStd(tensor_size=self.mean.size(),
                                     torch_device=self.mean.device,
                                     dtype = self.mean.dtype,
-                                    epsilon=self._epsilon)
+                                    epsilon=self._epsilon,
+                                    debug=self.debug)
         # use copy_() to avoid breaking buffer registration
         new_object.mean.copy_(self.mean.detach())
         new_object.var.copy_(self.var.detach())  
@@ -51,10 +58,17 @@ class RunningMeanStd(object):
         self.update_from_moments(other.mean, other.var, other.count)
 
     def update(self, x) -> None:
-        batch_mean = torch.mean(x, dim=0)
-        batch_var = torch.var(x, dim=0)
-        batch_size = x.size()[0]
-        self.update_from_moments(batch_mean, batch_var, batch_size)
+        if not x.shape[0] == 1:
+            batch_mean = torch.mean(x, dim=0)
+            batch_var = torch.var(x, dim=0)
+            batch_size = x.size()[0]
+            self.update_from_moments(batch_mean, batch_var, batch_size)
+        else:
+            if self.debug:
+                Journal.log(self.__class__.__name__,
+                    "update",
+                    f"Provided batch is made of only 1 sample. Cannot update mean and std!",
+                    LogType.WARN)
 
     def update_from_moments(self, batch_mean, batch_var, batch_size: Union[int, float]) -> None:
         delta = batch_mean - self.mean
@@ -75,14 +89,23 @@ class RunningMeanStd(object):
             self.var.copy_(new_var)
             self.count.copy_(new_count)
         else:
-            print(f"Detected nan/inf in mean/std tracker, skipping")
+            if self.debug:
+                Journal.log(self.__class__.__name__,
+                        "update_from_moments",
+                        f"Detected nan/inf in mean/std tracker, skipping samples!!",
+                        LogType.WARN)
 
 class RunningNormalizer(torch.nn.Module):
-    def __init__(self, shape : Tuple[int,...], dtype, device, epsilon : float = 1e-8, freeze_stats: bool=True):
+    def __init__(self, shape : Tuple[int,...], dtype, device, 
+                epsilon : float = 1e-8, 
+                freeze_stats: bool=True,
+                debug: bool = False):
         super().__init__()
         self._freeze_stats = freeze_stats
         self.register_buffer("_epsilon", torch.tensor(epsilon, device = device))
-        self._running_stats = RunningMeanStd(shape, torch_device=device, dtype=dtype)
+        self._running_stats = RunningMeanStd(shape, torch_device=device,dtype=dtype,
+                                epsilon=epsilon,
+                                debug=debug)
         self.register_buffer("vec_running_mean",  self._running_stats.mean)
         self.register_buffer("vec_running_var",   self._running_stats.var)
         self.register_buffer("vec_running_count", self._running_stats.count)
