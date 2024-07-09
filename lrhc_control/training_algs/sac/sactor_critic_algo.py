@@ -540,6 +540,7 @@ class SActorCriticAlgoBase():
             est_remaining_time_h =  elapsed_h * 1/self._vec_transition_counter * (self._total_timesteps_vec-self._vec_transition_counter)
 
             info =f"\nTotal n. timesteps simulated: {self._vec_transition_counter*self._num_envs}/{self._total_timesteps}\n" + \
+                f"N. policy updates performed: {self._n_policy_updates[self._log_it_counter].item()}\n" + \
                 f"Elapsed time: {self._elapsed_min[self._log_it_counter].item()/60.0} h\n" + \
                 f"Estimated remaining training time: " + \
                 f"{est_remaining_time_h} h\n" + \
