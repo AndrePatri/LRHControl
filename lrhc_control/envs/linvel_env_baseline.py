@@ -280,12 +280,12 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # terminations[:, :] = self._rhc_status.fails.get_torch_mirror(gpu=self._use_gpu) 
         
         # more restrictive -> use total cost and viol 
-        rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_mirror(gpu=self._use_gpu)
-        rhc_cost = self._rhc_status.rhc_cost.get_torch_mirror(gpu=self._use_gpu)
+        rhc_const_viol = self._rhc_const_viol(gpu=self._use_gpu)
+        rhc_cost = self._rhc_cost(gpu=self._use_gpu)
 
-        rescale_coeff = 2*1e-4#tuned from batch db data
+        cost_scaling = 2*1e-4#tuned from batch db data
         explosion_idx_thresh = 8.0 # terminate if above this threshold
-        explosion_idx = rhc_const_viol+rhc_cost*rescale_coeff 
+        explosion_idx = rhc_const_viol+rhc_cost*cost_scaling 
         terminations[:, :] = explosion_idx > explosion_idx_thresh
 
     def _custom_post_step(self,episode_finished):
@@ -365,9 +365,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self.custom_db_data["AgentTwistRefs"].update(new_data=self._agent_refs.rob_refs.root_state.get(data_type="twist",
                                                                                             gpu=False), 
                                     ep_finished=episode_finished)
-        self.custom_db_data["RhcCost"].update(new_data= self._rhc_status.rhc_cost.get_torch_mirror(gpu=False), 
+        self.custom_db_data["RhcCost"].update(new_data=self._rhc_cost(gpu=False), 
                                     ep_finished=episode_finished)
-        self.custom_db_data["RhcViol"].update(new_data=self._rhc_status.rhc_constr_viol.get_torch_mirror(gpu=False), 
+        self.custom_db_data["RhcViol"].update(new_data=self._rhc_const_viol(gpu=False), 
                                     ep_finished=episode_finished)
 
     def _mech_power_penalty(self, jnts_vel, jnts_effort):
@@ -403,15 +403,19 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
     
     def _rhc_const_viol(self, gpu: bool):
         # rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_mirror(gpu=self._use_gpu) # over the whole horizon
-        # return self._rhc_cnstr_viol_scale * rhc_const_viol
-        rhc_const_viol = self._rhc_status.rhc_nodes_constr_viol.get_torch_mirror(gpu=gpu)
-        return self._rhc_cnstr_viol_scale * rhc_const_viol[:, 0:1] # just on node 0
+        rhc_const_viol = self._rhc_status.rhc_nodes_constr_viol.get_torch_mirror(gpu=gpu)[:, 0:1] # just on node 0
+        n_range=5
+        rhc_const_viol = torch.sum(\
+            self._rhc_status.rhc_nodes_constr_viol.get_torch_mirror(gpu=gpu)[:, 0:n_range],dim=1,keepdim=True) # sum over first n_range nodes
+        return rhc_const_viol
     
     def _rhc_cost(self, gpu: bool):
         # rhc_cost = self._rhc_status.rhc_cost.get_torch_mirror(gpu=self._use_gpu) # over the whole horizon
-        # return self._rhc_cost_scale * rhc_cost
-        rhc_cost = self._rhc_status.rhc_nodes_cost.get_torch_mirror(gpu=gpu)
-        return self._rhc_cost_scale * rhc_cost[:, 0:1] # just on node 0
+        rhc_cost = self._rhc_status.rhc_nodes_cost.get_torch_mirror(gpu=gpu)[:, 0:1] # just on node 0
+        n_range=5
+        rhc_cost = torch.sum(\
+            self._rhc_status.rhc_nodes_cost.get_torch_mirror(gpu=gpu)[:, 0:n_range],dim=1,keepdim=True) # sum over first n_range nodes
+        return rhc_cost 
     
     def _rhc_step_var(self, gpu: bool):
         step_var = self._rhc_status.rhc_step_var.get_torch_mirror(gpu=gpu)
@@ -423,7 +427,6 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         return self._rhc_step_var_scale * torch.cat(to_be_cat, dim=1) 
     
     def _weighted_actions_diff(self, gpu: bool):
-
         last_actions = self.get_actions()
         weighted_actions_diff = torch.sum((last_actions-self._prev_actions)*self._action_diff_weights,dim=1,keepdim=True)/self._action_diff_w_sum
         
@@ -467,8 +470,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         sub_rewards[:, 0:1] = self._task_weight * (1.0 - self._task_scale * task_error_pseudolin)
         sub_rewards[:, 1:2] = self._power_weight * (1.0 - self._power_scale * weighted_mech_power)
         sub_rewards[:, 2:3] = self._jnt_vel_weight * (1.0 - self._jnt_vel_scale * weighted_jnt_vel)
-        sub_rewards[:, 3:4] = self._rhc_cnstr_viol_weight * (1.0 - self._rhc_const_viol(gpu=self._use_gpu))
-        sub_rewards[:, 4:5] = self._rhc_cost_weight * (1.0 - self._rhc_cost(gpu=self._use_gpu))
+        sub_rewards[:, 3:4] = self._rhc_cnstr_viol_weight * (1.0 - self._rhc_cnstr_viol_scale * self._rhc_const_viol(gpu=self._use_gpu))
+        sub_rewards[:, 4:5] = self._rhc_cost_weight * (1.0 - self._rhc_cost_scale * self._rhc_cost(gpu=self._use_gpu))
         sub_rewards[:, 5:6] = 1 # health reward
         sub_rewards[:, 6:7] = self._actions_diff_rew_weight * (1.0 - \
                                         self._actions_diff_scale*self._weighted_actions_diff(gpu=self._use_gpu)) # action regularization reward
