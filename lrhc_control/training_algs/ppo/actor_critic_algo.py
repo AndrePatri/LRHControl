@@ -103,8 +103,15 @@ class ActorCriticAlgoBase():
         self._unique_id = self._time_id + "-" + self._run_name
         self._init_algo_shared_data(static_params=self._hyperparameters) # can only handle dicts with
         # numeric values
-        self._hyperparameters.update(custom_args)
+        
+        data_names={}
+        data_names["obs_names"]=self._env.obs_names()
+        data_names["action_names"]=self._env.action_names()
+        data_names["sub_reward_names"]=self._env.sub_rew_names()
 
+        self._hyperparameters.update(custom_args)
+        self._hyperparameters.update(data_names)
+        
         self._torch_device = torch.device("cuda" if torch.cuda.is_available() and self._use_gpu else "cpu")
 
         self._agent = ACAgent(obs_dim=self._env.obs_dim(),

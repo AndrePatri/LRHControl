@@ -478,6 +478,15 @@ class LRhcTrainingEnvBase():
                                     
         return self._dtype 
     
+    def obs_names(self):
+        return self._get_obs_names()
+    
+    def action_names(self):
+        return self._get_action_names()
+
+    def sub_rew_names(self):
+        return self._get_rewards_names()
+        
     def _get_obs_names(self):
         # to be overridden by child class
         return None
