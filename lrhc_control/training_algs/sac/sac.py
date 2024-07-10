@@ -32,7 +32,7 @@ class SAC(SActorCriticAlgoBase):
         # either terminated or truncated. CRUCIAL: we need to clone, 
         # otherwise obs is be a view and will be overridden in the call to step
         # with next_obs!!!
-        if self._vec_transition_counter >= self._warmstart_vectimesteps or \
+        if self._vec_transition_counter > self._warmstart_vectimesteps or \
             self._eval:
             actions, _, _ = self._agent.actor.get_action(x=obs)
             actions = actions.detach()

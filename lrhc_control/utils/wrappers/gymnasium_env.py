@@ -139,18 +139,10 @@ class Gymnasium2LRHCEnv():
 
     def _init_shared_data(self):
         
-        obs_names = [""]*self._obs_dim
-        for i in range(len(obs_names)):
-            obs_names[i] = f"obs_n.{i}"
-        
-        action_names = [""]*self._actions_dim
-        for i in range(len(action_names)):
-            action_names[i] = f"action_n.{i}"
-
         self._obs = Observations(namespace=self._namespace,
                             n_envs=self._n_envs,
                             obs_dim=self._obs_dim,
-                            obs_names=obs_names,
+                            obs_names=self.obs_names(),
                             env_names=None,
                             is_server=True,
                             verbose=self._verbose,
@@ -164,7 +156,7 @@ class Gymnasium2LRHCEnv():
         self._next_obs = NextObservations(namespace=self._namespace,
                             n_envs=self._n_envs,
                             obs_dim=self._obs_dim,
-                            obs_names=obs_names,
+                            obs_names=self.obs_names(),
                             env_names=None,
                             is_server=True,
                             verbose=self._verbose,
@@ -178,7 +170,7 @@ class Gymnasium2LRHCEnv():
         self._actions = Actions(namespace=self._namespace,
                             n_envs=self._n_envs,
                             action_dim=self._actions_dim,
-                            action_names=action_names,
+                            action_names=self.action_names(),
                             env_names=None,
                             is_server=True,
                             verbose=self._verbose,
@@ -191,7 +183,7 @@ class Gymnasium2LRHCEnv():
         
         self._tot_rewards = TotRewards(namespace=self._namespace,
                             n_envs=self._n_envs,
-                            reward_names=["total_reward"],
+                            reward_names=self.sub_rew_names(),
                             env_names=None,
                             is_server=True,
                             verbose=self._verbose,
@@ -251,6 +243,21 @@ class Gymnasium2LRHCEnv():
     def actions_dim(self):
         return self._actions_dim
     
+    def obs_names(self):
+        obs_names = [""]*self._obs_dim
+        for i in range(len(obs_names)):
+            obs_names[i] = f"obs_n.{i}"
+        return obs_names
+    
+    def action_names(self):
+        action_names = [""]*self._actions_dim
+        for i in range(len(action_names)):
+            action_names[i] = f"action_n.{i}"
+        return action_names
+
+    def sub_rew_names(self):
+        return ["total_reward"]
+
     def get_obs(self, clone:bool=False):
         if clone:
             return self._obs.get_torch_mirror(gpu=self._use_gpu).clone()

@@ -435,7 +435,8 @@ class SActorCriticAlgoBase():
             self._n_of_played_episodes[self._log_it_counter] = self._episodic_reward_metrics.get_n_played_episodes()
             self._n_timesteps_done[self._log_it_counter] = self._vec_transition_counter * self._db_vecstep_frequency
 
-            self._n_policy_updates[self._log_it_counter] = self._vec_transition_counter*self._policy_freq
+            if self._vec_transition_counter > self._warmstart_vectimesteps:
+                self._n_policy_updates[self._log_it_counter] = (self._vec_transition_counter-self._warmstart_vectimesteps)*self._policy_freq
 
             self._policy_update_fps[self._log_it_counter] = self._n_policy_updates[self._log_it_counter]/self._policy_update_dt[self._log_it_counter]
 
@@ -548,6 +549,7 @@ class SActorCriticAlgoBase():
 
             info =f"\nTotal n. timesteps simulated: {self._vec_transition_counter*self._num_envs}/{self._total_timesteps}\n" + \
                 f"N. policy updates performed: {self._n_policy_updates[self._log_it_counter].item()}\n" + \
+                f"Warmstart completed: {self._vec_transition_counter > self._warmstart_vectimesteps}\n" +\
                 f"Elapsed time: {self._elapsed_min[self._log_it_counter].item()/60.0} h\n" + \
                 f"Estimated remaining training time: " + \
                 f"{est_remaining_time_h} h\n" + \
@@ -704,7 +706,7 @@ class SActorCriticAlgoBase():
         
         # debug
         self._m_checkpoint_freq = 5120 # n timesteps after which a checkpoint model is dumped
-        self._db_vecstep_frequency = 1024 # log db data every n (vectorized) timesteps
+        self._db_vecstep_frequency = 256 # log db data every n (vectorized) timesteps
         
         self._db_data_size = round(self._total_timesteps_vec/self._db_vecstep_frequency)+self._db_vecstep_frequency
         # write them to hyperparam dictionary for debugging
