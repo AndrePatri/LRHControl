@@ -12,6 +12,20 @@ from SharsorIPCpp.PySharsorIPC import LogType
 from SharsorIPCpp.PySharsorIPC import Journal
 from SharsorIPCpp.PySharsorIPC import VLevel
 
+class LRhcTaskBase():
+    def __init__(self, 
+        robot_names: List[str],
+        robot_pkg_names: List[str],
+        robot_pkg_prefix_paths: List[str],
+        integration_dt: float,
+        num_envs: int,
+        device = "cuda",
+        dtype:torch.dtype=torch.float32,
+        debug:bool=False,
+        dump_basepath:str="/tmp"
+        ):
+        a = 1
+
 class LRHcIsaacTask(IsaacTask):
     
     def __init__(self, 
@@ -249,6 +263,18 @@ class LRHcIsaacTask(IsaacTask):
             # closing shared memory
             self.jnt_imp_cntrl_shared_data[robot_name].close()
 
-# class LRhcTraingTaks():
+class LRHcGzXBotTask(LRhcTaskBase):
+    def __init__(self):
+        a=1
 
-    
+class LRhcMJXBot2Task(LRhcTaskBase):
+    def __init__(self):
+        a=1 
+
+class LRhcGzTask(LRhcTaskBase):
+    def __init__(self):
+        a=1
+
+class LRhcMJTask(LRhcTaskBase):
+    def __init__(self):
+        a=1 

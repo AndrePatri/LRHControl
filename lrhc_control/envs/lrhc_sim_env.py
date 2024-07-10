@@ -16,6 +16,17 @@ import time
 
 from control_cluster_bridge.utilities.cpu_utils.core_utils import get_memory_usage
 
+class LRhcEnvBase():
+
+    def __init__(self,
+                headless: bool = True, 
+                debug = False,
+                timeout_ms: int = 60000):
+
+        self._headless=headless
+        self._debug=debug
+        self._timeout_ms=timeout_ms
+
 class LRhcIsaacSimEnv(IsaacSimEnv):
 
     def __init__(self,
@@ -455,3 +466,19 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
             robot_name = rob_names[i]
             control_cluster = self.cluster_servers[robot_name]
             control_cluster.reset_controllers(idxs=env_indxs)
+
+class LRhcGzXBotSimEnv(LRhcEnvBase):
+    def __init__(self):
+        a=1
+
+class LRhcMJXBot2SimEnv(LRhcEnvBase):
+    def __init__(self):
+        a=1 
+
+class LRhcGzSimEnv(LRhcEnvBase):
+    def __init__(self):
+        a=1
+
+class LRhcMJSimEnv(LRhcEnvBase):
+    def __init__(self):
+        a=1 
