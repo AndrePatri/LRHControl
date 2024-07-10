@@ -166,14 +166,14 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     timeout_ms=timeout_ms)
 
         # overriding parent's defaults 
-        self._reward_thresh_lb[:, 0] = -1
-        self._reward_thresh_lb[:, 1] = -1
-        self._reward_thresh_lb[:, 2] = -1
-        self._reward_thresh_lb[:, 3] = -1
-        self._reward_thresh_ub[:, 0] = 1
-        self._reward_thresh_ub[:, 1] = 1
-        self._reward_thresh_ub[:, 2] = 1
-        self._reward_thresh_ub[:, 3] = 1
+        self._reward_thresh_lb[:, 0] = -10
+        self._reward_thresh_lb[:, 1] = -10
+        self._reward_thresh_lb[:, 2] = -10
+        self._reward_thresh_lb[:, 3] = -10
+        self._reward_thresh_ub[:, 0] = 10
+        self._reward_thresh_ub[:, 1] = 10
+        self._reward_thresh_ub[:, 2] = 10
+        self._reward_thresh_ub[:, 3] = 10
 
         self._obs_threshold_lb = -1e3 # used for clipping observations
         self._obs_threshold_ub = 1e3
@@ -190,7 +190,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._actions_ub[:, 6:10] = 1.0 
 
         # action regularization
-        self._actions_diff_rew_weight = 1.0
+        self._actions_diff_rew_weight = 0.0
         if not self._add_last_action_to_obs: # we need the action in obs to use this reward
             self._actions_diff_rew_weight=0.0
         self._actions_diff_scale = 0.1
