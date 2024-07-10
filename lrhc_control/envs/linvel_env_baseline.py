@@ -196,10 +196,11 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._actions_diff_scale = 0.1
         self._action_diff_weights = torch.full((1, actions_dim), dtype=dtype, device=device,
                             fill_value=1.0)
+        self._action_diff_weights[:, 6:10]=0.01 # minimal reg for contact flags
         self._prev_actions = torch.full_like(input=self.get_actions(),fill_value=0.0)
         self._prev_actions[:, :] = self.get_actions()
-        scale=(self._actions_ub-self._actions_lb)/2.0
-        self._action_diff_weights[:, :]=1.0/scale
+        range_scale=(self._actions_ub-self._actions_lb)/2.0
+        self._action_diff_weights[:, :]*=1.0/range_scale
         self._action_diff_w_sum = torch.sum(self._action_diff_weights).item()
         # custom db info 
         step_idx_data = EpisodicData("ContactIndex", self._rhc_step_var(gpu=False), self.contact_names)
