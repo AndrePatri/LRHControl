@@ -25,7 +25,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         
         action_repeat = 1
 
-        self._add_last_action_to_obs = True
+        self._add_last_action_to_obs = False
         self._use_horizontal_frame_for_refs = False # usually impractical for task rand to set this to True 
         self._use_local_base_frame = True
 
@@ -74,7 +74,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         
         device = "cuda" if use_gpu else "cpu"
 
-        self._task_weight = 2.0
+        self._task_weight = 1.0
         self._task_scale = 2.0
         self._task_err_weights = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.0) 
@@ -193,7 +193,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._actions_diff_rew_weight = 1.0
         if not self._add_last_action_to_obs: # we need the action in obs to use this reward
             self._actions_diff_rew_weight=0.0
-        self._actions_diff_scale = 1.0
+        self._actions_diff_scale = 0.1
         self._action_diff_weights = torch.full((1, actions_dim), dtype=dtype, device=device,
                             fill_value=1.0)
         self._prev_actions = torch.full_like(input=self.get_actions(),fill_value=0.0)
@@ -408,7 +408,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         rhc_const_viol = self._rhc_status.rhc_nodes_constr_viol.get_torch_mirror(gpu=gpu)[:, 0:1] # just on node 0
         n_range=5
         rhc_const_viol = torch.sum(\
-            self._rhc_status.rhc_nodes_constr_viol.get_torch_mirror(gpu=gpu)[:, 0:n_range],dim=1,keepdim=True) # sum over first n_range nodes
+            self._rhc_status.rhc_nodes_constr_viol.get_torch_mirror(gpu=gpu)[:, 0:n_range],dim=1,keepdim=True)/n_range # avrg over first n_range nodes
         return rhc_const_viol
     
     def _rhc_cost(self, gpu: bool):
@@ -416,7 +416,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         rhc_cost = self._rhc_status.rhc_nodes_cost.get_torch_mirror(gpu=gpu)[:, 0:1] # just on node 0
         n_range=5
         rhc_cost = torch.sum(\
-            self._rhc_status.rhc_nodes_cost.get_torch_mirror(gpu=gpu)[:, 0:n_range],dim=1,keepdim=True) # sum over first n_range nodes
+            self._rhc_status.rhc_nodes_cost.get_torch_mirror(gpu=gpu)[:, 0:n_range],dim=1,keepdim=True)/n_range # avrg over first n_range nodes
         return rhc_cost 
     
     def _rhc_step_var(self, gpu: bool):
@@ -468,7 +468,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                                             jnts_effort=jnts_effort)
         weighted_jnt_vel = self._jnt_vel_penalty(jnts_vel=jnts_vel)
 
-        sub_rewards = self._rewards.get_torch_mirror(gpu=self._use_gpu)
+        sub_rewards = self._sub_rewards.get_torch_mirror(gpu=self._use_gpu)
         sub_rewards[:, 0:1] = self._task_weight * (1.0 - self._task_scale * task_error_pseudolin)
         sub_rewards[:, 1:2] = self._power_weight * (1.0 - self._power_scale * weighted_mech_power)
         sub_rewards[:, 2:3] = self._jnt_vel_weight * (1.0 - self._jnt_vel_scale * weighted_jnt_vel)
