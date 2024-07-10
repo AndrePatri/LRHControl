@@ -118,7 +118,7 @@ class LRhcTrainingEnvBase():
         self._actions_ub = None
         self._actions_lb = None
         self._tot_rewards = None
-        self._rewards = None
+        self._sub_rewards = None
         self._terminations = None
         self._truncations = None
 
@@ -191,7 +191,7 @@ class LRhcTrainingEnvBase():
             self._next_obs.synch_mirror(from_gpu=True)
             self._actions.synch_mirror(from_gpu=True)
             self._tot_rewards.synch_mirror(from_gpu=True)
-            self._rewards.synch_mirror(from_gpu=True)
+            self._sub_rewards.synch_mirror(from_gpu=True)
             self._truncations.synch_mirror(from_gpu=True) 
             self._terminations.synch_mirror(from_gpu=True)
 
@@ -199,7 +199,7 @@ class LRhcTrainingEnvBase():
         self._next_obs.synch_all(read=False, retry=True)
         self._actions.synch_all(read=False, retry=True) 
         self._tot_rewards.synch_all(read=False, retry=True)
-        self._rewards.synch_all(read=False, retry=True)
+        self._sub_rewards.synch_all(read=False, retry=True)
         self._truncations.synch_all(read=False, retry = True) # writes on shared mem
         self._terminations.synch_all(read=False, retry = True) # writes on shared mem
 
@@ -321,7 +321,7 @@ class LRhcTrainingEnvBase():
             episode_finished_cpu = episode_finished.cpu()
             self._debug() # copies db data on shared memory
             self._update_custom_db_data(episode_finished=episode_finished_cpu)
-            self._episodic_rewards_metrics.update(rewards = self._rewards.get_torch_mirror(gpu=False),
+            self._episodic_rewards_metrics.update(rewards = self._sub_rewards.get_torch_mirror(gpu=False),
                             ep_finished=episode_finished_cpu)
             
         
@@ -347,7 +347,7 @@ class LRhcTrainingEnvBase():
 
         tot_rewards = self._tot_rewards.get_torch_mirror(gpu=self._use_gpu)
 
-        sub_rewards = self._rewards.get_torch_mirror(gpu=self._use_gpu)
+        sub_rewards = self._sub_rewards.get_torch_mirror(gpu=self._use_gpu)
         self._clamp_rewards(sub_rewards) # clipping rewards in a range
 
         # average over substeps
@@ -368,7 +368,7 @@ class LRhcTrainingEnvBase():
         self._obs.reset()
         self._actions.reset()
         self._next_obs.reset()
-        self._rewards.reset()
+        self._sub_rewards.reset()
         self._tot_rewards.reset()
         self._terminations.reset()
         self._truncations.reset()
@@ -406,7 +406,7 @@ class LRhcTrainingEnvBase():
             self._obs.close()
             self._next_obs.close()
             self._actions.close()
-            self._rewards.close()
+            self._sub_rewards.close()
             self._tot_rewards.close()
 
             self._terminations.close()
@@ -486,7 +486,7 @@ class LRhcTrainingEnvBase():
 
     def sub_rew_names(self):
         return self._get_rewards_names()
-        
+
     def _get_obs_names(self):
         # to be overridden by child class
         return None
@@ -508,6 +508,14 @@ class LRhcTrainingEnvBase():
         obs_threshold_default = 10.0
         self._obs_threshold_lb = -obs_threshold_default # used for clipping observations
         self._obs_threshold_ub = obs_threshold_default
+
+        if not self._obs_dim==len(self._get_obs_names()):
+            error=f"obs dim {self._obs_dim} does not match obs names length {len(self._get_obs_names())}!!"
+            Journal.log(self.__class__.__name__,
+                "_init_obs",
+                error,
+                LogType.EXCEP,
+                throw_when_excep = True)
 
         self._obs = Observations(namespace=self._namespace,
                             n_envs=self._n_envs,
@@ -547,6 +555,13 @@ class LRhcTrainingEnvBase():
         self._actions_lb = torch.full((1, actions_dim), dtype=self._dtype, device=device,
                                         fill_value=-1.0)
 
+        if not self._actions_dim==len(self._get_action_names()):
+            error=f"action dim {self._actions_dim} does not match action names length {len(self._get_action_names())}!!"
+            Journal.log(self.__class__.__name__,
+                "_init_actions",
+                error,
+                LogType.EXCEP,
+                throw_when_excep = True)
         self._actions = Actions(namespace=self._namespace,
                             n_envs=self._n_envs,
                             action_dim=self._actions_dim,
@@ -565,14 +580,14 @@ class LRhcTrainingEnvBase():
     def _init_rewards(self):
         
         reward_thresh_default = 1.0
-        n_rewards = len(self._get_rewards_names())
+        n_sub_rewards = len(self._get_rewards_names())
         device = "cuda" if self._use_gpu else "cpu"
-        self._reward_thresh_lb = torch.full((1, n_rewards), dtype=self._dtype, fill_value=-reward_thresh_default, device=device) # used for clipping rewards
-        self._reward_thresh_ub = torch.full((1, n_rewards), dtype=self._dtype, fill_value=reward_thresh_default, device=device) 
+        self._reward_thresh_lb = torch.full((1, n_sub_rewards), dtype=self._dtype, fill_value=-reward_thresh_default, device=device) # used for clipping rewards
+        self._reward_thresh_ub = torch.full((1, n_sub_rewards), dtype=self._dtype, fill_value=reward_thresh_default, device=device) 
 
-        self._rewards = Rewards(namespace=self._namespace,
+        self._sub_rewards = Rewards(namespace=self._namespace,
                             n_envs=self._n_envs,
-                            n_rewards=n_rewards,
+                            n_sub_rewards=n_sub_rewards,
                             reward_names=self._get_rewards_names(),
                             env_names=None,
                             is_server=True,
@@ -595,10 +610,10 @@ class LRhcTrainingEnvBase():
                             with_gpu_mirror=self._use_gpu,
                             fill_value=0.0)
         
-        self._rewards.run()
+        self._sub_rewards.run()
         self._tot_rewards.run()
 
-        self._episodic_rewards_metrics = EpisodicRewards(reward_tensor=self._rewards.get_torch_mirror(),
+        self._episodic_rewards_metrics = EpisodicRewards(reward_tensor=self._sub_rewards.get_torch_mirror(),
                                         reward_names=self._get_rewards_names(),
                                         max_episode_length=self._episode_timeout_ub)
         self._set_ep_rewards_scaling(scaling=self._n_steps_task_rand_ub)
