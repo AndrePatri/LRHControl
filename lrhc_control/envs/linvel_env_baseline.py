@@ -25,7 +25,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         
         action_repeat = 1
 
-        self._add_last_action_to_obs = False
+        self._add_last_action_to_obs = True
         self._use_horizontal_frame_for_refs = False # usually impractical for task rand to set this to True 
         self._use_local_base_frame = True
 
@@ -274,21 +274,19 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # time_limits_reached = self._ep_timeout_counter.time_limits_reached()
         # truncations[:, :] = time_limits_reached
 
-    def _check_terminations(self):
+    # def _check_terminations(self):
 
-        terminations = self._terminations.get_torch_mirror(gpu=self._use_gpu)
+    #     terminations = self._terminations.get_torch_mirror(gpu=self._use_gpu)
 
-        # terminate when controller fails
-        # terminations[:, :] = self._rhc_status.fails.get_torch_mirror(gpu=self._use_gpu) 
-        
-        # more restrictive -> use total cost and viol 
-        rhc_const_viol = self._rhc_const_viol(gpu=self._use_gpu)
-        rhc_cost = self._rhc_cost(gpu=self._use_gpu)
+    #     rhc_const_viol = self._rhc_const_viol(gpu=self._use_gpu)
+    #     rhc_cost = self._rhc_cost(gpu=self._use_gpu)
 
-        cost_scaling = 2*1e-4#tuned from batch db data
-        explosion_idx_thresh = 8.0 # terminate if above this threshold
-        explosion_idx = rhc_const_viol+rhc_cost*cost_scaling 
-        terminations[:, :] = explosion_idx > explosion_idx_thresh
+    #     cost_scaling = 2*1e-4#tuned from batch db data
+    #     explosion_idx_thresh = 100 # terminate if above this threshold
+    #     explosion_idx = rhc_const_viol+rhc_cost*cost_scaling 
+
+    #     terminations[:, :] = torch.logical_or(explosion_idx>explosion_idx_thresh,
+    #                         self._rhc_status.fails.get_torch_mirror(gpu=self._use_gpu))
 
     def _custom_post_step(self,episode_finished):
         # executed after checking truncations and terminations
