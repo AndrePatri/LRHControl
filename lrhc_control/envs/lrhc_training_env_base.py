@@ -587,7 +587,7 @@ class LRhcTrainingEnvBase():
 
         self._sub_rewards = Rewards(namespace=self._namespace,
                             n_envs=self._n_envs,
-                            n_sub_rewards=n_sub_rewards,
+                            n_rewards=n_sub_rewards,
                             reward_names=self._get_rewards_names(),
                             env_names=None,
                             is_server=True,
