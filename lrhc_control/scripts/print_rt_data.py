@@ -100,6 +100,7 @@ if __name__ == "__main__":
             obs.synch_all(read=True, retry=True)
             act.synch_all(read=True, retry=True)
             rew.synch_all(read=True, retry=True)
+            sub_rew.synch_all(read=True, retry=True)
             trunc.synch_all(read=True, retry=True)
             term.synch_all(read=True, retry=True)
 
