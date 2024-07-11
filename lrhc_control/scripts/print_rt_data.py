@@ -88,7 +88,7 @@ if __name__ == "__main__":
         ep_counter.run()
         task_counter.run()
 
-    torch.set_printoptions(precision=2,sci_mode=False,linewidth=50)
+    torch.set_printoptions(precision=4,sci_mode=False,linewidth=100)
 
     while True:
         try:
