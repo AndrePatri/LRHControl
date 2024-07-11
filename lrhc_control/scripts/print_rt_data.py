@@ -1,5 +1,6 @@
 from lrhc_control.utils.shared_data.training_env import Observations, NextObservations
 from lrhc_control.utils.shared_data.training_env import TotRewards
+from lrhc_control.utils.shared_data.training_env import Rewards
 from lrhc_control.utils.shared_data.training_env import Actions
 from lrhc_control.utils.shared_data.training_env import Terminations
 from lrhc_control.utils.shared_data.training_env import Truncations
@@ -51,15 +52,23 @@ if __name__ == "__main__":
     rew = TotRewards(namespace=namespace,is_server=False,verbose=True, 
                 vlevel=VLevel.V2,safe=False,
                 with_gpu_mirror=False,dtype=dtype)
+    sub_rew = Rewards(namespace=namespace,
+                    is_server=False,
+                    verbose=True,
+                    vlevel=VLevel.V2,
+                    with_gpu_mirror=False)
     trunc = Truncations(namespace=namespace,is_server=False,verbose=True, 
                 vlevel=VLevel.V2,safe=False,
                 with_gpu_mirror=False)
     term = Terminations(namespace=namespace,is_server=False,verbose=True, 
                 vlevel=VLevel.V2,safe=False,
                 with_gpu_mirror=False)
+                
     obs.run()
     act.run()
     rew.run()
+    sub_rew.run()
+    sub_rew_names = sub_rew.col_names()
     trunc.run()
     term.run()
     
@@ -100,6 +109,9 @@ if __name__ == "__main__":
             print(act.get_torch_mirror(gpu=False)[idx:idx+env_range, :])
             print("\nrewards:")
             print(rew.get_torch_mirror(gpu=False)[idx:idx+env_range, :])
+            print("\nsub-rewards:")
+            print(*sub_rew_names, sep = ", ") 
+            print(sub_rew.get_torch_mirror(gpu=False)[idx:idx+env_range, :])
             print("\nterminations:")
             print(term.get_torch_mirror(gpu=False)[idx:idx+env_range, :])
             print("\ntruncations:")
