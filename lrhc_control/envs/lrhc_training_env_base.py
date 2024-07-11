@@ -308,15 +308,8 @@ class LRhcTrainingEnvBase():
                             
         self._custom_post_step(episode_finished=episode_finished) # any additional logic from child env        
 
-        # remotely reset envs only if terminated or if a timeout is reached
-        rm_reset_ok = self._remote_reset(reset_mask=torch.logical_or(terminated.cpu(),
-                                self._ep_timeout_counter.time_limits_reached()))
-        
-        # synchronize and reset counters for finished episodes
-        self._ep_timeout_counter.reset(to_be_reset=episode_finished,randomize_limits=True)# reset and randomize duration 
-        self._task_rand_counter.reset(to_be_reset=episode_finished,randomize_limits=True)# reset and randomize duration 
-
-        # debug step if required
+        # debug step if required (IMPORTANT: must be before remote reset so that we always db
+        # actual data from the step and not after reset)
         if self._is_debug:
             episode_finished_cpu = episode_finished.cpu()
             self._debug() # copies db data on shared memory
@@ -324,6 +317,13 @@ class LRhcTrainingEnvBase():
             self._episodic_rewards_metrics.update(rewards = self._sub_rewards.get_torch_mirror(gpu=False),
                             ep_finished=episode_finished_cpu)
             
+        # remotely reset envs only if terminated or if a timeout is reached
+        rm_reset_ok = self._remote_reset(reset_mask=torch.logical_or(terminated.cpu(),
+                                self._ep_timeout_counter.time_limits_reached()))
+        
+        # synchronize and reset counters for finished episodes
+        self._ep_timeout_counter.reset(to_be_reset=episode_finished,randomize_limits=True)# reset and randomize duration 
+        self._task_rand_counter.reset(to_be_reset=episode_finished,randomize_limits=True)# reset and randomize duration 
         
         return rm_reset_ok
             
@@ -331,11 +331,11 @@ class LRhcTrainingEnvBase():
                     episode_finished):
 
         # update defaults
-        self.custom_db_data["RhcStatusFlag"].update(new_data=self._rhc_refs.contact_flags.get_torch_mirror(gpu=False), 
+        self.custom_db_data["RhcRefsFlag"].update(new_data=self._rhc_refs.contact_flags.get_torch_mirror(gpu=False), 
                                     ep_finished=episode_finished) # before potentially resetting the flags, get data
         self.custom_db_data["Actions"].update(new_data=self._actions.get_torch_mirror(gpu=False), 
                                     ep_finished=episode_finished)
-        
+                
         self._get_custom_db_data(episode_finished=episode_finished)
 
     def reset_custom_db_data(self, keep_track: bool = False):
@@ -629,7 +629,7 @@ class LRhcTrainingEnvBase():
         # by default always log this contact data
         rhc_latest_contact_ref = self._rhc_refs.contact_flags.get_torch_mirror()
         contact_names = self._rhc_refs.rob_refs.contact_names()
-        stepping_data = EpisodicData("RhcStatusFlag", rhc_latest_contact_ref, contact_names)
+        stepping_data = EpisodicData("RhcRefsFlag", rhc_latest_contact_ref, contact_names)
         self._add_custom_db_info(db_data=stepping_data)
         # log also action data
         actions = self._actions.get_torch_mirror()

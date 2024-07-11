@@ -90,7 +90,7 @@ class HybridQuadRhcRefs(RhcRefs):
 
             phase_id = self.phase_id.read_retry(row_index=self.robot_index,
                                 col_index=0)[0]
-
+            
             if phase_id == -1: # custom phases
                 contact_flags = self.contact_flags.get_numpy_mirror()[self.robot_index, :]
                 is_contact = contact_flags.flatten().tolist() 
