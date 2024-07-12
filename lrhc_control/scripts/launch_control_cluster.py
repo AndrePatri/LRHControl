@@ -31,7 +31,7 @@ if __name__ == "__main__":
     parser.add_argument('--force_cores', action='store_true', help='whether to force RHC controller affinity')
     parser.add_argument('--i_cores_only', action='store_true', help='whether use isolated cores only for RHC controllers')
     parser.add_argument('--set_rhc_affinity', action='store_true', help='whether to set the affinity of each rhc controller to a specific core')
-    parser.add_argument('--mp_fork', action='store_true', help='whether to mutliprocess fork context')
+    parser.add_argument('--mp_fork', action=argparse.BooleanOptionalAction, default=True, help='whether to mutliprocess forkserver context')
     parser.add_argument('--c_start_idx', type=int, 
             help='start index for cores over which RHC controllers will be distributed',
             default=0)
@@ -45,10 +45,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     if args.mp_fork: # this needs to be in the main
-        mp.set_start_method('fork')
+        mp.set_start_method('forkserver')
+        # mp.set_start_method('fork')
     else:
         mp.set_start_method('spawn')
-        # mp.set_start_method('forkserver')
     
     # Set CPU affinity if cores are provided
     if args.cores:
