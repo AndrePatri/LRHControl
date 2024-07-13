@@ -356,9 +356,6 @@ class LRhcTrainingEnvBase():
         sub_rewards = self._sub_rewards.get_torch_mirror(gpu=self._use_gpu)
         self._clamp_rewards(sub_rewards) # clipping rewards in a user-defined range
         
-        self._srew_drescaling = srew_drescaling
-        self._srew_tsrescaling = srew_tsrescaling
-
         scale=self._action_repeat
         if self._rescale_rewards and self._srew_drescaling: # scale rewards depending on the n of subrewards
             scale*=sub_rewards.shape[1] # n. dims rescaling
