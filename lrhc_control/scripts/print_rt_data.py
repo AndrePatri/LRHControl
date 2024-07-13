@@ -5,6 +5,7 @@ from lrhc_control.utils.shared_data.training_env import Actions
 from lrhc_control.utils.shared_data.training_env import Terminations
 from lrhc_control.utils.shared_data.training_env import Truncations
 from lrhc_control.utils.shared_data.training_env import EpisodesCounter, TaskRandCounter
+from control_cluster_bridge.utilities.shared_data.sim_data import SharedSimInfo
 
 import time 
 from perf_sleep.pyperfsleep import PerfSleep
@@ -28,6 +29,7 @@ if __name__ == "__main__":
     parser.add_argument('--env_range', type=int, help='', default=1)
     parser.add_argument('--dtype', type=str, help='', default="float")
     parser.add_argument('--with_counters', action=argparse.BooleanOptionalAction, default=False, help='')
+    parser.add_argument('--resolution', type=int, help='', default=2)
 
     args = parser.parse_args()
 
@@ -38,12 +40,15 @@ if __name__ == "__main__":
     env_range=args.env_range
     elapsed_tot_nom = 0
     with_counters = args.with_counters
-
+    n_digits=args.resolution
     dtype=sharsor_dtype.Float
     if args.dtype == "double":
         dtype=sharsor_dtype.Double
 
     obs = Observations(namespace=namespace,is_server=False,verbose=True, 
+                vlevel=VLevel.V2,safe=False,
+                with_gpu_mirror=False,dtype=dtype)
+    next_obs = NextObservations(namespace=namespace,is_server=False,verbose=True, 
                 vlevel=VLevel.V2,safe=False,
                 with_gpu_mirror=False,dtype=dtype)
     act = Actions(namespace=namespace,is_server=False,verbose=True, 
@@ -63,15 +68,27 @@ if __name__ == "__main__":
     term = Terminations(namespace=namespace,is_server=False,verbose=True, 
                 vlevel=VLevel.V2,safe=False,
                 with_gpu_mirror=False)
-                
+    
+    sim_data = SharedSimInfo(namespace=namespace,
+                is_server=False,
+                safe=False,
+                verbose=True,
+                vlevel=VLevel.V2)
+
     obs.run()
+    # next_obs.run()
+    obs_names=obs.col_names()
     act.run()
+    act_names=act.col_names()
     rew.run()
     sub_rew.run()
     sub_rew_names = sub_rew.col_names()
     trunc.run()
     term.run()
-    
+    sim_data.run()
+    sim_datanames = sim_data.param_keys
+    simtime_idx = sim_datanames.index("cluster_time")
+
     ep_counter = None
     task_counter = None
     if with_counters:
@@ -88,25 +105,32 @@ if __name__ == "__main__":
         ep_counter.run()
         task_counter.run()
 
-    torch.set_printoptions(precision=4,sci_mode=False,linewidth=100)
+    torch.set_printoptions(precision=n_digits,sci_mode=False,linewidth=200)
 
     while True:
         try:
-            start_time = time.perf_counter() 
-            
-            print(f"########################")
-            print(f"{round(elapsed_tot_nom, 2)} [s] -->\n")
+            start_time = time.perf_counter()
+
             # read data
+            sim_time=sim_data.get()[simtime_idx].item()
             obs.synch_all(read=True, retry=True)
+            # next_obs.synch_all(read=True, retry=True)
             act.synch_all(read=True, retry=True)
             rew.synch_all(read=True, retry=True)
             sub_rew.synch_all(read=True, retry=True)
             trunc.synch_all(read=True, retry=True)
             term.synch_all(read=True, retry=True)
 
-            print("observations:")
+            print(f"########################")
+            print(f"wall time: {round(elapsed_tot_nom, 2)} [s] -->\n")
+            print(f"sim time: {round(sim_time, 2)} [s] -->\n")
+            print("\nobservations:")
+            print(obs_names, sep = ", ")
             print(obs.get_torch_mirror(gpu=False)[idx:idx+env_range, :])
+            # print("-->next observations:")
+            # print(next_obs.get_torch_mirror(gpu=False)[idx:idx+env_range, :])
             print("\nactions:")
+            print(act_names, sep = ", ")
             print(act.get_torch_mirror(gpu=False)[idx:idx+env_range, :])
             print("\nrewards:")
             print(rew.get_torch_mirror(gpu=False)[idx:idx+env_range, :])
