@@ -55,13 +55,20 @@ class LRhcTrainingEnvBase():
             use_gpu: bool = True,
             dtype: torch.dtype = torch.float32,
             override_agent_refs: bool = False,
-            timeout_ms: int = 60000):
+            timeout_ms: int = 60000.
+            rescale_rewards: bool: True,
+            srew_drescaling: bool = True,
+            srew_tsrescaling: bool = False):
         
         self._this_path = os.path.abspath(__file__)
 
         self.custom_db_data = None
         
         self.custom_db_info = {}
+        
+        self._rescale_rewards=rescale_rewards
+        self._srew_drescaling = srew_drescaling
+        self._srew_tsrescaling = srew_tsrescaling
         
         self._action_repeat = action_repeat
         if self._action_repeat <=0: 
@@ -344,14 +351,23 @@ class LRhcTrainingEnvBase():
             custom_db_data.reset(keep_track=keep_track)
 
     def _assemble_rewards(self):
-
+        
         tot_rewards = self._tot_rewards.get_torch_mirror(gpu=self._use_gpu)
-
         sub_rewards = self._sub_rewards.get_torch_mirror(gpu=self._use_gpu)
-        self._clamp_rewards(sub_rewards) # clipping rewards in a range
+        self._clamp_rewards(sub_rewards) # clipping rewards in a user-defined range
+        
+        self._srew_drescaling = srew_drescaling
+        self._srew_tsrescaling = srew_tsrescaling
 
-        # average over substeps
-        tot_rewards[:, :] = tot_rewards + torch.sum(sub_rewards, dim=1, keepdim=True)/self._action_repeat
+        scale=self._action_repeat
+        if self._rescale_rewards and self._srew_drescaling: # scale rewards depending on the n of subrewards
+            scale*=sub_rewards.shape[1] # n. dims rescaling
+        if self._rescale_rewards and self._srew_tsrescaling: # scale rewards depending on the n of subrewards
+            scale*=self._n_steps_task_rand_ub # scale using task rand ub (not using episode timeout since the scale
+            # can then be excessively aggressive)
+
+        # average over substeps depending on scale
+        tot_rewards[:, :] = tot_rewards + torch.sum(sub_rewards, dim=1, keepdim=True)/scale
 
     def randomize_task_refs(self,
                 env_indxs: torch.Tensor = None):
