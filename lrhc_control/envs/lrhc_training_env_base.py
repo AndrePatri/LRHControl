@@ -55,7 +55,7 @@ class LRhcTrainingEnvBase():
             use_gpu: bool = True,
             dtype: torch.dtype = torch.float32,
             override_agent_refs: bool = False,
-            timeout_ms: int = 60000.
+            timeout_ms: int = 60000,
             rescale_rewards: bool: True,
             srew_drescaling: bool = True,
             srew_tsrescaling: bool = False):
