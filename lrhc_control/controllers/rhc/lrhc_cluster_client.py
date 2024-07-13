@@ -23,7 +23,7 @@ class LRhcClusterClient(ControlClusterClient):
             debug: bool = False,
             codegen_base_dirname: str = "CodeGen",
             base_dump_dir: str = "/tmp",
-            codegen_override: str = ""):
+            codegen_override: str = None):
 
         self._base_dump_dir = base_dump_dir
 

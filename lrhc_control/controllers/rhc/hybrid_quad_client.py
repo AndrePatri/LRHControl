@@ -22,7 +22,7 @@ class HybridQuadrupedClusterClient(LRhcClusterClient):
             open_loop: bool = True,
             base_dump_dir: str = "/tmp",
             timeout_ms: int = 60000,
-            codegen_override: str = ""):
+            codegen_override: str = None):
         
         self._open_loop = open_loop
 
@@ -54,8 +54,12 @@ class HybridQuadrupedClusterClient(LRhcClusterClient):
                         idx: int):
         
         codegen_dir = self.codegen_dir() + f"/{self._codegen_dir_name}Rhc{idx}"
-        if not self.codegen_dir_override() == "":
-            codegen_dir = f"{self.codegen_dir_override()}{idx}"
+        codegen_dir_ovveride = self.codegen_dir_override()
+        if not (codegen_dir_ovveride=="" or \
+                codegen_dir_ovveride=="none" or \
+                codegen_dir_ovveride=="None" or \
+                (codegen_dir_ovveride is None)): # if overrde was provided
+            codegen_dir = f"{codegen_dir_ovveride}{idx}"# override
 
         controller = HybridQuadRhc(
                 urdf_path=self._urdf_path, 
