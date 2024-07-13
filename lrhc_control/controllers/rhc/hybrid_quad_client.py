@@ -50,7 +50,7 @@ class HybridQuadrupedClusterClient(LRhcClusterClient):
                             robot_pkg_pref_path=self.robot_pkg_pref_path)
         return cmds
 
-    def _process_codegen_dir(self):
+    def _process_codegen_dir(self,idx:int):
 
         codegen_dir = self.codegen_dir() + f"/{self._codegen_dir_name}Rhc{idx}"
         codegen_dir_ovveride = self.codegen_dir_override()
@@ -65,7 +65,7 @@ class HybridQuadrupedClusterClient(LRhcClusterClient):
     def _generate_controller(self,
                         idx: int):
         
-        codegen_dir=self._process_codegen_dir()
+        codegen_dir=self._process_codegen_dir(idx=idx)
 
         controller = HybridQuadRhc(
                 urdf_path=self._urdf_path, 
