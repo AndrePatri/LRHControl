@@ -56,7 +56,7 @@ class LRhcTrainingEnvBase():
             dtype: torch.dtype = torch.float32,
             override_agent_refs: bool = False,
             timeout_ms: int = 60000,
-            rescale_rewards: bool: True,
+            rescale_rewards: bool= True,
             srew_drescaling: bool = True,
             srew_tsrescaling: bool = False):
         
