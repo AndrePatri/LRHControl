@@ -81,6 +81,8 @@ class HybridQuadRhc(RHController):
 
         self.rhc_costs={}
         self.rhc_constr={}
+
+        self._fail_idx_scale=1e-2
     
     def _get_quat_remap(self):
         # overrides parent
@@ -477,7 +479,7 @@ class HybridQuadRhc(RHController):
             return False
     
     def _get_fail_idx(self):
-        explosion_index = self._get_rhc_constr_viol() + self._get_rhc_cost()*1e-2
+        explosion_index = self._get_rhc_constr_viol() + self._get_rhc_cost()*self._fail_idx_scale
         return explosion_index
     
     def _update_db_data(self):

@@ -74,7 +74,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         
         device = "cuda" if use_gpu else "cpu"
 
-        self._task_weight = 3.0
+        self._task_weight = 2.0
         self._task_scale = 2.0
         self._task_err_weights = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.0) 
@@ -86,17 +86,17 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._task_err_weights[0, 5] = 1e-6
         self._task_err_weights_sum = torch.sum(self._task_err_weights).item()
 
-        self._rhc_cnstr_viol_weight = 1.0
+        self._rhc_cnstr_viol_weight = 0.0
         # self._rhc_cnstr_viol_scale = 1.0 * 1e-3
         self._rhc_cnstr_viol_scale = 1.0 * 5e-3
 
-        self._rhc_cost_weight = 1.0
+        self._rhc_cost_weight = 0.0
         # self._rhc_cost_scale = 1e-2 * 1e-3
         self._rhc_cost_scale = 1e-2 * 5e-3
 
         # power penalty
         self._power_weight = 1.0
-        self._power_scale = 0.05
+        self._power_scale = 0.01
         self._power_penalty_weights = torch.full((1, n_jnts), dtype=dtype, device=device,
                             fill_value=1.0)
         n_jnts_per_limb = round(n_jnts/n_contacts) # assuming same topology along limbs
@@ -122,8 +122,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._jnt_vel_penalty_weights_sum = torch.sum(self._jnt_vel_penalty_weights).item()
         
         # task rand
-        self._use_pof0 = True
-        self._pof0 = 0.2
+        self._use_pof0 = False
+        self._pof0 = 0.1
         self._twist_ref_lb = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=-0.8) 
         self._twist_ref_ub = torch.full((1, 6), dtype=dtype, device=device,
@@ -166,7 +166,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     timeout_ms=timeout_ms,
                     rescale_rewards=True,
                     srew_drescaling=True,
-                    srew_tsrescaling=True)
+                    srew_tsrescaling=False)
 
         # overriding parent's defaults 
         self._reward_thresh_lb[:, 0] = -10
@@ -196,7 +196,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._actions_diff_rew_weight = 1.0
         if not self._add_last_action_to_obs: # we need the action in obs to use this reward
             self._actions_diff_rew_weight=0.0
-        self._actions_diff_scale = 0.5
+        self._actions_diff_scale = 0.05
         self._action_diff_weights = torch.full((1, actions_dim), dtype=dtype, device=device,
                             fill_value=1.0)
         self._action_diff_weights[:, 6:10]=0.01 # minimal reg for contact flags
