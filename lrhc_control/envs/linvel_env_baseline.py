@@ -196,7 +196,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._actions_diff_rew_weight = 1.0
         if not self._add_last_action_to_obs: # we need the action in obs to use this reward
             self._actions_diff_rew_weight=0.0
-        self._actions_diff_scale = 0.05
+        self._actions_diff_scale = 1.0
         self._action_diff_weights = torch.full((1, actions_dim), dtype=dtype, device=device,
                             fill_value=1.0)
         self._action_diff_weights[:, 6:10]=0.01 # minimal reg for contact flags
