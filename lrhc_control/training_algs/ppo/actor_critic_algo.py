@@ -781,7 +781,7 @@ class ActorCriticAlgoBase():
         self._total_timesteps = int(50e6) # total timesteps to be collected (including sub envs)
         self._total_timesteps = self._total_timesteps//self._env_n_action_reps # correct with n of action reps
         
-        self._rollout_timesteps = 2048 # numer of vectorized steps (does not include env substepping) 
+        self._rollout_timesteps = 512 # numer of vectorized steps (does not include env substepping) 
         # to be done per policy rollout (influences adv estimation!!!)
         self._batch_size = self._rollout_timesteps * self._num_envs
 
@@ -808,7 +808,7 @@ class ActorCriticAlgoBase():
         self._clip_vloss = False
         self._clip_coef_vf = 0.2 # IMPORTANT: this clipping depends on the reward scaling (only used if clip_vloss)
         self._clip_coef = 0.2
-        self._entropy_coeff = 1e-4
+        self._entropy_coeff = 1e-3
         self._val_f_coeff = 0.5
         self._max_grad_norm_actor = 0.5
         self._max_grad_norm_critic = 0.5
