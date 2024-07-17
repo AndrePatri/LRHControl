@@ -324,6 +324,9 @@ class SActorCriticAlgoBase():
             hf.create_dataset('n_of_played_episodes', data=self._n_of_played_episodes.numpy())
             hf.create_dataset('n_timesteps_done', data=self._n_timesteps_done.numpy())
             hf.create_dataset('n_policy_updates', data=self._n_policy_updates.numpy())
+            hf.create_dataset('n_qfun_updates', data=self._n_qfun_updates.numpy())
+            hf.create_dataset('n_tqfun_updates', data=self._n_tqfun_updates.numpy())
+
             hf.create_dataset('elapsed_min', data=self._elapsed_min.numpy())
 
             # algo data 
@@ -425,22 +428,29 @@ class SActorCriticAlgoBase():
         self._policy_update_dt[self._log_it_counter] += \
             (self._policy_update_t - self._collection_t)
         
+        if self._vec_transition_counter > self._warmstart_vectimesteps:
+            if self._vec_transition_counter % self._policy_freq == 0:
+                self._n_policy_updates[self._log_it_counter]=self._n_policy_updates[self._log_it_counter-1]+self._policy_freq # td3 delaye update
+            # updating qfun at each vec timesteps
+            self._n_qfun_updates[self._log_it_counter]=self._n_qfun_updates[self._log_it_counter-1]+\
+                (self._vec_transition_counter-self._warmstart_vectimesteps)
+            if self._vec_transition_counter % self._trgt_net_freq == 0:
+                self._n_tqfn_updates[self._log_it_counter]=self._n_tqfn_updates[self._log_it_counter-1]+1
+
         if self._vec_transition_counter % self._db_vecstep_frequency== 0:
             # only log data every n timesteps 
         
             self._env_step_fps[self._log_it_counter] = (self._db_vecstep_frequency*self._num_envs)/ self._collection_dt[self._log_it_counter]
             if "control_clust_dt" in self._hyperparameters:
-                self._env_step_rt_factor[self._log_it_counter] = self._env_step_fps[self._log_it_counter] * self._hyperparameters["control_clust_dt"]
+                self._env_step_rt_factor[self._log_it_counter] = self._env_step_fps[self._log_it_counter]*self._hyperparameters["control_clust_dt"]
 
             self._n_of_played_episodes[self._log_it_counter] = self._episodic_reward_metrics.get_n_played_episodes()
-            self._n_timesteps_done[self._log_it_counter] = self._vec_transition_counter * self._db_vecstep_frequency
+            self._n_timesteps_done[self._log_it_counter]=self._vec_transition_counter*self._num_envs
+            
+            self._policy_update_fps[self._log_it_counter] = (self._n_policy_updates[self._log_it_counter]-\
+                self._n_policy_updates[self._log_it_counter-1])/self._policy_update_dt[self._log_it_counter]
 
-            if self._vec_transition_counter > self._warmstart_vectimesteps:
-                self._n_policy_updates[self._log_it_counter] = (self._vec_transition_counter-self._warmstart_vectimesteps)*self._policy_freq
-
-            self._policy_update_fps[self._log_it_counter] = self._n_policy_updates[self._log_it_counter]/self._policy_update_dt[self._log_it_counter]
-
-            self._elapsed_min[self._log_it_counter] = (time.perf_counter() - self._start_time_tot) / 60
+            self._elapsed_min[self._log_it_counter] = (time.perf_counter() - self._start_time_tot)/60.0
         
             # we get some episodic reward metrics
             self._episodic_rewards[self._log_it_counter, :, :] = self._episodic_reward_metrics.get_avrg_over_eps() # total ep. rewards across envs
@@ -548,7 +558,12 @@ class SActorCriticAlgoBase():
             est_remaining_time_h =  elapsed_h * 1/self._vec_transition_counter * (self._total_timesteps_vec-self._vec_transition_counter)
 
             info =f"\nTotal n. timesteps simulated: {self._vec_transition_counter*self._num_envs}/{self._total_timesteps}\n" + \
-                f"N. policy updates performed: {self._n_policy_updates[self._log_it_counter].item()}\n" + \
+                f"N. policy updates performed: {self._n_policy_updates[self._log_it_counter].item()}/{self._n_policy_updates_to_be_done}\n" + \
+                f"N. q fun updates performed: {self._n_qfun_updates[self._log_it_counter].item()}/{self._n_qf_updates_to_be_done}\n" + \
+                f"N. trgt q fun updates performed: {self._n_tqfn_updates[self._log_it_counter].item()}/{self._n_tqf_updates_to_be_done}\n" + \
+                f"experience to policy grad ratio: {self._exp_to_policy_grad_ratio}\n" + 
+                f"experience to q fun grad ratio: {self._exp_to_qf_grad_ratio}\n" +
+                f"experience to trgt q fun grad ratio: {self._exp_to_qft_grad_ratio}\n"+
                 f"Warmstart completed: {self._vec_transition_counter > self._warmstart_vectimesteps}\n" +\
                 f"Elapsed time: {self._elapsed_min[self._log_it_counter].item()/60.0} h\n" + \
                 f"Estimated remaining training time: " + \
@@ -589,6 +604,10 @@ class SActorCriticAlgoBase():
         self._n_timesteps_done = torch.full((self._db_data_size, 1), 
                     dtype=torch.int32, fill_value=0, device="cpu")
         self._n_policy_updates = torch.full((self._db_data_size, 1), 
+                    dtype=torch.int32, fill_value=0, device="cpu")
+        self._n_qfun_updates = torch.full((self._db_data_size, 1), 
+                    dtype=torch.int32, fill_value=0, device="cpu")
+        self._n_tqfun_updates = torch.full((self._db_data_size, 1), 
                     dtype=torch.int32, fill_value=0, device="cpu")
         self._elapsed_min = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=0, device="cpu")
@@ -678,7 +697,8 @@ class SActorCriticAlgoBase():
         # main algo settings
         self._replay_bf_full = False
         self._warmstart_timesteps = int(5e3)
-        self._warmstart_vectimesteps = round(self._warmstart_timesteps/self._num_envs)
+        self._warmstart_vectimesteps = self._warmstart_timesteps//self._num_envs
+        self._warmstart_timesteps = self._num_envs*self._warmstart_vectimesteps # actual
 
         self._replay_buffer_size_nominal = int(10e6) # 32768
         self._replay_buffer_size_vec = self._replay_buffer_size_nominal//self._num_envs # 32768
@@ -708,6 +728,14 @@ class SActorCriticAlgoBase():
         self._m_checkpoint_freq = 5120 # n timesteps after which a checkpoint model is dumped
         self._db_vecstep_frequency = 256 # log db data every n (vectorized) timesteps
         
+        self._n_policy_updates_to_be_done=((self._total_timesteps_vec-self._warmstart_vectimesteps)//self._policy_freq)*self._policy_freq #TD3 delayed update
+        self._n_qf_updates_to_be_done=(self._total_timesteps_vec-self._warmstart_vectimesteps)//1 # qf updated at each vec timesteps
+        self._n_tqf_updates_to_be_done=(self._total_timesteps_vec-self._warmstart_vectimesteps)//self._trgt_net_freq 
+
+        self._exp_to_policy_grad_ratio=float(self._total_timesteps-self._warmstart_timesteps)/float(self._n_policy_updates_to_be_done)
+        self._exp_to_qf_grad_ratio=float(self._total_timesteps-self._warmstart_timesteps)/float(self._n_qf_updates_to_be_done)
+        self._exp_to_qft_grad_ratio=float(self._total_timesteps-self._warmstart_timesteps)/float(self._n_tqf_updates_to_be_done)
+
         self._db_data_size = round(self._total_timesteps_vec/self._db_vecstep_frequency)+self._db_vecstep_frequency
         # write them to hyperparam dictionary for debugging
         self._hyperparameters["n_envs"] = self._num_envs
@@ -718,6 +746,14 @@ class SActorCriticAlgoBase():
         self._hyperparameters["seed"] = self._seed
         self._hyperparameters["using_gpu"] = self._use_gpu
         self._hyperparameters["total_timesteps_vec"] = self._total_timesteps_vec
+
+        self._hyperparameters["n_policy_updates_when_done"] = self._n_policy_updates_to_be_done
+        self._hyperparameters["n_qf_updates_when_done"] = self._n_qf_updates_to_be_done
+        self._hyperparameters["n_tqf_updates_when_done"] = self._n_tqf_updates_to_be_done
+        self._hyperparameters["experience_to_policy_grad_steps_ratio"] = self._exp_to_policy_grad_ratio
+        self._hyperparameters["experience_to_quality_fun_grad_steps_ratio"] = self._exp_to_qf_grad_ratio
+        self._hyperparameters["experience_to_trgt_quality_fun_grad_steps_ratio"] = self._exp_to_qft_grad_ratio
+
         self._hyperparameters["episodes timeout lb"] = self._episode_timeout_lb
         self._hyperparameters["episodes timeout ub"] = self._episode_timeout_ub
         self._hyperparameters["task rand timeout lb"] = self._task_rand_timeout_lb
@@ -756,7 +792,14 @@ class SActorCriticAlgoBase():
             f"episode timeout min steps {self._episode_timeout_lb}\n" + \
             f"task rand. max n steps {self._task_rand_timeout_ub}\n" + \
             f"task rand. min n steps {self._task_rand_timeout_lb}\n" + \
-            f"number of action reps {self._env_n_action_reps}\n"
+            f"number of action reps {self._env_n_action_reps}\n" + \
+            f"total policy updates to be performed: {self._n_policy_updates_to_be_done}\n" + \
+            f"total q fun updates to be performed: {self._n_qf_updates_to_be_done}\n" + \
+            f"total trgt q fun updates to be performed: {self._exp_to_qft_grad_ratio}\n" + \
+            f"experience to policy grad ratio: {self._exp_to_policy_grad_ratio}\n" + 
+            f"experience to q fun grad ratio: {self._exp_to_qf_grad_ratio}\n" +
+            f"experience to trgt q fun grad ratio: {self._exp_to_qft_grad_ratio}\n"
+
         Journal.log(self.__class__.__name__,
             "_init_params",
             info,

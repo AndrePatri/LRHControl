@@ -613,7 +613,8 @@ class ActorCriticAlgoBase():
                 f"Current rollout fps: {self._env_step_fps[self._log_it_counter].item()}, time for rollout {self._rollout_dt[self._log_it_counter].item()} s\n" + \
                 f"Current rollout rt factor: {self._env_step_rt_factor[self._log_it_counter].item()}\n" + \
                 f"Time to compute bootstrap {self._gae_dt[self._log_it_counter].item()} s\n" + \
-                f"Current policy update fps: {self._policy_update_fps[self._log_it_counter].item()}, time for policy updates {self._policy_update_dt[self._log_it_counter].item()} s\n"
+                f"Current policy update fps: {self._policy_update_fps[self._log_it_counter].item()}, time for policy updates {self._policy_update_dt[self._log_it_counter].item()} s\n" + \
+                f"Experience-to-policy grad ratio: {self._exp_to_policy_grad_ratio}\n
             Journal.log(self.__class__.__name__,
                 "_post_step",
                 info,
@@ -781,7 +782,7 @@ class ActorCriticAlgoBase():
         self._total_timesteps = int(50e6) # total timesteps to be collected (including sub envs)
         self._total_timesteps = self._total_timesteps//self._env_n_action_reps # correct with n of action reps
         
-        self._rollout_timesteps = 512 # numer of vectorized steps (does not include env substepping) 
+        self._rollout_timesteps = 128 # numer of vectorized steps (does not include env substepping) 
         # to be done per policy rollout (influences adv estimation!!!)
         self._batch_size = self._rollout_timesteps * self._num_envs
 
@@ -816,6 +817,7 @@ class ActorCriticAlgoBase():
 
         self._n_policy_updates_to_be_done = self._update_epochs * self._num_minibatches * self._iterations_n
 
+        self._exp_to_policy_grad_ratio=float(self._total_timesteps)/float(self._n_policy_updates_to_be_done)
         #debug
         self._m_checkpoint_freq = 5120 # n (vectorized) timesteps after which a checkpoint model is dumped 
         self._db_vecstep_frequency = self._rollout_timesteps*1 # log db data every n (vectorized) timesteps
@@ -842,6 +844,7 @@ class ActorCriticAlgoBase():
         self._hyperparameters["n_iterations"] = self._iterations_n
         self._hyperparameters["n_policy_updates_per_batch"] = self._update_epochs * self._num_minibatches
         self._hyperparameters["n_policy_updates_when_done"] = self._n_policy_updates_to_be_done
+        self._hyperparameters["experience_to_policy_grad_steps_ratio"] = self._exp_to_policy_grad_ratio
         self._hyperparameters["episodes timeout lb"] = self._episode_timeout_lb
         self._hyperparameters["episodes timeout ub"] = self._episode_timeout_ub
         self._hyperparameters["task rand timeout lb"] = self._task_rand_timeout_lb
@@ -872,19 +875,20 @@ class ActorCriticAlgoBase():
 
         # small debug log
         info = f"\nUsing \n" + \
-            f"n vec. steps per policy rollout {self._rollout_timesteps}\n" + \
-            f"batch_size {self._batch_size}\n" + \
-            f"num_minibatches for policy update {self._num_minibatches}\n" + \
-            f"minibatch_size {self._minibatch_size}\n" + \
-            f"per-batch update_epochs {self._update_epochs}\n" + \
-            f"iterations_n {self._iterations_n}\n" + \
-            f"episode timeout max steps {self._episode_timeout_ub}\n" + \
-            f"episode timeout min steps {self._episode_timeout_lb}\n" + \
-            f"task rand. max n steps {self._task_rand_timeout_ub}\n" + \
-            f"task rand. min n steps {self._task_rand_timeout_lb}\n" + \
-            f"number of action reps {self._env_n_action_reps}\n" + \
-            f"total policy updates to be performed {self._update_epochs * self._num_minibatches * self._iterations_n}\n" + \
-            f"total_timesteps to be simulated {self._total_timesteps}\n"
+            f"n vec. steps per policy rollout: {self._rollout_timesteps}\n" + \
+            f"batch_size: {self._batch_size}\n" + \
+            f"num_minibatches for policy update: {self._num_minibatches}\n" + \
+            f"minibatch_size: {self._minibatch_size}\n" + \
+            f"per-batch update_epochs: {self._update_epochs}\n" + \
+            f"iterations_n: {self._iterations_n}\n" + \
+            f"episode timeout max steps: {self._episode_timeout_ub}\n" + \
+            f"episode timeout min steps: {self._episode_timeout_lb}\n" + \
+            f"task rand. max n steps: {self._task_rand_timeout_ub}\n" + \
+            f"task rand. min n steps: {self._task_rand_timeout_lb}\n" + \
+            f"number of action reps: {self._env_n_action_reps}\n" + \
+            f"total policy updates to be performed: {self._n_policy_updates_to_be_done}\n" + \
+            f"total_timesteps to be simulated: {self._total_timesteps}\n" + \
+            f"experience to policy grad ratio: {self._exp_to_policy_grad_ratio}\n"
         Journal.log(self.__class__.__name__,
             "_init_params",
             info,
