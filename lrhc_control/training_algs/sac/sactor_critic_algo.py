@@ -430,12 +430,11 @@ class SActorCriticAlgoBase():
         
         if self._vec_transition_counter > self._warmstart_vectimesteps:
             if self._vec_transition_counter % self._policy_freq == 0:
-                self._n_policy_updates[self._log_it_counter]=self._n_policy_updates[self._log_it_counter-1]+self._policy_freq # td3 delaye update
+                self._n_policy_updates[self._log_it_counter]+=self._policy_freq # td3 delaye update
             # updating qfun at each vec timesteps
-            self._n_qfun_updates[self._log_it_counter]=self._n_qfun_updates[self._log_it_counter-1]+\
-                (self._vec_transition_counter-self._warmstart_vectimesteps)
+            self._n_qfun_updates[self._log_it_counter]+=1
             if self._vec_transition_counter % self._trgt_net_freq == 0:
-                self._n_tqfun_updates[self._log_it_counter]=self._n_tqfun_updates[self._log_it_counter-1]+1
+                self._n_tqfun_updates[self._log_it_counter]+=1
 
         if self._vec_transition_counter % self._db_vecstep_frequency== 0:
             # only log data every n timesteps 
@@ -447,6 +446,10 @@ class SActorCriticAlgoBase():
             self._n_of_played_episodes[self._log_it_counter] = self._episodic_reward_metrics.get_n_played_episodes()
             self._n_timesteps_done[self._log_it_counter]=self._vec_transition_counter*self._num_envs
             
+            self._n_policy_updates[self._log_it_counter]+=self._n_policy_updates[self._log_it_counter-1]
+            self._n_qfun_updates[self._log_it_counter]+=self._n_qfun_updates[self._log_it_counter-1]
+            self._n_tqfun_updates[self._log_it_counter]+=self._n_tqfun_updates[self._log_it_counter-1]
+
             self._policy_update_fps[self._log_it_counter] = (self._n_policy_updates[self._log_it_counter]-\
                 self._n_policy_updates[self._log_it_counter-1])/self._policy_update_dt[self._log_it_counter]
 
@@ -707,7 +710,7 @@ class SActorCriticAlgoBase():
         self._total_timesteps = int(50e6)
         self._total_timesteps = self._total_timesteps//self._env_n_action_reps # correct with n of action reps
         self._total_timesteps_vec = self._total_timesteps // self._num_envs
-        self._total_timesteps = self._total_timesteps_vec * self._num_envs # actual n transitions
+        self._total_timesteps = self._total_timesteps_vec*self._num_envs # actual n transitions
 
         self._lr_policy = 3e-4
         self._lr_q = 1e-3
@@ -795,7 +798,7 @@ class SActorCriticAlgoBase():
             f"number of action reps {self._env_n_action_reps}\n" + \
             f"total policy updates to be performed: {self._n_policy_updates_to_be_done}\n" + \
             f"total q fun updates to be performed: {self._n_qf_updates_to_be_done}\n" + \
-            f"total trgt q fun updates to be performed: {self._exp_to_qft_grad_ratio}\n" + \
+            f"total trgt q fun updates to be performed: {self._n_tqf_updates_to_be_done}\n" + \
             f"experience to policy grad ratio: {self._exp_to_policy_grad_ratio}\n" + \
             f"experience to q fun grad ratio: {self._exp_to_qf_grad_ratio}\n" + \
             f"experience to trgt q fun grad ratio: {self._exp_to_qft_grad_ratio}\n"
