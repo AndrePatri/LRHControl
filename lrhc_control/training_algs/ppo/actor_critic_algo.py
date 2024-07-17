@@ -603,18 +603,18 @@ class ActorCriticAlgoBase():
         if self._verbose:
             info = f"\nN. PPO iterations performed: {self._it_counter}/{self._iterations_n}\n" + \
                 f"N. policy updates performed: {self._n_policy_updates[self._log_it_counter].item()}/" + \
-                f"{self._update_epochs * self._num_minibatches * self._iterations_n}\n" + \
-                f"Total n. timesteps simulated: {self._it_counter * self._batch_size}/{self._total_timesteps}\n" + \
+                f"{self._n_policy_updates_to_be_done}\n" + \
+                f"Total n. timesteps simulated: {self._n_timesteps_done[self._log_it_counter]}/{self._total_timesteps}\n" + \
                 f"Elapsed time: {self._elapsed_min[self._log_it_counter].item()/60.0} h\n" + \
                 f"Estimated remaining training time: " + \
-                f"{self._elapsed_min[self._log_it_counter].item()/60 * 1/self._it_counter * (self._iterations_n-self._it_counter)} h\n" + \
+                f"{self._elapsed_min[self._log_it_counter].item()/60*1/self._it_counter*(self._iterations_n-self._it_counter)} h\n" + \
                 f"Average episodic return across all environments: {self._episodic_rewards_env_avrg[self._log_it_counter, :, :].item()}\n" + \
                 f"Average episodic returns across all environments {self._reward_names_str}: {self._episodic_sub_rewards_env_avrg[self._log_it_counter, :]}\n" + \
                 f"Current rollout fps: {self._env_step_fps[self._log_it_counter].item()}, time for rollout {self._rollout_dt[self._log_it_counter].item()} s\n" + \
                 f"Current rollout rt factor: {self._env_step_rt_factor[self._log_it_counter].item()}\n" + \
                 f"Time to compute bootstrap {self._gae_dt[self._log_it_counter].item()} s\n" + \
                 f"Current policy update fps: {self._policy_update_fps[self._log_it_counter].item()}, time for policy updates {self._policy_update_dt[self._log_it_counter].item()} s\n" + \
-                f"Experience-to-policy grad ratio: {self._exp_to_policy_grad_ratio}\n"
+                f"Experience-to-policy grad ratio: {self._n_timesteps_done[self._log_it_counter].item()/self._n_policy_updates[self._log_it_counter].item()}\n"
             Journal.log(self.__class__.__name__,
                 "_post_step",
                 info,
