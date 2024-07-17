@@ -73,14 +73,14 @@ if __name__ == "__main__":
     for i in range(len(sim_info_keys)):
         sim_data[sim_info_keys[i]] = sim_info_data[i]
     
-    # algo = PPO(env=env, 
-    #        debug=args.db, 
-    #        remote_db=args.rmdb,
-    #        seed=args.seed)
-    algo = SAC(env=env, 
-            debug=args.db, 
-            remote_db=args.rmdb,
-            seed=args.seed)
+    algo = PPO(env=env, 
+           debug=args.db, 
+           remote_db=args.rmdb,
+           seed=args.seed)
+    # algo = SAC(env=env, 
+    #         debug=args.db, 
+    #         remote_db=args.rmdb,
+    #         seed=args.seed)
     custom_args={}
     custom_args.update(args_dict)
     custom_args.update(sim_data)
