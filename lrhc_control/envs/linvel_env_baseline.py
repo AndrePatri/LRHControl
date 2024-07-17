@@ -109,8 +109,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._power_penalty_weights_sum = torch.sum(self._power_penalty_weights).item()
 
         # jnt vel penalty 
-        self._jnt_vel_weight = 0.0
-        self._jnt_vel_scale = 0.08
+        self._jnt_vel_weight = 1.0
+        self._jnt_vel_scale = 0.5
         self._jnt_vel_penalty_weights = torch.full((1, n_jnts), dtype=dtype, device=device,
                             fill_value=1.0)
         jnt_vel_weights_along_limb = [1.0] * n_jnts_per_limb
@@ -373,13 +373,22 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                                     ep_finished=episode_finished)
         self.custom_db_data["RhcViol"].update(new_data=self._rhc_const_viol(gpu=False), 
                                     ep_finished=episode_finished)
-
-    def _mech_power_penalty(self, jnts_vel, jnts_effort):
-        tot_weighted_power = torch.sum((jnts_effort*jnts_vel)*self._power_penalty_weights, dim=1, keepdim=True)/self._power_penalty_weights_sum
-        return tot_weighted_power
+        
+    def _tot_mech_pow(self, jnts_vel, jnts_effort, weighted:bool=True):
+        if weighted:
+            tot_weighted_mech_power = torch.sum((jnts_effort*jnts_vel)*self._power_penalty_weights, dim=1, keepdim=True)/self._power_penalty_weights_sum
+            return tot_weighted_mech_power
+        else:
+            tot_mech_power = torch.sum((jnts_effort*jnts_vel), dim=1, keepdim=True)
+            return tot_mech_power
     
-    def _jnt_vel_penalty(self, jnts_vel):
-        weighted_jnt_vel = torch.sum((jnts_vel*jnts_vel)*self._jnt_vel_penalty_weights, dim=1, keepdim=True)/self._jnt_vel_penalty_weights_sum
+    def _jnt_vel_penalty(self, task_ref, jnts_vel):
+        delta = 0.01 # [m/s]
+        ref_norm = task_ref.norm(dim=1,keepdim=True)
+        above_thresh = ref_norm >= delta
+        jnts_vel_sqrd=jnts_vel*jnts_vel
+        jnts_vel_sqrd[above_thresh.flatten(), :]=0 # no penalty for refs > thresh
+        weighted_jnt_vel = torch.sum((jnts_vel_sqrd)*self._jnt_vel_penalty_weights, dim=1, keepdim=True)/self._jnt_vel_penalty_weights_sum
         return weighted_jnt_vel
     
     def _task_err_quadv2(self, task_ref, task_meas):
@@ -387,7 +396,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         ref_norm = task_ref.norm(dim=1,keepdim=True)
         below_thresh = ref_norm < delta
         self._ni_scaling[:, :] = ref_norm
-        self._ni_scaling[below_thresh] = delta
+        self._ni_scaling[below_thresh] = 10*delta
         task_error = (task_ref-task_meas)/(self._ni_scaling)
         task_wmse = torch.sum((task_error*task_error)*self._task_err_weights, dim=1, keepdim=True)/self._task_err_weights_sum
         return task_wmse # weighted mean square error (along task dimension)
@@ -439,8 +448,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
     def _compute_sub_rewards(self,
                     obs: torch.Tensor):
         
-        task_error_fun = self._task_err_pseudolin
-        # task_error_fun = self._task_err_pseudolinv2
+        # task_error_fun = self._task_err_pseudolin
+        task_error_fun = self._task_err_pseudolinv2
 
         # task error
         # task_meas = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu) # robot twist meas (local base if _use_local_base_frame)
@@ -466,9 +475,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # mech power
         jnts_vel = self._robot_state.jnts_state.get(data_type="v",gpu=self._use_gpu)
         jnts_effort = self._robot_state.jnts_state.get(data_type="eff",gpu=self._use_gpu)
-        weighted_mech_power = self._mech_power_penalty(jnts_vel=jnts_vel, 
+        weighted_mech_power = self._tot_mech_pow(jnts_vel=jnts_vel, 
                                             jnts_effort=jnts_effort)
-        weighted_jnt_vel = self._jnt_vel_penalty(jnts_vel=jnts_vel)
+        weighted_jnt_vel = self._jnt_vel_penalty(task_ref=task_ref,jnts_vel=jnts_vel)
 
         sub_rewards = self._sub_rewards.get_torch_mirror(gpu=self._use_gpu)
         sub_rewards[:, 0:1] = self._task_weight * (1.0 - self._task_scale * task_error_pseudolin)
