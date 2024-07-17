@@ -135,7 +135,7 @@ def get_xrdf_cmds_horizon_kyon(robot_pkg_name: str = None,
 
         cmds = []
         
-        xrdf_cmd_vals = [True, False, False, False, True, False] # horizon needs 
+        xrdf_cmd_vals = [False, False, False, False, True, False] # horizon needs 
         # the floating base
 
         wheels = "true" if xrdf_cmd_vals[0] else "false"
