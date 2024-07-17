@@ -614,7 +614,7 @@ class ActorCriticAlgoBase():
                 f"Current rollout rt factor: {self._env_step_rt_factor[self._log_it_counter].item()}\n" + \
                 f"Time to compute bootstrap {self._gae_dt[self._log_it_counter].item()} s\n" + \
                 f"Current policy update fps: {self._policy_update_fps[self._log_it_counter].item()}, time for policy updates {self._policy_update_dt[self._log_it_counter].item()} s\n" + \
-                f"Experience-to-policy grad ratio: {self._exp_to_policy_grad_ratio}\n
+                f"Experience-to-policy grad ratio: {self._exp_to_policy_grad_ratio}\n"
             Journal.log(self.__class__.__name__,
                 "_post_step",
                 info,

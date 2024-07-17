@@ -435,7 +435,7 @@ class SActorCriticAlgoBase():
             self._n_qfun_updates[self._log_it_counter]=self._n_qfun_updates[self._log_it_counter-1]+\
                 (self._vec_transition_counter-self._warmstart_vectimesteps)
             if self._vec_transition_counter % self._trgt_net_freq == 0:
-                self._n_tqfn_updates[self._log_it_counter]=self._n_tqfn_updates[self._log_it_counter-1]+1
+                self._n_tqfun_updates[self._log_it_counter]=self._n_tqfun_updates[self._log_it_counter-1]+1
 
         if self._vec_transition_counter % self._db_vecstep_frequency== 0:
             # only log data every n timesteps 
@@ -560,10 +560,10 @@ class SActorCriticAlgoBase():
             info =f"\nTotal n. timesteps simulated: {self._vec_transition_counter*self._num_envs}/{self._total_timesteps}\n" + \
                 f"N. policy updates performed: {self._n_policy_updates[self._log_it_counter].item()}/{self._n_policy_updates_to_be_done}\n" + \
                 f"N. q fun updates performed: {self._n_qfun_updates[self._log_it_counter].item()}/{self._n_qf_updates_to_be_done}\n" + \
-                f"N. trgt q fun updates performed: {self._n_tqfn_updates[self._log_it_counter].item()}/{self._n_tqf_updates_to_be_done}\n" + \
-                f"experience to policy grad ratio: {self._exp_to_policy_grad_ratio}\n" + 
-                f"experience to q fun grad ratio: {self._exp_to_qf_grad_ratio}\n" +
-                f"experience to trgt q fun grad ratio: {self._exp_to_qft_grad_ratio}\n"+
+                f"N. trgt q fun updates performed: {self._n_tqfun_updates[self._log_it_counter].item()}/{self._n_tqf_updates_to_be_done}\n" + \
+                f"experience to policy grad ratio: {self._exp_to_policy_grad_ratio}\n" + \
+                f"experience to q fun grad ratio: {self._exp_to_qf_grad_ratio}\n" + \
+                f"experience to trgt q fun grad ratio: {self._exp_to_qft_grad_ratio}\n"+ \
                 f"Warmstart completed: {self._vec_transition_counter > self._warmstart_vectimesteps}\n" +\
                 f"Elapsed time: {self._elapsed_min[self._log_it_counter].item()/60.0} h\n" + \
                 f"Estimated remaining training time: " + \
@@ -796,8 +796,8 @@ class SActorCriticAlgoBase():
             f"total policy updates to be performed: {self._n_policy_updates_to_be_done}\n" + \
             f"total q fun updates to be performed: {self._n_qf_updates_to_be_done}\n" + \
             f"total trgt q fun updates to be performed: {self._exp_to_qft_grad_ratio}\n" + \
-            f"experience to policy grad ratio: {self._exp_to_policy_grad_ratio}\n" + 
-            f"experience to q fun grad ratio: {self._exp_to_qf_grad_ratio}\n" +
+            f"experience to policy grad ratio: {self._exp_to_policy_grad_ratio}\n" + \
+            f"experience to q fun grad ratio: {self._exp_to_qf_grad_ratio}\n" + \
             f"experience to trgt q fun grad ratio: {self._exp_to_qft_grad_ratio}\n"
 
         Journal.log(self.__class__.__name__,
