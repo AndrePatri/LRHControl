@@ -74,7 +74,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         
         device = "cuda" if use_gpu else "cpu"
 
-        self._task_weight = 2.0
+        self._task_weight = 1.0
         self._task_scale = 2.0
         self._task_err_weights = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.0) 
@@ -86,16 +86,16 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._task_err_weights[0, 5] = 1e-6
         self._task_err_weights_sum = torch.sum(self._task_err_weights).item()
 
-        self._rhc_cnstr_viol_weight = 1.0
+        self._rhc_cnstr_viol_weight = 0.0
         # self._rhc_cnstr_viol_scale = 1.0 * 1e-3
         self._rhc_cnstr_viol_scale = 1.0 * 5e-3
 
-        self._rhc_cost_weight = 1.0
+        self._rhc_cost_weight = 0.0
         # self._rhc_cost_scale = 1e-2 * 1e-3
         self._rhc_cost_scale = 1e-2 * 5e-3
 
         # power penalty
-        self._power_weight = 0.0
+        self._power_weight = 1.0
         self._power_scale = 0.01
         self._power_penalty_weights = torch.full((1, n_jnts), dtype=dtype, device=device,
                             fill_value=1.0)
@@ -109,7 +109,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._power_penalty_weights_sum = torch.sum(self._power_penalty_weights).item()
 
         # jnt vel penalty 
-        self._jnt_vel_weight = 1.0
+        self._jnt_vel_weight = 0.0
         self._jnt_vel_scale = 0.5
         self._jnt_vel_penalty_weights = torch.full((1, n_jnts), dtype=dtype, device=device,
                             fill_value=1.0)
@@ -169,14 +169,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     srew_tsrescaling=False)
 
         # overriding parent's defaults 
-        self._reward_thresh_lb[:, 0] = -10
-        self._reward_thresh_lb[:, 1] = -10
-        self._reward_thresh_lb[:, 2] = -10
-        self._reward_thresh_lb[:, 3] = -10
-        self._reward_thresh_ub[:, 0] = 10
-        self._reward_thresh_ub[:, 1] = 10
-        self._reward_thresh_ub[:, 2] = 10
-        self._reward_thresh_ub[:, 3] = 10
+        self._reward_thresh_lb[:, :]=-10
+        self._reward_thresh_ub[:, :]=10
 
         self._obs_threshold_lb = -1e3 # used for clipping observations
         self._obs_threshold_ub = 1e3
@@ -374,7 +368,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self.custom_db_data["RhcViol"].update(new_data=self._rhc_const_viol(gpu=False), 
                                     ep_finished=episode_finished)
         
-    def _tot_mech_pow(self, jnts_vel, jnts_effort, weighted:bool=True):
+    def _tot_mech_pow_weighted(self, jnts_vel, jnts_effort, weighted:bool=True):
         if weighted:
             tot_weighted_mech_power = torch.sum((jnts_effort*jnts_vel)*self._power_penalty_weights, dim=1, keepdim=True)/self._power_penalty_weights_sum
             return tot_weighted_mech_power
@@ -382,6 +376,13 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             tot_mech_power = torch.sum((jnts_effort*jnts_vel), dim=1, keepdim=True)
             return tot_mech_power
     
+    def _drained_mech_pow(self, jnts_vel, jnts_effort):
+
+        mech_pow_jnts=(jnts_effort*jnts_vel)*self._power_penalty_weights
+        mech_pow_jnts.clamp_(0.0,torch.inf) # do not account for regenerative power
+        drained_mech_pow_tot = torch.sum(mech_pow_jnts, dim=1, keepdim=True)/self._power_penalty_weights_sum
+        return drained_mech_pow_tot
+
     def _jnt_vel_penalty(self, task_ref, jnts_vel):
         delta = 0.01 # [m/s]
         ref_norm = task_ref.norm(dim=1,keepdim=True)
@@ -475,12 +476,14 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # mech power
         jnts_vel = self._robot_state.jnts_state.get(data_type="v",gpu=self._use_gpu)
         jnts_effort = self._robot_state.jnts_state.get(data_type="eff",gpu=self._use_gpu)
-        weighted_mech_power = self._tot_mech_pow(jnts_vel=jnts_vel, 
+        # weighted_mech_power = self._tot_mech_pow(jnts_vel=jnts_vel, 
+        #                                     jnts_effort=jnts_effort)
+        weighted_mech_power = self._tot_mech_pow_weighted(jnts_vel=jnts_vel, 
                                             jnts_effort=jnts_effort)
         weighted_jnt_vel = self._jnt_vel_penalty(task_ref=task_ref,jnts_vel=jnts_vel)
 
         sub_rewards = self._sub_rewards.get_torch_mirror(gpu=self._use_gpu)
-        sub_rewards[:, 0:1] = self._task_weight * (1.0 - self._task_scale * task_error_pseudolin)
+        sub_rewards[:, 0:1] = self._task_weight*(1.0-self._task_scale*task_error_pseudolin)
         sub_rewards[:, 1:2] = self._power_weight * (1.0 - self._power_scale * weighted_mech_power)
         sub_rewards[:, 2:3] = self._jnt_vel_weight * (1.0 - self._jnt_vel_scale * weighted_jnt_vel)
         sub_rewards[:, 3:4] = self._rhc_cnstr_viol_weight * (1.0 - self._rhc_cnstr_viol_scale * self._rhc_const_viol(gpu=self._use_gpu))
