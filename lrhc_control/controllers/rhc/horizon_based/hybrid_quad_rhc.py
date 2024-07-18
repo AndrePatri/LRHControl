@@ -293,19 +293,19 @@ class HybridQuadRhc(RHController):
         # wrapping joint q commands between 2pi and -2pi
         # (to be done for the simulator)
         return np.fmod(self._ti.solution['q'][7:, 1], 2*np.pi).reshape(1,  
-                                        self.robot_cmds.n_jnts())
+                    self.n_dofs)
     
     def _get_cmd_jnt_v_from_sol(self):
 
         return self._ti.solution['v'][6:, 1].reshape(1,  
-                                        self.robot_cmds.n_jnts())
+                    self.n_dofs)
 
     def _get_cmd_jnt_eff_from_sol(self):
         
         efforts_on_first_node = self._ti.eval_efforts_on_first_node()
 
         return efforts_on_first_node[6:, 0].reshape(1,  
-                                        self.robot_cmds.n_jnts())
+                        self.n_dofs)
     
     def _get_rhc_cost(self):
 
