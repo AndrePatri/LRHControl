@@ -10,6 +10,7 @@ from control_cluster_bridge.utilities.shared_data.rhc_data import RhcInternal
 from control_cluster_bridge.utilities.shared_data.sim_data import SharedSimInfo
 
 from lrhc_control.utils.shared_data.agent_refs import AgentRefs
+from control_cluster_bridge.utilities.homing import RobotHomer
 
 import numpy as np
 
@@ -47,8 +48,13 @@ class RhcToViz2Bridge:
             rhc_refs_in_h_frame: bool = False,
             agent_refs_in_h_frame: bool = False,
             env_idx: int = -1,
-            sim_time_trgt: float = None):
+            sim_time_trgt: float = None,
+            srdf_homing_file_path: str = None):
         
+        self._srdf_homing_file_path=srdf_homing_file_path # used to retrieve homing
+        self._homer=None
+        self._some_jnts_are_missing=False
+
         self._sim_time_trgt = sim_time_trgt
         if self._sim_time_trgt is None:
             self._sim_time_trgt = np.inf # basically run indefinitely
@@ -75,14 +81,14 @@ class RhcToViz2Bridge:
         rclpy.init()
         self.node = rclpy.create_node(rhcviz_basename + "_" + namespace)
         self._qos_settings = QoSProfile(
-                reliability=ReliabilityPolicy.RELIABLE, # BEST_EFFORT
-                durability=DurabilityPolicy.TRANSIENT_LOCAL, # VOLATILE
-                history=HistoryPolicy.KEEP_LAST, # KEEP_ALL
-                depth=10,  # Number of samples to keep if KEEP_LAST is used
-                liveliness=LivelinessPolicy.AUTOMATIC,
-                # deadline=1000000000,  # [ns]
-                # partition='my_partition' # useful to isolate communications
-                )
+            reliability=ReliabilityPolicy.RELIABLE, # BEST_EFFORT
+            durability=DurabilityPolicy.TRANSIENT_LOCAL, # VOLATILE
+            history=HistoryPolicy.KEEP_LAST, # KEEP_ALL
+            depth=10,  # Number of samples to keep if KEEP_LAST is used
+            liveliness=LivelinessPolicy.AUTOMATIC,
+            # deadline=1000000000,  # [ns]
+            # partition='my_partition' # useful to isolate communications
+            )
 
         self.handshaker = RHCVizHandshake(handshake_topic=self.ros_names.handshake_topicname(basename=self.rhcviz_basename, 
                                                                                         namespace=self.namespace),
@@ -251,6 +257,10 @@ class RhcToViz2Bridge:
         self.cluster_size = self.robot_state.n_robots()
         self.jnt_names_robot = self.robot_state.jnt_names()
 
+        if self._srdf_homing_file_path is not None:
+            self._homer= RobotHomer(srdf_path=self._srdf_homing_file_path, 
+                            jnt_names=self.jnt_names_robot)
+            
         self._check_selector()
 
         # env selector
@@ -287,9 +297,16 @@ class RhcToViz2Bridge:
         # the number of nodes of the RHC problem
 
         self.jnt_names_rhc = self.rhc_internal_clients[0].jnt_names() # assumes all controllers work on the same robot
+        rhc_jnt_names_set=set(self.jnt_names_rhc)
+        env_jnt_names_set=set(self.jnt_names_robot)
+        missing_jnts=list(env_jnt_names_set-rhc_jnt_names_set)
+        if not len(missing_jnts)==0:
+            self.jnt_names_rhc=self.jnt_names_rhc+missing_jnts
+            self._some_jnts_are_missing=True
+            self._missing_homing=np.
         self.jnt_names_rhc_encoded = string_array.encode(self.jnt_names_rhc) # encoding 
         # jnt names ifor rhc controllers
-
+        
         self._is_running = True
 
         start_time = 0.0
