@@ -794,8 +794,8 @@ class ActorCriticAlgoBase():
         self._num_minibatches = 32
         self._minibatch_size = self._batch_size // self._num_minibatches
         
-        self._base_lr_actor = 3e-4
-        self._base_lr_critic = 3e-4
+        self._base_lr_actor = 1e-3
+        self._base_lr_critic = 1e-3
         self._lr_now_actor = self._base_lr_actor
         self._lr_now_critic= self._base_lr_critic
         self._anneal_lr = False
