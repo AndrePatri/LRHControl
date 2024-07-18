@@ -164,7 +164,7 @@ if __name__ == '__main__':
             cluster_dt = [control_clust_dt],
             backend="torch", 
             use_remote_stepping = [args.remote_stepping],
-            n_pre_training_steps = 10, # n of env steps before connecting to training client
+            n_pre_training_steps = 100, # n of env steps before connecting to training client
             sim_params = sim_params, 
             cluster_client_verbose=args.enable_debug, 
             cluster_client_debug=args.enable_debug,

@@ -256,10 +256,6 @@ class RhcToViz2Bridge:
 
         self.cluster_size = self.robot_state.n_robots()
         self.jnt_names_robot = self.robot_state.jnt_names()
-
-        if self._srdf_homing_file_path is not None:
-            self._homer= RobotHomer(srdf_path=self._srdf_homing_file_path, 
-                            jnt_names=self.jnt_names_robot)
             
         self._check_selector()
 
@@ -296,6 +292,10 @@ class RhcToViz2Bridge:
         self.handshaker.set_n_nodes(self.rhc_internal_clients[0].q.n_cols) # signal to RHViz client
         # the number of nodes of the RHC problem
 
+        if self._srdf_homing_file_path is not None:
+            self._homer= RobotHomer(srdf_path=self._srdf_homing_file_path, 
+                            jnt_names=self.jnt_names_robot)
+            
         self.jnt_names_rhc = self.rhc_internal_clients[0].jnt_names() # assumes all controllers work on the same robot
         rhc_jnt_names_set=set(self.jnt_names_rhc)
         env_jnt_names_set=set(self.jnt_names_robot)
@@ -303,9 +303,15 @@ class RhcToViz2Bridge:
         if not len(missing_jnts)==0:
             self.jnt_names_rhc=self.jnt_names_rhc+missing_jnts
             self._some_jnts_are_missing=True
-            self._missing_homing=np.
+            if self._homer is None:
+                self._missing_homing=np.zeros((1,len(missing_jnts)))
+            else:
+                self._missing_homing=np.array(self._homer.get_homing_vals(jnt_names=missing_jnts)).reshape(1,-1)
+            
         self.jnt_names_rhc_encoded = string_array.encode(self.jnt_names_rhc) # encoding 
         # jnt names ifor rhc controllers
+        
+        self.rhc_internal_clients[self._current_index].q.get_numpy_mirror()[:, :]
         
         self._is_running = True
 
@@ -432,7 +438,9 @@ class RhcToViz2Bridge:
         self.rhc_jntnames_pub.publish(String(data=self.jnt_names_rhc_encoded))
 
         # publish rhc_q
-        rhc_q = self.rhc_internal_clients[self._current_index].q.get_numpy_mirror()[:, :].flatten()
+        rhc_actual=self.rhc_internal_clients[self._current_index].q.get_numpy_mirror()[:, :].flatten()
+        rhc_missing=self._missing_homing.flatten()
+        rhc_q = np.concatenate((rhc_actual, rhc_missing), axis=0)
 
         root_q_robot = self.robot_state.root_state.get(data_type="q_full",robot_idxs=self._current_index)
         jnts_q_robot = self.robot_state.jnts_state.get(data_type="q")[self._current_index, :]

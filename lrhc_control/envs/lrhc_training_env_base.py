@@ -268,7 +268,7 @@ class LRhcTrainingEnvBase():
         actions = self._actions.get_torch_mirror(gpu=self._use_gpu)
         actions[:, :] = action # writes actions
         
-        self._apply_actions_to_rhc() # apply agent actions to rhc controller
+        # self._apply_actions_to_rhc() # apply agent actions to rhc controller
 
         stepping_ok = True
         tot_rewards = self._tot_rewards.get_torch_mirror(gpu=self._use_gpu)
