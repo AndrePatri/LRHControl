@@ -75,7 +75,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         device = "cuda" if use_gpu else "cpu"
 
         self._task_weight = 1.0
-        self._task_scale = 2.0
+        self._task_scale = 0.5
         self._task_err_weights = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.0) 
         self._task_err_weights[0, 0] = 1.0
@@ -96,14 +96,14 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         # power penalty
         self._power_weight = 1.0
-        self._power_scale = 0.01
+        self._power_scale = 0.005
         self._power_penalty_weights = torch.full((1, n_jnts), dtype=dtype, device=device,
                             fill_value=1.0)
         n_jnts_per_limb = round(n_jnts/n_contacts) # assuming same topology along limbs
         pow_weights_along_limb = [1.0] * n_jnts_per_limb
         pow_weights_along_limb[0] = 1.0 # strongest actuator
-        pow_weights_along_limb[1] = 1.5
-        pow_weights_along_limb[2] = 2.0 # weakest actuator
+        pow_weights_along_limb[1] = 1.0
+        pow_weights_along_limb[2] = 1.0 # weakest actuator
         for i in range(round(n_jnts/n_contacts)):
             self._power_penalty_weights[0, i*n_contacts:(n_contacts*(i+1))] = pow_weights_along_limb[i]
         self._power_penalty_weights_sum = torch.sum(self._power_penalty_weights).item()
@@ -187,7 +187,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._actions_ub[:, 6:10] = 1.0 
 
         # action regularization
-        self._actions_diff_rew_weight = 1.0
+        self._actions_diff_rew_weight = 0.0
         if not self._add_last_action_to_obs: # we need the action in obs to use this reward
             self._actions_diff_rew_weight=0.0
         self._actions_diff_scale = 1.0
@@ -368,7 +368,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self.custom_db_data["RhcViol"].update(new_data=self._rhc_const_viol(gpu=False), 
                                     ep_finished=episode_finished)
         
-    def _tot_mech_pow_weighted(self, jnts_vel, jnts_effort, weighted:bool=True):
+    def _tot_mech_pow(self, jnts_vel, jnts_effort, weighted:bool=True):
         if weighted:
             tot_weighted_mech_power = torch.sum((jnts_effort*jnts_vel)*self._power_penalty_weights, dim=1, keepdim=True)/self._power_penalty_weights_sum
             return tot_weighted_mech_power
@@ -478,7 +478,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         jnts_effort = self._robot_state.jnts_state.get(data_type="eff",gpu=self._use_gpu)
         # weighted_mech_power = self._tot_mech_pow(jnts_vel=jnts_vel, 
         #                                     jnts_effort=jnts_effort)
-        weighted_mech_power = self._tot_mech_pow_weighted(jnts_vel=jnts_vel, 
+        weighted_mech_power = self._drained_mech_pow(jnts_vel=jnts_vel, 
                                             jnts_effort=jnts_effort)
         weighted_jnt_vel = self._jnt_vel_penalty(task_ref=task_ref,jnts_vel=jnts_vel)
 
