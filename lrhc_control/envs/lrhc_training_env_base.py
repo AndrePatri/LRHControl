@@ -22,6 +22,7 @@ from lrhc_control.utils.shared_data.training_env import EpisodesCounter, TaskRan
 
 from lrhc_control.utils.episodic_rewards import EpisodicRewards
 from lrhc_control.utils.episodic_data import EpisodicData
+from lrhc_control.utils.episodic_data import MemBuffer
 
 from SharsorIPCpp.PySharsorIPC import VLevel
 from SharsorIPCpp.PySharsorIPC import LogType
@@ -58,7 +59,9 @@ class LRhcTrainingEnvBase():
             timeout_ms: int = 60000,
             rescale_rewards: bool= True,
             srew_drescaling: bool = True,
-            srew_tsrescaling: bool = False):
+            srew_tsrescaling: bool = False,
+            use_act_mem_bf: bool = False,
+            act_membf_size: int = 2):
         
         self._this_path = os.path.abspath(__file__)
 
@@ -73,7 +76,10 @@ class LRhcTrainingEnvBase():
         self._action_repeat = action_repeat
         if self._action_repeat <=0: 
             self._action_repeat = 1
-            
+        
+        self._use_act_mem_bf = use_act_mem_bf
+        self._act_membf_size = act_membf_size
+        
         self._closed = False
 
         self._override_agent_refs = override_agent_refs
@@ -128,6 +134,7 @@ class LRhcTrainingEnvBase():
         self._sub_rewards = None
         self._terminations = None
         self._truncations = None
+        self._act_mem_buffer = None
 
         self._episodic_rewards_metrics = None
         
@@ -590,6 +597,15 @@ class LRhcTrainingEnvBase():
 
         self._actions.run()
 
+        if self._use_act_mem_bf:
+            self._act_mem_buffer=MemBuffer(name="ActionMemBuf",
+                                    data_tensor=self._actions.get_torch_mirror(),
+                                    data_names=self._get_action_names(),
+                                    debug=self._debug,
+                                    horizon=self._act_membf_size,
+                                    dtype=self._dtype,
+                                    use_gpu=self._use_gpu)
+
     def _init_rewards(self):
         
         reward_thresh_default = 1.0
@@ -830,6 +846,7 @@ class LRhcTrainingEnvBase():
         self._rhc_status.rhc_nodes_cost.synch_all(read = True, retry = True)
         self._rhc_status.rhc_nodes_constr_viol.synch_all(read = True, retry = True)
         self._rhc_status.rhc_step_var.synch_all(read = True, retry = True)
+        self._rhc_status.rhc_fail_idx.synch_all(read = True, retry = True)
         if gpu:
             # copies data to "mirror" on GPU
             self._robot_state.root_state.synch_mirror(from_gpu=False) # copies shared data on GPU
@@ -843,6 +860,7 @@ class LRhcTrainingEnvBase():
             self._rhc_status.rhc_nodes_cost.synch_mirror(from_gpu=False)
             self._rhc_status.rhc_nodes_constr_viol.synch_mirror(from_gpu=False)
             self._rhc_status.rhc_step_var.synch_mirror(from_gpu=False)
+            self._rhc_status.rhc_fail_idx.synch_mirror(from_gpu=False)
             #torch.cuda.synchronize() # ensuring that all the streams on the GPU are completed \
             # before the CPU continues execution
 
