@@ -303,11 +303,11 @@ class RhcToViz2Bridge:
         if not len(missing_jnts)==0:
             self.jnt_names_rhc=self.jnt_names_rhc+missing_jnts
             self._some_jnts_are_missing=True
-            if self._homer is None:
-                self._missing_homing=np.zeros((1,len(missing_jnts)))
-            else:
-                self._missing_homing=np.array(self._homer.get_homing_vals(jnt_names=missing_jnts)).reshape(1,-1)
-            
+            self._missing_homing=np.zeros((len(missing_jnts),self.rhc_internal_clients[0].q.n_cols))
+            if self._homer is not None:
+               for node in range(self.rhc_internal_clients[0].q.n_cols):
+                   self._missing_homing[:, node]=np.array(self._homer.get_homing_vals(jnt_names=missing_jnts))
+                
         self.jnt_names_rhc_encoded = string_array.encode(self.jnt_names_rhc) # encoding 
         # jnt names ifor rhc controllers
         
@@ -438,10 +438,11 @@ class RhcToViz2Bridge:
         self.rhc_jntnames_pub.publish(String(data=self.jnt_names_rhc_encoded))
 
         # publish rhc_q
-        rhc_actual=self.rhc_internal_clients[self._current_index].q.get_numpy_mirror()[:, :].flatten()
-        rhc_missing=self._missing_homing.flatten()
-        rhc_q = np.concatenate((rhc_actual, rhc_missing), axis=0)
-
+        rhc_actual=self.rhc_internal_clients[self._current_index].q.get_numpy_mirror()[:, :]
+        rhc_missing=self._missing_homing
+        
+        rhc_q_tot = np.concatenate((rhc_actual, rhc_missing), axis=0)
+        rhc_q =rhc_q_tot.flatten()
         root_q_robot = self.robot_state.root_state.get(data_type="q_full",robot_idxs=self._current_index)
         jnts_q_robot = self.robot_state.jnts_state.get(data_type="q")[self._current_index, :]
 

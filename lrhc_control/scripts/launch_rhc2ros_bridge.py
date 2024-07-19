@@ -26,6 +26,7 @@ if __name__ == '__main__':
                         specified in the horizontal frame')
     parser.add_argument('--env_idx', type=int, help='env index of which data is to be published', default=-1)
     parser.add_argument('--stime_trgt', type=float, default=None, help='sim time for which this bridge runs (None -> indefinetly)')
+    parser.add_argument('--srdf_path', type=str, help='path to SRDF path specifying homing configuration', default=None)
 
     args = parser.parse_args()
 
@@ -62,6 +63,7 @@ if __name__ == '__main__':
                         rhc_refs_in_h_frame=args.rhc_refs_in_h_frame,
                         agent_refs_in_h_frame=args.agent_refs_in_h_frame,
                         env_idx=args.env_idx,
-                        sim_time_trgt=args.stime_trgt)
+                        sim_time_trgt=args.stime_trgt,
+                        srdf_homing_file_path=args.srdf_path)
 
     bridge.run(update_dt=update_dt)
