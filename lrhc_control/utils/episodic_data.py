@@ -63,13 +63,15 @@ class MemBuffer():
                 dtype=self._dtype, 
                 device=self._torch_device)
         self._running_std=torch.full(size=(self._n_envs, self._data_size), 
-                fill_value=1.0,
+                fill_value=0.0,
                 dtype=self._dtype, 
                 device=self._torch_device)
         
-        self._membf_pos=0
-
-    def reset(self,
+        self._membf_pos=torch.full(size=(self._n_envs, 1), 
+                                    fill_value=0,
+                                    dtype=torch.int32, device="cpu")
+    
+    def reset_all(self,
            init_data:torch.Tensor=None):
         if init_data is None: # reset to 0
             self._mem_buff.zero_()
@@ -78,10 +80,25 @@ class MemBuffer():
             if self._debug:
                 self._check_new_data(new_data=init_data)
             self._mem_buff[:, :, :]=init_data.unsqueeze(2)
-        self._membf_pos=0
+        self._membf_pos.zero_()
         self._running_mean.zero_()
-        self._running_std.fill_(1.0)
+        self._running_std.fill_(0.0)
 
+    def reset(self,
+        to_be_reset: torch.Tensor,
+        init_data:torch.Tensor=None):
+
+        if init_data is None: # reset to 0
+            self._mem_buff[to_be_reset, :, :]=0
+        else:
+            # fill all buffer with init provided by data
+            if self._debug:
+                self._check_new_data(new_data=init_data)
+            self._mem_buff[to_be_reset, :, :]=init_data[to_be_reset, :].unsqueeze(2)
+        self._membf_pos[to_be_reset, :]=0
+        self._running_mean[to_be_reset, :]=0
+        self._running_std[to_be_reset, :]=0.0
+        
     def _check_new_data(self,new_data):
         self._check_sizes(new_data=new_data)
         self._check_finite(new_data=new_data)
@@ -118,8 +135,8 @@ class MemBuffer():
         self._running_std[:, :]=torch.std(self._mem_buff,dim=2)
 
         self._membf_pos+=1    
-        if self._membf_pos==self._horizon:
-            self._membf_pos=0
+        end_of_bf=(self._membf_pos==self._horizon)
+        self._membf_pos[end_of_bf,:]=0           
 
     def data_names(self):
         return self._data_names
