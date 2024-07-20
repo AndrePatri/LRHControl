@@ -279,14 +279,23 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
     #     terminations[:, :] = torch.logical_or(explosion_idx>explosion_idx_thresh,
     #                         self._rhc_status.fails.get_torch_mirror(gpu=self._use_gpu))
 
-    def _pre_step(self):
+    def _pre_step(self): 
         pass
-        
+
     def _custom_post_step(self,episode_finished):
         # executed after checking truncations and terminations
         # self.randomize_task_refs(env_indxs=self._task_rand_counter.time_limits_reached().flatten()) # randomize 
         # refs of envs that reached task randomization time
         self.randomize_task_refs(env_indxs=episode_finished.flatten())
+
+        if self._add_last_action_to_obs: # if ep finished we need to reset the prev action
+        # in the obs, otherwise there's bias between episodes
+            terminated = self._terminations.get_torch_mirror(gpu=self._use_gpu)
+            truncated = self._truncations.get_torch_mirror(gpu=self._use_gpu)
+            episode_finished= torch.logical_or(terminated,
+                                truncated)
+            obs=self._obs.get_torch_mirror(gpu=self._use_gpu)
+            obs[episode_finished.flatten(), self._prev_act_idx:(self._prev_act_idx+self.actions_dim())]=0
 
     def _apply_actions_to_rhc(self):
         
