@@ -57,7 +57,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         actions_dim = 2 + 1 + 3 + 4 # [vxy_cmd, h_cmd, twist_cmd, dostep_0, dostep_1, dostep_2, dostep_3]
 
-        obs_dim = 4+6+2*n_jnts+2+actions_dim
+        # obs_dim = 4+6+2*n_jnts+2+actions_dim
+        obs_dim = 4+6+2*n_jnts+2+1+actions_dim
+
         # obs_dim = 4+6+2*n_jnts+2+2+actions_dim
 
         # obs_dim = 4+6+n_jnts+2+2+actions_dim
@@ -92,6 +94,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._rhc_cost_weight = 0.0
         # self._rhc_cost_scale = 1e-2 * 1e-3
         self._rhc_cost_scale = 1e-2 * 5e-3
+
+        self._rhc_fail_idx_weight = 0.0
+        self._rhc_fail_idx_scale = 1.0
 
         # power penalty
         self._power_weight = 0.0
@@ -355,6 +360,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # obs[:, next_idx:(next_idx+len(self.contact_names))] = self._rhc_step_var(gpu=self._use_gpu)
         # next_idx+=len(self.contact_names)
         # adding last action to obs at the back of the obs tensor
+        obs[:, next_idx:(next_idx+1)] = self._rhc_fail_idx(gpu=self._use_gpu)
+        next_idx+=1
         if self._add_last_action_to_obs:
             self._prev_act_idx=next_idx
             actions_now = self._actions.get_torch_mirror(gpu=self._use_gpu)
@@ -421,6 +428,10 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         task_wmse = self._task_err_quad(task_ref=task_ref, task_meas=task_meas)
         return task_wmse.sqrt()
     
+    def _rhc_fail_idx(self, gpu: bool):
+        rhc_fail_idx = self._rhc_status.rhc_fail_idx.get_torch_mirror(gpu=gpu)
+        return rhc_fail_idx
+
     def _rhc_const_viol(self, gpu: bool):
         rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_mirror(gpu=gpu) # over the whole horizon
         # rhc_const_viol = self._rhc_status.rhc_nodes_constr_viol.get_torch_mirror(gpu=gpu)[:, 0:1] # just on node 0
@@ -451,7 +462,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         if self._add_last_action_to_obs:
             prev_act=obs[:,self._prev_act_idx:(self._prev_act_idx+self.actions_dim())]
             action_now=next_obs[:,self._prev_act_idx:(self._prev_act_idx+self.actions_dim())]
-            weighted_actions_diff = torch.sum((action_now-self.prev_act)*self._action_diff_weights,dim=1,keepdim=True)/self._action_diff_w_sum
+            weighted_actions_diff = torch.sum((action_now-prev_act)*self._action_diff_weights,dim=1,keepdim=True)/self._action_diff_w_sum
             return weighted_actions_diff
         else: # not available
             return 0
@@ -499,9 +510,11 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         sub_rewards[:, 2:3] = self._jnt_vel_weight * (1.0 - self._jnt_vel_scale * weighted_jnt_vel)
         sub_rewards[:, 3:4] = self._rhc_cnstr_viol_weight * (1.0 - self._rhc_cnstr_viol_scale * self._rhc_const_viol(gpu=self._use_gpu))
         sub_rewards[:, 4:5] = self._rhc_cost_weight * (1.0 - self._rhc_cost_scale * self._rhc_cost(gpu=self._use_gpu))
-        sub_rewards[:, 5:6] = 1 # health reward
-        sub_rewards[:, 6:7] = self._actions_diff_rew_weight * (1.0 - \
-                                        self._actions_diff_scale*self._weighted_actions_diff(gpu=self._use_gpu)) # action regularization reward
+        sub_rewards[:, 5:6] = self._rhc_fail_idx_weight * (1.0 - self._rhc_fail_idx_scale * self._rhc_fail_idx(gpu=self._use_gpu))
+        sub_rewards[:, 6:7] = 1 # health reward
+        sub_rewards[:, 7:8] = self._actions_diff_rew_weight * (1.0 - \
+                                        self._actions_diff_scale*self._weighted_actions_diff(gpu=self._use_gpu,
+                                                                        obs=obs,next_obs=next_obs)) # action regularization reward
 
     def _randomize_task_refs(self,
                 env_indxs: torch.Tensor = None):
@@ -554,9 +567,11 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # obs_names[next_idx] = "rhc_const_viol"
         # obs_names[next_idx + 1] = "rhc_cost"
         # next_idx+=2
+        obs_names[next_idx] = "rhc_fail_idx"
+        next_idx+=1
         action_names = self._get_action_names()
         for prev_act_idx in range(self.actions_dim()):
-            obs_names[next_idx+self.actions_dim()+prev_act_idx] = action_names[prev_act_idx]+f"_tm_{1}"
+            obs_names[next_idx+prev_act_idx] = action_names[prev_act_idx]+f"_tm_{1}"
 
         return obs_names
 
@@ -578,7 +593,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
     def _get_rewards_names(self):
 
-        n_rewards = 7
+        n_rewards = 8
         reward_names = [""] * n_rewards
 
         reward_names[0] = "task_error"
@@ -586,7 +601,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         reward_names[2] = "jnt_vel"
         reward_names[3] = "rhc_const_viol"
         reward_names[4] = "rhc_cost"
-        reward_names[5] = "health"
-        reward_names[6] = "action_reg"
+        reward_names[5] = "rhc_fail_idx"
+        reward_names[6] = "health"
+        reward_names[7] = "action_reg"
 
         return reward_names
