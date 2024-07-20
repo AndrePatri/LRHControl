@@ -22,7 +22,7 @@ from lrhc_control.utils.shared_data.training_env import EpisodesCounter, TaskRan
 
 from lrhc_control.utils.episodic_rewards import EpisodicRewards
 from lrhc_control.utils.episodic_data import EpisodicData
-from lrhc_control.utils.episodic_data import MemBuffer
+from lrhc_control.utils.episodic_data import AsynchMemBuffer
 
 from SharsorIPCpp.PySharsorIPC import VLevel
 from SharsorIPCpp.PySharsorIPC import LogType
@@ -275,7 +275,7 @@ class LRhcTrainingEnvBase():
         actions = self._actions.get_torch_mirror(gpu=self._use_gpu)
         actions[:, :] = action # writes actions
         
-        # self._apply_actions_to_rhc() # apply agent actions to rhc controller
+        self._apply_actions_to_rhc() # apply agent actions to rhc controller
 
         stepping_ok = True
         tot_rewards = self._tot_rewards.get_torch_mirror(gpu=self._use_gpu)
@@ -598,13 +598,13 @@ class LRhcTrainingEnvBase():
         self._actions.run()
 
         if self._use_act_mem_bf:
-            self._act_mem_buffer=MemBuffer(name="ActionMemBuf",
-                                    data_tensor=self._actions.get_torch_mirror(),
-                                    data_names=self._get_action_names(),
-                                    debug=self._debug,
-                                    horizon=self._act_membf_size,
-                                    dtype=self._dtype,
-                                    use_gpu=self._use_gpu)
+            self._act_mem_buffer=AsynchMemBuffer(name="ActionMemBuf",
+                data_tensor=self._actions.get_torch_mirror(),
+                data_names=self._get_action_names(),
+                debug=self._debug,
+                horizon=self._act_membf_size,
+                dtype=self._dtype,
+                use_gpu=self._use_gpu)
 
     def _init_rewards(self):
         
