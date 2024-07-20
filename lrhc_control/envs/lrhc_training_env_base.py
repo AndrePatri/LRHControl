@@ -269,7 +269,7 @@ class LRhcTrainingEnvBase():
     def step(self, 
             action):
 
-        self._pre_step(new_action=action)
+        self._pre_step()
 
         # set action from agent
         actions = self._actions.get_torch_mirror(gpu=self._use_gpu)
@@ -288,12 +288,12 @@ class LRhcTrainingEnvBase():
             self._synch_obs(gpu=self._use_gpu) # read obs from shared mem (done in substeps also, 
             # since substeps rewards will need updated substep obs)
             next_obs = self._next_obs.get_torch_mirror(gpu=self._use_gpu)
+            obs = self._obs.get_torch_mirror(gpu=self._use_gpu)
             self._fill_obs(next_obs) # update next obs
             self._clamp_obs(next_obs) # good practice
-            self._compute_sub_rewards(next_obs)
+            self._compute_sub_rewards(obs,next_obs)
             self._assemble_rewards() # includes rewards clipping
-            obs = self._obs.get_torch_mirror(gpu=self._use_gpu)
-            obs[:, :] = next_obs # start from next observation
+            obs[:, :] = next_obs # start from next observation, unless reset (handled in post_step())
 
             if not i==(self._action_repeat-1): # just sends reset signal to complete remote step sequence,
                 # but does not reset any remote env
@@ -320,8 +320,6 @@ class LRhcTrainingEnvBase():
         episode_finished = torch.logical_or(terminated,
                             truncated)
                             
-        self._custom_post_step(episode_finished=episode_finished) # any additional logic from child env        
-
         # debug step if required (IMPORTANT: must be before remote reset so that we always db
         # actual data from the step and not after reset)
         if self._is_debug:
@@ -335,6 +333,9 @@ class LRhcTrainingEnvBase():
         rm_reset_ok = self._remote_reset(reset_mask=torch.logical_or(terminated.cpu(),
                                 self._ep_timeout_counter.time_limits_reached()))
         
+        self._custom_post_step(episode_finished=episode_finished) # any additional logic from child env  
+        # here after reset, so that is can access all states post reset if necessary      
+
         # synchronize and reset counters for finished episodes
         self._ep_timeout_counter.reset(to_be_reset=episode_finished,randomize_limits=True)# reset and randomize duration 
         self._task_rand_counter.reset(to_be_reset=episode_finished,randomize_limits=True)# reset and randomize duration 
@@ -969,7 +970,7 @@ class LRhcTrainingEnvBase():
         terminations[:, :] = self._rhc_status.fails.get_torch_mirror(gpu=self._use_gpu)
     
     @abstractmethod
-    def _pre_step(self,new_action):
+    def _pre_step(self):
         pass
     
     @abstractmethod
@@ -982,12 +983,13 @@ class LRhcTrainingEnvBase():
 
     @abstractmethod
     def _compute_sub_rewards(self,
-            obs_tensor: torch.Tensor):
+            obs: torch.Tensor,
+            next_obs: torch.Tensor):
         pass
 
     @abstractmethod
     def _fill_obs(self,
-            obs_tensor: torch.Tensor):
+            obs: torch.Tensor):
         pass
 
     @abstractmethod
