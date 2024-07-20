@@ -249,20 +249,6 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         aux_dirs.append(path_getter.RHCDIR)
         return aux_dirs
 
-    def _pre_step(self,new_action):
-        # this is called before updating the action tensor with new_action
-        terminated = self._terminations.get_torch_mirror(gpu=self._use_gpu)
-        truncated = self._truncations.get_torch_mirror(gpu=self._use_gpu)
-        episode_finished = torch.logical_or(terminated,
-                            truncated)
-
-        # we store the previous action
-        self._prev_actions[:, :] = self._actions.get_torch_mirror(gpu=self._use_gpu)
-
-        # if last step led to episode term we reset prev action (0
-        # looks like a reasonable choice)
-        self._prev_actions[episode_finished.flatten(),:] = 0 
-
     def _check_truncations(self):
 
         truncations = self._truncations.get_torch_mirror(gpu=self._use_gpu)
@@ -293,6 +279,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
     #     terminations[:, :] = torch.logical_or(explosion_idx>explosion_idx_thresh,
     #                         self._rhc_status.fails.get_torch_mirror(gpu=self._use_gpu))
 
+    def _pre_step(self):
+        pass
+        
     def _custom_post_step(self,episode_finished):
         # executed after checking truncations and terminations
         # self.randomize_task_refs(env_indxs=self._task_rand_counter.time_limits_reached().flatten()) # randomize 
@@ -327,7 +316,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._rhc_refs.contact_flags.synch_all(read=False, retry=True)
 
     def _fill_obs(self,
-            obs_tensor: torch.Tensor):
+            obs: torch.Tensor):
 
         robot_q_meas = self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
         robot_jnt_q_meas = self._robot_state.jnts_state.get(data_type="q",gpu=self._use_gpu)
@@ -336,30 +325,31 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         agent_twist_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu)
 
         next_idx=0
-        obs_tensor[:, next_idx:(next_idx+4)] = robot_q_meas # [w, i, j, k] (IsaacSim convention)
+        obs[:, next_idx:(next_idx+4)] = robot_q_meas # [w, i, j, k] (IsaacSim convention)
         next_idx+=4
         if self._use_local_base_frame: # measurement from world to local base link
             world2base_frame(t_w=robot_twist_meas,q_b=robot_q_meas,t_out=self._robot_twist_meas_b)
-            obs_tensor[:, next_idx:(next_idx+6)] = self._robot_twist_meas_b
+            obs[:, next_idx:(next_idx+6)] = self._robot_twist_meas_b
         else:
-            obs_tensor[:, next_idx:(next_idx+6)] = robot_twist_meas
+            obs[:, next_idx:(next_idx+6)] = robot_twist_meas
         next_idx+=6
-        obs_tensor[:, next_idx:(next_idx+self._n_jnts)] = robot_jnt_q_meas
+        obs[:, next_idx:(next_idx+self._n_jnts)] = robot_jnt_q_meas
         next_idx+=self._n_jnts
-        obs_tensor[:, next_idx:(next_idx+self._n_jnts)] = robot_jnt_v_meas
+        obs[:, next_idx:(next_idx+self._n_jnts)] = robot_jnt_v_meas
         next_idx+=self._n_jnts
-        obs_tensor[:, next_idx:(next_idx+2)] = agent_twist_ref[:, 0:2] # high lev agent ref (local base if self._use_local_base_frame)
+        obs[:, next_idx:(next_idx+2)] = agent_twist_ref[:, 0:2] # high lev agent ref (local base if self._use_local_base_frame)
         next_idx+=2
-        # obs_tensor[:, next_idx:(next_idx+1)] = self._rhc_const_viol(gpu=self._use_gpu)
+        # obs[:, next_idx:(next_idx+1)] = self._rhc_const_viol(gpu=self._use_gpu)
         # next_idx+=1
-        # obs_tensor[:, next_idx:(next_idx+1)] = self._rhc_cost(gpu=self._use_gpu)
+        # obs[:, next_idx:(next_idx+1)] = self._rhc_cost(gpu=self._use_gpu)
         # next_idx+=1
-        # obs_tensor[:, next_idx:(next_idx+len(self.contact_names))] = self._rhc_step_var(gpu=self._use_gpu)
+        # obs[:, next_idx:(next_idx+len(self.contact_names))] = self._rhc_step_var(gpu=self._use_gpu)
         # next_idx+=len(self.contact_names)
         # adding last action to obs at the back of the obs tensor
         if self._add_last_action_to_obs:
-            last_actions = self._actions.get_torch_mirror(gpu=self._use_gpu)
-            obs_tensor[:, next_idx:(next_idx+self.actions_dim())] = last_actions
+            self._prev_act_idx=next_idx
+            actions_now = self._actions.get_torch_mirror(gpu=self._use_gpu)
+            obs[:, next_idx:(next_idx+self.actions_dim())] = actions_now
             next_idx+=self.actions_dim()
 
     def _get_custom_db_data(self, 
@@ -447,14 +437,19 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             to_be_cat.append(torch.sum(step_var[:, start_idx:end_idx], dim=1, keepdim=True)/self.n_nodes)
         return self._rhc_step_var_scale * torch.cat(to_be_cat, dim=1) 
     
-    def _weighted_actions_diff(self, gpu: bool):
-        last_actions = self.get_actions()
-        weighted_actions_diff = torch.sum((last_actions-self._prev_actions)*self._action_diff_weights,dim=1,keepdim=True)/self._action_diff_w_sum
-        
-        return weighted_actions_diff
+    def _weighted_actions_diff(self, gpu: bool, obs, next_obs):
+
+        if self._add_last_action_to_obs:
+            prev_act=obs[:,self._prev_act_idx:(self._prev_act_idx+self.actions_dim())]
+            action_now=next_obs[:,self._prev_act_idx:(self._prev_act_idx+self.actions_dim())]
+            weighted_actions_diff = torch.sum((action_now-self.prev_act)*self._action_diff_weights,dim=1,keepdim=True)/self._action_diff_w_sum
+            return weighted_actions_diff
+        else: # not available
+            return 0
 
     def _compute_sub_rewards(self,
-                    obs: torch.Tensor):
+                    obs: torch.Tensor,
+                    next_obs: torch.Tensor):
         
         # task_error_fun = self._task_err_pseudolin
         task_error_fun = self._task_err_pseudolinv2
