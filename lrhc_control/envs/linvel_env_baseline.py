@@ -57,11 +57,10 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         actions_dim = 2 + 1 + 3 + 4 # [vxy_cmd, h_cmd, twist_cmd, dostep_0, dostep_1, dostep_2, dostep_3]
 
-        self._n_prev_actions = 1 if self._add_last_action_to_obs else 0
-        obs_dim = 4+6+2*n_jnts+2+self._n_prev_actions*actions_dim
-        # obs_dim = 4+6+2*n_jnts+2+2+self._n_prev_actions*actions_dim
+        obs_dim = 4+6+2*n_jnts+2+actions_dim
+        # obs_dim = 4+6+2*n_jnts+2+2+actions_dim
 
-        # obs_dim = 4+6+n_jnts+2+2+self._n_prev_actions*actions_dim
+        # obs_dim = 4+6+n_jnts+2+2+actions_dim
         episode_timeout_lb = 1020 # episode timeouts (including env substepping when action_repeat>1)
         episode_timeout_ub = 1024
         n_steps_task_rand_lb = 310 # agent refs randomization freq
@@ -252,9 +251,17 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
     def _pre_step(self,new_action):
         # this is called before updating the action tensor with new_action
+        terminated = self._terminations.get_torch_mirror(gpu=self._use_gpu)
+        truncated = self._truncations.get_torch_mirror(gpu=self._use_gpu)
+        episode_finished = torch.logical_or(terminated,
+                            truncated)
 
         # we store the previous action
         self._prev_actions[:, :] = self._actions.get_torch_mirror(gpu=self._use_gpu)
+
+        # if last step led to episode term we reset prev action (0
+        # looks like a reasonable choice)
+        self._prev_actions[episode_finished.flatten(),:] = 0 
 
     def _check_truncations(self):
 
@@ -352,8 +359,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # adding last action to obs at the back of the obs tensor
         if self._add_last_action_to_obs:
             last_actions = self._actions.get_torch_mirror(gpu=self._use_gpu)
-            obs_tensor[:, next_idx:(next_idx+self._n_prev_actions*self.actions_dim())] = last_actions
-            next_idx+=self._n_prev_actions*self.actions_dim()
+            obs_tensor[:, next_idx:(next_idx+self.actions_dim())] = last_actions
+            next_idx+=self.actions_dim()
 
     def _get_custom_db_data(self, 
             episode_finished):
@@ -544,9 +551,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # obs_names[next_idx + 1] = "rhc_cost"
         # next_idx+=2
         action_names = self._get_action_names()
-        for pre_t_idx in range(self._n_prev_actions):
-            for prev_act_idx in range(self.actions_dim()):
-                obs_names[next_idx+pre_t_idx*self.actions_dim()+prev_act_idx] = action_names[prev_act_idx]+f"_tm_{pre_t_idx}"
+        for prev_act_idx in range(self.actions_dim()):
+            obs_names[next_idx+self.actions_dim()+prev_act_idx] = action_names[prev_act_idx]+f"_tm_{1}"
 
         return obs_names
 
