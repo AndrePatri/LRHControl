@@ -87,7 +87,6 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._task_err_weights[0, 5] = 1e-6
         self._task_err_weights_sum = torch.sum(self._task_err_weights).item()
 
-        self._enable_fail_idx=True
         self._rhc_fail_idx_weight = 0.0
         self._rhc_fail_idx_scale = 1e-4
 
@@ -202,10 +201,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         agent_twist_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=False)
         agent_twist_ref_data = EpisodicData("AgentTwistRefs", agent_twist_ref, ["v_x", "v_y", "v_z", "omega_x", "omega_y", "omega_z"])
         self._add_custom_db_info(db_data=agent_twist_ref_data)
-        rhc_cost = EpisodicData("RhcCost", self._rhc_status.rhc_cost.get_torch_mirror(gpu=False), ["rhc_cost"])
-        rhc_viol = EpisodicData("RhcViol", self._rhc_status.rhc_constr_viol.get_torch_mirror(gpu=False), ["rhc_viol"])
-        self._add_custom_db_info(db_data=rhc_cost)
-        self._add_custom_db_info(db_data=rhc_viol)
+        rhc_fail_idx = EpisodicData("RhcFailIdx", self._rhc_fail_idx(gpu=False), ["rhc_cost"])
+        self._add_custom_db_info(db_data=rhc_fail_idx)
 
         # other static db info 
         self.custom_db_info["add_last_action_to_obs"] = self._add_last_action_to_obs
@@ -372,9 +369,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self.custom_db_data["AgentTwistRefs"].update(new_data=self._agent_refs.rob_refs.root_state.get(data_type="twist",
                                                                                             gpu=False), 
                                     ep_finished=episode_finished)
-        self.custom_db_data["RhcCost"].update(new_data=self._rhc_cost(gpu=False), 
-                                    ep_finished=episode_finished)
-        self.custom_db_data["RhcViol"].update(new_data=self._rhc_const_viol(gpu=False), 
+        self.custom_db_data["RhcFailIdx"].update(new_data=self._rhc_fail_idx(gpu=False), 
                                     ep_finished=episode_finished)
         
     def _tot_mech_pow(self, jnts_vel, jnts_effort, weighted:bool=True):
@@ -426,7 +421,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
     
     def _rhc_fail_idx(self, gpu: bool):
         rhc_fail_idx = self._rhc_status.rhc_fail_idx.get_torch_mirror(gpu=gpu)
-        return rhc_fail_idx
+        return self._rhc_fail_idx_scale*rhc_fail_idx
     
     def _rhc_step_var(self, gpu: bool):
         step_var = self._rhc_status.rhc_step_var.get_torch_mirror(gpu=gpu)
@@ -491,7 +486,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         sub_rewards[:, 0:1] = self._task_weight*(1.0-self._task_scale*task_error_pseudolin)
         sub_rewards[:, 1:2] = self._power_weight * (1.0 - self._power_scale * weighted_mech_power)
         sub_rewards[:, 2:3] = self._jnt_vel_weight * (1.0 - self._jnt_vel_scale * weighted_jnt_vel)
-        sub_rewards[:, 4:5] = self._rhc_fail_idx_weight * (1.0 - self._rhc_fail_idx_scale * self._rhc_fail_idx(gpu=self._use_gpu))
+        sub_rewards[:, 4:5] = self._rhc_fail_idx_weight * (1.0 - self._rhc_fail_idx(gpu=self._use_gpu))
         sub_rewards[:, 5:6] = 1 # health reward
         sub_rewards[:, 6:7] = self._actions_diff_rew_weight * (1.0 - \
                                         self._actions_diff_scale*self._weighted_actions_diff(gpu=self._use_gpu,
