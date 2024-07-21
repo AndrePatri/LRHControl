@@ -87,16 +87,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._task_err_weights[0, 5] = 1e-6
         self._task_err_weights_sum = torch.sum(self._task_err_weights).item()
 
-        self._rhc_cnstr_viol_weight = 0.0
-        # self._rhc_cnstr_viol_scale = 1.0 * 1e-3
-        self._rhc_cnstr_viol_scale = 1.0 * 5e-3
-
-        self._rhc_cost_weight = 0.0
-        # self._rhc_cost_scale = 1e-2 * 1e-3
-        self._rhc_cost_scale = 1e-2 * 5e-3
-
-        self._rhc_fail_idx_weight = 1.0
-        self._rhc_fail_idx_scale = 1e-3
+        self._enable_fail_idx=True
+        self._rhc_fail_idx_weight = 0.0
+        self._rhc_fail_idx_scale = 1e-4
 
         # power penalty
         self._power_weight = 0.0
@@ -432,42 +425,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         return task_wmse.sqrt()
     
     def _rhc_fail_idx(self, gpu: bool):
-        if self._rhc_fail_idx_weight>0:
-            rhc_fail_idx = self._rhc_status.rhc_fail_idx.get_torch_mirror(gpu=gpu)
-            return rhc_fail_idx.clamp(self._obs_threshold_lb, self._obs_threshold_ub)
-        else:
-            if gpu:
-                return self._zero_t_aux
-            else:
-                return self._zero_t_aux_cpu
-        
-    def _rhc_const_viol(self, gpu: bool):
-        if self._rhc_cnstr_viol_weight>0:
-            # rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_mirror(gpu=gpu) # over the whole horizon
-            # rhc_const_viol = self._rhc_status.rhc_nodes_constr_viol.get_torch_mirror(gpu=gpu)[:, 0:1] # just on node 0
-            n_range=5
-            rhc_const_viol = torch.sum(\
-                self._rhc_status.rhc_nodes_constr_viol.get_torch_mirror(gpu=gpu)[:, 0:n_range],dim=1,keepdim=True)/n_range # avrg over first n_range nodes
-            return rhc_const_viol.clamp(self._obs_threshold_lb, self._obs_threshold_ub)
-        else: # avoiding num issue in case of explosions
-            if gpu:
-                return self._zero_t_aux
-            else:
-                return self._zero_t_aux_cpu
-    
-    def _rhc_cost(self, gpu: bool):
-        if self._rhc_cost_weight>0:
-            # rhc_cost = self._rhc_status.rhc_cost.get_torch_mirror(gpu=gpu) # over the whole horizon
-            # rhc_cost = self._rhc_status.rhc_nodes_cost.get_torch_mirror(gpu=gpu)[:, 0:1] # just on node 0
-            n_range=5
-            rhc_cost = torch.sum(\
-                self._rhc_status.rhc_nodes_cost.get_torch_mirror(gpu=gpu)[:, 0:n_range],dim=1,keepdim=True)/n_range # avrg over first n_range nodes
-            return rhc_cost.clamp(self._obs_threshold_lb, self._obs_threshold_ub)
-        else: # avoiding num issue in case of explosions
-            if gpu:
-                return self._zero_t_aux
-            else:
-                return self._zero_t_aux_cpu
+        rhc_fail_idx = self._rhc_status.rhc_fail_idx.get_torch_mirror(gpu=gpu)
+        return rhc_fail_idx
     
     def _rhc_step_var(self, gpu: bool):
         step_var = self._rhc_status.rhc_step_var.get_torch_mirror(gpu=gpu)
@@ -532,11 +491,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         sub_rewards[:, 0:1] = self._task_weight*(1.0-self._task_scale*task_error_pseudolin)
         sub_rewards[:, 1:2] = self._power_weight * (1.0 - self._power_scale * weighted_mech_power)
         sub_rewards[:, 2:3] = self._jnt_vel_weight * (1.0 - self._jnt_vel_scale * weighted_jnt_vel)
-        sub_rewards[:, 3:4] = self._rhc_cnstr_viol_weight * (1.0 - self._rhc_cnstr_viol_scale * self._rhc_const_viol(gpu=self._use_gpu))
-        sub_rewards[:, 4:5] = self._rhc_cost_weight * (1.0 - self._rhc_cost_scale * self._rhc_cost(gpu=self._use_gpu))
-        sub_rewards[:, 5:6] = self._rhc_fail_idx_weight * (1.0 - self._rhc_fail_idx_scale * self._rhc_fail_idx(gpu=self._use_gpu))
-        sub_rewards[:, 6:7] = 1 # health reward
-        sub_rewards[:, 7:8] = self._actions_diff_rew_weight * (1.0 - \
+        sub_rewards[:, 4:5] = self._rhc_fail_idx_weight * (1.0 - self._rhc_fail_idx_scale * self._rhc_fail_idx(gpu=self._use_gpu))
+        sub_rewards[:, 5:6] = 1 # health reward
+        sub_rewards[:, 6:7] = self._actions_diff_rew_weight * (1.0 - \
                                         self._actions_diff_scale*self._weighted_actions_diff(gpu=self._use_gpu,
                                                                         obs=obs,next_obs=next_obs)) # action regularization reward
 
@@ -588,9 +545,6 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         #     obs_names[next_idx+i] = f"step_var_{contact}"
         #     i+=1        
         # next_idx+=len(self.contact_names)
-        # obs_names[next_idx] = "rhc_const_viol"
-        # obs_names[next_idx + 1] = "rhc_cost"
-        # next_idx+=2
         obs_names[next_idx] = "rhc_fail_idx"
         next_idx+=1
         action_names = self._get_action_names()
@@ -617,14 +571,12 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
     def _get_rewards_names(self):
 
-        n_rewards = 8
+        n_rewards = 6
         reward_names = [""] * n_rewards
 
         reward_names[0] = "task_error"
         reward_names[1] = "mech_power"
         reward_names[2] = "jnt_vel"
-        reward_names[3] = "rhc_const_viol"
-        reward_names[4] = "rhc_cost"
         reward_names[5] = "rhc_fail_idx"
         reward_names[6] = "health"
         reward_names[7] = "action_reg"
