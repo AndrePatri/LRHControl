@@ -434,7 +434,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
     def _rhc_fail_idx(self, gpu: bool):
         if self._rhc_fail_idx_weight>0:
             rhc_fail_idx = self._rhc_status.rhc_fail_idx.get_torch_mirror(gpu=gpu)
-            return rhc_fail_idx
+            return rhc_fail_idx.clamp(self._obs_threshold_lb, self._obs_threshold_ub)
         else:
             if gpu:
                 return self._zero_t_aux
@@ -448,7 +448,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             n_range=5
             rhc_const_viol = torch.sum(\
                 self._rhc_status.rhc_nodes_constr_viol.get_torch_mirror(gpu=gpu)[:, 0:n_range],dim=1,keepdim=True)/n_range # avrg over first n_range nodes
-            return rhc_const_viol
+            return rhc_const_viol.clamp(self._obs_threshold_lb, self._obs_threshold_ub)
         else: # avoiding num issue in case of explosions
             if gpu:
                 return self._zero_t_aux
@@ -462,7 +462,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             n_range=5
             rhc_cost = torch.sum(\
                 self._rhc_status.rhc_nodes_cost.get_torch_mirror(gpu=gpu)[:, 0:n_range],dim=1,keepdim=True)/n_range # avrg over first n_range nodes
-            return rhc_cost 
+            return rhc_cost.clamp(self._obs_threshold_lb, self._obs_threshold_ub)
         else: # avoiding num issue in case of explosions
             if gpu:
                 return self._zero_t_aux
@@ -503,20 +503,20 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         task_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu) # high level agent refs (hybrid twist)
         # task_error_wmse = self._task_err_quad(task_meas=task_meas, task_ref=task_ref)
         if self._use_local_base_frame and self._use_horizontal_frame_for_refs:
-           base2world_frame(t_b=obs[:, 4:10],q_b=obs[:, 0:4],t_out=self._robot_twist_meas_w)
-           w2hor_frame(t_w=self._robot_twist_meas_w,q_b=obs[:, 0:4],t_out=self._robot_twist_meas_h)
+           base2world_frame(t_b=next_obs[:, 4:10],q_b=next_obs[:, 0:4],t_out=self._robot_twist_meas_w)
+           w2hor_frame(t_w=self._robot_twist_meas_w,q_b=next_obs[:, 0:4],t_out=self._robot_twist_meas_h)
            task_error_pseudolin = task_error_fun(task_meas=self._robot_twist_meas_h, 
                                                 task_ref=task_ref)
         elif self._use_local_base_frame and not self._use_horizontal_frame_for_refs:
-            base2world_frame(t_b=obs[:, 4:10],q_b=obs[:, 0:4],t_out=self._robot_twist_meas_w)
+            base2world_frame(t_b=next_obs[:, 4:10],q_b=next_obs[:, 0:4],t_out=self._robot_twist_meas_w)
             task_error_pseudolin = task_error_fun(task_meas=self._robot_twist_meas_w, 
                                                 task_ref=task_ref)
         elif not self._use_local_base_frame and self._use_horizontal_frame_for_refs:
-            w2hor_frame(t_w=obs[:, 4:10],q_b=obs[:, 0:4],t_out=self._robot_twist_meas_h)
+            w2hor_frame(t_w=next_obs[:, 4:10],q_b=next_obs[:, 0:4],t_out=self._robot_twist_meas_h)
             task_error_pseudolin = task_error_fun(task_meas=self._robot_twist_meas_h, 
                                                 task_ref=task_ref)
         else: # all in world frame
-            task_error_pseudolin = task_error_fun(task_meas=obs[:, 4:10], 
+            task_error_pseudolin = task_error_fun(task_meas=next_obs[:, 4:10], 
                                                 task_ref=task_ref) 
         
         # mech power
