@@ -577,8 +577,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         reward_names[0] = "task_error"
         reward_names[1] = "mech_power"
         reward_names[2] = "jnt_vel"
-        reward_names[5] = "rhc_fail_idx"
-        reward_names[6] = "health"
-        reward_names[7] = "action_reg"
+        reward_names[3] = "rhc_fail_idx"
+        reward_names[4] = "health"
+        reward_names[5] = "action_reg"
 
         return reward_names
