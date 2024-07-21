@@ -908,13 +908,14 @@ class LRhcTrainingEnvBase():
                 throw: bool = False):
         if not torch.isfinite(tensor).all().item():
             exception = f"Found nonfinite elements in {name} tensor!!"
+            if throw:
+                print(tensor)
             Journal.log(self.__class__.__name__,
                 "_check_finite",
                 exception,
                 LogType.EXCEP,
                 throw_when_excep = throw)
-            # print(tensor)
-    
+            
     def _check_controllers_registered(self, 
                 retry: bool = False):
 

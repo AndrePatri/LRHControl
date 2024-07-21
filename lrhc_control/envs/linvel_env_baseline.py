@@ -75,7 +75,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         
         device = "cuda" if use_gpu else "cpu"
 
-        self._task_weight = 1.0
+        self._task_weight = 0.0
         self._task_scale = 0.5
         self._task_err_weights = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.0) 
@@ -95,8 +95,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # self._rhc_cost_scale = 1e-2 * 1e-3
         self._rhc_cost_scale = 1e-2 * 5e-3
 
-        self._rhc_fail_idx_weight = 0.0
-        self._rhc_fail_idx_scale = 1.0
+        self._rhc_fail_idx_weight = 1.0
+        self._rhc_fail_idx_scale = 1e-3
 
         # power penalty
         self._power_weight = 0.0
