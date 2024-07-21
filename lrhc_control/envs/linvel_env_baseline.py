@@ -235,6 +235,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._bernoulli_coeffs = self._pof1_b.clone()
         self._bernoulli_coeffs[:, :] = 1.0
 
+        self._zero_t_aux = torch.zeros((self._n_envs, 1),dtype=self._dtype,device=device)
+        self._zero_t_aux_cpu = torch.zeros((self._n_envs, 1),dtype=self._dtype,device="cpu")
+
     def get_file_paths(self):
 
         paths = []
@@ -429,24 +432,42 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         return task_wmse.sqrt()
     
     def _rhc_fail_idx(self, gpu: bool):
-        rhc_fail_idx = self._rhc_status.rhc_fail_idx.get_torch_mirror(gpu=gpu)
-        return rhc_fail_idx
-
+        if self._rhc_fail_idx_weight>0:
+            rhc_fail_idx = self._rhc_status.rhc_fail_idx.get_torch_mirror(gpu=gpu)
+            return rhc_fail_idx
+        else:
+            if gpu:
+                return self._zero_t_aux
+            else:
+                return self._zero_t_aux_cpu
+        
     def _rhc_const_viol(self, gpu: bool):
-        rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_mirror(gpu=gpu) # over the whole horizon
-        # rhc_const_viol = self._rhc_status.rhc_nodes_constr_viol.get_torch_mirror(gpu=gpu)[:, 0:1] # just on node 0
-        # n_range=5
-        # rhc_const_viol = torch.sum(\
-        #     self._rhc_status.rhc_nodes_constr_viol.get_torch_mirror(gpu=gpu)[:, 0:n_range],dim=1,keepdim=True)/n_range # avrg over first n_range nodes
-        return rhc_const_viol
+        if self._rhc_cnstr_viol_weight>0:
+            # rhc_const_viol = self._rhc_status.rhc_constr_viol.get_torch_mirror(gpu=gpu) # over the whole horizon
+            # rhc_const_viol = self._rhc_status.rhc_nodes_constr_viol.get_torch_mirror(gpu=gpu)[:, 0:1] # just on node 0
+            n_range=5
+            rhc_const_viol = torch.sum(\
+                self._rhc_status.rhc_nodes_constr_viol.get_torch_mirror(gpu=gpu)[:, 0:n_range],dim=1,keepdim=True)/n_range # avrg over first n_range nodes
+            return rhc_const_viol
+        else: # avoiding num issue in case of explosions
+            if gpu:
+                return self._zero_t_aux
+            else:
+                return self._zero_t_aux_cpu
     
     def _rhc_cost(self, gpu: bool):
-        rhc_cost = self._rhc_status.rhc_cost.get_torch_mirror(gpu=gpu) # over the whole horizon
-        # rhc_cost = self._rhc_status.rhc_nodes_cost.get_torch_mirror(gpu=gpu)[:, 0:1] # just on node 0
-        # n_range=5
-        # rhc_cost = torch.sum(\
-        #     self._rhc_status.rhc_nodes_cost.get_torch_mirror(gpu=gpu)[:, 0:n_range],dim=1,keepdim=True)/n_range # avrg over first n_range nodes
-        return rhc_cost 
+        if self._rhc_cost_weight>0:
+            # rhc_cost = self._rhc_status.rhc_cost.get_torch_mirror(gpu=gpu) # over the whole horizon
+            # rhc_cost = self._rhc_status.rhc_nodes_cost.get_torch_mirror(gpu=gpu)[:, 0:1] # just on node 0
+            n_range=5
+            rhc_cost = torch.sum(\
+                self._rhc_status.rhc_nodes_cost.get_torch_mirror(gpu=gpu)[:, 0:n_range],dim=1,keepdim=True)/n_range # avrg over first n_range nodes
+            return rhc_cost 
+        else: # avoiding num issue in case of explosions
+            if gpu:
+                return self._zero_t_aux
+            else:
+                return self._zero_t_aux_cpu
     
     def _rhc_step_var(self, gpu: bool):
         step_var = self._rhc_status.rhc_step_var.get_torch_mirror(gpu=gpu)
@@ -465,7 +486,10 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             weighted_actions_diff = torch.sum((action_now-prev_act)*self._action_diff_weights,dim=1,keepdim=True)/self._action_diff_w_sum
             return weighted_actions_diff
         else: # not available
-            return 0
+            if gpu:
+                return self._zero_t_aux
+            else:
+                return self._zero_t_aux_cpu
 
     def _compute_sub_rewards(self,
                     obs: torch.Tensor,
