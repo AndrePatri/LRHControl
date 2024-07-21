@@ -486,9 +486,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         sub_rewards[:, 0:1] = self._task_weight*(1.0-self._task_scale*task_error_pseudolin)
         sub_rewards[:, 1:2] = self._power_weight * (1.0 - self._power_scale * weighted_mech_power)
         sub_rewards[:, 2:3] = self._jnt_vel_weight * (1.0 - self._jnt_vel_scale * weighted_jnt_vel)
-        sub_rewards[:, 4:5] = self._rhc_fail_idx_weight * (1.0 - self._rhc_fail_idx(gpu=self._use_gpu))
-        sub_rewards[:, 5:6] = 1 # health reward
-        sub_rewards[:, 6:7] = self._actions_diff_rew_weight * (1.0 - \
+        sub_rewards[:, 3:4] = self._rhc_fail_idx_weight * (1.0 - self._rhc_fail_idx(gpu=self._use_gpu))
+        sub_rewards[:, 4:5] = 1 # health reward
+        sub_rewards[:, 5:6] = self._actions_diff_rew_weight * (1.0 - \
                                         self._actions_diff_scale*self._weighted_actions_diff(gpu=self._use_gpu,
                                                                         obs=obs,next_obs=next_obs)) # action regularization reward
 
