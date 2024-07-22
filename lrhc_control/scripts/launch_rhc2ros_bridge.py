@@ -14,7 +14,7 @@ from SharsorIPCpp.PySharsorIPC import StringTensorClient
 
 from perf_sleep.pyperfsleep import PerfSleep
 
-def launch_rosbag(namespace: str, dump_path: str, run_for_sec:float):
+def launch_rosbag(namespace: str, dump_path: str, timeout_sec:float):
         
     import multiprocess as mp
 
@@ -35,7 +35,8 @@ def launch_rosbag(namespace: str, dump_path: str, run_for_sec:float):
     proc = ctx.Process(target=os.system, args=(' '.join(command),))
     proc.start()
 
-    if not term_trigger.wait(240000):
+    timeout_ms = int(timeout_sec*1e3)
+    if not term_trigger.wait(timeout_ms):
         Journal.log("launch_rhc2ros_bridge.py",
             "launch_rosbag",
             "Didn't receive any termination req within timeout! Will terminate anyway",
@@ -54,13 +55,13 @@ def launch_rosbag(namespace: str, dump_path: str, run_for_sec:float):
         os.killpg(os.getpgid(proc.pid), signal.SIGINT)
     except:
         pass
+
     proc.join()
 
     Journal.log("launch_rhc2ros_bridge.py",
             "launch_rosbag",
             f"successfully terminated rosbag recording process",
             LogType.INFO)
-
 
 if __name__ == '__main__':
 
@@ -88,6 +89,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Use the provided robot name and update interval
+    timeout_ms=240000
     update_dt = args.dt
     debug = args.debug
     verbose = args.verbose
@@ -98,18 +100,19 @@ if __name__ == '__main__':
         stime_trgt=60.0
     shared_drop_dir=None
     shared_drop_dir_val=[""]
-    if args.use_shared_drop_dir:
+    if args.use_shared_drop_dir and dump_rosbag:
         shared_drop_dir=StringTensorClient(basename="SharedTrainingDropDir", 
                         name_space=args.ns,
                         verbose=True, 
                         vlevel=VLevel.V2)
         shared_drop_dir.run()
         shared_drop_dir_val=[""]*shared_drop_dir.length()
-        while not self.shared_datanames.read_vec(shared_drop_dir_val, 0):
+        while not shared_drop_dir.read_vec(shared_drop_dir_val, 0):
             ns=1000000000
             PerfSleep.thread_sleep(ns)
             continue
-    
+        dump_path=shared_drop_dir_val[0]
+   
     bridge = None
     if not args.ros2:
 
@@ -141,7 +144,6 @@ if __name__ == '__main__':
     bag_proc=None
     term_trigger=None
     if dump_rosbag:
-
         term_trigger=RemoteTriggererSrvr(namespace=args.ns+f"SharedTerminator",
                                             verbose=verbose,
                                             vlevel=VLevel.V1,
@@ -152,16 +154,18 @@ if __name__ == '__main__':
         ctx = mp.get_context('forkserver')
         bag_proc=ctx.Process(target=launch_rosbag, 
                             name="rosbag_recorder_"+f"{args.ns}",
-                            args=(args.ns,args.dump_path,stime_trgt))
+                            args=(args.ns,dump_path,timeout_ms))
         bag_proc.start()
-        
+    
     bridge.run(update_dt=update_dt)
 
     if bag_proc is not None:
         term_trigger.trigger()
-
         bag_proc.join()
     
     if term_trigger is not None:
         term_trigger.close()
+
+    if shared_drop_dir is not None:
+        shared_drop_dir.close()
 

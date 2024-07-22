@@ -48,7 +48,7 @@ class RhcToViz2Bridge:
             with_agent_refs = False,
             rhc_refs_in_h_frame: bool = False,
             agent_refs_in_h_frame: bool = False,
-            env_idx: int = -1,
+            env_idx: int = 0,
             sim_time_trgt: float = None,
             srdf_homing_file_path: str = None):
         
@@ -61,7 +61,8 @@ class RhcToViz2Bridge:
             self._sim_time_trgt = np.inf # basically run indefinitely
 
         self._current_index = env_idx
-        self._use_static_idx = True if env_idx >= 0 else False
+        # self._use_static_idx = True if env_idx >= 0 else False
+        self._use_static_idx =True
 
         self._rhc_refs_in_hor_frame = rhc_refs_in_h_frame
         self._agent_refs_in_h_frame = agent_refs_in_h_frame
@@ -274,7 +275,7 @@ class RhcToViz2Bridge:
                     dtype=dtype.Int)
             
             self.env_index.run()
-        
+    
         rhc_internal_config = RhcInternal.Config(is_server=False, 
                         enable_q=True)
         # rhc internal data
@@ -299,7 +300,7 @@ class RhcToViz2Bridge:
         if self._srdf_homing_file_path is not None:
             self._homer= RobotHomer(srdf_path=self._srdf_homing_file_path, 
                             jnt_names=self.jnt_names_robot)
-            
+
         self.jnt_names_rhc = self.rhc_internal_clients[0].jnt_names() # assumes all controllers work on the same robot
         rhc_jnt_names_set=set(self.jnt_names_rhc)
         env_jnt_names_set=set(self.jnt_names_robot)
