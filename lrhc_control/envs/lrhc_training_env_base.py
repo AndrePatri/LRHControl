@@ -22,7 +22,7 @@ from lrhc_control.utils.shared_data.training_env import EpisodesCounter, TaskRan
 
 from lrhc_control.utils.episodic_rewards import EpisodicRewards
 from lrhc_control.utils.episodic_data import EpisodicData
-from lrhc_control.utils.episodic_data import AsynchMemBuffer
+from lrhc_control.utils.episodic_data import MemBuffer
 
 from SharsorIPCpp.PySharsorIPC import VLevel
 from SharsorIPCpp.PySharsorIPC import LogType
@@ -61,7 +61,7 @@ class LRhcTrainingEnvBase():
             srew_drescaling: bool = True,
             srew_tsrescaling: bool = False,
             use_act_mem_bf: bool = False,
-            act_membf_size: int = 2):
+            act_membf_size: int = 3):
         
         self._this_path = os.path.abspath(__file__)
 
@@ -275,6 +275,9 @@ class LRhcTrainingEnvBase():
         actions = self._actions.get_torch_mirror(gpu=self._use_gpu)
         actions[:, :] = action # writes actions
         
+        if self._act_mem_buffer is not None:
+            self._act_mem_buffer.update(new_data=self.get_actions(clone=True))
+
         self._apply_actions_to_rhc() # apply agent actions to rhc controller
 
         stepping_ok = True
@@ -311,7 +314,7 @@ class LRhcTrainingEnvBase():
         
         self._ep_timeout_counter.increment() # first increment counters
         self._task_rand_counter.increment()
-    
+
         # check truncation and termination conditions 
         self._check_truncations() 
         self._check_terminations()
@@ -319,7 +322,10 @@ class LRhcTrainingEnvBase():
         truncated = self._truncations.get_torch_mirror(gpu=self._use_gpu)
         episode_finished = torch.logical_or(terminated,
                             truncated)
-                            
+
+        if self._act_mem_buffer is not None:
+            self._act_mem_buffer.reset(to_be_reset=episode_finished.flatten())
+
         # debug step if required (IMPORTANT: must be before remote reset so that we always db
         # actual data from the step and not after reset)
         if self._is_debug:
@@ -396,6 +402,9 @@ class LRhcTrainingEnvBase():
 
         self._ep_timeout_counter.reset()
         self._task_rand_counter.reset()
+
+        if self._act_mem_buffer is not None:
+            self._act_mem_buffer.reset_all()
 
         self._synch_obs(gpu=self._use_gpu) # read obs from shared mem
         obs = self._obs.get_torch_mirror(gpu=self._use_gpu)
@@ -599,7 +608,7 @@ class LRhcTrainingEnvBase():
         self._actions.run()
 
         if self._use_act_mem_bf:
-            self._act_mem_buffer=AsynchMemBuffer(name="ActionMemBuf",
+            self._act_mem_buffer=MemBuffer(name="ActionMemBuf",
                 data_tensor=self._actions.get_torch_mirror(),
                 data_names=self._get_action_names(),
                 debug=self._debug,

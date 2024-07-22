@@ -87,8 +87,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._task_err_weights[0, 5] = 1e-6
         self._task_err_weights_sum = torch.sum(self._task_err_weights).item()
 
-        self._rhc_fail_idx_weight = 0.0
-        self._rhc_fail_idx_scale = 1e-4
+        self._rhc_fail_idx_weight = 1.0
+        self._rhc_fail_idx_scale = 1e-5
 
         # power penalty
         self._power_weight = 0.0
@@ -119,7 +119,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         
         # task rand
         self._use_pof0 = True
-        self._pof0 = 0.1
+        self._pof0 = 1.0
         self._twist_ref_lb = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=-0.8) 
         self._twist_ref_ub = torch.full((1, 6), dtype=dtype, device=device,
@@ -162,7 +162,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     timeout_ms=timeout_ms,
                     rescale_rewards=True,
                     srew_drescaling=True,
-                    srew_tsrescaling=False)
+                    srew_tsrescaling=False,
+                    use_act_mem_bf=False,
+                    act_membf_size=3)
 
         # overriding parent's defaults 
         self._reward_thresh_lb[:, :]=-10
