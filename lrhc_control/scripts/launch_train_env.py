@@ -6,8 +6,11 @@ from lrhc_control.training_algs.sac.sac import SAC
 from control_cluster_bridge.utilities.shared_data.sim_data import SharedSimInfo
 
 from SharsorIPCpp.PySharsorIPC import VLevel
+from SharsorIPCpp.PySharsorIPC import StringTensorServer
 
 import os, argparse
+
+from perf_sleep.pyperfsleep import PerfSleep
 
 # Function to set CPU affinity
 def set_affinity(cores):
@@ -95,6 +98,23 @@ if __name__ == "__main__":
         n_timesteps_per_eval=args.n_timesteps,
         dump_checkpoints=args.dump_checkpoints,
         norm_obs=args.obs_norm)
+
+    full_drop_dir=algo.drop_dir()
+    shared_drop_dir = StringTensorServer(length=1, 
+        basename="SharedTrainingDropDir", 
+        name_space=args.ns,
+        verbose=True, 
+        vlevel=VLevel.V2, 
+        force_reconnection=True)
+    shared_drop_dir.run()
+    
+    while True:
+        if not shared_drop_dir.write_vec([full_drop_dir], 0):
+            ns=1000000000
+            PerfSleep.thread_sleep(ns)
+            continue
+        else:
+            break
 
     try:
         while not algo.is_done():

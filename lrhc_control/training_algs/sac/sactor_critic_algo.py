@@ -386,6 +386,9 @@ class SActorCriticAlgoBase():
         import numpy as np
         np.random.seed(0)
 
+    def drop_dir(self):
+        return self._drop_dir
+        
     def _init_drop_dir(self,
                 drop_dir_name: str = None):
 

@@ -5,7 +5,7 @@ import torch
 
 from typing import List
 
-class SynchMemBuffer():
+class MemBuffer():
     
     # memory buffer for computing runtime std and mean 
     # synchronous means that there is a unique counter for the current
@@ -26,7 +26,7 @@ class SynchMemBuffer():
 
         self._horizon=horizon # number of samples to store
         self._membf_pos=0 #position in mem buff at which new samples with be added
-
+      
         self._debug = debug
         self._use_constant_scaling = False # whether to use constant 
         # scaling over episodes (this is useful to log meaningful reward data). If not 
@@ -136,8 +136,8 @@ class SynchMemBuffer():
         self._running_std[:, :]=torch.std(self._mem_buff,dim=2)
 
         self._membf_pos+=1
-        if self._membf_pos==self._horizon:
-            self._membf_po=0         
+        if self._membf_pos==self.horizon():
+            self._membf_pos=0         
 
     def data_names(self):
         return self._data_names
@@ -180,184 +180,6 @@ class SynchMemBuffer():
 
     def pos(self):
         return self._membf_pos
-
-class AsynchMemBuffer():
-    
-    def __init__(self,
-            name: str,
-            data_tensor: torch.Tensor,
-            data_names: List[str] = None, 
-            debug: bool = False,
-            horizon: int = 2,
-            dtype: torch.dtype = torch.float32,
-            use_gpu: bool = False):
-        
-        self._name = name
-
-        self._dtype = dtype
-        self._torch_device = "cuda" if use_gpu else "cpu"
-
-        self._horizon=horizon # number of samples to store
-        self._membf_pos=0 #position in mem buff at which new samples with be added
-
-        self._debug = debug
-        self._use_constant_scaling = False # whether to use constant 
-        # scaling over episodes (this is useful to log meaningful reward data). If not 
-        # enabled, metrics are actually averaged over the episode's timesteps, meaning that 
-        # no difference between long or short episodes can be seen
-        self._scaling = None
-
-        self._n_envs = data_tensor.shape[0]
-        self._data_size = data_tensor.shape[1]
-                            
-        self._init_data()
-
-        self._data_names = data_names
-        if data_names is not None:
-            if not len(data_names) == self._data_size:
-                exception = f"Provided data names length {len(data_names)} does not match {self._data_size}!!"
-                Journal.log(self.__class__.__name__,
-                    "__init__",
-                    exception,
-                    LogType.EXCEP,
-                    throw_when_excep=True)
-        else:
-            self._data_names = []
-            for i in range(self._data_size):
-                self._data_names.append(f"{self._name}_n{i}")
-
-    def _init_data(self):
-        
-        self._mem_buff=None
-        # initialize a memory buffer with a given horizon
-        self._mem_buff=torch.full(size=(self._n_envs, self._data_size,self._horizon), 
-                fill_value=0.0,
-                dtype=self._dtype, 
-                device=self._torch_device)
-        self._running_mean=torch.full(size=(self._n_envs, self._data_size), 
-                fill_value=0.0,
-                dtype=self._dtype, 
-                device=self._torch_device)
-        self._running_std=torch.full(size=(self._n_envs, self._data_size), 
-                fill_value=0.0,
-                dtype=self._dtype, 
-                device=self._torch_device)
-        
-        self._membf_pos=torch.full(size=(self._n_envs, ), 
-                                    fill_value=0,
-                                    dtype=torch.int32, device="cpu")
-    
-    def reset_all(self,
-           init_data:torch.Tensor=None):
-        if init_data is None: # reset to 0
-            self._mem_buff.zero_()
-        else:
-            # fill all buffer with init provided by data
-            if self._debug:
-                self._check_new_data(new_data=init_data)
-            self._mem_buff[:, :, :]=init_data.unsqueeze(2)
-        self._membf_pos.zero_()
-        self._running_mean.zero_()
-        self._running_std.fill_(0.0)
-
-    def reset(self,
-        to_be_reset: torch.Tensor,
-        init_data:torch.Tensor=None):
-
-        if init_data is None: # reset to 0
-            self._mem_buff[to_be_reset, :, :]=0
-        else:
-            # fill all buffer with init provided by data
-            if self._debug:
-                self._check_new_data(new_data=init_data)
-            self._mem_buff[to_be_reset, :, :]=init_data[to_be_reset, :].unsqueeze(2)
-        self._membf_pos[to_be_reset]=0
-        self._running_mean[to_be_reset, :]=0
-        self._running_std[to_be_reset, :]=0.0
-        
-    def _check_new_data(self,new_data):
-        self._check_sizes(new_data=new_data)
-        self._check_finite(new_data=new_data)
-
-    def _check_sizes(self,new_data):
-        if (not new_data.shape[0] == self._n_envs) or \
-            (not new_data.shape[1] == self._data_size):
-            exception = f"Provided new_data tensor shape {new_data.shape[0]}, {new_data.shape[1]}" + \
-                f" does not match {self._n_envs}, {self._data_size}!!"
-            Journal.log(self.__class__.__name__ + f"[{self._name}]",
-                "__init__",
-                exception,
-                LogType.EXCEP,
-                throw_when_excep=True)
-    
-    def _check_finite(self,new_data):
-        if (not torch.isfinite(new_data).all().item()):
-            print(new_data)
-            exception = f"Found non finite elements in provided data!!"
-            Journal.log(self.__class__.__name__ + f"[{self._name}]",
-                "__init__",
-                exception,
-                LogType.EXCEP,
-                throw_when_excep=True)
-            
-    def update(self, 
-        new_data: torch.Tensor):
-
-        if self._debug:
-            self._check_new_data(new_data=new_data)
-
-        self._mem_buff[:,:,self._membf_pos]=new_data.unsqueeze(2)
-        self._running_mean[:, :]=torch.mean(self._mem_buff,dim=2)
-        self._running_std[:, :]=torch.std(self._mem_buff,dim=2)
-
-        self._membf_pos+=1    
-        end_of_bf=(self._membf_pos==self._horizon)
-        self._membf_pos[end_of_bf]=0           
-
-    def data_names(self):
-        return self._data_names
-    
-    def horizon(self):
-        return self._horizon
-    
-    def get(self,idx:int=None):
-        if idx is None: # always get last 
-            return self._mem_buff[:,:,self._membf_pos-1]
-        else: # return data ad horizon idx, where 0 means latest
-            # and self._horizon-1 mean oldest
-            if (not idx>=0) and (idx<self._horizon):
-                exception = f"Idx {idx} exceeds horizon length {self._horizon} (0-based)!"
-                Journal.log(self.__class__.__name__ + f"[{self._name}]",
-                    "__init__",
-                    exception,
-                    LogType.EXCEP,
-                    throw_when_excep=True)
-            self._horizon-1
-            return self._mem_buff[:,:,self._membf_pos-1-idx]
-    
-    def get_bf(self,clone:bool=True):
-        if clone:
-            return self._mem_buff.clone()
-        else:
-            return self._mem_buff
-        
-    def std(self,clone:bool=True):
-        if clone:
-            return self._running_std.clone()
-        else:
-            return self._running_std
-    
-    def mean(self,clone:bool=True):
-        if clone:
-            return self._running_mean.clone()
-        else:
-            return self._running_mean
-    
-    def pos(self,clone:bool=True):
-        if clone:
-            return self._membf_pos.clone()
-        else:
-            return self._membf_pos
 
 class EpisodicData():
 
@@ -658,7 +480,7 @@ if __name__ == "__main__":
     new_data.fill_(1.0)
     stds = torch.tensor([0.1, 0.2, 0.3, 0.4])  # Example standard deviations for each column
 
-    mem_buffer=AsynchMemBuffer(name="MemBProva",
+    mem_buffer=MemBuffer(name="MemBProva",
             data_tensor=new_data,
             data_names=data_names,
             horizon=100000,
@@ -668,15 +490,15 @@ if __name__ == "__main__":
     mem_buffer.reset(to_be_reset=to_be_reset.flatten())
     # mem_buffer.reset(init_data=new_data)
     
-    for i in range(mem_buffer.horizon()):
+    for i in range(mem_buffer.horizon()+1):
         noise = torch.randn(n_envs, data_dim) * stds +1
         new_data = noise
         mem_buffer.update(new_data.cuda())
-        if i==(round(mem_buffer.horizon()/2)-1):
-            to_be_reset[2,:]=True
-            print(mem_buffer.get(idx=0)[2,:])
-            mem_buffer.reset(to_be_reset=to_be_reset.flatten())
-            print(mem_buffer.get(idx=0)[2,:])
+        # if i==(round(mem_buffer.horizon()/2)-1):
+        #     to_be_reset[2,:]=True
+        #     print(mem_buffer.get(idx=0)[2,:])
+        #     mem_buffer.reset(to_be_reset=to_be_reset.flatten())
+        #     print(mem_buffer.get(idx=0)[2,:])
 
     print("pos")
     print(mem_buffer.pos())
@@ -684,4 +506,6 @@ if __name__ == "__main__":
     print(mem_buffer.std())
     print("AVRG")
     print(mem_buffer.mean())
+    print("AAAAA")
+    print(mem_buffer.horizon())
 
