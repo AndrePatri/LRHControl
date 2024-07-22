@@ -9,10 +9,13 @@ from SharsorIPCpp.PySharsor.wrappers.shared_data_view import SharedTWrapper
 
 from control_cluster_bridge.utilities.remote_triggering import RemoteTriggererClnt,RemoteTriggererSrvr
 
-def launch_rosbag(namespace: str, dump_path: str, run_for_sec:float):
+import rosbag2_py
 
-    import subprocess
-    
+def launch_rosbag(namespace: str, dump_path: str, run_for_sec:float):
+        
+    import multiprocess as mp
+
+    retry_kill=20
     additional_secs=5.0
     timeout_ms = int((run_for_sec+additional_secs)*1e3)
     term_trigger=RemoteTriggererClnt(namespace=namespace+f"SharedTerminator",
@@ -25,20 +28,37 @@ def launch_rosbag(namespace: str, dump_path: str, run_for_sec:float):
             "launching rosbag recording",
             LogType.INFO)
 
-    command = "./launch_rosbag.sh"
-    args = [command, "--ns", namespace, "--output_path", dump_path]
-    proc = subprocess.Popen(args)
+    command = ["./launch_rosbag.sh", "--ns", namespace, "--output_path", dump_path]
+    ctx = mp.get_context('forkserver')
+    proc = ctx.Process(target=os.system, args=(' '.join(command),))
+    proc.start()
 
     if not term_trigger.wait(timeout_ms):
         Journal.log("launch_rhc2ros_bridge.py",
             "launch_rosbag",
             "Didn't receive any termination req within timeout! Will terminate anyway",
             LogType.WARN)
-
-    proc.terminate()
-    proc.wait()
+    
+    Journal.log("launch_rhc2ros_bridge.py",
+            "launch_rosbag",
+            f"terminating rosbag recording. Dump base-path is: {dump_path}",
+            LogType.INFO)
 
     term_trigger.close()
+
+    # os.killpg(os.getpgid(proc.pid), signal.SIGINT)  # Send SIGINT to the whole pro
+    # proc.send_signal(signal.SIGINT)  # Gracefully interrupt bag collection
+    try: 
+        os.killpg(os.getpgid(proc.pid), signal.SIGINT)
+    except:
+        pass
+    proc.join()
+
+    Journal.log("launch_rhc2ros_bridge.py",
+            "launch_rosbag",
+            f"successfully terminated rosbag recording process",
+            LogType.INFO)
+
 
 if __name__ == '__main__':
 

@@ -6,6 +6,15 @@ usage() {
     exit 1
 }
 
+# Function to handle SIGINT
+sigint_handler() {
+    echo "[launch_rosbag.sh]:SIGINT received, exiting..."
+    # Perform any cleanup tasks here
+    exit 0
+}
+# Set the trap to catch SIGINT and call sigint_handler
+trap sigint_handler SIGINT
+
 # Check if the required argument is provided
 if [ "$#" -lt 2 ] || [ "$1" != "--ns" ]; then
     usage
