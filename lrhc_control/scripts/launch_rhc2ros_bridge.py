@@ -1,13 +1,44 @@
 import argparse
 import os
+import signal
+from SharsorIPCpp.PySharsorIPC import VLevel
+from SharsorIPCpp.PySharsorIPC import LogType
+from SharsorIPCpp.PySharsorIPC import Journal
+from SharsorIPCpp.PySharsorIPC import dtype
+from SharsorIPCpp.PySharsor.wrappers.shared_data_view import SharedTWrapper
 
-# Function to set CPU affinity
-def set_affinity(cores):
-    try:
-        os.sched_setaffinity(0, cores)
-        print(f"Set CPU affinity to cores: {cores}")
-    except Exception as e:
-        print(f"Error setting CPU affinity: {e}")
+from control_cluster_bridge.utilities.remote_triggering import RemoteTriggererClnt,RemoteTriggererSrvr
+
+def launch_rosbag(namespace: str, dump_path: str, run_for_sec:float):
+
+    import subprocess
+    
+    additional_secs=5.0
+    timeout_ms = int((run_for_sec+additional_secs)*1e3)
+    term_trigger=RemoteTriggererClnt(namespace=namespace+f"SharedTerminator",
+                            verbose=True,
+                            vlevel=VLevel.V1)
+    term_trigger.run()
+
+    Journal.log("launch_rhc2ros_bridge.py",
+            "launch_rosbag",
+            "launching rosbag recording",
+            LogType.INFO)
+
+    command = "./launch_rosbag.sh"
+    args = [command, "--ns", namespace, "--output_path", dump_path]
+    proc = subprocess.Popen(args)
+
+    if not term_trigger.wait(timeout_ms):
+        Journal.log("launch_rhc2ros_bridge.py",
+            "launch_rosbag",
+            "Didn't receive any termination req within timeout! Will terminate anyway",
+            LogType.WARN)
+
+    proc.terminate()
+    proc.wait()
+
+    term_trigger.close()
 
 if __name__ == '__main__':
 
@@ -17,7 +48,7 @@ if __name__ == '__main__':
     parser.add_argument('--dt', type=float, default=0.01, help='Update interval in seconds, default is 0.01')
     parser.add_argument('--ns', type=str, help='Namespace to be used for cluster shared memory')
     parser.add_argument('--debug', action='store_true', help='Enable debug mode, default is False')
-    parser.add_argument('--verbose', action='store_true', help='Enable verbose mode, default is True')
+    parser.add_argument('--verbose', action=argparse.BooleanOptionalAction, default=False, help='Enable verbose mode, default is True')
     parser.add_argument('--ros2', action='store_true', help='Enable ROS 2 mode')
     parser.add_argument('--with_agent_refs', action='store_true', help='also forward agent refs to rhcviz')
     parser.add_argument('--rhc_refs_in_h_frame', type=bool, default=True, help='set to true if rhc refs are \
@@ -26,18 +57,21 @@ if __name__ == '__main__':
                         specified in the horizontal frame')
     parser.add_argument('--env_idx', type=int, help='env index of which data is to be published', default=-1)
     parser.add_argument('--stime_trgt', type=float, default=None, help='sim time for which this bridge runs (None -> indefinetly)')
-    parser.add_argument('--srdf_path', type=str, help='path to SRDF path specifying homing configuration', default=None)
+    parser.add_argument('--srdf_path', type=str, help='path to SRDF path specifying homing configuration, to be used for missing joints', default=None)
+    parser.add_argument('--dump_rosbag', action=argparse.BooleanOptionalAction, default=False, help='whether to dump a rosbag of the published topics')
+    parser.add_argument('--dump_path', type=str, default="/tmp", help='where bag will be dumped')
 
     args = parser.parse_args()
-
-    # Set CPU affinity if cores are provided
-    if args.cores:
-        set_affinity(args.cores)
 
     # Use the provided robot name and update interval
     update_dt = args.dt
     debug = args.debug
     verbose = args.verbose
+    dump_rosbag=args.dump_rosbag
+    stime_trgt=args.stime_trgt
+    if stime_trgt is None and dump_rosbag:
+        # set a default stime trgt, otherwise the bag file could become of gigantic size
+        stime_trgt=60.0
 
     bridge = None
     if not args.ros2:
@@ -63,7 +97,34 @@ if __name__ == '__main__':
                         rhc_refs_in_h_frame=args.rhc_refs_in_h_frame,
                         agent_refs_in_h_frame=args.agent_refs_in_h_frame,
                         env_idx=args.env_idx,
-                        sim_time_trgt=args.stime_trgt,
+                        sim_time_trgt=stime_trgt,
                         srdf_homing_file_path=args.srdf_path)
 
+    # spawn a process to record bag if required
+    bag_proc=None
+    term_trigger=None
+    if dump_rosbag:
+
+        term_trigger=RemoteTriggererSrvr(namespace=args.ns+f"SharedTerminator",
+                                            verbose=verbose,
+                                            vlevel=VLevel.V1,
+                                            force_reconnection=True)
+        term_trigger.run()
+
+        import multiprocess as mp
+        ctx = mp.get_context('forkserver')
+        bag_proc=ctx.Process(target=launch_rosbag, 
+                            name="rosbag_recorder_"+f"{args.ns}",
+                            args=(args.ns,args.dump_path,stime_trgt))
+        bag_proc.start()
+        
     bridge.run(update_dt=update_dt)
+
+    if bag_proc is not None:
+        term_trigger.trigger()
+
+        bag_proc.join()
+    
+    if term_trigger is not None:
+        term_trigger.close()
+

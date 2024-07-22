@@ -42,6 +42,7 @@ class RhcToViz2Bridge:
     def __init__(self, 
             namespace: str, 
             verbose = False,
+            vlevel: VLevel = VLevel.V1,
             rhcviz_basename = "RHCViz",
             robot_selector: List = [0, None],
             with_agent_refs = False,
@@ -70,6 +71,7 @@ class RhcToViz2Bridge:
         self._with_agent_refs = with_agent_refs
 
         self.verbose = verbose
+        self.vlevel = vlevel
 
         self.namespace = namespace # defines uniquely the kind of controller 
         # (associated with a specific robot)
@@ -142,6 +144,8 @@ class RhcToViz2Bridge:
 
         self._update_counter = 0
         self._print_frequency = 100
+
+        self._missing_homing=None
         
         self._is_running = False
 
@@ -220,8 +224,8 @@ class RhcToViz2Bridge:
         self._sim_data = SharedSimInfo(namespace=self.namespace,
                                 is_server=False,
                                 safe=False,
-                                verbose=True,
-                                vlevel=VLevel.V2)
+                                verbose=self.verbose,
+                                vlevel=self.vlevel)
         self._sim_data.run()
         self._sim_datanames = self._sim_data.param_keys
         self._simtime_idx = self._sim_datanames.index("cluster_time")
@@ -231,8 +235,8 @@ class RhcToViz2Bridge:
                                 is_server=False,
                                 with_gpu_mirror=False,
                                 safe=False,
-                                verbose=True,
-                                vlevel=VLevel.V2)
+                                verbose=self.verbose,
+                                vlevel=self.vlevel)
         self.robot_state.set_q_remapping(q_remapping=[1, 2, 3, 0]) # remapping from w, i, j, k
         self.robot_state.run()
         # to rviz conventions (i, k, k, w)
@@ -240,8 +244,8 @@ class RhcToViz2Bridge:
                                 is_server=False,
                                 with_gpu_mirror=False,
                                 safe=False,
-                                verbose=True,
-                                vlevel=VLevel.V2)
+                                verbose=self.verbose,
+                                vlevel=self.vlevel)
         self.rhc_refs.rob_refs.set_q_remapping(q_remapping=[1, 2, 3, 0]) # remapping from w, i, j, k
         # to rviz conventions (i, k, k, w)
         self.rhc_refs.run()
@@ -250,8 +254,8 @@ class RhcToViz2Bridge:
                                 is_server=False,
                                 with_gpu_mirror=False,
                                 safe=False,
-                                verbose=True,
-                                vlevel=VLevel.V2)
+                                verbose=self.verbose,
+                                vlevel=self.vlevel)
             self.agent_refs.run()
 
         self.cluster_size = self.robot_state.n_robots()
@@ -264,8 +268,8 @@ class RhcToViz2Bridge:
             self.env_index = SharedTWrapper(namespace = self.namespace,
                     basename = "EnvSelector",
                     is_server = False, 
-                    verbose = True, 
-                    vlevel = VLevel.V2,
+                    verbose = self.verbose, 
+                    vlevel = self.vlevel,
                     safe = False,
                     dtype=dtype.Int)
             
@@ -279,8 +283,8 @@ class RhcToViz2Bridge:
             self.rhc_internal_clients.append(RhcInternal(config=rhc_internal_config,
                                                 namespace=self.namespace,
                                                 rhc_index=self._robot_indexes[i],
-                                                verbose=True,
-                                                vlevel=VLevel.V2,
+                                                verbose=self.verbose,
+                                                vlevel=self.vlevel,
                                                 safe=False))
             self.rhc_internal_clients[self._robot_indexes[i]].run()
            
@@ -338,7 +342,7 @@ class RhcToViz2Bridge:
                 elapsed_time = time.perf_counter() - start_time
                 time_to_sleep_ns = int((update_dt - elapsed_time) * 1e+9) # [ns]
                 if time_to_sleep_ns < 0:
-                    warning = f": Could not match desired update dt of {update_dt} s. " + \
+                    warning = f"Could not match desired update dt of {update_dt} s. " + \
                         f"Elapsed time to update {elapsed_time}."
                     Journal.log(self.__class__.__name__,
                         "run",
@@ -349,6 +353,11 @@ class RhcToViz2Bridge:
                     PerfSleep.thread_sleep(time_to_sleep_ns) 
 
                 if self._sim_time >= self._sim_time_trgt:
+                    Journal.log(self.__class__.__name__,
+                    "run",
+                    "terminating rhc2viz bridge...",
+                    LogType.INFO)
+
                     break
                 else:
                     continue
@@ -441,8 +450,12 @@ class RhcToViz2Bridge:
         rhc_actual=self.rhc_internal_clients[self._current_index].q.get_numpy_mirror()[:, :]
         rhc_missing=self._missing_homing
         
-        rhc_q_tot = np.concatenate((rhc_actual, rhc_missing), axis=0)
-        rhc_q =rhc_q_tot.flatten()
+        if rhc_missing is None:
+            rhc_q=rhc_actual.flatten()
+        else:
+            rhc_q_tot = np.concatenate((rhc_actual, rhc_missing), axis=0)
+            rhc_q =rhc_q_tot.flatten()
+
         root_q_robot = self.robot_state.root_state.get(data_type="q_full",robot_idxs=self._current_index)
         jnts_q_robot = self.robot_state.jnts_state.get(data_type="q")[self._current_index, :]
 
