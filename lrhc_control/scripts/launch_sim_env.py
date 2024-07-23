@@ -38,6 +38,11 @@ if __name__ == '__main__':
     parser.add_argument('--headless', action='store_true', help='Whether to run simulation in headless mode')
     parser.add_argument('--comment', type=str, help='Any useful comment associated with this run',default="")
     parser.add_argument('--timeout_ms', type=int, help='connection timeout after which the script self-terminates', default=60000)
+    parser.add_argument('--default_stiff', type=float, default=200.0, help='default stiffness for low level jnt imp controller')
+    parser.add_argument('--default_damp', type=float, default=50.0, help='default damping for low level jnt imp controller')
+    parser.add_argument('--start_stiff', type=float, default=200.0, help='stiffness for low level jnt imp controller after controller is activated')
+    parser.add_argument('--start_damp', type=float, default=50.0, help='damping for low level jnt imp controller after controller is activated')
+    parser.add_argument('--wheel_damp', type=float, default=50.0, help='damping coeff for low level vel control of wheels (if present)')
 
     args = parser.parse_args()
 
@@ -141,14 +146,14 @@ if __name__ == '__main__':
             solver_position_iteration_count = sim_params["solver_position_iteration_count"], # applies this to all articulations
             solver_velocity_iteration_count = sim_params["solver_velocity_iteration_count"],
             solver_stabilization_thresh = sim_params["sleep_threshold"],
-            default_jnt_stiffness=200.0, 
-            default_jnt_damping=50.0, 
-            default_wheel_stiffness = 0.0,
-            default_wheel_damping=10.0,
-            startup_jnt_stiffness = 200.0,
-            startup_jnt_damping = 50.0,
-            startup_wheel_stiffness = 0.0,
-            startup_wheel_damping=10.0,
+            default_jnt_stiffness=args.default_stiff, 
+            default_jnt_damping=args.default_damp, 
+            default_wheel_stiffness=0.0, # wheels are almost never controlled in pos mode
+            default_wheel_damping=args.wheel_damp,
+            startup_jnt_stiffness=args.start_stiff,
+            startup_jnt_damping=args.start_damp,
+            startup_wheel_stiffness=0.0, # wheels are almost never controlled in pos mode
+            startup_wheel_damping=args.wheel_damp,
             contact_prims = contact_prims,
             contact_offsets = contact_offsets,
             sensor_radii = sensor_radii,
