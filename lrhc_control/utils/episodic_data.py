@@ -160,19 +160,19 @@ class MemBuffer():
             self._horizon-1
             return self._mem_buff[:,:,self._membf_pos-1-idx]
     
-    def get_bf(self,clone:bool=True):
+    def get_bf(self,clone:bool=False):
         if clone:
             return self._mem_buff.clone()
         else:
             return self._mem_buff
         
-    def std(self,clone:bool=True):
+    def std(self,clone:bool=False):
         if clone:
             return self._running_std.clone()
         else:
             return self._running_std
     
-    def mean(self,clone:bool=True):
+    def mean(self,clone:bool=False):
         if clone:
             return self._running_mean.clone()
         else:

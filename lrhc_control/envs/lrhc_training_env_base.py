@@ -324,7 +324,8 @@ class LRhcTrainingEnvBase():
                             truncated)
 
         if self._act_mem_buffer is not None:
-            self._act_mem_buffer.reset(to_be_reset=episode_finished.flatten())
+            self._act_mem_buffer.reset(to_be_reset=episode_finished.flatten(),
+                            init_data=self._defaut_bf_action)
 
         # debug step if required (IMPORTANT: must be before remote reset so that we always db
         # actual data from the step and not after reset)
@@ -615,6 +616,7 @@ class LRhcTrainingEnvBase():
                 horizon=self._act_membf_size,
                 dtype=self._dtype,
                 use_gpu=self._use_gpu)
+            self._defaut_bf_action = torch.full_like(input=self.get_actions(),fill_value=0.0)
 
     def _init_rewards(self):
         

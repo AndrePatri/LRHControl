@@ -25,7 +25,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         
         action_repeat = 1
 
-        self._add_last_action_to_obs = True
+        self._use_prev_actions_stats = True
         self._use_horizontal_frame_for_refs = False # usually impractical for task rand to set this to True 
         self._use_local_base_frame = True
 
@@ -58,7 +58,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         actions_dim = 2 + 1 + 3 + 4 # [vxy_cmd, h_cmd, twist_cmd, dostep_0, dostep_1, dostep_2, dostep_3]
 
         # obs_dim = 4+6+2*n_jnts+2+actions_dim
-        obs_dim = 4+6+2*n_jnts+2+1+actions_dim
+        # obs_dim = 4+6+2*n_jnts+2+1+actions_dim
+        obs_dim = 4+6+2*n_jnts+2+1+3*actions_dim
 
         # obs_dim = 4+6+2*n_jnts+2+2+actions_dim
 
@@ -75,7 +76,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         
         device = "cuda" if use_gpu else "cpu"
 
-        self._task_weight = 0.0
+        self._task_weight = 1.0
         self._task_scale = 0.5
         self._task_err_weights = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.0) 
@@ -87,8 +88,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._task_err_weights[0, 5] = 1e-6
         self._task_err_weights_sum = torch.sum(self._task_err_weights).item()
 
-        self._rhc_fail_idx_weight = 1.0
-        self._rhc_fail_idx_scale = 1e-5
+        self._rhc_fail_idx_weight = 0.0
+        self._rhc_fail_idx_scale = 1e-4
 
         # power penalty
         self._power_weight = 0.0
@@ -106,7 +107,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         # jnt vel penalty 
         self._jnt_vel_weight = 0.0
-        self._jnt_vel_scale = 0.5
+        self._jnt_vel_scale = 0.3
         self._jnt_vel_penalty_weights = torch.full((1, n_jnts), dtype=dtype, device=device,
                             fill_value=1.0)
         jnt_vel_weights_along_limb = [1.0] * n_jnts_per_limb
@@ -119,7 +120,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         
         # task rand
         self._use_pof0 = True
-        self._pof0 = 1.0
+        self._pof0 = 0.1
         self._twist_ref_lb = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=-0.8) 
         self._twist_ref_ub = torch.full((1, 6), dtype=dtype, device=device,
@@ -163,30 +164,12 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     rescale_rewards=True,
                     srew_drescaling=True,
                     srew_tsrescaling=False,
-                    use_act_mem_bf=False,
-                    act_membf_size=3)
-
-        # overriding parent's defaults 
-        self._reward_thresh_lb[:, :]=-10
-        self._reward_thresh_ub[:, :]=10
-
-        self._obs_threshold_lb = -1e3 # used for clipping observations
-        self._obs_threshold_ub = 1e3
-
-        v_cmd_max = 3.0
-        omega_cmd_max = 3.0
-        self._actions_lb[:, 0:2] = -v_cmd_max 
-        self._actions_ub[:, 0:2] = v_cmd_max  # vxy cmd
-        self._actions_lb[:, 2:3] = 0 # h cmd
-        self._actions_ub[:, 2:3] = 1  
-        self._actions_lb[:, 3:6] = -omega_cmd_max # twist cmds
-        self._actions_ub[:, 3:6] = omega_cmd_max  
-        self._actions_lb[:, 6:10] = -1.0 # contact flags
-        self._actions_ub[:, 6:10] = 1.0 
+                    use_act_mem_bf=self._use_prev_actions_stats,
+                    act_membf_size=10)
 
         # action regularization
         self._actions_diff_rew_weight = 0.0
-        if not self._add_last_action_to_obs: # we need the action in obs to use this reward
+        if not self._use_prev_actions_stats: # we need the action in obs to use this reward
             self._actions_diff_rew_weight=0.0
         self._actions_diff_scale = 1.0
         self._action_diff_weights = torch.full((1, actions_dim), dtype=dtype, device=device,
@@ -207,13 +190,31 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._add_custom_db_info(db_data=rhc_fail_idx)
 
         # other static db info 
-        self.custom_db_info["add_last_action_to_obs"] = self._add_last_action_to_obs
+        self.custom_db_info["add_last_action_to_obs"] = self._use_prev_actions_stats
         self.custom_db_info["use_horizontal_frame_for_refs"] = self._use_horizontal_frame_for_refs
         self.custom_db_info["use_local_base_frame"] = self._use_local_base_frame
         self.custom_db_info["use_pof0"] = self._use_pof0
         self.custom_db_info["pof0"] = self._pof0
 
     def _custom_post_init(self):
+        # overriding parent's defaults 
+        self._reward_thresh_lb[:, :]=-10
+        self._reward_thresh_ub[:, :]=10
+
+        self._obs_threshold_lb = -1e3 # used for clipping observations
+        self._obs_threshold_ub = 1e3
+
+        v_cmd_max = 3.0
+        omega_cmd_max = 3.0
+        self._actions_lb[:, 0:2] = -v_cmd_max 
+        self._actions_ub[:, 0:2] = v_cmd_max  # vxy cmd
+        self._actions_lb[:, 2:3] = 0 # h cmd
+        self._actions_ub[:, 2:3] = 1  
+        self._actions_lb[:, 3:6] = -omega_cmd_max # twist cmds
+        self._actions_ub[:, 3:6] = omega_cmd_max  
+        self._actions_lb[:, 6:10] = -1.0 # contact flags
+        self._actions_ub[:, 6:10] = 1.0 
+
         # some aux data to avoid allocations at training runtime
         self._robot_twist_meas_h = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu).clone()
         self._robot_twist_meas_b = self._robot_twist_meas_h.clone()
@@ -229,6 +230,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         self._zero_t_aux = torch.zeros((self._n_envs, 1),dtype=self._dtype,device=device)
         self._zero_t_aux_cpu = torch.zeros((self._n_envs, 1),dtype=self._dtype,device="cpu")
+
+        self._defaut_bf_action[:, :] = (self._actions_ub+self._actions_lb)/2.0
 
     def get_file_paths(self):
 
@@ -288,7 +291,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # refs of envs that reached task randomization time
         self.randomize_task_refs(env_indxs=episode_finished.flatten())
 
-        if self._add_last_action_to_obs: # if ep finished we need to reset the prev action
+        if self._use_prev_actions_stats: # if ep finished we need to reset the prev action
         # in the obs, otherwise there's bias between episodes
             terminated = self._terminations.get_torch_mirror(gpu=self._use_gpu)
             truncated = self._truncations.get_torch_mirror(gpu=self._use_gpu)
@@ -357,11 +360,13 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # adding last action to obs at the back of the obs tensor
         obs[:, next_idx:(next_idx+1)] = self._rhc_fail_idx(gpu=self._use_gpu)
         next_idx+=1
-        if self._add_last_action_to_obs:
+        if self._use_prev_actions_stats:
             self._prev_act_idx=next_idx
-            actions_now = self._actions.get_torch_mirror(gpu=self._use_gpu)
-            obs[:, next_idx:(next_idx+self.actions_dim())] = actions_now
+            obs[:, next_idx:(next_idx+self.actions_dim())]=self._act_mem_buffer.get(idx=0) # last obs
             next_idx+=self.actions_dim()
+            obs[:, next_idx:(next_idx+self.actions_dim())]=self._act_mem_buffer.mean(clone=False)
+            next_idx+=self.actions_dim()
+            obs[:, next_idx:(next_idx+self.actions_dim())]=self._act_mem_buffer.std(clone=False)
 
     def _get_custom_db_data(self, 
             episode_finished):
@@ -436,7 +441,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
     
     def _weighted_actions_diff(self, gpu: bool, obs, next_obs):
 
-        if self._add_last_action_to_obs:
+        if self._use_prev_actions_stats:
             prev_act=obs[:,self._prev_act_idx:(self._prev_act_idx+self.actions_dim())]
             action_now=next_obs[:,self._prev_act_idx:(self._prev_act_idx+self.actions_dim())]
             weighted_actions_diff = torch.sum((action_now-prev_act)*self._action_diff_weights,dim=1,keepdim=True)/self._action_diff_w_sum
@@ -546,8 +551,13 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         next_idx+=1
         action_names = self._get_action_names()
         for prev_act_idx in range(self.actions_dim()):
-            obs_names[next_idx+prev_act_idx] = action_names[prev_act_idx]+f"_tm_{1}"
-
+            obs_names[next_idx+prev_act_idx] = action_names[prev_act_idx]+f"_prev"
+        next_idx+=self.actions_dim()
+        for prev_act_mean in range(self.actions_dim()):
+            obs_names[next_idx+prev_act_mean] = action_names[prev_act_mean]+f"_avrg"
+        next_idx+=self.actions_dim()
+        for prev_act_mean in range(self.actions_dim()):
+            obs_names[next_idx+prev_act_mean] = action_names[prev_act_mean]+f"_std"
         return obs_names
 
     def _get_action_names(self):
