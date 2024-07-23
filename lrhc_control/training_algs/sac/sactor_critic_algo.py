@@ -563,11 +563,17 @@ class SActorCriticAlgoBase():
             elapsed_h = self._elapsed_min[self._log_it_counter].item()/60.0
             est_remaining_time_h =  elapsed_h * 1/self._vec_transition_counter * (self._total_timesteps_vec-self._vec_transition_counter)
             
-            actual_tsteps_with_updates=(self._n_timesteps_done[self._log_it_counter].item()-self._warmstart_timesteps)
-            experience_to_policy_grad_ratio=actual_tsteps_with_updates/self._n_policy_updates[self._log_it_counter].item()
-            experience_to_qfun_grad_ratio=actual_tsteps_with_updates/self._n_qfun_updates[self._log_it_counter].item()
-            experience_to_tqfun_grad_ratio=actual_tsteps_with_updates/self._n_tqfun_updates[self._log_it_counter].item()
-
+            if not self._eval:
+                actual_tsteps_with_updates=(self._n_timesteps_done[self._log_it_counter].item()-self._warmstart_timesteps)
+                experience_to_policy_grad_ratio=actual_tsteps_with_updates/self._n_policy_updates[self._log_it_counter].item()
+                experience_to_qfun_grad_ratio=actual_tsteps_with_updates/self._n_qfun_updates[self._log_it_counter].item()
+                experience_to_tqfun_grad_ratio=actual_tsteps_with_updates/self._n_tqfun_updates[self._log_it_counter].item()
+            else:
+                actual_tsteps_with_updates=-1
+                experience_to_policy_grad_ratio=-1
+                experience_to_qfun_grad_ratio=-1
+                experience_to_tqfun_grad_ratio=-1
+                
             info =f"\nTotal n. timesteps simulated: {self._n_timesteps_done[self._log_it_counter].item()}/{self._total_timesteps}\n" + \
                 f"N. policy updates performed: {self._n_policy_updates[self._log_it_counter].item()}/{self._n_policy_updates_to_be_done}\n" + \
                 f"N. q fun updates performed: {self._n_qfun_updates[self._log_it_counter].item()}/{self._n_qf_updates_to_be_done}\n" + \
@@ -584,6 +590,8 @@ class SActorCriticAlgoBase():
                 f"Current env. step fps: {self._env_step_fps[self._log_it_counter].item()}, time for experience collection {self._collection_dt[self._log_it_counter].item()} s\n" + \
                 f"Current env step rt factor: {self._env_step_rt_factor[self._log_it_counter].item()}\n" + \
                 f"Current policy update fps: {self._policy_update_fps[self._log_it_counter].item()}, time for policy updates {self._policy_update_dt[self._log_it_counter].item()} s\n"
+            
+            
             Journal.log(self.__class__.__name__,
                 "_post_step",
                 info,
