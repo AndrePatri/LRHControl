@@ -41,8 +41,10 @@ if __name__ == '__main__':
     parser.add_argument('--default_stiff', type=float, default=200.0, help='default stiffness for low level jnt imp controller')
     parser.add_argument('--default_damp', type=float, default=50.0, help='default damping for low level jnt imp controller')
     parser.add_argument('--start_stiff', type=float, default=200.0, help='stiffness for low level jnt imp controller after controller is activated')
-    parser.add_argument('--start_damp', type=float, default=50.0, help='damping for low level jnt imp controller after controller is activated')
-    parser.add_argument('--wheel_damp', type=float, default=50.0, help='damping coeff for low level vel control of wheels (if present)')
+    parser.add_argument('--start_damp', type=float, default=10.0, help='damping for low level jnt imp controller after controller is activated')
+    parser.add_argument('--wheel_damp', type=float, default=10.0, help='damping coeff for low level vel control of wheels (if present)')
+    parser.add_argument('--spawning_height', type=float, default=0.6, help='initial height at which robots will be spawned')
+    parser.add_argument('--physics_dt', type=float, default=1e-3, help='')
 
     args = parser.parse_args()
 
@@ -69,7 +71,7 @@ if __name__ == '__main__':
         sim_params["device"] = "cpu"
     device = sim_params["device"]
     # sim_params["dt"] = 1.0/100.0 # physics_dt?
-    sim_params["physics_dt"] = 1.0/1000.0 # physics_dt?
+    sim_params["physics_dt"] = args.physics_dt # physics_dt?
     sim_params["rendering_dt"] = sim_params["physics_dt"]
     sim_params["substeps"] = 1 # number of physics steps to be taken for for each rendering step
     sim_params["gravity"] = np.array([0.0, 0.0, -9.81])
@@ -85,7 +87,7 @@ if __name__ == '__main__':
     # sim_params["enable_sleeping"] = True
     # Per-actor settings ( can override in actor_options )
     sim_params["solver_position_iteration_count"] = 4 # defaults to 4
-    sim_params["solver_velocity_iteration_count"] = 2 # defaults to 1
+    sim_params["solver_velocity_iteration_count"] = 3 # defaults to 1
     sim_params["sleep_threshold"] = 0.0 # Mass-normalized kinetic energy threshold below which an actor may go to sleep.
     # Allowed range [0, max_float).
     sim_params["stabilization_threshold"] = 1e-5
@@ -139,7 +141,7 @@ if __name__ == '__main__':
             robot_pkg_pref_path=args.robot_pkg_pref_path,
             integration_dt = sim_params["physics_dt"],
             num_envs = num_envs, 
-            cloning_offset = np.array([[0.0, 0.0, 0.55]] * num_envs), 
+            cloning_offset = np.array([[0.0, 0.0, args.spawning_height]] * num_envs), 
             env_spacing=6,
             spawning_radius=1.0, 
             use_flat_ground=True, 
@@ -157,7 +159,7 @@ if __name__ == '__main__':
             contact_prims = contact_prims,
             contact_offsets = contact_offsets,
             sensor_radii = sensor_radii,
-            override_art_controller=True, # uses handmade EXPLICIT controller. This will usually be unstable for relatively high int. dts
+            override_art_controller=False, # uses handmade EXPLICIT controller. This will usually be unstable for relatively high int. dts
             device = device, 
             use_diff_velocities = False, # whether to differentiate velocities numerically
             dtype=dtype_torch,
@@ -169,7 +171,7 @@ if __name__ == '__main__':
             cluster_dt = [control_clust_dt],
             backend="torch", 
             use_remote_stepping = [args.remote_stepping],
-            n_pre_training_steps = 100, # n of env steps before connecting to training client
+            n_pre_training_steps = 1000, # n of env steps before connecting to training client
             sim_params = sim_params, 
             cluster_client_verbose=args.enable_debug, 
             cluster_client_debug=args.enable_debug,

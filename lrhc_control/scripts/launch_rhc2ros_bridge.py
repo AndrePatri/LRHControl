@@ -72,8 +72,8 @@ if __name__ == '__main__':
     parser.add_argument('--ns', type=str, help='Namespace to be used for cluster shared memory')
     parser.add_argument('--debug', action='store_true', help='Enable debug mode, default is False')
     parser.add_argument('--verbose', action=argparse.BooleanOptionalAction, default=False, help='Enable verbose mode, default is True')
-    parser.add_argument('--ros2', action='store_true', help='Enable ROS 2 mode')
-    parser.add_argument('--with_agent_refs', action='store_true', help='also forward agent refs to rhcviz')
+    parser.add_argument('--ros2', action=argparse.BooleanOptionalAction, default=True, help='Use ROS 2')
+    parser.add_argument('--with_agent_refs', action=argparse.BooleanOptionalAction, default=False, help='also forward agent refs to rhcviz')
     parser.add_argument('--rhc_refs_in_h_frame', type=bool, default=True, help='set to true if rhc refs are \
                         specified in the horizontal frame')
     parser.add_argument('--agent_refs_in_h_frame', type=bool, default=False, help='set to true if agent refs are \
@@ -94,6 +94,7 @@ if __name__ == '__main__':
     debug = args.debug
     verbose = args.verbose
     dump_rosbag=args.dump_rosbag
+    dump_path=args.dump_path
     stime_trgt=args.stime_trgt
     if stime_trgt is None and dump_rosbag:
         # set a default stime trgt, otherwise the bag file could become of gigantic size
@@ -112,7 +113,7 @@ if __name__ == '__main__':
             PerfSleep.thread_sleep(ns)
             continue
         dump_path=shared_drop_dir_val[0]
-   
+    
     bridge = None
     if not args.ros2:
 
