@@ -33,18 +33,25 @@ if __name__ == '__main__':
                         help='Contact sensor list (needs to mathc an available body)')
     parser.add_argument('--remote_stepping', action='store_true', 
                 help='Whether to use remote stepping for cluster triggering (to be set during training)')
-    parser.add_argument('--cpu_pipeline', action='store_true', help='Whether to use the cpu pipeline (greatly increases GPU RX data)')
-    parser.add_argument('--enable_debug', action='store_true', help='Whether to enable debug mode (may introduce significant overhead)')
-    parser.add_argument('--headless', action='store_true', help='Whether to run simulation in headless mode')
+    parser.add_argument('--cpu_pipeline', action=argparse.BooleanOptionalAction, default=False, help='Whether to use the cpu pipeline (greatly increases GPU RX data)')
+    parser.add_argument('--enable_debug', action=argparse.BooleanOptionalAction, default=False, help='Whether to enable debug mode (may introduce significant overhead)')
+    parser.add_argument('--headless', action=argparse.BooleanOptionalAction, default=True, help='Whether to run simulation in headless mode')
+    parser.add_argument('--verbose', action=argparse.BooleanOptionalAction, default=True, help='')
     parser.add_argument('--comment', type=str, help='Any useful comment associated with this run',default="")
     parser.add_argument('--timeout_ms', type=int, help='connection timeout after which the script self-terminates', default=60000)
     parser.add_argument('--default_stiff', type=float, default=200.0, help='default stiffness for low level jnt imp controller')
     parser.add_argument('--default_damp', type=float, default=50.0, help='default damping for low level jnt imp controller')
     parser.add_argument('--start_stiff', type=float, default=200.0, help='stiffness for low level jnt imp controller after controller is activated')
-    parser.add_argument('--start_damp', type=float, default=10.0, help='damping for low level jnt imp controller after controller is activated')
+    parser.add_argument('--start_damp', type=float, default=50.0, help='damping for low level jnt imp controller after controller is activated')
     parser.add_argument('--wheel_damp', type=float, default=10.0, help='damping coeff for low level vel control of wheels (if present)')
     parser.add_argument('--spawning_height', type=float, default=0.6, help='initial height at which robots will be spawned')
     parser.add_argument('--physics_dt', type=float, default=1e-3, help='')
+    parser.add_argument('--use_custom_jnt_imp', action=argparse.BooleanOptionalAction, default=False, 
+        help='Whether to override the default PD controller with a custom one')
+    parser.add_argument('--diff_vels', action=argparse.BooleanOptionalAction, default=False, 
+        help='Whether to obtain velocities by differentiation or not')
+    parser.add_argument('--init_timesteps', type=int, help='initialization timesteps for simulation.', 
+            default=5000)
 
     args = parser.parse_args()
 
@@ -159,9 +166,9 @@ if __name__ == '__main__':
             contact_prims = contact_prims,
             contact_offsets = contact_offsets,
             sensor_radii = sensor_radii,
-            override_art_controller=False, # uses handmade EXPLICIT controller. This will usually be unstable for relatively high int. dts
+            override_art_controller=args.use_custom_jnt_imp, # uses handmade EXPLICIT controller. This will usually be unstable for relatively high int. dts
             device = device, 
-            use_diff_velocities = False, # whether to differentiate velocities numerically
+            use_diff_velocities=args.diff_vels, # whether to differentiate velocities numerically
             dtype=dtype_torch,
             debug_enabled = args.enable_debug,
             dump_basepath=args.dmpdir) # writes jnt imp. controller info on shared mem (overhead)
@@ -170,12 +177,12 @@ if __name__ == '__main__':
     env.set_task(task, 
             cluster_dt = [control_clust_dt],
             backend="torch", 
-            use_remote_stepping = [args.remote_stepping],
-            n_pre_training_steps = 1000, # n of env steps before connecting to training client
+            use_remote_stepping=[args.remote_stepping],
+            n_pre_training_steps=args.init_timesteps, # n of env steps before connecting to training client
             sim_params = sim_params, 
             cluster_client_verbose=args.enable_debug, 
             cluster_client_debug=args.enable_debug,
-            verbose=True, 
+            verbose=args.verbose, 
             vlevel=VLevel.V2) # add the task to the environment 
     # (includes spawning robots and launching the cluster client for the controllers)
     env.reset(reset_world=True)
@@ -240,16 +247,4 @@ if __name__ == '__main__':
                                     env.debug_data["sim_time"][robot_names[i]],
                                     sol_counter*env.cluster_servers[robot_name].cluster_dt()
                                     ])
-
-        # except Exception as e:
-            
-        #     print(f"An exception occurred: {e}")
-            
-        #     for i in range(len(robot_names)):
-
-        #         shared_sim_infos[i].close()
-
-        #     env.close()
-
-        #     break
 
