@@ -717,3 +717,31 @@ class TaskRandCounter(SimpleCounters):
                 safe=safe,
                 force_reconnection=force_reconnection,
                 with_gpu_mirror=with_gpu_mirror)
+
+class SafetyRandResetsCounter(SimpleCounters):
+
+    def __init__(self,
+                namespace: str,
+                n_steps_lb: int = None,
+                n_steps_ub: int = None,
+                n_envs: int = None, 
+                is_server = False, 
+                verbose: bool = False, 
+                vlevel: VLevel = VLevel.V0,
+                safe: bool = True,
+                force_reconnection: bool = False,
+                with_gpu_mirror: bool = False):
+
+        basename = "SafetyRandResetsCounter"
+
+        super().__init__(namespace=namespace,
+                basename=basename,
+                n_steps_lb=n_steps_lb,
+                n_steps_ub=n_steps_ub,
+                n_envs=n_envs, 
+                is_server=is_server, 
+                verbose=verbose, 
+                vlevel=vlevel,
+                safe=safe,
+                force_reconnection=force_reconnection,
+                with_gpu_mirror=with_gpu_mirror)

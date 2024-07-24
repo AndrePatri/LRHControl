@@ -4,7 +4,7 @@ from lrhc_control.utils.shared_data.training_env import Rewards
 from lrhc_control.utils.shared_data.training_env import Actions
 from lrhc_control.utils.shared_data.training_env import Terminations
 from lrhc_control.utils.shared_data.training_env import Truncations
-from lrhc_control.utils.shared_data.training_env import EpisodesCounter, TaskRandCounter
+from lrhc_control.utils.shared_data.training_env import EpisodesCounter, TaskRandCounter, SafetyRandResetsCounter
 from control_cluster_bridge.utilities.shared_data.sim_data import SharedSimInfo
 
 import time 
@@ -89,8 +89,9 @@ if __name__ == "__main__":
     sim_datanames = sim_data.param_keys
     simtime_idx = sim_datanames.index("cluster_time")
 
-    ep_counter = None
-    task_counter = None
+    ep_counter=None
+    task_counter=None
+    random_reset=None
     if with_counters:
         ep_counter=EpisodesCounter(namespace=namespace,
                     is_server=False,
@@ -102,8 +103,14 @@ if __name__ == "__main__":
                     verbose=True,
                     vlevel=VLevel.V2,
                     with_gpu_mirror=False)
+        random_reset=SafetyRandResetsCounter(namespace=namespace,
+                    is_server=False,
+                    verbose=True,
+                    vlevel=VLevel.V2,
+                    with_gpu_mirror=False)
         ep_counter.run()
         task_counter.run()
+        random_reset.run()
 
     torch.set_printoptions(precision=n_digits,sci_mode=False,linewidth=200)
 
@@ -149,7 +156,10 @@ if __name__ == "__main__":
                 task_counter.counter().synch_all(read=True, retry=True)
                 print("\ntask counter:")
                 print(task_counter.counter().get_torch_mirror(gpu=False)[idx:idx+env_range, :])
-
+            if random_reset is not None:
+                random_reset.counter().synch_all(read=True, retry=True)
+                print("\random reset counter:")
+                print(random_reset.counter().get_torch_mirror(gpu=False)[idx:idx+env_range, :])
             elapsed_time = time.perf_counter() - start_time
             time_to_sleep_ns = int((update_dt - elapsed_time) * 1e+9) # [ns]
             if time_to_sleep_ns < 0:
