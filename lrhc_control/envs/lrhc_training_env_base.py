@@ -342,7 +342,7 @@ class LRhcTrainingEnvBase():
         truncated = self._truncations.get_torch_mirror(gpu=self._use_gpu)
         if self._rand_safety_reset_counter is not None:
             lets_do_a_random_reset=self._rand_safety_reset_counter.time_limits_reached()
-            truncated[:, :]=torch.logical_or(truncated,lets_do_a_random_reset) # add random reset 
+            truncated[:, :]=torch.logical_or(truncated,lets_do_a_random_reset.cuda()) # add random reset 
             # to truncation
         episode_finished = torch.logical_or(terminated,
                             truncated)
