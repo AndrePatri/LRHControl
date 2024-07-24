@@ -650,14 +650,14 @@ class SimpleCounters(SharedDataBase):
         if to_be_reset is None:
             # resets all counters
             self.get().zero_()
-            if randomize_limits: # randomize counter durations upon resets
+            if randomize_limits and (not self._n_steps_lb==self._n_steps_ub): # randomize counter durations upon resets
                 self._n_steps[:, :] = torch.randint(low=self._n_steps_lb, high=self._n_steps_ub, size=(self._n_envs, 1),
                                             dtype=torch.int32)
         else:
             n_to_be_reset = torch.sum(to_be_reset.squeeze()).item()
             if not n_to_be_reset == 0:
                 self.get()[to_be_reset.squeeze() , :] = 0
-                if randomize_limits:
+                if randomize_limits and (not self._n_steps_lb==self._n_steps_ub):
                     self._n_steps[to_be_reset.squeeze() , :] = torch.randint(low=self._n_steps_lb, high=self._n_steps_ub, size=(n_to_be_reset, 1),
                                                 dtype=torch.int32)
         self._write()

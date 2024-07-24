@@ -30,6 +30,8 @@ if __name__ == "__main__":
     parser.add_argument('--dtype', type=str, help='', default="float")
     parser.add_argument('--with_counters', action=argparse.BooleanOptionalAction, default=False, help='')
     parser.add_argument('--resolution', type=int, help='', default=2)
+    parser.add_argument('--with_sub_r', action=argparse.BooleanOptionalAction, default=True, help='')
+    parser.add_argument('--with_sinfo', action=argparse.BooleanOptionalAction, default=True, help='')
 
     args = parser.parse_args()
 
@@ -57,11 +59,13 @@ if __name__ == "__main__":
     rew = TotRewards(namespace=namespace,is_server=False,verbose=True, 
                 vlevel=VLevel.V2,safe=False,
                 with_gpu_mirror=False,dtype=dtype)
-    sub_rew = Rewards(namespace=namespace,
-                    is_server=False,
-                    verbose=True,
-                    vlevel=VLevel.V2,
-                    with_gpu_mirror=False)
+    sub_rew=None
+    if args.with_sub_r:
+        sub_rew = Rewards(namespace=namespace,
+                        is_server=False,
+                        verbose=True,
+                        vlevel=VLevel.V2,
+                        with_gpu_mirror=False)
     trunc = Truncations(namespace=namespace,is_server=False,verbose=True, 
                 vlevel=VLevel.V2,safe=False,
                 with_gpu_mirror=False)
@@ -69,11 +73,13 @@ if __name__ == "__main__":
                 vlevel=VLevel.V2,safe=False,
                 with_gpu_mirror=False)
     
-    sim_data = SharedSimInfo(namespace=namespace,
-                is_server=False,
-                safe=False,
-                verbose=True,
-                vlevel=VLevel.V2)
+    sim_data = None
+    if args.with_sinfo:
+        sim_data = SharedSimInfo(namespace=namespace,
+                    is_server=False,
+                    safe=False,
+                    verbose=True,
+                    vlevel=VLevel.V2)
 
     obs.run()
     # next_obs.run()
@@ -81,13 +87,15 @@ if __name__ == "__main__":
     act.run()
     act_names=act.col_names()
     rew.run()
-    sub_rew.run()
-    sub_rew_names = sub_rew.col_names()
+    if sub_rew is not None:
+        sub_rew.run()
+        sub_rew_names = sub_rew.col_names()
     trunc.run()
     term.run()
-    sim_data.run()
-    sim_datanames = sim_data.param_keys
-    simtime_idx = sim_datanames.index("cluster_time")
+    if sim_data is not None:
+        sim_data.run()
+        sim_datanames = sim_data.param_keys
+        simtime_idx = sim_datanames.index("cluster_time")
 
     ep_counter=None
     task_counter=None
@@ -119,18 +127,21 @@ if __name__ == "__main__":
             start_time = time.perf_counter()
 
             # read data
-            sim_time=sim_data.get()[simtime_idx].item()
+            if sim_data is not None:
+                sim_time=sim_data.get()[simtime_idx].item()
             obs.synch_all(read=True, retry=True)
             # next_obs.synch_all(read=True, retry=True)
             act.synch_all(read=True, retry=True)
             rew.synch_all(read=True, retry=True)
-            sub_rew.synch_all(read=True, retry=True)
+            if sub_rew is not None:
+                sub_rew.synch_all(read=True, retry=True)
             trunc.synch_all(read=True, retry=True)
             term.synch_all(read=True, retry=True)
 
             print(f"########################")
             print(f"wall time: {round(elapsed_tot_nom, 2)} [s] -->\n")
-            print(f"sim time: {round(sim_time, 2)} [s] -->\n")
+            if sim_data is not None:
+                print(f"sim time: {round(sim_time, 2)} [s] -->\n")
             print("\nobservations:")
             print(obs_names, sep = ", ")
             print(obs.get_torch_mirror(gpu=False)[idx:idx+env_range, :])
@@ -141,9 +152,10 @@ if __name__ == "__main__":
             print(act.get_torch_mirror(gpu=False)[idx:idx+env_range, :])
             print("\nrewards:")
             print(rew.get_torch_mirror(gpu=False)[idx:idx+env_range, :])
-            print("\nsub-rewards:")
-            print(*sub_rew_names, sep = ", ") 
-            print(sub_rew.get_torch_mirror(gpu=False)[idx:idx+env_range, :])
+            if sub_rew is not None:
+                print("\nsub-rewards:")
+                print(*sub_rew_names, sep = ", ") 
+                print(sub_rew.get_torch_mirror(gpu=False)[idx:idx+env_range, :])
             print("\nterminations:")
             print(term.get_torch_mirror(gpu=False)[idx:idx+env_range, :])
             print("\ntruncations:")

@@ -69,7 +69,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         n_steps_task_rand_lb = 310 # agent refs randomization freq
         n_steps_task_rand_ub = 320 # lb not eq. to ub to remove correlations between episodes
         # across diff envs
-
+        random_reset_freq = episode_timeout_ub
         n_preinit_steps = 1 # one steps of the controllers to properly initialize everything
 
         env_name = "LinVelTrack"
@@ -151,6 +151,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     episode_timeout_ub=episode_timeout_ub,
                     n_steps_task_rand_lb=n_steps_task_rand_lb,
                     n_steps_task_rand_ub=n_steps_task_rand_ub,
+                    random_reset_freq=random_reset_freq,
+                    use_random_safety_reset=True,
                     action_repeat=action_repeat,
                     env_name=env_name,
                     n_preinit_steps=n_preinit_steps,
@@ -165,7 +167,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     srew_drescaling=True,
                     srew_tsrescaling=False,
                     use_act_mem_bf=self._use_prev_actions_stats,
-                    act_membf_size=10)
+                    act_membf_size=20)
 
         # action regularization
         self._actions_diff_rew_weight = 0.0

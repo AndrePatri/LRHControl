@@ -500,8 +500,6 @@ class ActorCriticAlgoBase():
             self._episodic_rewards_env_avrg[self._log_it_counter, :, :] = self._episodic_reward_metrics.get_tot_avrg() # tot, avrg over envs
             self._episodic_sub_rewards[self._log_it_counter, :, :] = self._episodic_reward_metrics.get_sub_avrg_over_eps() # sub-episodic rewards across envs
             self._episodic_sub_rewards_env_avrg[self._log_it_counter, :, :] = self._episodic_reward_metrics.get_sub_env_avrg_over_eps() # avrg over envs
-            self._episodic_reward_metrics.reset(keep_track=True) # necessary, we don't want to accumulate 
-            # debug rewards from previous debug iterations
 
             # fill env db info
             db_data_names = list(self._env.custom_db_data.keys())
@@ -510,7 +508,6 @@ class ActorCriticAlgoBase():
                 self._custom_env_data[dbdatan]["rollout_stat_env_avrg"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_sub_env_avrg_over_eps()
                 self._custom_env_data[dbdatan]["rollout_stat_comp"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_avrg_over_eps()
                 self._custom_env_data[dbdatan]["rollout_stat_comp_env_avrg"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_tot_avrg()
-            self._env.reset_custom_db_data(keep_track=True) # reset custom db stats for this debug iteration
 
             # other data
             if self._agent.running_norm is not None:

@@ -82,7 +82,6 @@ class Gymnasium2LRHCEnv():
         
         self._n_envs = self._env.num_envs
 
-        
         # action scalings to be applied to agent's output
         self._actions_ub = torch.full((1, self._actions_dim), dtype=self._torch_dtype, device=self._torch_device,
                                         fill_value=1.0)
@@ -222,7 +221,8 @@ class Gymnasium2LRHCEnv():
         self._terminations.run()
         
         self._episodic_rewards_metrics = EpisodicRewards(reward_tensor=self._tot_rewards.get_torch_mirror(),
-                                        reward_names=["total_reward"])
+                                        reward_names=["total_reward"],
+                                        ep_freq=self.n_envs())
         self._episodic_rewards_metrics.set_constant_data_scaling(scaling=1)
 
     def gym_env(self):
@@ -442,7 +442,7 @@ if __name__ == "__main__":
     parser.add_argument('--use_cpu', action=argparse.BooleanOptionalAction, default=False, help='If set, all the training (data included) will be perfomed on CPU')
 
     parser.add_argument('--ns', type=str, help='Namespace to be used for shared memory', default="Gymnasium2LRHCEnv")
-    parser.add_argument('--num_envs', type=int, help='seed', default=3)
+    parser.add_argument('--num_envs', type=int, help='seed', default=1)
 
     parser.add_argument('--render', action=argparse.BooleanOptionalAction, default=False, help='Whether to render environemnt')
     parser.add_argument('--handle_final_obs', action=argparse.BooleanOptionalAction, default=True, help='Whether to handle terminal obs properly')
@@ -450,7 +450,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     args_dict = vars(args)
     render_mode = "human" if args.render else None
-    env_type = 'Pusher-v4'
+    env_type = 'InvertedPendulum-v4'
     # env_type = 'HalfCheetah-v4'
 
     env_wrapper = Gymnasium2LRHCEnv(env_type=env_type,

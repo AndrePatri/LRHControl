@@ -63,7 +63,10 @@ class LRhcTrainingEnvBase():
             use_act_mem_bf: bool = False,
             act_membf_size: int = 3,
             use_random_safety_reset: bool = True,
-            random_reset_freq: int = None):
+            random_reset_freq: int = None,
+            ep_freq_metrics_db: int = None):
+        
+        self._ep_freq_metrics_db = ep_freq_metrics_db
         
         self._this_path = os.path.abspath(__file__)
 
@@ -95,7 +98,7 @@ class LRhcTrainingEnvBase():
         self._n_steps_task_rand_ub = round(n_steps_task_rand_ub/self._action_repeat)
         
         self._random_rst_freq=random_reset_freq
-        if self._random_reset_freq is None:
+        if self._random_rst_freq is None:
             self._random_rst_freq=self._episode_timeout_ub
         else:
             self._random_rst_freq=round(random_reset_freq/self._action_repeat)
@@ -162,6 +165,9 @@ class LRhcTrainingEnvBase():
         self._init_truncations()
         
         self._custom_post_init()
+
+        if self._ep_freq_metrics_db is None: # default to n_envs
+            self._ep_freq_metrics_db=self._n_envs
 
         # self._wait_for_sim_env()
 
@@ -336,7 +342,7 @@ class LRhcTrainingEnvBase():
         truncated = self._truncations.get_torch_mirror(gpu=self._use_gpu)
         if self._rand_safety_reset_counter is not None:
             lets_do_a_random_reset=self._rand_safety_reset_counter.time_limits_reached()
-            truncated=torch.logical_or(truncated,lets_do_a_random_reset) # add random reset 
+            truncated[:, :]=torch.logical_or(truncated,lets_do_a_random_reset) # add random reset 
             # to truncation
         episode_finished = torch.logical_or(terminated,
                             truncated)
@@ -353,7 +359,7 @@ class LRhcTrainingEnvBase():
             self._update_custom_db_data(episode_finished=episode_finished_cpu)
             self._episodic_rewards_metrics.update(rewards = self._sub_rewards.get_torch_mirror(gpu=False),
                             ep_finished=episode_finished_cpu)
-            
+
         # remotely reset envs only if terminated or if a timeout is reached
         
         to_be_reset=self._to_be_reset()
@@ -365,17 +371,21 @@ class LRhcTrainingEnvBase():
         # synchronize and reset counters for finished episodes
         self._ep_timeout_counter.reset(to_be_reset=episode_finished,randomize_limits=True)# reset and randomize duration 
         self._task_rand_counter.reset(to_be_reset=episode_finished,randomize_limits=True)# reset and randomize duration 
-        # safety reset counter is never reset (random resets have to happen randomly)
+        # safety reset counter is only when it reches its reset interval (just to keep
+        # the counter bounded)
+        self._rand_safety_reset_counter.reset(to_be_reset=self._rand_safety_reset_counter.time_limits_reached())
+
         return rm_reset_ok
     
     def _to_be_reset(self):
+        terminated = self._terminations.get_torch_mirror(gpu=self._use_gpu)
         # can be overriden by child -> defines the logic for when to reset envs
         to_be_reset=torch.logical_or(terminated.cpu(), # if terminal
             self._ep_timeout_counter.time_limits_reached() # episode timeouted
             )
         
         if self._rand_safety_reset_counter is not None:
-            to_be_reset=torch.logical_or(to_be_reset,
+            to_be_reset[:, :]=torch.logical_or(to_be_reset,
                 self._rand_safety_reset_counter.time_limits_reached())
 
         return to_be_reset
@@ -853,8 +863,8 @@ class LRhcTrainingEnvBase():
         if self._use_random_safety_reset:
             self._rand_safety_reset_counter=SafetyRandResetsCounter(namespace=self._namespace,
                             n_envs=self._n_envs,
-                            n_steps_lb=self._random_rst_freq,
-                            n_steps_ub=self._random_rst_freq,
+                            n_steps_lb=self._random_rst_freq-10,
+                            n_steps_ub=self._random_rst_freq+10,
                             is_server=True,
                             verbose=self._verbose,
                             vlevel=self._vlevel,

@@ -423,23 +423,23 @@ class SActorCriticAlgoBase():
             shutil.copytree(aux_dir, aux_drop_dir, dirs_exist_ok=True)
 
     def _post_step(self):
-        
-        self._vec_transition_counter+=1
-        
+                
         self._collection_dt[self._log_it_counter] += \
             (self._collection_t-self._start_time) 
         self._policy_update_dt[self._log_it_counter] += \
             (self._policy_update_t - self._collection_t)
-        
+    
         if self._vec_transition_counter > self._warmstart_vectimesteps:
             if self._vec_transition_counter % self._policy_freq == 0:
                 self._n_policy_updates[self._log_it_counter]+=self._policy_freq # td3 delaye update
             # updating qfun at each vec timesteps
             self._n_qfun_updates[self._log_it_counter]+=1
+            
             if self._vec_transition_counter % self._trgt_net_freq == 0:
                 self._n_tqfun_updates[self._log_it_counter]+=1
 
-        if self._vec_transition_counter % self._db_vecstep_frequency== 0:
+        if (self._vec_transition_counter) > self._warmstart_vectimesteps and \
+            self._vec_transition_counter % self._db_vecstep_frequency== 0:
             # only log data every n timesteps 
         
             self._env_step_fps[self._log_it_counter] = (self._db_vecstep_frequency*self._num_envs)/ self._collection_dt[self._log_it_counter]
@@ -447,7 +447,7 @@ class SActorCriticAlgoBase():
                 self._env_step_rt_factor[self._log_it_counter] = self._env_step_fps[self._log_it_counter]*self._hyperparameters["control_clust_dt"]
 
             self._n_of_played_episodes[self._log_it_counter] = self._episodic_reward_metrics.get_n_played_episodes()
-            self._n_timesteps_done[self._log_it_counter]=self._vec_transition_counter*self._num_envs
+            self._n_timesteps_done[self._log_it_counter]=(self._vec_transition_counter+1)*self._num_envs
             
             self._n_policy_updates[self._log_it_counter]+=self._n_policy_updates[self._log_it_counter-1]
             self._n_qfun_updates[self._log_it_counter]+=self._n_qfun_updates[self._log_it_counter-1]
@@ -463,8 +463,6 @@ class SActorCriticAlgoBase():
             self._episodic_rewards_env_avrg[self._log_it_counter, :, :] = self._episodic_reward_metrics.get_tot_avrg() # tot, avrg over envs
             self._episodic_sub_rewards[self._log_it_counter, :, :] = self._episodic_reward_metrics.get_sub_avrg_over_eps() # sub-episodic rewards across envs
             self._episodic_sub_rewards_env_avrg[self._log_it_counter, :, :] = self._episodic_reward_metrics.get_sub_env_avrg_over_eps() # avrg over envs
-            self._episodic_reward_metrics.reset(keep_track=True) # necessary, we don't want to accumulate 
-            # debug rewards from previous db iterations
 
             # fill env custom db metrics
             db_data_names = list(self._env.custom_db_data.keys())
@@ -473,7 +471,6 @@ class SActorCriticAlgoBase():
                 self._custom_env_data[dbdatan]["rollout_stat_env_avrg"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_sub_env_avrg_over_eps()
                 self._custom_env_data[dbdatan]["rollout_stat_comp"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_avrg_over_eps()
                 self._custom_env_data[dbdatan]["rollout_stat_comp_env_avrg"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_tot_avrg()
-            self._env.reset_custom_db_data(keep_track=True) # reset custom db stats for this iteration
 
             # other data
             if self._agent.running_norm is not None:
@@ -488,6 +485,7 @@ class SActorCriticAlgoBase():
             (self._vec_transition_counter % self._m_checkpoint_freq == 0):
             self._save_model(is_checkpoint=True)
 
+        self._vec_transition_counter+=1
         if self._vec_transition_counter == self._total_timesteps_vec:
             self.done()            
             
@@ -561,18 +559,19 @@ class SActorCriticAlgoBase():
         if self._verbose:
             
             elapsed_h = self._elapsed_min[self._log_it_counter].item()/60.0
-            est_remaining_time_h =  elapsed_h * 1/self._vec_transition_counter * (self._total_timesteps_vec-self._vec_transition_counter)
+            est_remaining_time_h =  elapsed_h * 1/(self._vec_transition_counter+1) * (self._total_timesteps_vec-self._vec_transition_counter-1)
             
+            actual_tsteps_with_updates=-1
+            experience_to_policy_grad_ratio=-1
+            experience_to_qfun_grad_ratio=-1
+            experience_to_tqfun_grad_ratio=-1
             if not self._eval:
                 actual_tsteps_with_updates=(self._n_timesteps_done[self._log_it_counter].item()-self._warmstart_timesteps)
-                experience_to_policy_grad_ratio=actual_tsteps_with_updates/self._n_policy_updates[self._log_it_counter].item()
-                experience_to_qfun_grad_ratio=actual_tsteps_with_updates/self._n_qfun_updates[self._log_it_counter].item()
-                experience_to_tqfun_grad_ratio=actual_tsteps_with_updates/self._n_tqfun_updates[self._log_it_counter].item()
-            else:
-                actual_tsteps_with_updates=-1
-                experience_to_policy_grad_ratio=-1
-                experience_to_qfun_grad_ratio=-1
-                experience_to_tqfun_grad_ratio=-1
+                epsi=1e-6 # to avoid div by 0
+                experience_to_policy_grad_ratio=actual_tsteps_with_updates/(self._n_policy_updates[self._log_it_counter].item()-epsi)
+                experience_to_qfun_grad_ratio=actual_tsteps_with_updates/(self._n_qfun_updates[self._log_it_counter].item()-epsi)
+                experience_to_tqfun_grad_ratio=actual_tsteps_with_updates/(self._n_tqfun_updates[self._log_it_counter].item()-epsi)
+                
                 
             info =f"\nTotal n. timesteps simulated: {self._n_timesteps_done[self._log_it_counter].item()}/{self._total_timesteps}\n" + \
                 f"N. policy updates performed: {self._n_policy_updates[self._log_it_counter].item()}/{self._n_policy_updates_to_be_done}\n" + \
@@ -722,7 +721,7 @@ class SActorCriticAlgoBase():
         self._replay_buffer_size_nominal = int(10e6) # 32768
         self._replay_buffer_size_vec = self._replay_buffer_size_nominal//self._num_envs # 32768
         self._replay_buffer_size = self._replay_buffer_size_vec*self._num_envs
-        self._batch_size = 16384
+        self._batch_size = 256
         self._total_timesteps = int(50e6)
         self._total_timesteps = self._total_timesteps//self._env_n_action_reps # correct with n of action reps
         self._total_timesteps_vec = self._total_timesteps // self._num_envs
@@ -745,7 +744,7 @@ class SActorCriticAlgoBase():
         
         # debug
         self._m_checkpoint_freq = 5120 # n timesteps after which a checkpoint model is dumped
-        self._db_vecstep_frequency = self._episode_timeout_ub # log db data every n (vectorized) timesteps
+        self._db_vecstep_frequency = 128 # log db data every n (vectorized) timesteps
         
         self._n_policy_updates_to_be_done=((self._total_timesteps_vec-self._warmstart_vectimesteps)//self._policy_freq)*self._policy_freq #TD3 delayed update
         self._n_qf_updates_to_be_done=(self._total_timesteps_vec-self._warmstart_vectimesteps)//1 # qf updated at each vec timesteps
