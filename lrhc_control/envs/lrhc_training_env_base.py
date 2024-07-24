@@ -18,7 +18,7 @@ from lrhc_control.utils.shared_data.training_env import Rewards
 from lrhc_control.utils.shared_data.training_env import Actions
 from lrhc_control.utils.shared_data.training_env import Terminations
 from lrhc_control.utils.shared_data.training_env import Truncations
-from lrhc_control.utils.shared_data.training_env import EpisodesCounter, TaskRandCounter
+from lrhc_control.utils.shared_data.training_env import EpisodesCounter,TaskRandCounter,SafetyRandResetsCounter
 
 from lrhc_control.utils.episodic_rewards import EpisodicRewards
 from lrhc_control.utils.episodic_data import EpisodicData
@@ -61,9 +61,13 @@ class LRhcTrainingEnvBase():
             srew_drescaling: bool = True,
             srew_tsrescaling: bool = False,
             use_act_mem_bf: bool = False,
-            act_membf_size: int = 3):
+            act_membf_size: int = 3,
+            use_random_safety_reset: bool = True,
+            random_reset_freq: int = None):
         
         self._this_path = os.path.abspath(__file__)
+
+        self._use_random_safety_reset = use_random_safety_reset
 
         self.custom_db_data = None
         
@@ -89,6 +93,12 @@ class LRhcTrainingEnvBase():
 
         self._n_steps_task_rand_lb = round(n_steps_task_rand_lb/self._action_repeat)
         self._n_steps_task_rand_ub = round(n_steps_task_rand_ub/self._action_repeat)
+        
+        self._random_rst_freq=random_reset_freq
+        if self._random_reset_freq is None:
+            self._random_rst_freq=self._episode_timeout_ub
+        else:
+            self._random_rst_freq=round(random_reset_freq/self._action_repeat)
 
         self._namespace = namespace
         self._with_gpu_mirror = True
@@ -125,6 +135,8 @@ class LRhcTrainingEnvBase():
         
         self._ep_timeout_counter = None
         self._task_rand_counter = None
+        self._rand_safety_reset_counter = None
+
         self._obs = None
         self._next_obs = None
         self._actions = None
@@ -314,12 +326,18 @@ class LRhcTrainingEnvBase():
         
         self._ep_timeout_counter.increment() # first increment counters
         self._task_rand_counter.increment()
+        if self._rand_safety_reset_counter is not None:
+            self._rand_safety_reset_counter.increment()
 
         # check truncation and termination conditions 
         self._check_truncations() 
         self._check_terminations()
         terminated = self._terminations.get_torch_mirror(gpu=self._use_gpu)
         truncated = self._truncations.get_torch_mirror(gpu=self._use_gpu)
+        if self._rand_safety_reset_counter is not None:
+            lets_do_a_random_reset=self._rand_safety_reset_counter.time_limits_reached()
+            truncated=torch.logical_or(truncated,lets_do_a_random_reset) # add random reset 
+            # to truncation
         episode_finished = torch.logical_or(terminated,
                             truncated)
 
@@ -337,8 +355,9 @@ class LRhcTrainingEnvBase():
                             ep_finished=episode_finished_cpu)
             
         # remotely reset envs only if terminated or if a timeout is reached
-        rm_reset_ok = self._remote_reset(reset_mask=torch.logical_or(terminated.cpu(),
-                                self._ep_timeout_counter.time_limits_reached()))
+        
+        to_be_reset=self._to_be_reset()
+        rm_reset_ok = self._remote_reset(reset_mask=to_be_reset)
         
         self._custom_post_step(episode_finished=episode_finished) # any additional logic from child env  
         # here after reset, so that is can access all states post reset if necessary      
@@ -346,9 +365,21 @@ class LRhcTrainingEnvBase():
         # synchronize and reset counters for finished episodes
         self._ep_timeout_counter.reset(to_be_reset=episode_finished,randomize_limits=True)# reset and randomize duration 
         self._task_rand_counter.reset(to_be_reset=episode_finished,randomize_limits=True)# reset and randomize duration 
-        
+        # safety reset counter is never reset (random resets have to happen randomly)
         return rm_reset_ok
-            
+    
+    def _to_be_reset(self):
+        # can be overriden by child -> defines the logic for when to reset envs
+        to_be_reset=torch.logical_or(terminated.cpu(), # if terminal
+            self._ep_timeout_counter.time_limits_reached() # episode timeouted
+            )
+        
+        if self._rand_safety_reset_counter is not None:
+            to_be_reset=torch.logical_or(to_be_reset,
+                self._rand_safety_reset_counter.time_limits_reached())
+
+        return to_be_reset
+
     def _update_custom_db_data(self,
                     episode_finished):
 
@@ -403,6 +434,8 @@ class LRhcTrainingEnvBase():
 
         self._ep_timeout_counter.reset()
         self._task_rand_counter.reset()
+        if self._rand_safety_reset_counter is not None:
+            self._rand_safety_reset_counter.reset(randomize_limits=False)
 
         if self._act_mem_buffer is not None:
             self._act_mem_buffer.reset_all()
@@ -432,6 +465,8 @@ class LRhcTrainingEnvBase():
             
             self._ep_timeout_counter.close()
             self._task_rand_counter.close()
+            if self._rand_safety_reset_counter() is not None:
+                self._rand_safety_reset_counter.close()
 
             # closing env.-specific shared data
             self._obs.close()
@@ -815,6 +850,18 @@ class LRhcTrainingEnvBase():
                             force_reconnection=True,
                             with_gpu_mirror=False) # handles step counter through episodes and through envs
         self._task_rand_counter.run()
+        if self._use_random_safety_reset:
+            self._rand_safety_reset_counter=SafetyRandResetsCounter(namespace=self._namespace,
+                            n_envs=self._n_envs,
+                            n_steps_lb=self._random_rst_freq,
+                            n_steps_ub=self._random_rst_freq,
+                            is_server=True,
+                            verbose=self._verbose,
+                            vlevel=self._vlevel,
+                            safe=True,
+                            force_reconnection=True,
+                            with_gpu_mirror=False)
+            self._rand_safety_reset_counter.run()
 
         # debug data servers
         traing_env_param_dict = {}
