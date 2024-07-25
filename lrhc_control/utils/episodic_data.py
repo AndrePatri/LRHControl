@@ -439,7 +439,7 @@ if __name__ == "__main__":
                 data_tensor=new_data,
                 data_names=data_names,
                 debug=True,
-                ep_freq=1)
+                ep_freq=8)
     
     
     test_data.set_constant_data_scaling(enable=True,
@@ -448,13 +448,17 @@ if __name__ == "__main__":
     
     ep_finished[0,  9] = True # term at tstep 9
     ep_finished[0,  19] = True # term at tstep 9
+    ep_finished[0,  24] = True # term at tstep 9
+    ep_finished[0,  29] = True # term at tstep 9
 
     ep_finished[1,  14] = True # term at tstep 15
     ep_finished[1,  19] = True # term at tstep 15
+    ep_finished[1,  29] = True # term at tstep 15
+    ep_finished[1,  39] = True # term at tstep 15
 
     new_data[:, 0] = 1
 
-    for i in range(30):# do some updates
+    for i in range(40):# do some updates
         test_data.update(new_data=new_data,
                     ep_finished=ep_finished[:, i:i+1])
     
