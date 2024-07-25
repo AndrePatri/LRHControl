@@ -861,7 +861,7 @@ class LRhcTrainingEnvBase():
                             with_gpu_mirror=False) # handles step counter through episodes and through envs
         self._task_rand_counter.run()
         if self._use_random_safety_reset:
-            rand_range=5.0/100.0*self._random_rst_freq
+            rand_range=round(5.0/100.0*self._random_rst_freq)
             self._rand_safety_reset_counter=SafetyRandResetsCounter(namespace=self._namespace,
                             n_envs=self._n_envs,
                             n_steps_lb=self._random_rst_freq-rand_range,
