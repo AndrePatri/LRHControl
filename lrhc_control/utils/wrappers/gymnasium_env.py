@@ -222,7 +222,7 @@ class Gymnasium2LRHCEnv():
         
         self._episodic_rewards_metrics = EpisodicRewards(reward_tensor=self._tot_rewards.get_torch_mirror(),
                                         reward_names=["total_reward"],
-                                        ep_freq=self.n_envs())
+                                        ep_freq=4*self.n_envs())
         self._episodic_rewards_metrics.set_constant_data_scaling(scaling=1)
 
     def gym_env(self):

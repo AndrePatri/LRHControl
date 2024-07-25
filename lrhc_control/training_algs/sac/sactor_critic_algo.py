@@ -744,7 +744,7 @@ class SActorCriticAlgoBase():
         
         # debug
         self._m_checkpoint_freq = 5120 # n timesteps after which a checkpoint model is dumped
-        self._db_vecstep_frequency = 128 # log db data every n (vectorized) timesteps
+        self._db_vecstep_frequency = 256 # log db data every n (vectorized) timesteps
         
         self._n_policy_updates_to_be_done=((self._total_timesteps_vec-self._warmstart_vectimesteps)//self._policy_freq)*self._policy_freq #TD3 delayed update
         self._n_qf_updates_to_be_done=(self._total_timesteps_vec-self._warmstart_vectimesteps)//1 # qf updated at each vec timesteps
