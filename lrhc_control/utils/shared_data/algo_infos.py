@@ -45,19 +45,17 @@ class DynamicRLAlgorithmNames:
 
     def __init__(self):
 
-        self._keys = ["current_ppo_iteration", 
-                "n_of_performed_policy_updates",
-                "n_of_played_episodes", 
-                "n_of_timesteps_done",
-                "lr_now_actor",
-                "lr_now_critic",
-                "rollout_dt",
-                "return_dt",
-                "policy_improv_dt",
-                "env_step_fps",
+        self._keys = ["n_of_timesteps_done",
+                "n_of_policy_updates", 
+                "exp_to_policy_improv_ratio",
+                "elapsed_hours",
+                "estimated_remaining_hours",
+                "env_step_sps",
                 "env_step_rt_factor",
-                "policy_improv_fps",
-                "elapsed_min"
+                "time_for_exp_collection",
+                "policy_update_fps",
+                "time_for_pol_updates",
+                "is_done"
                 ]
         self.idx_dict = dict.fromkeys(self._keys, None)
 

@@ -537,6 +537,12 @@ class ActorCriticAlgoBase():
     
     def _log_info(self):
         
+        if self._verbose and self._debug:
+            exp_to_pol_grad_ratio=self._n_timesteps_done[self._log_it_counter].item()/self._n_policy_updates[self._log_it_counter].item()
+            est_remaining_time=self._elapsed_min[self._log_it_counter].item()/60*1/self._it_counter*(self._iterations_n-self._it_counter)
+            elapsed_h=self._elapsed_min[self._log_it_counter].item()/60.0
+            is_done=self._vec_transition_counter==self._total_timesteps_vec
+
         if self._debug:
             # add custom env db data (dumped LOCALLY at the end of training)
             db_data_names = list(self._env.custom_db_data.keys())
@@ -554,33 +560,19 @@ class ActorCriticAlgoBase():
 
             if self._remote_db: 
                 # write general algo debug info to shared memory    
-                info_names=["current_ppo_iteration", 
-                    "n_of_performed_policy_updates",
-                    "n_of_played_episodes", 
-                    "n_of_timesteps_done",
-                    "lr_now_actor",
-                    "lr_now_critic",
-                    "rollout_dt",
-                    "return_dt",
-                    "policy_improv_dt",
-                    "env_step_fps",
-                    "env_step_rt_factor",
-                    "policy_improv_fps",
-                    "elapsed_min"
-                    ]
-                info_data = [self._it_counter, 
-                    self._n_policy_updates[self._log_it_counter].item(),
-                    self._n_of_played_episodes[self._log_it_counter].item(), 
+                info_names=self._shared_algo_data.dynamic_info.get()
+                info_data = [
                     self._n_timesteps_done[self._log_it_counter].item(),
-                    self._lr_now_actor,
-                    self._lr_now_critic,
-                    self._rollout_dt[self._log_it_counter].item(),
-                    self._gae_dt[self._log_it_counter].item(),
-                    self._policy_update_dt[self._log_it_counter].item(),
+                    self._n_policy_updates[self._log_it_counter].item(),
+                    exp_to_pol_grad_ratio,
+                    elapsed_h,
+                    est_remaining_time,
                     self._env_step_fps[self._log_it_counter].item(),
                     self._env_step_rt_factor[self._log_it_counter].item(),
+                    self._rollout_dt[self._log_it_counter].item(),
                     self._policy_update_fps[self._log_it_counter].item(),
-                    self._elapsed_min[self._log_it_counter].item()
+                    self._policy_update_dt[self._log_it_counter].item(),
+                    is_done
                     ]
                 self._shared_algo_data.write(dyn_info_name=info_names,
                                         val=info_data)
@@ -605,16 +597,16 @@ class ActorCriticAlgoBase():
                 f"N. policy updates performed: {self._n_policy_updates[self._log_it_counter].item()}/" + \
                 f"{self._n_policy_updates_to_be_done}\n" + \
                 f"Total n. timesteps simulated: {self._n_timesteps_done[self._log_it_counter].item()}/{self._total_timesteps}\n" + \
-                f"Elapsed time: {self._elapsed_min[self._log_it_counter].item()/60.0} h\n" + \
+                f"Elapsed time: {elapsed_h} h\n" + \
                 f"Estimated remaining training time: " + \
-                f"{self._elapsed_min[self._log_it_counter].item()/60*1/self._it_counter*(self._iterations_n-self._it_counter)} h\n" + \
+                f"{est_remaining_time} h\n" + \
                 f"Average episodic return across all environments: {self._episodic_rewards_env_avrg[self._log_it_counter, :, :].item()}\n" + \
                 f"Average episodic returns across all environments {self._reward_names_str}: {self._episodic_sub_rewards_env_avrg[self._log_it_counter, :]}\n" + \
                 f"Current rollout fps: {self._env_step_fps[self._log_it_counter].item()}, time for rollout {self._rollout_dt[self._log_it_counter].item()} s\n" + \
                 f"Current rollout rt factor: {self._env_step_rt_factor[self._log_it_counter].item()}\n" + \
                 f"Time to compute bootstrap {self._gae_dt[self._log_it_counter].item()} s\n" + \
                 f"Current policy update fps: {self._policy_update_fps[self._log_it_counter].item()}, time for policy updates {self._policy_update_dt[self._log_it_counter].item()} s\n" + \
-                f"Experience-to-policy grad ratio: {self._n_timesteps_done[self._log_it_counter].item()/self._n_policy_updates[self._log_it_counter].item()}\n"
+                f"Experience-to-policy grad ratio: {exp_to_pol_grad_ratio}\n"
             Journal.log(self.__class__.__name__,
                 "_post_step",
                 info,
@@ -967,3 +959,7 @@ class ActorCriticAlgoBase():
                 force_reconnection=True)
 
         self._shared_algo_data.run()
+
+        # write some initializations
+        self._shared_algo_data.write(dyn_info_name=["is_done"],
+                val=[0.0])

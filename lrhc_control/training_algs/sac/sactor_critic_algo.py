@@ -501,6 +501,22 @@ class SActorCriticAlgoBase():
     
     def _log_info(self):
         
+        if self._debug or self._verbose:
+            elapsed_h = self._elapsed_min[self._log_it_counter].item()/60.0
+            est_remaining_time_h =  elapsed_h * 1/(self._vec_transition_counter+1) * (self._total_timesteps_vec-self._vec_transition_counter-1)
+            is_done=self._vec_transition_counter==self._total_timesteps_vec
+
+            actual_tsteps_with_updates=-1
+            experience_to_policy_grad_ratio=-1
+            experience_to_qfun_grad_ratio=-1
+            experience_to_tqfun_grad_ratio=-1
+            if not self._eval:
+                actual_tsteps_with_updates=(self._n_timesteps_done[self._log_it_counter].item()-self._warmstart_timesteps)
+                epsi=1e-6 # to avoid div by 0
+                experience_to_policy_grad_ratio=actual_tsteps_with_updates/(self._n_policy_updates[self._log_it_counter].item()-epsi)
+                experience_to_qfun_grad_ratio=actual_tsteps_with_updates/(self._n_qfun_updates[self._log_it_counter].item()-epsi)
+                experience_to_tqfun_grad_ratio=actual_tsteps_with_updates/(self._n_tqfun_updates[self._log_it_counter].item()-epsi)
+     
         if self._debug:
             # add custom env db data (dumped LOCALLY at the end of training)
             db_data_names = list(self._env.custom_db_data.keys())
@@ -518,28 +534,22 @@ class SActorCriticAlgoBase():
 
             if self._remote_db: 
                 # write general algo debug info to shared memory    
-                info_names=["log_iteration", 
-                    "n_of_performed_policy_updates",
-                    "n_of_played_episodes", 
-                    "n_of_timesteps_done",
-                    "policy_update_dt",
-                    "env_step_fps",
-                    "env_step_rt_factor",
-                    "policy_improv_fps",
-                    "elapsed_min"
-                    ]
-                info_data = [self._log_it_counter, 
-                    self._n_policy_updates[self._log_it_counter].item(),
-                    self._n_of_played_episodes[self._log_it_counter].item(), 
+                info_names=self._shared_algo_data.dynamic_info.get()
+                info_data = [
                     self._n_timesteps_done[self._log_it_counter].item(),
-                    self._policy_update_dt[self._log_it_counter].item(),
+                    self._n_policy_updates[self._log_it_counter].item(),
+                    experience_to_policy_grad_ratio,
+                    elapsed_h,
+                    est_remaining_time_h,
                     self._env_step_fps[self._log_it_counter].item(),
                     self._env_step_rt_factor[self._log_it_counter].item(),
+                    self._collection_dt[self._log_it_counter].item(),
                     self._policy_update_fps[self._log_it_counter].item(),
-                    self._elapsed_min[self._log_it_counter].item()
+                    self._policy_update_dt[self._log_it_counter].item(),
+                    is_done
                     ]
-                # self._shared_algo_data.write(dyn_info_name=info_names,
-                #                         val=info_data)
+                self._shared_algo_data.write(dyn_info_name=info_names,
+                                        val=info_data)
 
                 # write debug info to remote wandb server
                 wandb_d = {'tot_episodic_reward': wandb.Histogram(self._episodic_rewards[self._log_it_counter-1, :, :].numpy()),
@@ -557,22 +567,7 @@ class SActorCriticAlgoBase():
                 wandb.log(wandb_d)
 
         if self._verbose:
-            
-            elapsed_h = self._elapsed_min[self._log_it_counter].item()/60.0
-            est_remaining_time_h =  elapsed_h * 1/(self._vec_transition_counter+1) * (self._total_timesteps_vec-self._vec_transition_counter-1)
-            
-            actual_tsteps_with_updates=-1
-            experience_to_policy_grad_ratio=-1
-            experience_to_qfun_grad_ratio=-1
-            experience_to_tqfun_grad_ratio=-1
-            if not self._eval:
-                actual_tsteps_with_updates=(self._n_timesteps_done[self._log_it_counter].item()-self._warmstart_timesteps)
-                epsi=1e-6 # to avoid div by 0
-                experience_to_policy_grad_ratio=actual_tsteps_with_updates/(self._n_policy_updates[self._log_it_counter].item()-epsi)
-                experience_to_qfun_grad_ratio=actual_tsteps_with_updates/(self._n_qfun_updates[self._log_it_counter].item()-epsi)
-                experience_to_tqfun_grad_ratio=actual_tsteps_with_updates/(self._n_tqfun_updates[self._log_it_counter].item()-epsi)
-                
-                
+                       
             info =f"\nTotal n. timesteps simulated: {self._n_timesteps_done[self._log_it_counter].item()}/{self._total_timesteps}\n" + \
                 f"N. policy updates performed: {self._n_policy_updates[self._log_it_counter].item()}/{self._n_policy_updates_to_be_done}\n" + \
                 f"N. q fun updates performed: {self._n_qfun_updates[self._log_it_counter].item()}/{self._n_qf_updates_to_be_done}\n" + \
@@ -912,7 +907,7 @@ class SActorCriticAlgoBase():
     def _init_algo_shared_data(self,
                 static_params: Dict):
 
-        self._shared_algo_data = SharedRLAlgorithmInfo(namespace="CleanPPO",
+        self._shared_algo_data = SharedRLAlgorithmInfo(namespace="CleanSAC",
                 is_server=True, 
                 static_params=static_params,
                 verbose=self._verbose, 
@@ -921,3 +916,7 @@ class SActorCriticAlgoBase():
                 force_reconnection=True)
 
         self._shared_algo_data.run()
+
+        # write some initializations
+        self._shared_algo_data.write(dyn_info_name=["is_done"],
+                val=[0.0])

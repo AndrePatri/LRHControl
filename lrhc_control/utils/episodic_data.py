@@ -466,12 +466,12 @@ if __name__ == "__main__":
         
         test_data.update(new_data=new_data,
                     ep_finished=ep_finished[:, i:i+1])
-        # if test_data.new_metrics_avail():
-        #     print_data(test_data,i)
+        if test_data.new_metrics_avail():
+            print_data(test_data,i)
         # if (i+1)%print_freq==0:
         #     print_data(test_data,i)
-        if i==39:
-            print_data(test_data,i)
+        # if i==39:
+        #     print_data(test_data,i)
 
     # ep_finished[:, :] = False
     # for i in range(5):
