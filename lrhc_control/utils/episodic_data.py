@@ -211,7 +211,7 @@ class EpisodicData():
         self._scaling = None
 
         self._n_envs = data_tensor.shape[0]
-        if self._ep_freq<self._n_envs:
+        if (self._ep_freq is not None) and (self._ep_freq<self._n_envs):
             self._ep_freq=self._n_envs
         self._data_size = data_tensor.shape[1]
                             
@@ -463,12 +463,16 @@ if __name__ == "__main__":
 
     print_freq=2
     for i in range(40):# do some updates
-        # if (i+1)%print_freq==0:
-        #     print_data(test_data,i)
+        
         test_data.update(new_data=new_data,
                     ep_finished=ep_finished[:, i:i+1])
-        if test_data.new_metrics_avail():
+        # if test_data.new_metrics_avail():
+        #     print_data(test_data,i)
+        # if (i+1)%print_freq==0:
+        #     print_data(test_data,i)
+        if i==39:
             print_data(test_data,i)
+
     # ep_finished[:, :] = False
     # for i in range(5):
     #     # if i == 4:
