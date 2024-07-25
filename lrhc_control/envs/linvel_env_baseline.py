@@ -167,7 +167,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     srew_drescaling=True,
                     srew_tsrescaling=False,
                     use_act_mem_bf=self._use_prev_actions_stats,
-                    act_membf_size=20)
+                    act_membf_size=30)
 
         # action regularization
         self._actions_diff_rew_weight = 0.0
