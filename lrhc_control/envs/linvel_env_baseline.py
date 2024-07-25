@@ -69,15 +69,15 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         n_steps_task_rand_lb = 310 # agent refs randomization freq
         n_steps_task_rand_ub = 320 # lb not eq. to ub to remove correlations between episodes
         # across diff envs
-        random_reset_freq = episode_timeout_ub
+        random_reset_freq = 5*episode_timeout_ub # a random reset once in a while 
         n_preinit_steps = 1 # one steps of the controllers to properly initialize everything
 
         env_name = "LinVelTrack"
         
         device = "cuda" if use_gpu else "cpu"
 
-        self._task_weight = 1.0
-        self._task_scale = 0.5
+        self._task_weight = 0.0
+        self._task_scale = 0.3
         self._task_err_weights = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.0) 
         self._task_err_weights[0, 0] = 1.0
@@ -120,7 +120,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         
         # task rand
         self._use_pof0 = True
-        self._pof0 = 0.1
+        self._pof0 = 1.0
         self._twist_ref_lb = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=-0.8) 
         self._twist_ref_ub = torch.full((1, 6), dtype=dtype, device=device,
