@@ -123,7 +123,7 @@ class TrainingEnvData(SharedDataWindow):
                                             with_gpu_mirror=False))
         
         self.shared_data_clients.append(SharedRLAlgorithmInfo(is_server=is_server,
-                                            namespace="CleanPPO", 
+                                            namespace="SharedTrainingInfo", 
                                             verbose=True, 
                                             vlevel=VLevel.V2))
 
