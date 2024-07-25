@@ -702,7 +702,7 @@ class LRhcTrainingEnvBase():
         self._episodic_rewards_metrics = EpisodicRewards(reward_tensor=self._sub_rewards.get_torch_mirror(),
                                         reward_names=self._get_rewards_names(),
                                         max_episode_length=self._episode_timeout_ub,
-                                        ep_freq=self._num_envs)
+                                        ep_freq=self.n_envs())
         self._set_ep_rewards_scaling(scaling=self._n_steps_task_rand_ub)
         
     def _set_ep_rewards_scaling(self,
@@ -717,13 +717,13 @@ class LRhcTrainingEnvBase():
         rhc_latest_contact_ref = self._rhc_refs.contact_flags.get_torch_mirror()
         contact_names = self._rhc_refs.rob_refs.contact_names()
         stepping_data = EpisodicData("RhcRefsFlag", rhc_latest_contact_ref, contact_names,
-            ep_freq=self._num_envs)
+            ep_freq=self.n_envs())
         self._add_custom_db_info(db_data=stepping_data)
         # log also action data
         actions = self._actions.get_torch_mirror()
         action_names = self._get_action_names()
         action_data = EpisodicData("Actions", actions, action_names,
-            ep_freq=self._num_envs)
+            ep_freq=self.n_envs())
         self._add_custom_db_info(db_data=action_data)
 
     def _add_custom_db_info(self, db_data: EpisodicData):
