@@ -299,6 +299,8 @@ class EpisodicData():
                                     fill_value=1,
                                     dtype=torch.int32, device="cpu") # default to scaling 1
 
+        self._new_metrics_are_available=False
+
     def reset(self,
             keep_track: bool = None):
 
@@ -352,6 +354,8 @@ class EpisodicData():
                 LogType.EXCEP,
                 throw_when_excep=True)
         
+        self._new_metrics_are_available=False
+
         if not self._use_constant_scaling:
             self._scale_now[:, :] = self._steps_counter+1 # use current n of timesteps as scale 
         else:
@@ -376,6 +380,7 @@ class EpisodicData():
         if self._ep_freq is not None:
             # automatic reset when self._ep_freq episodes have been played
             if torch.sum(self._n_played_eps).item()>=self._ep_freq:
+                self._new_metrics_are_available=True
                 self._average_over_eps_last[:, :]=\
                     self._average_over_eps
                 self._n_played_eps_last[:, :]=\
@@ -412,21 +417,18 @@ class EpisodicData():
     
     def get_n_played_tsteps(self):
         return torch.sum(self.step_counters()).item()
+    
+    def new_metrics_avail(self):
+        return self._new_metrics_are_available
 
 if __name__ == "__main__":  
 
-    def print_data(data):
-        print("INFO")
-        print(", ".join(data.data_names()))
-        print("sum up to now")
-        print(test_data._tot_sum_up_to_now)
+    def print_data(data,i):
+        print(f"INFO{i}")
         print("avrg over eps last:")
         print(test_data.get_sub_avrg_over_eps())
-        print("avrg over ep now:")
-        print(test_data._average_over_eps)
         print(f"played eps {data.get_n_played_episodes()}")
-        print(f"total played tsteps {data.get_n_played_tsteps()}")
-        print(f"tsteps {data.step_counters()}")
+        print("#################################")
 
     n_steps = 100
     n_envs = 2
@@ -439,7 +441,7 @@ if __name__ == "__main__":
                 data_tensor=new_data,
                 data_names=data_names,
                 debug=True,
-                ep_freq=8)
+                ep_freq=2)
     
     
     test_data.set_constant_data_scaling(enable=True,
@@ -450,6 +452,7 @@ if __name__ == "__main__":
     ep_finished[0,  19] = True # term at tstep 9
     ep_finished[0,  24] = True # term at tstep 9
     ep_finished[0,  29] = True # term at tstep 9
+    ep_finished[0,  34] = True # term at tstep 9
 
     ep_finished[1,  14] = True # term at tstep 15
     ep_finished[1,  19] = True # term at tstep 15
@@ -458,11 +461,14 @@ if __name__ == "__main__":
 
     new_data[:, 0] = 1
 
+    print_freq=2
     for i in range(40):# do some updates
+        # if (i+1)%print_freq==0:
+        #     print_data(test_data,i)
         test_data.update(new_data=new_data,
                     ep_finished=ep_finished[:, i:i+1])
-    
-    print_data(data=test_data)
+        if test_data.new_metrics_avail():
+            print_data(test_data,i)
     # ep_finished[:, :] = False
     # for i in range(5):
     #     # if i == 4:
