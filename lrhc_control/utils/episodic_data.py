@@ -211,6 +211,8 @@ class EpisodicData():
         self._scaling = None
 
         self._n_envs = data_tensor.shape[0]
+        if self._ep_freq<self._n_envs:
+            self._ep_freq=self._n_envs
         self._data_size = data_tensor.shape[1]
                             
         self._init_data()
@@ -278,6 +280,11 @@ class EpisodicData():
         self._n_played_eps = torch.full(size=(self._n_envs, 1), 
                                     fill_value=0,
                                     dtype=torch.int32, device="cpu")
+        if self._ep_freq is not None:
+            self._n_played_eps_last = torch.full(size=(self._n_envs, 1), 
+                                        fill_value=0,
+                                        dtype=torch.int32, device="cpu")
+
         # current ste counter (within this episode)
         self._steps_counter = torch.full(size=(self._n_envs, 1), 
                                     fill_value=0,
@@ -368,9 +375,12 @@ class EpisodicData():
 
         if self._ep_freq is not None:
             # automatic reset when self._ep_freq episodes have been played
-            if self.get_n_played_episodes()>=self._ep_freq:
+            if torch.sum(self._n_played_eps).item()>=self._ep_freq:
                 self._average_over_eps_last[:, :]=\
                     self._average_over_eps
+                self._n_played_eps_last[:, :]=\
+                    self._n_played_eps
+                
                 self.reset()        
 
     def data_names(self):
@@ -395,39 +405,60 @@ class EpisodicData():
         return torch.sum(self.get_avrg_over_eps(), dim=0, keepdim=True)/self._n_envs
 
     def get_n_played_episodes(self):
-        return torch.sum(self._n_played_eps).item()
+        if self._ep_freq is not None:
+            return torch.sum(self._n_played_eps_last).item()
+        else:
+            return torch.sum(self._n_played_eps).item()
     
+    def get_n_played_tsteps(self):
+        return torch.sum(self.step_counters()).item()
+
 if __name__ == "__main__":  
 
-    n_envs = 4
-    data_dim = 3
-    ep_finished = torch.full((n_envs, 1),fill_value=0,dtype=torch.bool,device="cpu")
+    def print_data(data):
+        print("INFO")
+        print(", ".join(data.data_names()))
+        print("sum up to now")
+        print(test_data._tot_sum_up_to_now)
+        print("avrg over eps last:")
+        print(test_data.get_sub_avrg_over_eps())
+        print("avrg over ep now:")
+        print(test_data._average_over_eps)
+        print(f"played eps {data.get_n_played_episodes()}")
+        print(f"total played tsteps {data.get_n_played_tsteps()}")
+        print(f"tsteps {data.step_counters()}")
+
+    n_steps = 100
+    n_envs = 2
+    data_dim = 1
+    ep_finished = torch.full((n_envs, n_steps),fill_value=False,dtype=torch.bool,device="cpu")
     new_data = torch.full((n_envs, data_dim),fill_value=0,dtype=torch.float32,device="cpu")
     data_scaling = torch.full((n_envs, 1),fill_value=1,dtype=torch.int32,device="cpu")
-    data_names = ["okokok", "sdcsdc", "cdcsdcplpl"]
+    data_names = ["data1"]
     test_data = EpisodicData("TestData",
                 data_tensor=new_data,
                 data_names=data_names,
                 debug=True,
-                ep_freq=3)
+                ep_freq=1)
     
-    # # with constant scaling
-    # print("###### CONSTANT SCALING #######")
-
+    
     test_data.set_constant_data_scaling(enable=True,
                 scaling=data_scaling)
     test_data.reset()
-    ep_finished[:, :] = False
-    new_data[:, 0] = 1
-    new_data[:, 1] = 2
-    new_data[:, 2] = 3
-
-    for i in range(10):
-        if i == 9:
-            ep_finished[:, :] = True
-        test_data.update(new_data=new_data,
-                    ep_finished=ep_finished)
     
+    ep_finished[0,  9] = True # term at tstep 9
+    ep_finished[0,  19] = True # term at tstep 9
+
+    ep_finished[1,  14] = True # term at tstep 15
+    ep_finished[1,  19] = True # term at tstep 15
+
+    new_data[:, 0] = 1
+
+    for i in range(30):# do some updates
+        test_data.update(new_data=new_data,
+                    ep_finished=ep_finished[:, i:i+1])
+    
+    print_data(data=test_data)
     # ep_finished[:, :] = False
     # for i in range(5):
     #     # if i == 4:
@@ -442,60 +473,9 @@ if __name__ == "__main__":
     #         ep_finished[:, :] = True
     #     test_data.update(new_data=new_data,
     #                 ep_finished=ep_finished)
-        
-    print("get_rollout_stat:")
-    print(test_data.get_sub_avrg_over_eps())
-
-    print("get_rollout_stat_env_avrg:")
-    print(test_data.get_sub_env_avrg_over_eps())
-
-    print("get_rollout_stat_comp:")
-    print(test_data.get_avrg_over_eps())
-
-    print("get_rollout_stat_comp_env_avrg:")
-    print(test_data.get_tot_avrg())
-
-    # # with adaptive scaling
-    # print("###### ADAPTIVE SCALING #######")
-    # test_data.set_constant_data_scaling(enable=False,
-    #             scaling=None)
-    # test_data.reset()
-    # ep_finished[:, :] = False
-    # new_data[0, 0] = 1
-    # new_data[0, 1] = 2
-    # new_data[0, 2] = 3
-
-    # test_data.update(new_data=new_data,
-    #             ep_finished=ep_finished)
-
-    # ep_finished[:, :] = False
-    # new_data+=1 
-
-    # test_data.update(new_data=new_data,
-    #             ep_finished=ep_finished)
     
-    # ep_finished[:, :] = False
-    # new_data+=1 
 
-    # test_data.update(new_data=new_data,
-    #             ep_finished=ep_finished)
-
-    
-    # print("get_rollout_stat:")
-    # print(test_data.get_sub_avrg_over_eps())
-
-    # print("get_rollout_stat_env_avrg:")
-    # print(test_data.get_sub_env_avrg_over_eps())
-
-    # print("get_rollout_stat_comp:")
-    # print(test_data.get_avrg_over_eps())
-
-    # print("get_rollout_stat_comp_env_avrg:")
-    # print(test_data.get_tot_avrg())
-
-    # print("get_rollout_stat_comp_env_avrg:")
-    # print(test_data.get_tot_avrg())
-
+    #****************MEM BUFFER********************
     # n_envs = 3
     # data_dim = 4
     # new_data = torch.full((n_envs, data_dim),fill_value=0,dtype=torch.float32,device="cuda")
