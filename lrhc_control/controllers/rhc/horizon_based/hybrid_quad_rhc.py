@@ -329,9 +329,13 @@ class HybridQuadRhc(RHController):
 
         return self._ti.solution["n_iter2sol"]
     
-    def _assemble_meas_robot_state(self):
+    def _assemble_meas_robot_state(self,
+                        close_all: bool=False):
         
         p = self.robot_state.root_state.get(data_type="p", robot_idxs=self.controller_index).reshape(-1, 1)
+        if not close_all: # use internal MPC for the z of the base
+            p[2,:]=self._ti.solution['q'][2, 1] # second node 
+
         q_root = self.robot_state.root_state.get(data_type="q", robot_idxs=self.controller_index).reshape(-1, 1)
         q_jnts = self.robot_state.jnts_state.get(data_type="q", robot_idxs=self.controller_index).reshape(-1, 1)
         v_root = self.robot_state.root_state.get(data_type="v", robot_idxs=self.controller_index).reshape(-1, 1)
