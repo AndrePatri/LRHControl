@@ -122,6 +122,7 @@ class SActorCriticAlgoBase():
 
     def setup(self,
             run_name: str,
+            ns: str,
             custom_args: Dict = {},
             verbose: bool = False,
             drop_dir_name: str = None,
@@ -134,6 +135,8 @@ class SActorCriticAlgoBase():
             norm_obs: bool = True):
 
         self._verbose = verbose
+
+        self._ns=ns # only used for shared mem stuff
 
         self._dump_checkpoints = dump_checkpoints
         
@@ -739,7 +742,7 @@ class SActorCriticAlgoBase():
         
         # debug
         self._m_checkpoint_freq = 5120 # n timesteps after which a checkpoint model is dumped
-        self._db_vecstep_frequency = 256 # log db data every n (vectorized) timesteps
+        self._db_vecstep_frequency = 128 # log db data every n (vectorized) timesteps
         
         self._n_policy_updates_to_be_done=((self._total_timesteps_vec-self._warmstart_vectimesteps)//self._policy_freq)*self._policy_freq #TD3 delayed update
         self._n_qf_updates_to_be_done=(self._total_timesteps_vec-self._warmstart_vectimesteps)//1 # qf updated at each vec timesteps
@@ -907,7 +910,7 @@ class SActorCriticAlgoBase():
     def _init_algo_shared_data(self,
                 static_params: Dict):
 
-        self._shared_algo_data = SharedRLAlgorithmInfo(namespace="SharedTrainingInfo",
+        self._shared_algo_data = SharedRLAlgorithmInfo(namespace="SharedTrainingInfo"+self._ns,
                 is_server=True, 
                 static_params=static_params,
                 verbose=self._verbose, 

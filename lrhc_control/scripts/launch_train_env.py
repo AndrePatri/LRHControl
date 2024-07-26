@@ -88,6 +88,7 @@ if __name__ == "__main__":
     custom_args.update(args_dict)
     custom_args.update(sim_data)
     algo.setup(run_name=args.run_name, 
+        ns=args.ns,
         verbose=True,
         drop_dir_name=args.drop_dir,
         custom_args=custom_args,

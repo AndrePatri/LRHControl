@@ -80,6 +80,7 @@ class ActorCriticAlgoBase():
 
     def setup(self,
             run_name: str,
+            ns: str,
             custom_args: Dict = {},
             verbose: bool = False,
             drop_dir_name: str = None,
@@ -92,6 +93,8 @@ class ActorCriticAlgoBase():
             norm_obs: bool = True):
 
         self._verbose = verbose
+
+        self._ns=ns # only used for shared mem stuff
 
         self._dump_checkpoints = dump_checkpoints
         
@@ -783,7 +786,7 @@ class ActorCriticAlgoBase():
         self._total_timesteps_vec = self._iterations_n*self._rollout_timesteps
 
         # policy update
-        self._num_minibatches = 8
+        self._num_minibatches = 32
         self._minibatch_size = self._batch_size // self._num_minibatches
         
         self._base_lr_actor = 1e-4
@@ -812,7 +815,7 @@ class ActorCriticAlgoBase():
         self._exp_to_policy_grad_ratio=float(self._total_timesteps)/float(self._n_policy_updates_to_be_done)
         #debug
         self._m_checkpoint_freq = 5120 # n (vectorized) timesteps after which a checkpoint model is dumped 
-        self._db_vecstep_frequency = self._rollout_timesteps # log db data every n (vectorized) timesteps
+        self._db_vecstep_frequency = 2*self._rollout_timesteps # log db data every n (vectorized) timesteps
 
         self._checkpoint_nit = round(self._m_checkpoint_freq/self._rollout_timesteps)
         self._m_checkpoint_freq = self._rollout_timesteps*self._checkpoint_nit # ensuring _m_checkpoint_freq
@@ -950,7 +953,7 @@ class ActorCriticAlgoBase():
     def _init_algo_shared_data(self,
                 static_params: Dict):
 
-        self._shared_algo_data = SharedRLAlgorithmInfo(namespace="SharedTrainingInfo",
+        self._shared_algo_data = SharedRLAlgorithmInfo(namespace="SharedTrainingInfo"+self._ns,
                 is_server=True, 
                 static_params=static_params,
                 verbose=self._verbose, 
