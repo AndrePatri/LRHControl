@@ -50,7 +50,8 @@ class RhcToViz2Bridge:
             agent_refs_in_h_frame: bool = False,
             env_idx: int = 0,
             sim_time_trgt: float = None,
-            srdf_homing_file_path: str = None):
+            srdf_homing_file_path: str = None,
+            abort_wallmin: float = 5.0):
         
         self._srdf_homing_file_path=srdf_homing_file_path # used to retrieve homing
         self._homer=None
@@ -79,59 +80,7 @@ class RhcToViz2Bridge:
 
         # ros stuff
         self.ros_names = NamingConventions() # rhcviz naming conventions
-        self.rhcviz_basename = rhcviz_basename
-
-        rclpy.init()
-        self.node = rclpy.create_node(rhcviz_basename + "_" + namespace)
-        self._qos_settings = QoSProfile(
-            reliability=ReliabilityPolicy.RELIABLE, # BEST_EFFORT
-            durability=DurabilityPolicy.TRANSIENT_LOCAL, # VOLATILE
-            history=HistoryPolicy.KEEP_LAST, # KEEP_ALL
-            depth=10,  # Number of samples to keep if KEEP_LAST is used
-            liveliness=LivelinessPolicy.AUTOMATIC,
-            # deadline=1000000000,  # [ns]
-            # partition='my_partition' # useful to isolate communications
-            )
-
-        self.handshaker = RHCVizHandshake(handshake_topic=self.ros_names.handshake_topicname(basename=self.rhcviz_basename, 
-                                                                                        namespace=self.namespace),
-                                        node=self.node,
-                                        is_server=True)
-        
-        self.rhc_q_pub = self.node.create_publisher(Float64MultiArray, 
-                                            self.ros_names.rhc_q_topicname(basename=self.rhcviz_basename, 
-                                                                        namespace=self.namespace),
-                                            qos_profile=self._qos_settings)
-
-        self.rhc_refs_pub = self.node.create_publisher(Float64MultiArray, 
-                                            self.ros_names.rhc_refs_topicname(basename=self.rhcviz_basename, 
-                                                                        namespace=self.namespace),
-                                            qos_profile=self._qos_settings)
-
-        if self._with_agent_refs:
-            self.hl_refs_pub = self.node.create_publisher(Float64MultiArray, 
-                                            self.ros_names.hl_refs_topicname(basename=self.rhcviz_basename, 
-                                                                        namespace=self.namespace),
-                                            qos_profile=self._qos_settings)
-            
-        self.robot_q_pub = self.node.create_publisher(Float64MultiArray, 
-                                            self.ros_names.robot_q_topicname(basename=self.rhcviz_basename, 
-                                                                    namespace=self.namespace),
-                                            qos_profile=self._qos_settings)
-        
-        self.robot_jntnames_pub = self.node.create_publisher(String, 
-                                            self.ros_names.robot_jntnames(basename=self.rhcviz_basename, 
-                                                                namespace=self.namespace),
-                                            qos_profile=self._qos_settings)       
-
-        self.rhc_jntnames_pub = self.node.create_publisher(String, 
-                                            self.ros_names.rhc_jntnames(basename=self.rhcviz_basename, 
-                                                                namespace=self.namespace),
-                                            qos_profile=self._qos_settings)   
-
-        self.simtime_pub = self.node.create_publisher(Clock, 
-                                            "clock",
-                                            qos_profile=self._qos_settings) 
+        self.rhcviz_basename = rhcviz_basename 
         
         self.cluster_size = None
         self.jnt_names_robot = None
@@ -149,7 +98,17 @@ class RhcToViz2Bridge:
         self._missing_homing=None
         
         self._is_running = False
+        self._closed=False
 
+        self._safety_abort_walldt=abort_wallmin # [min]. If using stime, abort
+        # if it hasn't changed in the last _safety_abort_walldt minutes
+        self._abort_stime_res=1e-4 # [s] if stime was constant withing this res for 
+        # more than _safety_abort_walldt, abort
+        self._stime_before=-1.0
+
+        self._initialize()
+        
+        
     def __del__(self):
         self.close()
 
@@ -218,9 +177,61 @@ class RhcToViz2Bridge:
         self._robot_indexes = list(range(self._robot_selector[0], 
                                     self._robot_selector[1]+1))
 
-    def run(self,
-        update_dt: float = 0.01):
+    def _initialize(self):
         
+        if not rclpy.ok():
+            rclpy.init()
+        self.node = rclpy.create_node(self.rhcviz_basename + "_" + self.namespace)
+        self._qos_settings = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE, # BEST_EFFORT
+            durability=DurabilityPolicy.TRANSIENT_LOCAL, # VOLATILE
+            history=HistoryPolicy.KEEP_LAST, # KEEP_ALL
+            depth=10,  # Number of samples to keep if KEEP_LAST is used
+            liveliness=LivelinessPolicy.AUTOMATIC,
+            # deadline=1000000000,  # [ns]
+            # partition='my_partition' # useful to isolate communications
+            )
+
+        self.handshaker = RHCVizHandshake(handshake_topic=self.ros_names.handshake_topicname(basename=self.rhcviz_basename, 
+                                                                                        namespace=self.namespace),
+                                        node=self.node,
+                                        is_server=True)
+        
+        self.rhc_q_pub = self.node.create_publisher(Float64MultiArray, 
+                                            self.ros_names.rhc_q_topicname(basename=self.rhcviz_basename, 
+                                                                        namespace=self.namespace),
+                                            qos_profile=self._qos_settings)
+
+        self.rhc_refs_pub = self.node.create_publisher(Float64MultiArray, 
+                                            self.ros_names.rhc_refs_topicname(basename=self.rhcviz_basename, 
+                                                                        namespace=self.namespace),
+                                            qos_profile=self._qos_settings)
+
+        if self._with_agent_refs:
+            self.hl_refs_pub = self.node.create_publisher(Float64MultiArray, 
+                                            self.ros_names.hl_refs_topicname(basename=self.rhcviz_basename, 
+                                                                        namespace=self.namespace),
+                                            qos_profile=self._qos_settings)
+            
+        self.robot_q_pub = self.node.create_publisher(Float64MultiArray, 
+                                            self.ros_names.robot_q_topicname(basename=self.rhcviz_basename, 
+                                                                    namespace=self.namespace),
+                                            qos_profile=self._qos_settings)
+        
+        self.robot_jntnames_pub = self.node.create_publisher(String, 
+                                            self.ros_names.robot_jntnames(basename=self.rhcviz_basename, 
+                                                                namespace=self.namespace),
+                                            qos_profile=self._qos_settings)       
+
+        self.rhc_jntnames_pub = self.node.create_publisher(String, 
+                                            self.ros_names.rhc_jntnames(basename=self.rhcviz_basename, 
+                                                                namespace=self.namespace),
+                                            qos_profile=self._qos_settings)   
+
+        self.simtime_pub = self.node.create_publisher(Clock, 
+                                            "clock",
+                                            qos_profile=self._qos_settings)
+
         # sim data
         self._sim_data = SharedSimInfo(namespace=self.namespace,
                                 is_server=False,
@@ -231,6 +242,7 @@ class RhcToViz2Bridge:
         self._sim_datanames = self._sim_data.param_keys
         self._simtime_idx = self._sim_datanames.index("cluster_time")
         self._ros2_clock = Clock()
+
         # robot state
         self.robot_state = RobotState(namespace=self.namespace,
                                 is_server=False,
@@ -250,6 +262,7 @@ class RhcToViz2Bridge:
         self.rhc_refs.rob_refs.set_q_remapping(q_remapping=[1, 2, 3, 0]) # remapping from w, i, j, k
         # to rviz conventions (i, k, k, w)
         self.rhc_refs.run()
+
         if self._with_agent_refs:
             self.agent_refs = AgentRefs(namespace=self.namespace,
                                 is_server=False,
@@ -273,9 +286,8 @@ class RhcToViz2Bridge:
                     vlevel = self.vlevel,
                     safe = False,
                     dtype=dtype.Int)
-            
             self.env_index.run()
-    
+
         rhc_internal_config = RhcInternal.Config(is_server=False, 
                         enable_q=True)
         # rhc internal data
@@ -288,7 +300,7 @@ class RhcToViz2Bridge:
                                                 vlevel=self.vlevel,
                                                 safe=False))
             self.rhc_internal_clients[self._robot_indexes[i]].run()
-           
+
         # publishing joint names on topic 
         string_array = StringArray()
         self.jnt_names_robot_encoded = string_array.encode(self.jnt_names_robot) # encoding 
@@ -314,10 +326,11 @@ class RhcToViz2Bridge:
                    self._missing_homing[:, node]=np.array(self._homer.get_homing_vals(jnt_names=missing_jnts))
                 
         self.jnt_names_rhc_encoded = string_array.encode(self.jnt_names_rhc) # encoding 
-        # jnt names ifor rhc controllers
+        # jnt names ifor rhc controllers   
         
-        self.rhc_internal_clients[self._current_index].q.get_numpy_mirror()[:, :]
-        
+    def run(self,
+        update_dt: float = 0.01):
+
         self._is_running = True
 
         start_time = 0.0
@@ -335,12 +348,34 @@ class RhcToViz2Bridge:
         self._sim_time = 0 
         self._sim_time_init = self._sim_data.get()[self._simtime_idx].item()
 
-        while self._is_running:
+        safety_check_start_time = time.perf_counter() 
+        while (self._is_running and not self._closed):
 
             try:
-                start_time = time.perf_counter() 
-                self.update()
-                elapsed_time = time.perf_counter() - start_time
+                t_before_update = time.perf_counter() 
+                
+                self._update() # update data on ROS
+
+                # check if we need to stop
+                if (t_before_update-safety_check_start_time)*1.0/60.0>=self._safety_abort_walldt:
+                    safety_check_start_time=t_before_update*1.0/60.0
+                    self._stime_before=self._sim_time # record stime now
+                if self._sim_time >= self._sim_time_trgt:
+                    Journal.log(self.__class__.__name__,
+                        "run",
+                        f"terminating rhc2viz bridge ({self._sim_time}>={self._sim_time_trgt})",
+                        LogType.INFO)
+                    break
+                if (self._sim_time-self._stime_before)<=self._abort_stime_res:
+                    warn=f"terminating rhc2viz bridge due to timeout!" + \
+                        f"sim time did not update within {self._safety_abort_walldt} min"
+                    Journal.log(self.__class__.__name__,
+                        "run",
+                        warn,
+                        LogType.WARN)
+                    break
+
+                elapsed_time = time.perf_counter() - t_before_update
                 time_to_sleep_ns = int((update_dt - elapsed_time) * 1e+9) # [ns]
                 if time_to_sleep_ns < 0:
                     warning = f"Could not match desired update dt of {update_dt} s. " + \
@@ -353,21 +388,12 @@ class RhcToViz2Bridge:
                 else:
                     PerfSleep.thread_sleep(time_to_sleep_ns) 
 
-                if self._sim_time >= self._sim_time_trgt:
-                    Journal.log(self.__class__.__name__,
-                    "run",
-                    "terminating rhc2viz bridge...",
-                    LogType.INFO)
-
-                    break
-                else:
-                    continue
-
             except KeyboardInterrupt:
-
                 self.close()
 
-    def update(self):
+        self._is_running=False
+
+    def _update(self):
         
         success = False
 
@@ -390,7 +416,7 @@ class RhcToViz2Bridge:
             
         else:
 
-            warning = f"Current env index {self._current_index} is not within {self._robot_indexes}!" + \
+            warning = f"Current env index {self._current_index} is not within {self._robot_indexes}!\n" + \
                 "No update will be performed"
 
             Journal.log(self.__class__.__name__,
@@ -403,19 +429,18 @@ class RhcToViz2Bridge:
 
     def close(self):
 
-        if self._is_running:
-
+        if not self._closed:
             if not self.rhc_internal_clients is None:
-
                 for i in range(len(self.rhc_internal_clients)):
-
                     self.rhc_internal_clients[i].close() # closes servers
 
             if not self.robot_state is None:
                 self.robot_state.close()
             if not self.rhc_refs is None:
                 self.rhc_refs.close()
-            self._is_running = False
+            
+            self.node.destroy_node()
+            self._closed=True
     
     def _sporadic_log(self,
                 calling_methd: str,

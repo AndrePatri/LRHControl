@@ -309,6 +309,8 @@ class ActorCriticAlgoBase():
             self._dump_dbinfo_to_file()
             
             if self._shared_algo_data is not None:
+                self._shared_algo_data.write(dyn_info_name=["is_done"],
+                    val=[1.0])
                 self._shared_algo_data.close() # close shared memory
 
             self._env.close()

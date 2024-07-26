@@ -327,7 +327,7 @@ class RhcToVizBridge:
             
         else:
 
-            warning = f"Current env index {self._current_index} is not within {self._robot_indexes}!" + \
+            warning = f"Current env index {self._current_index} is not within {self._robot_indexes}!\n" + \
                 "No update will be performed"
 
             Journal.log(self.__class__.__name__,

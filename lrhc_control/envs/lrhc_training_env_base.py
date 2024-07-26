@@ -475,7 +475,7 @@ class LRhcTrainingEnvBase():
             
             self._ep_timeout_counter.close()
             self._task_rand_counter.close()
-            if self._rand_safety_reset_counter() is not None:
+            if self._rand_safety_reset_counter is not None:
                 self._rand_safety_reset_counter.close()
 
             # closing env.-specific shared data
