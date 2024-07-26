@@ -78,7 +78,7 @@ if __name__ == '__main__':
                         specified in the horizontal frame')
     parser.add_argument('--agent_refs_in_h_frame', type=bool, default=False, help='set to true if agent refs are \
                         specified in the horizontal frame')
-    parser.add_argument('--env_idx', type=int, help='env index of which data is to be published', default=-1)
+    parser.add_argument('--env_idx', type=int, help='env index of which data is to be published', default=0)
     parser.add_argument('--stime_trgt', type=float, default=None, help='sim time for which this bridge runs (None -> indefinetly)')
     parser.add_argument('--srdf_path', type=str, help='path to SRDF path specifying homing configuration, to be used for missing joints', default=None)
     parser.add_argument('--dump_rosbag', action=argparse.BooleanOptionalAction, default=False, help='whether to dump a rosbag of the published topics')
