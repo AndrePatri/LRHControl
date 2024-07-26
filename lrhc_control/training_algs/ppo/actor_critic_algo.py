@@ -953,7 +953,7 @@ class ActorCriticAlgoBase():
     def _init_algo_shared_data(self,
                 static_params: Dict):
 
-        self._shared_algo_data = SharedRLAlgorithmInfo(namespace="SharedTrainingInfo"+self._ns,
+        self._shared_algo_data = SharedRLAlgorithmInfo(namespace=self._ns,
                 is_server=True, 
                 static_params=static_params,
                 verbose=self._verbose, 
