@@ -24,8 +24,7 @@ class RosBagDumper():
             agent_refs_in_h_frame:bool=False):
 
         self._closed=False
-
-
+        
         self._ns=ns
 
         self._srdf_path=None
