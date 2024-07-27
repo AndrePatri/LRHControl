@@ -559,7 +559,7 @@ class SActorCriticAlgoBase():
                 # write debug info to remote wandb server
                 wandb_d = {'tot_episodic_reward': wandb.Histogram(self._episodic_rewards[self._log_it_counter-1, :, :].numpy()),
                     'tot_episodic_reward_env_avrg': self._episodic_rewards_env_avrg[self._log_it_counter-1, :, :].item(),
-                    'ppo_iteration' : self._log_it_counter}
+                    'log_iteration' : self._log_it_counter}
                 wandb_d.update(dict(zip(info_names, info_data)))
                 wandb_d.update({f"sub_reward/{self._reward_names[i]}_env_avrg":
                         self._episodic_sub_rewards_env_avrg[self._log_it_counter-1, :, i:i+1] for i in range(len(self._reward_names))})
