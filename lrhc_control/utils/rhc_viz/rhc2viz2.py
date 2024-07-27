@@ -440,6 +440,7 @@ class RhcToViz2Bridge:
                 self.rhc_refs.close()
             
             self.node.destroy_node()
+            rclpy.shutdown()
             self._closed=True
     
     def _sporadic_log(self,
