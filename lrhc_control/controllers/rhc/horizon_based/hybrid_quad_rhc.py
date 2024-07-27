@@ -28,6 +28,7 @@ class HybridQuadRhc(RHController):
             dt: float = 0.02,
             max_solver_iter = 1, # defaults to rt-iteration
             open_loop: bool = True,
+            close_loop_all: bool = False,
             dtype = np.float32,
             verbose = False, 
             debug = False,
@@ -40,6 +41,7 @@ class HybridQuadRhc(RHController):
         self._injection_node = injection_node
 
         self._open_loop = open_loop
+        self._close_loop_all = close_loop_all
 
         self._codegen_dir = codegen_dir
         if not os.path.exists(self._codegen_dir):
@@ -334,7 +336,8 @@ class HybridQuadRhc(RHController):
         
         p = self.robot_state.root_state.get(data_type="p", robot_idxs=self.controller_index).reshape(-1, 1)
         if not close_all: # use internal MPC for the z of the base
-            p[2,:]=self._ti.solution['q'][2, 1] # second node 
+            # p[2,:]=self._ti.solution['q'][2, 1] # second node 
+            p[0:3,:]=self._ti.solution['q'][0:3, 1] # base pos is open loop
 
         q_root = self.robot_state.root_state.get(data_type="q", robot_idxs=self.controller_index).reshape(-1, 1)
         q_jnts = self.robot_state.jnts_state.get(data_type="q", robot_idxs=self.controller_index).reshape(-1, 1)
@@ -344,15 +347,6 @@ class HybridQuadRhc(RHController):
 
         return np.concatenate((p, q_root, q_jnts, v_root, omega, v_jnts),
                 axis=0)
-
-    def _assemble_meas_robot_configuration(self):
-        
-        p = self.robot_state.root_state.get(data_type="p", robot_idxs=self.controller_index).reshape(-1, 1)
-        q_root = self.robot_state.root_state.get(data_type="q", robot_idxs=self.controller_index).reshape(-1, 1)
-        q_jnts = self.robot_state.jnts_state.get(data_type="q", robot_idxs=self.controller_index).reshape(-1, 1)
-
-        return np.concatenate((p, q_root, q_jnts),
-                axis=10)
     
     def _update_open_loop(self):
 
@@ -408,7 +402,7 @@ class HybridQuadRhc(RHController):
         self._prb.getInput().setInitialGuess(uig)
 
         # sets state on node 0 from measurements
-        robot_state = self._assemble_meas_robot_state()
+        robot_state = self._assemble_meas_robot_state(close_all=self._close_loop_all)
         self._prb.setInitialState(x0=
                         robot_state)
     
