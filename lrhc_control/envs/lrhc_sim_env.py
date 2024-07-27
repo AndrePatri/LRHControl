@@ -259,18 +259,18 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
             self._cluster_dt[robot_name] = cluster_dt[i]
             self._trigger_sol[robot_name] = True # allow first trigger
             self._wait_sol[robot_name] = False
-            if robot_name in task.omni_contact_sensors:
+            if task.omni_contact_sensors[robot_name] is not None:
                 n_contact_sensors = task.omni_contact_sensors[robot_name].n_sensors
                 contact_names = task.omni_contact_sensors[robot_name].contact_prims
             else:
-                n_contact_sensors = -1
+                n_contact_sensors = 4
                 contact_names = None
                 
             self.cluster_servers[robot_name] = LRhcClusterServer(cluster_size=task.num_envs, 
                         cluster_dt=self._cluster_dt[robot_name], 
                         control_dt=task.integration_dt(), 
                         jnt_names = task.robot_dof_names[robot_name], 
-                        n_contact_sensors = n_contact_sensors,
+                        n_contacts = n_contact_sensors,
                         contact_linknames = contact_names, 
                         verbose = cluster_client_verbose, 
                         vlevel = vlevel,

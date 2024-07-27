@@ -29,7 +29,7 @@ if __name__ == '__main__':
     parser.add_argument('--cluster_dt', type=float, default=0.03, help='dt at which the control cluster runs')
     parser.add_argument('--dmpdir', type=str, help='directory where data is dumped',default="/root/aux_data")
     parser.add_argument('--cores', nargs='+', type=int, help='List of CPU cores to set 	affinity to')
-    parser.add_argument('--contacts_list', nargs='+', default=["lower_leg_1", "lower_leg_2", "lower_leg_3", "lower_leg_4"],
+    parser.add_argument('--contacts_list', nargs='+', default=None,
                         help='Contact sensor list (needs to mathc an available body)')
     parser.add_argument('--remote_stepping', action='store_true', 
                 help='Whether to use remote stepping for cluster triggering (to be set during training)')
@@ -44,6 +44,7 @@ if __name__ == '__main__':
     parser.add_argument('--start_stiff', type=float, default=200.0, help='stiffness for low level jnt imp controller after controller is activated')
     parser.add_argument('--start_damp', type=float, default=50.0, help='damping for low level jnt imp controller after controller is activated')
     parser.add_argument('--wheel_damp', type=float, default=10.0, help='damping coeff for low level vel control of wheels (if present)')
+    parser.add_argument('--wheel_radius', type=float, default=0.124, help='wheel radius (used for contact sensing)')
     parser.add_argument('--spawning_height', type=float, default=0.6, help='initial height at which robots will be spawned')
     parser.add_argument('--physics_dt', type=float, default=1e-3, help='')
     parser.add_argument('--use_custom_jnt_imp', action=argparse.BooleanOptionalAction, default=False, 
@@ -123,13 +124,13 @@ if __name__ == '__main__':
     contact_prims[robot_name] = args.contacts_list # foot contact sensors
     contact_offsets = {}
     contact_offsets[robot_name] = {}
-    for i in range(0, len(contact_prims[robot_name])):
-        contact_offsets[robot_name][contact_prims[robot_name][i]] = \
-            np.array([0.0, 0.0, 0.0])
     sensor_radii = {}
     sensor_radii[robot_name] = {}
-    for i in range(0, len(contact_prims[robot_name])):
-        sensor_radii[robot_name][contact_prims[robot_name][i]] = 0.124
+    if contact_prims[robot_name] is not None:
+        for i in range(0, len(contact_prims[robot_name])):
+            contact_offsets[robot_name][contact_prims[robot_name][i]] = \
+                np.array([0.0, 0.0, 0.0])
+            sensor_radii[robot_name][contact_prims[robot_name][i]] = args.wheel_radius      
         
     env = LRhcIsaacSimEnv(headless=headless,
             sim_device = 0,

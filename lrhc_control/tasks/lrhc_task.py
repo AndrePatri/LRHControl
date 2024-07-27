@@ -3,7 +3,7 @@ from omni_robo_gym.tasks.isaac_task import IsaacTask
 from control_cluster_bridge.utilities.shared_data.rhc_data import RhcCmds
 from control_cluster_bridge.utilities.shared_data.jnt_imp_control import JntImpCntrlData
 
-from typing import List
+from typing import List, Dict
 
 import numpy as np
 import torch
@@ -52,9 +52,9 @@ class LRHcIsaacTask(IsaacTask):
             startup_jnt_damping = 5,
             startup_wheel_stiffness = 0.0,
             startup_wheel_damping = 10.0,
-            contact_prims = None,
-            contact_offsets = None,
-            sensor_radii = None,
+            contact_prims:Dict[str, List] = None,
+            contact_offsets:Dict[str, List] = None,
+            sensor_radii:Dict[str, List] = None,
             use_diff_velocities = False,
             override_art_controller = False,
             dtype = torch.float64,
@@ -63,11 +63,6 @@ class LRHcIsaacTask(IsaacTask):
 
         if cloning_offset is None:
             cloning_offset = np.array([[0.0, 0.0, 0.0]] * num_envs)
-        
-        if contact_prims is None:
-            contact_prims = {}
-            for i in range(len(robot_names)):
-                contact_prims[robot_names[i]] = [] # no contact sensors
 
         # trigger __init__ of parent class
         IsaacTask.__init__(self,
