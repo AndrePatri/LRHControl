@@ -54,6 +54,6 @@ if __name__ == '__main__':
         elapsed_min=(time.monotonic()-start_time)*1.0/60.0
         remaining_min=args.dump_dt_min-elapsed_min
         if remaining_min>0.0: # wait 
-            time.sleep(remaining_min)
+            time.sleep(remaining_min*60.0)
 
         
