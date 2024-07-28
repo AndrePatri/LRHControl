@@ -12,11 +12,11 @@ class EpisodicRewards(EpisodicData):
             reward_tensor: torch.Tensor,
             reward_names: List[str] = None,
             max_episode_length: int = 1,
-            ep_freq: int = None):
+            ep_vec_freq: int = None):
 
         # the maximum ep length
         super().__init__(data_tensor=reward_tensor, data_names=reward_names, name="SubRewards",
-                ep_freq=ep_freq)
+                ep_vec_freq=ep_vec_freq)
         self.set_constant_data_scaling(scaling=max_episode_length)
     
     def set_constant_data_scaling(self, scaling: int):
