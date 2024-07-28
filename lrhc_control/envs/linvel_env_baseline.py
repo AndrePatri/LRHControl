@@ -185,15 +185,15 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._action_diff_w_sum = torch.sum(self._action_diff_weights).item()
         # custom db info 
         step_idx_data = EpisodicData("ContactIndex", self._rhc_step_var(gpu=False), self.contact_names,
-            ep_freq=self.n_envs())
+            ep_vec_freq=self._vec_ep_freq_metrics_db)
         self._add_custom_db_info(db_data=step_idx_data)
         agent_twist_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=False)
         agent_twist_ref_data = EpisodicData("AgentTwistRefs", agent_twist_ref, 
             ["v_x", "v_y", "v_z", "omega_x", "omega_y", "omega_z"],
-            ep_freq=self.n_envs())
+            ep_vec_freq=self._vec_ep_freq_metrics_db)
         self._add_custom_db_info(db_data=agent_twist_ref_data)
         rhc_fail_idx = EpisodicData("RhcFailIdx", self._rhc_fail_idx(gpu=False), ["rhc_cost"],
-            ep_freq=self.n_envs())
+            ep_vec_freq=self._vec_ep_freq_metrics_db)
         self._add_custom_db_info(db_data=rhc_fail_idx)
 
         # other static db info 
