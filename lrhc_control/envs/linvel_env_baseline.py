@@ -126,11 +126,12 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._twist_ref_ub = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.8)
         # lin vel
-        self._twist_ref_lb[0, 0] = -1.5
-        self._twist_ref_lb[0, 1] = -1.5
+        max_ref=0.8
+        self._twist_ref_lb[0, 0] = -max_ref
+        self._twist_ref_lb[0, 1] = -max_ref
         self._twist_ref_lb[0, 2] = 0.0
-        self._twist_ref_ub[0, 0] = 1.5
-        self._twist_ref_ub[0, 1] = 1.5
+        self._twist_ref_ub[0, 0] = max_ref
+        self._twist_ref_ub[0, 1] = max_ref
         self._twist_ref_ub[0, 2] = 0.0
         # angular vel
         self._twist_ref_lb[0, 3] = 0.0
