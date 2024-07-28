@@ -64,9 +64,10 @@ class LRhcTrainingEnvBase():
             act_membf_size: int = 3,
             use_random_safety_reset: bool = True,
             random_reset_freq: int = None,
-            ep_freq_metrics_db: int = None):
+            vec_ep_freq_metrics_db: int = 1):
         
-        self._ep_freq_metrics_db = ep_freq_metrics_db
+        self._vec_ep_freq_metrics_db = vec_ep_freq_metrics_db # update single env metrics every
+        # n episodes
         
         self._this_path = os.path.abspath(__file__)
 
@@ -165,9 +166,6 @@ class LRhcTrainingEnvBase():
         self._init_truncations()
         
         self._custom_post_init()
-
-        if self._ep_freq_metrics_db is None: # default to n_envs
-            self._ep_freq_metrics_db=self._n_envs
 
         # self._wait_for_sim_env()
 
