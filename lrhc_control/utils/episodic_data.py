@@ -157,7 +157,6 @@ class MemBuffer():
                     exception,
                     LogType.EXCEP,
                     throw_when_excep=True)
-            self._horizon-1
             return self._mem_buff[:,:,self._membf_pos-1-idx]
     
     def get_bf(self,clone:bool=False):
@@ -211,8 +210,8 @@ class EpisodicData():
         self._scaling = None
 
         self._n_envs = data_tensor.shape[0]
-        if (self._ep_freq is not None) and (self._ep_freq<self._n_envs):
-            self._ep_freq=self._n_envs
+        # if (self._ep_freq is not None) and (self._ep_freq<self._n_envs):
+        #     self._ep_freq=self._n_envs
         self._data_size = data_tensor.shape[1]
                             
         self._init_data()
@@ -299,27 +298,48 @@ class EpisodicData():
                                     fill_value=1,
                                     dtype=torch.int32, device="cpu") # default to scaling 1
 
-        self._new_metrics_are_available=False
+        self._fresh_metrics_avail = torch.full(size=(self._n_envs, 1), 
+                                    fill_value=False,
+                                    dtype=torch.bool, device="cpu")
 
     def reset(self,
-            keep_track: bool = None):
+            keep_track: bool = None,
+            to_be_reset: torch.Tensor = None):
 
-        if keep_track is not None:
-            if not keep_track:
-                self._current_ep_sum.zero_()
-                self._steps_counter.zero_()
-        else:
-            if not self._keep_track: # if not, we propagate ep sum and steps 
-                # from before this reset call 
-                self._current_ep_sum.zero_()
-                self._steps_counter.zero_()
+        if to_be_reset is None: # reset all
+            if keep_track is not None:
+                if not keep_track:
+                    self._current_ep_sum.zero_()
+                    self._steps_counter.zero_()
+            else:
+                if not self._keep_track: # if not, we propagate ep sum and steps 
+                    # from before this reset call 
+                    self._current_ep_sum.zero_()
+                    self._steps_counter.zero_()
             
-        self._current_ep_sum_scaled.zero_()
-        self._tot_sum_up_to_now.zero_()
-        self._average_over_eps.zero_()
-        self._n_played_eps.zero_()
+            self._current_ep_sum_scaled.zero_()
+            self._tot_sum_up_to_now.zero_()
+            self._average_over_eps.zero_()
+            self._n_played_eps.zero_()
 
-        self._scale_now.fill_(1)
+            self._scale_now.fill_(1)
+        else: # only reset some envs
+            if keep_track is not None:
+                if not keep_track:
+                    self._current_ep_sum[to_be_reset, :]=0
+                    self._steps_counter[to_be_reset, :]=0
+            else:
+                if not self._keep_track: # if not, we propagate ep sum and steps 
+                    # from before this reset call 
+                    self._current_ep_sum[to_be_reset, :]=0
+                    self._steps_counter[to_be_reset, :]=0
+            
+            self._current_ep_sum_scaled[to_be_reset, :]=0
+            self._tot_sum_up_to_now[to_be_reset, :]=0
+            self._average_over_eps[to_be_reset, :]=0
+            self._n_played_eps[to_be_reset, :]=0
+
+            self._scale_now[to_be_reset, :]=1
 
     def update(self, 
         new_data: torch.Tensor,
@@ -354,7 +374,7 @@ class EpisodicData():
                 LogType.EXCEP,
                 throw_when_excep=True)
         
-        self._new_metrics_are_available=False
+        self._fresh_metrics_avail[:, :]=False
 
         if not self._use_constant_scaling:
             self._scale_now[:, :] = self._steps_counter+1 # use current n of timesteps as scale 
@@ -379,14 +399,14 @@ class EpisodicData():
 
         if self._ep_freq is not None:
             # automatic reset when self._ep_freq episodes have been played
-            if torch.sum(self._n_played_eps).item()>=self._ep_freq:
-                self._new_metrics_are_available=True
-                self._average_over_eps_last[:, :]=\
-                    self._average_over_eps
-                self._n_played_eps_last[:, :]=\
-                    self._n_played_eps
-                
-                self.reset()        
+        
+            self._fresh_metrics_avail[:, :]=self._n_played_eps>=self._ep_freq
+            selector=self._fresh_metrics_avail.flatten()
+            self._n_played_eps_last[selector, :]=\
+                    self._n_played_eps[selector, :]
+            self._average_over_eps_last[selector, :]=\
+                    self._average_over_eps[selector, :]
+            self.reset(to_be_reset=selector)        
 
     def data_names(self):
         return self._data_names
@@ -431,7 +451,7 @@ if __name__ == "__main__":
         print("#################################")
 
     n_steps = 100
-    n_envs = 2
+    n_envs = 4
     data_dim = 1
     ep_finished = torch.full((n_envs, n_steps),fill_value=False,dtype=torch.bool,device="cpu")
     new_data = torch.full((n_envs, data_dim),fill_value=0,dtype=torch.float32,device="cpu")
@@ -448,28 +468,39 @@ if __name__ == "__main__":
                 scaling=data_scaling)
     test_data.reset()
     
-    ep_finished[0,  9] = True # term at tstep 9
-    ep_finished[0,  19] = True # term at tstep 9
-    ep_finished[0,  24] = True # term at tstep 9
-    ep_finished[0,  29] = True # term at tstep 9
-    ep_finished[0,  34] = True # term at tstep 9
+    ep_finished[0,  3] = True # term at tstep 9
+    ep_finished[0,  7] = True # term at tstep 9
+    ep_finished[0,  11] = True # term at tstep 9
+    ep_finished[0,  13] = True # term at tstep 9
+    ep_finished[0,  15] = True # term at tstep 9
+    ep_finished[0,  17] = True # term at tstep 9
 
+    ep_finished[1,  4] = True # term at tstep 15
+    ep_finished[1,  9] = True # term at tstep 15
     ep_finished[1,  14] = True # term at tstep 15
-    ep_finished[1,  19] = True # term at tstep 15
-    ep_finished[1,  29] = True # term at tstep 15
-    ep_finished[1,  39] = True # term at tstep 15
+
+    ep_finished[2,  5] = True # term at tstep 15
+    ep_finished[2,  11] = True # term at tstep 15
+    ep_finished[2,  17] = True # term at tstep 15
+
+    ep_finished[3,  6] = True # term at tstep 15
+    ep_finished[3,  13] = True # term at tstep 15
+    ep_finished[3,  20] = True # term at tstep 15
 
     new_data[:, 0] = 1
 
     print_freq=2
     for i in range(40):# do some updates
         
+        print("new data")
+        print(new_data)
+        print(ep_finished[:, i:i+1])
         test_data.update(new_data=new_data,
                     ep_finished=ep_finished[:, i:i+1])
-        if test_data.new_metrics_avail():
-            print_data(test_data,i)
-        # if (i+1)%print_freq==0:
+        # if test_data.new_metrics_avail():
         #     print_data(test_data,i)
+        if (i+1)%print_freq==0:
+            print_data(test_data,i)
         # if i==39:
         #     print_data(test_data,i)
 
