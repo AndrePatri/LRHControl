@@ -181,7 +181,11 @@ class RhcToViz2Bridge:
         
         if not rclpy.ok():
             rclpy.init()
-        self.node = rclpy.create_node(self.rhcviz_basename + "_" + self.namespace)
+
+        from datetime import datetime
+        time_id = datetime.now().strftime('d%Y_%m_%d_h%H_m%M_s%S')
+
+        self.node = rclpy.create_node(self.rhcviz_basename + "_" + self.namespace+f"_{time_id}")
         self._qos_settings = QoSProfile(
             reliability=ReliabilityPolicy.RELIABLE, # BEST_EFFORT
             durability=DurabilityPolicy.TRANSIENT_LOCAL, # VOLATILE
@@ -440,7 +444,7 @@ class RhcToViz2Bridge:
                 self.rhc_refs.close()
             
             self.node.destroy_node()
-            rclpy.shutdown()
+            # rclpy.shutdown()
             self._closed=True
     
     def _sporadic_log(self,
