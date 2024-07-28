@@ -191,11 +191,11 @@ class EpisodicData():
             data_names: List[str] = None, 
             debug: bool = False,
             dtype: torch.dtype = torch.float32,
-            ep_freq: int = None):
+            ep_vec_freq: int = 1):
 
         self._keep_track=True
 
-        self._ep_freq=ep_freq
+        self._ep_vec_freq=ep_vec_freq
 
         self._name = name
 
@@ -210,8 +210,6 @@ class EpisodicData():
         self._scaling = None
 
         self._n_envs = data_tensor.shape[0]
-        # if (self._ep_freq is not None) and (self._ep_freq<self._n_envs):
-        #     self._ep_freq=self._n_envs
         self._data_size = data_tensor.shape[1]
                             
         self._init_data()
@@ -272,17 +270,15 @@ class EpisodicData():
         self._average_over_eps = torch.full(size=(self._n_envs, self._data_size), 
                                     fill_value=0.0,
                                     dtype=self._dtype, device="cpu")
-        if self._ep_freq is not None:
-            self._average_over_eps_last = torch.full_like(self._average_over_eps,
-                                                fill_value=0.0)
+        self._average_over_eps_last = torch.full_like(self._average_over_eps,
+                                            fill_value=0.0)
         # current episode index
         self._n_played_eps = torch.full(size=(self._n_envs, 1), 
                                     fill_value=0,
                                     dtype=torch.int32, device="cpu")
-        if self._ep_freq is not None:
-            self._n_played_eps_last = torch.full(size=(self._n_envs, 1), 
-                                        fill_value=0,
-                                        dtype=torch.int32, device="cpu")
+        self._n_played_eps_last = torch.full(size=(self._n_envs, 1), 
+                                    fill_value=0,
+                                    dtype=torch.int32, device="cpu")
 
         # current ste counter (within this episode)
         self._steps_counter = torch.full(size=(self._n_envs, 1), 
@@ -397,16 +393,14 @@ class EpisodicData():
         self._steps_counter[~ep_finished.flatten(), :] +=1 # step performed
         self._steps_counter[ep_finished.flatten(), :] =0 # reset step counters
 
-        if self._ep_freq is not None:
-            # automatic reset when self._ep_freq episodes have been played
-        
-            self._fresh_metrics_avail[:, :]=self._n_played_eps>=self._ep_freq
-            selector=self._fresh_metrics_avail.flatten()
-            self._n_played_eps_last[selector, :]=\
-                    self._n_played_eps[selector, :]
-            self._average_over_eps_last[selector, :]=\
-                    self._average_over_eps[selector, :]
-            self.reset(to_be_reset=selector)        
+        # automatic reset for envs when self._ep_vec_freq episodes have been played
+        self._fresh_metrics_avail[:, :]=self._n_played_eps>=self._ep_vec_freq
+        selector=self._fresh_metrics_avail.flatten()
+        self._n_played_eps_last[selector, :]=\
+                self._n_played_eps[selector, :]
+        self._average_over_eps_last[selector, :]=\
+                self._average_over_eps[selector, :]
+        self.reset(to_be_reset=selector)        
 
     def data_names(self):
         return self._data_names
@@ -415,10 +409,7 @@ class EpisodicData():
         return self._steps_counter
     
     def get_sub_avrg_over_eps(self):
-        if self._ep_freq is not None:
-            return self._average_over_eps_last
-        else:
-            return self._average_over_eps
+        return self._average_over_eps_last
 
     def get_sub_env_avrg_over_eps(self):
         return torch.sum(self.get_sub_avrg_over_eps(), dim=0, keepdim=True)/self._n_envs
@@ -430,10 +421,7 @@ class EpisodicData():
         return torch.sum(self.get_avrg_over_eps(), dim=0, keepdim=True)/self._n_envs
 
     def get_n_played_episodes(self):
-        if self._ep_freq is not None:
-            return torch.sum(self._n_played_eps_last).item()
-        else:
-            return torch.sum(self._n_played_eps).item()
+        return torch.sum(self._n_played_eps_last).item()
     
     def get_n_played_tsteps(self):
         return torch.sum(self.step_counters()).item()
@@ -461,7 +449,7 @@ if __name__ == "__main__":
                 data_tensor=new_data,
                 data_names=data_names,
                 debug=True,
-                ep_freq=2)
+                ep_vec_freq=2)
     
     
     test_data.set_constant_data_scaling(enable=True,
