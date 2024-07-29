@@ -570,7 +570,7 @@ class SimpleCounters(SharedDataBase):
         self._n_steps_lb = n_steps_lb
         self._n_steps_ub = n_steps_ub
         self._n_steps_mean = None
-        
+
         self._is_server = is_server
 
         self._randomize_offsets_at_startup=randomize_offsets_at_startup
@@ -583,6 +583,7 @@ class SimpleCounters(SharedDataBase):
                 LogType.EXCEP,
                 throw_when_excep = True)
         
+        if (not self._n_steps_ub is None) and (not self._n_steps_lb is None):
             self._n_steps_mean = round((self._n_steps_ub+self._n_steps_lb)/2.0)
 
         self._n_envs = n_envs
@@ -637,7 +638,7 @@ class SimpleCounters(SharedDataBase):
 
         self._step_counter.run()
         if self._is_server:
-            self._n_steps = torch.full((self._n_envs, 1), dtype=torch.int, device=self._torch_device, 
+            self._n_steps = torch.full((self._n_envs, 1), dtype=torch.int32, device=self._torch_device, 
                 fill_value=self._n_steps_mean)
             self.reset(randomize_offsets=self._randomize_offsets_at_startup)
 
@@ -670,7 +671,7 @@ class SimpleCounters(SharedDataBase):
             self.get().zero_()
             if randomize_limits and (not self._n_steps_lb==self._n_steps_ub): # randomize counter durations upon resets
                 self._n_steps[:, :] = torch.randint(low=self._n_steps_lb, high=self._n_steps_ub, size=(self._n_envs, 1),
-                                            dtype=torch.int3,device=self._torch_device)
+                                            dtype=torch.int32,device=self._torch_device)
             
             if randomize_offsets:
                 random_step_offsets=torch.randint(low=0, high=self._n_steps_mean, size=(self._n_envs, 1),
