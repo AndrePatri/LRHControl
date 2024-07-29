@@ -569,6 +569,7 @@ class SimpleCounters(SharedDataBase):
 
         self._n_steps_lb = n_steps_lb
         self._n_steps_ub = n_steps_ub
+        self._n_steps_mean = None
         
         self._is_server = is_server
 
@@ -582,7 +583,7 @@ class SimpleCounters(SharedDataBase):
                 LogType.EXCEP,
                 throw_when_excep = True)
         
-        self._n_steps_mean = round((self._n_steps_ub+self._n_steps_lb)/2.0)
+            self._n_steps_mean = round((self._n_steps_ub+self._n_steps_lb)/2.0)
 
         self._n_envs = n_envs
 
