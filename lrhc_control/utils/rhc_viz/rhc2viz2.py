@@ -342,7 +342,7 @@ class RhcToViz2Bridge:
 
         time_to_sleep_ns = 0
 
-        info = f": starting bridge with update dt {update_dt} s and sim time target {self._sim_time_trgt} s"
+        info = f": starting bridge with (realtime) update dt {update_dt} s and sim time target {self._sim_time_trgt} s"
         Journal.log(self.__class__.__name__,
             "run",
             info,
@@ -353,6 +353,8 @@ class RhcToViz2Bridge:
         self._sim_time_init = self._sim_data.get()[self._simtime_idx].item()
 
         safety_check_start_time = time.perf_counter() 
+        sporadic_log_freq=1000
+        log_counter=0
         while (self._is_running and not self._closed):
 
             try:
@@ -360,6 +362,13 @@ class RhcToViz2Bridge:
                 
                 self._update() # update data on ROS
 
+                if log_counter%sporadic_log_freq==0:
+                    Journal.log(self.__class__.__name__,
+                        "run",
+                        f"elapsed sim time {round(self._sim_time,2)}/{self._sim_time_trgt} s.",
+                        LogType.INFO)
+
+                log_counter+=1
                 # check if we need to stop
                 if (t_before_update-safety_check_start_time)*1.0/60.0>=self._safety_abort_walldt:
                     safety_check_start_time=t_before_update*1.0/60.0
@@ -382,7 +391,7 @@ class RhcToViz2Bridge:
                 elapsed_time = time.perf_counter() - t_before_update
                 time_to_sleep_ns = int((update_dt - elapsed_time) * 1e+9) # [ns]
                 if time_to_sleep_ns < 0:
-                    warning = f"Could not match desired update dt of {update_dt} s. " + \
+                    warning = f"Could not match desired (realtime) update dt of {update_dt} s. " + \
                         f"Elapsed time to update {elapsed_time}."
                     Journal.log(self.__class__.__name__,
                         "run",
