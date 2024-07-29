@@ -570,7 +570,7 @@ class SimpleCounters(SharedDataBase):
         self._n_steps_lb = n_steps_lb
         self._n_steps_ub = n_steps_ub
         self._n_steps_mean = None
-        
+
         self._is_server = is_server
 
         self._randomize_offsets_at_startup=randomize_offsets_at_startup
@@ -663,7 +663,7 @@ class SimpleCounters(SharedDataBase):
     def reset(self,
             to_be_reset: torch.Tensor = None,
             randomize_limits: bool = True,
-            randomize_offsets: bool = False):
+            randomize_offsets: bool = True):
 
         if to_be_reset is None:
             # resets all counters
