@@ -371,7 +371,8 @@ class LRhcTrainingEnvBase():
         self._task_rand_counter.reset(to_be_reset=episode_finished,randomize_limits=True)# reset and randomize duration 
         # safety reset counter is only when it reches its reset interval (just to keep
         # the counter bounded)
-        self._rand_safety_reset_counter.reset(to_be_reset=self._rand_safety_reset_counter.time_limits_reached())
+        self._rand_safety_reset_counter.reset(to_be_reset=self._rand_safety_reset_counter.time_limits_reached(),
+            randomize_limits=True)
 
         return rm_reset_ok
     
@@ -843,6 +844,7 @@ class LRhcTrainingEnvBase():
                             n_envs=self._n_envs,
                             n_steps_lb=self._episode_timeout_lb,
                             n_steps_ub=self._episode_timeout_ub,
+                            randomize_offsets_at_startup=True,
                             is_server=True,
                             verbose=self._verbose,
                             vlevel=self._vlevel,
@@ -854,6 +856,7 @@ class LRhcTrainingEnvBase():
                             n_envs=self._n_envs,
                             n_steps_lb=self._n_steps_task_rand_lb,
                             n_steps_ub=self._n_steps_task_rand_ub,
+                            randomize_offsets_at_startup=True,
                             is_server=True,
                             verbose=self._verbose,
                             vlevel=self._vlevel,
@@ -862,11 +865,11 @@ class LRhcTrainingEnvBase():
                             with_gpu_mirror=False) # handles step counter through episodes and through envs
         self._task_rand_counter.run()
         if self._use_random_safety_reset:
-            rand_range=round(5.0/100.0*self._random_rst_freq)
             self._rand_safety_reset_counter=SafetyRandResetsCounter(namespace=self._namespace,
                             n_envs=self._n_envs,
-                            n_steps_lb=self._random_rst_freq-rand_range,
-                            n_steps_ub=self._random_rst_freq+rand_range,
+                            n_steps_lb=self._random_rst_freq,
+                            n_steps_ub=self._random_rst_freq,
+                            randomize_offsets_at_startup=True,
                             is_server=True,
                             verbose=self._verbose,
                             vlevel=self._vlevel,
