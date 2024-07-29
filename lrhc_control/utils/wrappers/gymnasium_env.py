@@ -222,7 +222,7 @@ class Gymnasium2LRHCEnv():
         
         self._episodic_rewards_metrics = EpisodicRewards(reward_tensor=self._tot_rewards.get_torch_mirror(),
                                         reward_names=["total_reward"],
-                                        ep_freq=4*self.n_envs())
+                                        ep_vec_freq=1)
         self._episodic_rewards_metrics.set_constant_data_scaling(scaling=1)
 
     def gym_env(self):
@@ -450,8 +450,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     args_dict = vars(args)
     render_mode = "human" if args.render else None
-    env_type = 'InvertedPendulum-v4'
-    # env_type = 'HalfCheetah-v4'
+    # env_type = 'InvertedPendulum-v4'
+    env_type = 'HalfCheetah-v4'
 
     env_wrapper = Gymnasium2LRHCEnv(env_type=env_type,
                         namespace=args.ns,
@@ -486,7 +486,8 @@ if __name__ == "__main__":
         n_evals=args.n_evals,
         n_timesteps_per_eval=args.n_timesteps,
         dump_checkpoints=args.dump_checkpoints,
-        norm_obs=args.obs_norm)
+        norm_obs=args.obs_norm,
+        ns=args.ns)
     
     try:
         while not algo.is_done():
