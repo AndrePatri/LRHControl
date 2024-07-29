@@ -351,14 +351,15 @@ class RhcToViz2Bridge:
 
         self._sim_time = 0 
         self._sim_time_init = self._sim_data.get()[self._simtime_idx].item()
+        self._stime_before=self._sim_time # record stime now
 
-        safety_check_start_time = time.perf_counter() 
-        sporadic_log_freq=1000
+        safety_check_start_time = time.monotonic() 
+        sporadic_log_freq=500
         log_counter=0
         while (self._is_running and not self._closed):
 
             try:
-                t_before_update = time.perf_counter() 
+                t_before_update = time.monotonic() 
                 
                 self._update() # update data on ROS
 
@@ -371,24 +372,28 @@ class RhcToViz2Bridge:
                 log_counter+=1
                 # check if we need to stop
                 if (t_before_update-safety_check_start_time)*1.0/60.0>=self._safety_abort_walldt:
-                    safety_check_start_time=t_before_update*1.0/60.0
+                    # every self._safety_abort_walldt [min]
+                    safety_check_start_time=time.monotonic() 
+                    if (self._sim_time-self._stime_before)<=self._abort_stime_res:
+                        warn=f"terminating rhc2viz bridge due to timeout!\t" + \
+                            f"Sim time did not update within {self._safety_abort_walldt} min. \n" +  \
+                            f"stime before: {self._stime_before} s, stime now: {self._sim_time}"
+                        Journal.log(self.__class__.__name__,
+                            "run",
+                            warn,
+                            LogType.WARN)
+                        break
+
                     self._stime_before=self._sim_time # record stime now
+
                 if self._sim_time >= self._sim_time_trgt:
                     Journal.log(self.__class__.__name__,
                         "run",
                         f"terminating rhc2viz bridge ({self._sim_time}>={self._sim_time_trgt})",
                         LogType.INFO)
                     break
-                if (self._sim_time-self._stime_before)<=self._abort_stime_res:
-                    warn=f"terminating rhc2viz bridge due to timeout!" + \
-                        f"sim time did not update within {self._safety_abort_walldt} min"
-                    Journal.log(self.__class__.__name__,
-                        "run",
-                        warn,
-                        LogType.WARN)
-                    break
 
-                elapsed_time = time.perf_counter() - t_before_update
+                elapsed_time = time.monotonic() - t_before_update
                 time_to_sleep_ns = int((update_dt - elapsed_time) * 1e+9) # [ns]
                 if time_to_sleep_ns < 0:
                     warning = f"Could not match desired (realtime) update dt of {update_dt} s. " + \

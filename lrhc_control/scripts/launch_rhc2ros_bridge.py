@@ -29,7 +29,7 @@ def launch_rosbag(namespace: str, dump_path: str, timeout_sec:float):
             "launch_rosbag",
             "launching rosbag recording",
             LogType.INFO)
-
+    
     command = ["./launch_rosbag.sh", "--ns", namespace, "--output_path", dump_path]
     ctx = mp.get_context('forkserver')
     proc = ctx.Process(target=os.system, args=(' '.join(command),))
@@ -85,6 +85,7 @@ if __name__ == '__main__':
     parser.add_argument('--dump_path', type=str, default="/tmp", help='where bag will be dumped')
     parser.add_argument('--use_shared_drop_dir', action=argparse.BooleanOptionalAction, default=False, 
         help='if true use the shared drop dir to drop the data where all the other training data is dropeer')
+    parser.add_argument('--abort_wallmin', type=float, default=5.0, help='abort bridge if no response wihtin this timeout')
 
     args = parser.parse_args()
 
@@ -139,7 +140,8 @@ if __name__ == '__main__':
                         agent_refs_in_h_frame=args.agent_refs_in_h_frame,
                         env_idx=args.env_idx,
                         sim_time_trgt=stime_trgt,
-                        srdf_homing_file_path=args.srdf_path)
+                        srdf_homing_file_path=args.srdf_path,
+                        abort_wallmin=args.abort_wallmin)
 
     # spawn a process to record bag if required
     bag_proc=None
