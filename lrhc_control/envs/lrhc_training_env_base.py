@@ -367,12 +367,15 @@ class LRhcTrainingEnvBase():
         # here after reset, so that is can access all states post reset if necessary      
 
         # synchronize and reset counters for finished episodes
-        self._ep_timeout_counter.reset(to_be_reset=episode_finished,randomize_limits=True)# reset and randomize duration 
-        self._task_rand_counter.reset(to_be_reset=episode_finished,randomize_limits=True)# reset and randomize duration 
+        self._ep_timeout_counter.reset(to_be_reset=episode_finished,randomize_limits=True,
+            randomize_offsets=False)# reset and randomize duration 
+        self._task_rand_counter.reset(to_be_reset=episode_finished,randomize_limits=True,
+            randomize_offsets=False)# reset and randomize duration 
         # safety reset counter is only when it reches its reset interval (just to keep
         # the counter bounded)
         self._rand_safety_reset_counter.reset(to_be_reset=self._rand_safety_reset_counter.time_limits_reached(),
-            randomize_limits=True)
+            randomize_limits=True,
+            randomize_offsets=False)
 
         return rm_reset_ok
     
@@ -441,10 +444,13 @@ class LRhcTrainingEnvBase():
         self._terminations.reset()
         self._truncations.reset()
 
-        self._ep_timeout_counter.reset()
-        self._task_rand_counter.reset()
+        self._ep_timeout_counter.reset(randomize_limits=True,
+            randomize_offsets=True)
+        self._task_rand_counter.reset(randomize_limits=True,
+            randomize_offsets=True)
         if self._rand_safety_reset_counter is not None:
-            self._rand_safety_reset_counter.reset(randomize_limits=False)
+            self._rand_safety_reset_counter.reset(randomize_limits=True,
+                            randomize_offsets=True)
 
         if self._act_mem_buffer is not None:
             self._act_mem_buffer.reset_all()
