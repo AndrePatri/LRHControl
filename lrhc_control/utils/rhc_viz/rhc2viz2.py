@@ -342,7 +342,7 @@ class RhcToViz2Bridge:
 
         time_to_sleep_ns = 0
 
-        info = f": starting bridge with update dt {update_dt} s"
+        info = f": starting bridge with update dt {update_dt} s and sim time target {self._sim_time_trgt} s"
         Journal.log(self.__class__.__name__,
             "run",
             info,

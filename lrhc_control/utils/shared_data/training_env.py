@@ -555,6 +555,7 @@ class SimpleCounters(SharedDataBase):
                 basename: str,
                 n_steps_lb: int = None,
                 n_steps_ub: int = None,
+                randomize_offsets_at_startup: bool=True,
                 n_envs: int = None, 
                 is_server = False, 
                 verbose: bool = False, 
@@ -564,11 +565,14 @@ class SimpleCounters(SharedDataBase):
                 with_gpu_mirror: bool = False):
 
         self._using_gpu = with_gpu_mirror
+        self._torch_device = "cuda" if self._using_gpu else "cpu"
 
         self._n_steps_lb = n_steps_lb
         self._n_steps_ub = n_steps_ub
-
+        
         self._is_server = is_server
+
+        self._randomize_offsets_at_startup=randomize_offsets_at_startup
 
         if self._is_server and ((self._n_steps_lb is None) or (self._n_steps_ub is None)):
             exception = "Lower and upper step bounds have to be specified when in server mode!!!"
@@ -577,6 +581,8 @@ class SimpleCounters(SharedDataBase):
                 exception,
                 LogType.EXCEP,
                 throw_when_excep = True)
+        
+        self._n_steps_mean = round((self._n_steps_ub+self._n_steps_lb)/2.0)
 
         self._n_envs = n_envs
 
@@ -630,8 +636,9 @@ class SimpleCounters(SharedDataBase):
 
         self._step_counter.run()
         if self._is_server:
-            self._n_steps = torch.full((self._n_envs, 1), dtype=torch.int, device="cpu", fill_value=self._n_steps_ub)
-            self.reset()
+            self._n_steps = torch.full((self._n_envs, 1), dtype=torch.int, device=self._torch_device, 
+                fill_value=self._n_steps_mean)
+            self.reset(randomize_offsets=self._randomize_offsets_at_startup)
 
     def close(self):
 
@@ -643,23 +650,45 @@ class SimpleCounters(SharedDataBase):
 
         return (self.get() % self._n_steps) == 0
     
+    def steps_ub(self):
+        return self._n_steps_ub
+
+    def steps_lb(self):
+        return self._n_steps_lb
+
+    def steps_mean(self):
+        return self._n_steps_mean
+
     def reset(self,
             to_be_reset: torch.Tensor = None,
-            randomize_limits: bool = True):
+            randomize_limits: bool = True,
+            randomize_offsets: bool = False):
 
         if to_be_reset is None:
             # resets all counters
             self.get().zero_()
             if randomize_limits and (not self._n_steps_lb==self._n_steps_ub): # randomize counter durations upon resets
                 self._n_steps[:, :] = torch.randint(low=self._n_steps_lb, high=self._n_steps_ub, size=(self._n_envs, 1),
-                                            dtype=torch.int32)
+                                            dtype=torch.int3,device=self._torch_device)
+            
+            if randomize_offsets:
+                random_step_offsets=torch.randint(low=0, high=self._n_steps_mean, size=(self._n_envs, 1),
+                                dtype=torch.int32,device=self._torch_device)
+                self.get()[:, :]=self.get()+random_step_offsets # add random offsets from 0 to the mean counter duration
+
         else:
             n_to_be_reset = torch.sum(to_be_reset.squeeze()).item()
             if not n_to_be_reset == 0:
                 self.get()[to_be_reset.squeeze() , :] = 0
                 if randomize_limits and (not self._n_steps_lb==self._n_steps_ub):
                     self._n_steps[to_be_reset.squeeze() , :] = torch.randint(low=self._n_steps_lb, high=self._n_steps_ub, size=(n_to_be_reset, 1),
-                                                dtype=torch.int32)
+                                                dtype=torch.int32,device=self._torch_device)
+                
+                if randomize_offsets:
+                    random_step_offsets=torch.randint(low=0, high=self._n_steps_mean, size=(n_to_be_reset, 1),
+                                    dtype=torch.int32,device=self._torch_device)
+                    self.get()[to_be_reset.squeeze(), :]=self.get()[to_be_reset.squeeze(), :]+random_step_offsets # add random offsets from 0 to the mean counter duration
+        
         self._write()
 
 class EpisodesCounter(SimpleCounters):
@@ -745,3 +774,39 @@ class SafetyRandResetsCounter(SimpleCounters):
                 safe=safe,
                 force_reconnection=force_reconnection,
                 with_gpu_mirror=with_gpu_mirror)
+
+if __name__ == "__main__":  
+
+    def print_data(counter,i):
+        print(f"INFO{i}")
+        print("limits reached")
+        print(counter.time_limits_reached())
+        print("counters")
+        print(counter.get())
+
+    n_steps_lb=10
+    n_steps_ub=10
+    n_envs=20
+    counter=SimpleCounters(namespace="Prova",
+        basename="SimpleCounter",
+        n_steps_lb=n_steps_lb,
+        n_steps_ub=n_steps_ub,
+        randomize_offsets_at_startup=True,
+        n_envs=n_envs, 
+        is_server=True, 
+        verbose=True, 
+        vlevel=VLevel.V2,
+        safe=True,
+        force_reconnection=True,
+        with_gpu_mirror=False)
+    counter.run()
+
+    print("COUNTERS")
+    print(counter.steps_lb())
+    print(counter.steps_ub())
+    print(counter.steps_mean())
+
+    n_steps=30
+    for i in range(n_steps):
+        counter.increment()
+        print_data(counter,i)
