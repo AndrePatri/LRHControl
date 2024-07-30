@@ -336,7 +336,6 @@ class HybridQuadRhc(RHController):
         
         p = self.robot_state.root_state.get(data_type="p", robot_idxs=self.controller_index).reshape(-1, 1)
         if not close_all: # use internal MPC for the z of the base
-            # p[2,:]=self._ti.solution['q'][2, 1] # second node 
             p[0:3,:]=self._ti.solution['q'][0:3, 1] # base pos is open loop
 
         q_root = self.robot_state.root_state.get(data_type="q", robot_idxs=self.controller_index).reshape(-1, 1)
@@ -424,15 +423,10 @@ class HybridQuadRhc(RHController):
     
         self._pm.shift() # shifts phases of one dt
         if self._refs_in_hor_frame:
-            q_base=self.robot_state.root_state.get(data_type="q", 
-                robot_idxs=self.controller_index).reshape(-1, 1) # using robot state
-            
-            print("AAAAAAAAAAAAAAAAAAAAAAAAA")
-            print(q_base)
-            q_base=self._ti.solution['q'][3:7, 0].reshape(-1, 1)
-            print(q_base)
-            
-             # using internal state
+            # q_base=self.robot_state.root_state.get(data_type="q", 
+            #     robot_idxs=self.controller_index).reshape(-1, 1)
+            q_base=self._ti.solution['q'][3:7, 0].reshape(-1, 1) # using internal 
+            # base pose from rhc. in case of closed loop, it will be the meas state
             self.rhc_refs.step(q_base=q_base)
         else:
             self.rhc_refs.step()
@@ -459,8 +453,11 @@ class HybridQuadRhc(RHController):
         self._pm.shift() # shifts phases of one dt
         self._phase_shift_time = time.perf_counter()
         if self._refs_in_hor_frame:
-            self.rhc_refs.step(q_base=self.robot_state.root_state.get(data_type="q", 
-                            robot_idxs=self.controller_index).reshape(-1, 1)) # updates rhc references
+            # q_base=self.robot_state.root_state.get(data_type="q", 
+            #     robot_idxs=self.controller_index).reshape(-1, 1)
+            q_base=self._ti.solution['q'][3:7, 0].reshape(-1, 1) # using internal 
+            # base pose from rhc. in case of closed loop, it will be the meas state
+            self.rhc_refs.step(q_base=q_base) # updates rhc references
         else:
             self.rhc_refs.step()
              
