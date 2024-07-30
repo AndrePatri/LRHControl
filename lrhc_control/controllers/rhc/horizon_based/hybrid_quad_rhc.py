@@ -75,6 +75,7 @@ class HybridQuadRhc(RHController):
         self._base_init = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0])
 
         self._c_timelines = dict()
+        self._f_reg_timelines = dict()
 
         super().__init__(srdf_path=srdf_path,
                         n_nodes=n_nodes,
@@ -122,6 +123,10 @@ class HybridQuadRhc(RHController):
             stance = self._c_timelines[c].getRegisteredPhase(f'stance_{c}_short')
             while self._c_timelines[c].getEmptyNodes() > 0:
                 self._c_timelines[c].addPhase(stance)
+            # f reg
+            f_stance = self._f_reg_timelines[c].getRegisteredPhase(f'freg_{c}_short')
+            for i in range(self._n_nodes-1): # not defined on last node
+                self._f_reg_timelines[c].addPhase(f_stance)
 
     @abstractmethod
     def _init_rhc_task_cmds(self):
