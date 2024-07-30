@@ -365,9 +365,9 @@ class LRhcTrainingEnvBase():
         # here after reset, so that is can access all states post reset if necessary      
 
         # synchronize and reset counters for finished episodes
-        self._ep_timeout_counter.reset(to_be_reset=episode_finished,randomize_limits=True,
+        self._ep_timeout_counter.reset(to_be_reset=episode_finished_cpu,randomize_limits=True,
             randomize_offsets=False)# reset and randomize duration 
-        self._task_rand_counter.reset(to_be_reset=episode_finished,randomize_limits=True,
+        self._task_rand_counter.reset(to_be_reset=episode_finished_cpu,randomize_limits=True,
             randomize_offsets=False)# reset and randomize duration 
         # safety reset counter is only when it reches its reset interval (just to keep
         # the counter bounded)

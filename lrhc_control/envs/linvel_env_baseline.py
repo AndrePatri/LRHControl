@@ -126,12 +126,12 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._twist_ref_ub = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.8)
         # lin vel
-        max_ref=0.8
-        self._twist_ref_lb[0, 0] = -max_ref
-        self._twist_ref_lb[0, 1] = -max_ref
+        self.max_ref=0.8
+        self._twist_ref_lb[0, 0] = -self.max_ref
+        self._twist_ref_lb[0, 1] = -self.max_ref
         self._twist_ref_lb[0, 2] = 0.0
-        self._twist_ref_ub[0, 0] = max_ref
-        self._twist_ref_ub[0, 1] = max_ref
+        self._twist_ref_ub[0, 0] = self.max_ref
+        self._twist_ref_ub[0, 1] = self.max_ref
         self._twist_ref_ub[0, 2] = 0.0
         # angular vel
         self._twist_ref_lb[0, 3] = 0.0
@@ -211,15 +211,15 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._obs_threshold_lb = -1e3 # used for clipping observations
         self._obs_threshold_ub = 1e3
 
-        v_cmd_max = 3.0
-        omega_cmd_max = 3.0
+        v_cmd_max = self.max_ref
+        omega_cmd_max = self.max_ref
         self._actions_lb[:, 0:2] = -v_cmd_max 
         self._actions_ub[:, 0:2] = v_cmd_max  # vxy cmd
         self._actions_lb[:, 2:3] = 0 # h cmd
         self._actions_ub[:, 2:3] = 1  
         self._actions_lb[:, 3:6] = -omega_cmd_max # twist cmds
         self._actions_ub[:, 3:6] = omega_cmd_max  
-        self._actions_lb[:, 6:10] = -1.0 # contact flags
+        self._actions_lb[:, 6:10] = -0.5 # contact flags
         self._actions_ub[:, 6:10] = 1.0 
 
         # some aux data to avoid allocations at training runtime
