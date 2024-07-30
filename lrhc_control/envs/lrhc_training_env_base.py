@@ -330,20 +330,19 @@ class LRhcTrainingEnvBase():
         
         self._ep_timeout_counter.increment() # first increment counters
         self._task_rand_counter.increment()
-        if self._rand_safety_reset_counter is not None:
-            self._rand_safety_reset_counter.increment()
-
+        
         # check truncation and termination conditions 
         self._check_truncations() 
         self._check_terminations()
         terminated = self._terminations.get_torch_mirror(gpu=self._use_gpu)
         truncated = self._truncations.get_torch_mirror(gpu=self._use_gpu)
-        if self._rand_safety_reset_counter is not None:
-            lets_do_a_random_reset=self._rand_safety_reset_counter.time_limits_reached()
-            truncated[:, :]=torch.logical_or(truncated,lets_do_a_random_reset.cuda()) # add random reset 
-            # to truncation
+        
         episode_finished = torch.logical_or(terminated,
                             truncated)
+        episode_finished_cpu = episode_finished.cpu()
+
+        if self._rand_safety_reset_counter is not None:
+            self._rand_safety_reset_counter.increment(to_be_incremented=episode_finished_cpu.flatten())
 
         if self._act_mem_buffer is not None:
             self._act_mem_buffer.reset(to_be_reset=episode_finished.flatten(),
@@ -352,7 +351,6 @@ class LRhcTrainingEnvBase():
         # debug step if required (IMPORTANT: must be before remote reset so that we always db
         # actual data from the step and not after reset)
         if self._is_debug:
-            episode_finished_cpu = episode_finished.cpu()
             self._debug() # copies db data on shared memory
             self._update_custom_db_data(episode_finished=episode_finished_cpu)
             self._episodic_rewards_metrics.update(rewards = self._sub_rewards.get_torch_mirror(gpu=False),
@@ -373,9 +371,10 @@ class LRhcTrainingEnvBase():
             randomize_offsets=False)# reset and randomize duration 
         # safety reset counter is only when it reches its reset interval (just to keep
         # the counter bounded)
-        self._rand_safety_reset_counter.reset(to_be_reset=self._rand_safety_reset_counter.time_limits_reached(),
-            randomize_limits=True,
-            randomize_offsets=False)
+        if self._rand_safety_reset_counter is not None:
+            self._rand_safety_reset_counter.reset(to_be_reset=self._rand_safety_reset_counter.time_limits_reached(),
+                randomize_limits=True,
+                randomize_offsets=False)
 
         return rm_reset_ok
     
@@ -862,7 +861,7 @@ class LRhcTrainingEnvBase():
                             n_envs=self._n_envs,
                             n_steps_lb=self._n_steps_task_rand_lb,
                             n_steps_ub=self._n_steps_task_rand_ub,
-                            randomize_offsets_at_startup=True,
+                            randomize_offsets_at_startup=False,
                             is_server=True,
                             verbose=self._verbose,
                             vlevel=self._vlevel,
@@ -870,6 +869,8 @@ class LRhcTrainingEnvBase():
                             force_reconnection=True,
                             with_gpu_mirror=False) # handles step counter through episodes and through envs
         self._task_rand_counter.run()
+        self._task_rand_counter.sync_counters(other_counter=self._ep_timeout_counter)
+
         if self._use_random_safety_reset:
             self._rand_safety_reset_counter=SafetyRandResetsCounter(namespace=self._namespace,
                             n_envs=self._n_envs,

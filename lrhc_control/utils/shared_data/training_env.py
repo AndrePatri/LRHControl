@@ -614,15 +614,27 @@ class SimpleCounters(SharedDataBase):
 
         return self._step_counter.is_running()
 
-    def increment(self):
+    def sync_counters(self,
+        other_counter):
+        self.get()[:, :]=other_counter.get() 
+
+    def increment(self,
+        to_be_incremented: torch.Tensor = None):
         
-        self.get()[:, :] = self.get() + 1
+        if to_be_incremented is None:
+            self.get()[:, :] = self.get() + 1
+        else:
+            self.get()[to_be_incremented, :] = self.get()[to_be_incremented, :] + 1
 
         self._write()
-
-    def decrement(self):
+    
+    def decrement(self,
+        to_be_incremented: torch.Tensor = None):
         
-        self.get()[:, :] = self.get() - 1
+        if to_be_incremented is None:
+            self.get()[:, :] = self.get() - 1
+        else:
+            self.get()[to_be_incremented, :] = self.get()[to_be_incremented, :] - 1
 
         self._write()
 
