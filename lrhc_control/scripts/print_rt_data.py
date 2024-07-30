@@ -29,6 +29,7 @@ if __name__ == "__main__":
     parser.add_argument('--env_range', type=int, help='', default=1)
     parser.add_argument('--dtype', type=str, help='', default="float")
     parser.add_argument('--with_counters', action=argparse.BooleanOptionalAction, default=False, help='')
+    parser.add_argument('--with_safety_counter', action=argparse.BooleanOptionalAction, default=False, help='')
     parser.add_argument('--resolution', type=int, help='', default=2)
     parser.add_argument('--with_sub_r', action=argparse.BooleanOptionalAction, default=True, help='')
     parser.add_argument('--with_sinfo', action=argparse.BooleanOptionalAction, default=True, help='')
@@ -42,6 +43,7 @@ if __name__ == "__main__":
     env_range=args.env_range
     elapsed_tot_nom = 0
     with_counters = args.with_counters
+    with_sf_counter=args.with_safety_counter
     n_digits=args.resolution
     dtype=sharsor_dtype.Float
     if args.dtype == "double":
@@ -111,13 +113,15 @@ if __name__ == "__main__":
                     verbose=True,
                     vlevel=VLevel.V2,
                     with_gpu_mirror=False)
+        ep_counter.run()
+        task_counter.run()
+        
+    if with_sf_counter:
         random_reset=SafetyRandResetsCounter(namespace=namespace,
                     is_server=False,
                     verbose=True,
                     vlevel=VLevel.V2,
                     with_gpu_mirror=False)
-        ep_counter.run()
-        task_counter.run()
         random_reset.run()
 
     torch.set_printoptions(precision=n_digits,sci_mode=False,linewidth=200)
