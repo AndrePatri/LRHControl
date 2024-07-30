@@ -424,8 +424,16 @@ class HybridQuadRhc(RHController):
     
         self._pm.shift() # shifts phases of one dt
         if self._refs_in_hor_frame:
-            self.rhc_refs.step(q_base=self.robot_state.root_state.get(data_type="q", 
-                                                    robot_idxs=self.controller_index).reshape(-1, 1))
+            q_base=self.robot_state.root_state.get(data_type="q", 
+                robot_idxs=self.controller_index).reshape(-1, 1) # using robot state
+            
+            print("AAAAAAAAAAAAAAAAAAAAAAAAA")
+            print(q_base)
+            q_base=self._ti.solution['q'][3:7, 0].reshape(-1, 1)
+            print(q_base)
+            
+             # using internal state
+            self.rhc_refs.step(q_base=q_base)
         else:
             self.rhc_refs.step()
             
