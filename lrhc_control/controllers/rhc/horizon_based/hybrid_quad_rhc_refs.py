@@ -66,7 +66,7 @@ class HybridQuadRhcRefs(RhcRefs):
             exception = f"Provided \(0-based\) robot index {self.robot_index} exceeds number of " + \
                 " available robots {self.rob_refs.n_robots()}."
             Journal.log(self.__class__.__name__,
-                "__init__",
+                "run",
                 exception,
                 LogType.EXCEP,
                 throw_when_excep = True)
@@ -74,7 +74,7 @@ class HybridQuadRhcRefs(RhcRefs):
         if not (self.n_contacts() == len(contact_names)):
             exception = f"N of contacts within problem {len(contact_names)} does not match n of contacts {self.n_contacts()}"
             Journal.log(self.__class__.__name__,
-                "__init__",
+                "run",
                 exception,
                 LogType.EXCEP,
                 throw_when_excep = True)
@@ -114,7 +114,7 @@ class HybridQuadRhcRefs(RhcRefs):
             else:
                 exception = f"Unsupported phase id {phase_id} has been received!"
                 Journal.log(self.__class__.__name__,
-                    "__init__",
+                    "step",
                     exception,
                     LogType.EXCEP,
                     throw_when_excep = True)

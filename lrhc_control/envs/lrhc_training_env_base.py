@@ -876,7 +876,7 @@ class LRhcTrainingEnvBase():
                             n_envs=self._n_envs,
                             n_steps_lb=self._random_rst_freq,
                             n_steps_ub=self._random_rst_freq,
-                            randomize_offsets_at_startup=True,
+                            randomize_offsets_at_startup=False,
                             is_server=True,
                             verbose=self._verbose,
                             vlevel=self._vlevel,
@@ -884,7 +884,8 @@ class LRhcTrainingEnvBase():
                             force_reconnection=True,
                             with_gpu_mirror=False)
             self._rand_safety_reset_counter.run()
-
+            # self._rand_safety_reset_counter.sync_counters(other_counter=self._ep_timeout_counter)
+            
         # debug data servers
         traing_env_param_dict = {}
         traing_env_param_dict["use_gpu"] = self._use_gpu
