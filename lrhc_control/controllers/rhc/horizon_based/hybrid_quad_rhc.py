@@ -110,7 +110,7 @@ class HybridQuadRhc(RHController):
         pass
     
     @abstractmethod
-    def _reset_contact_timeline(self):
+    def _reset_contact_timelines(self):
         pass
     
     @abstractmethod
@@ -365,7 +365,7 @@ class HybridQuadRhc(RHController):
         # phase manager
         self._gm.reset()
         # we also re-initialize contact timelines
-        # self._reset_conta()
+        self._reset_contact_timelines()
         # resets rhc references
         if self.rhc_refs is not None:
             self.rhc_refs.reset(p_ref=np.atleast_2d(self._base_init)[:, 0:3], 
