@@ -166,7 +166,8 @@ class RosBagDumper():
 
         import subprocess
         proc = subprocess.Popen(command, shell=shell,
-            stdin=subprocess.DEVNULL 
+            stdin=subprocess.DEVNULL,
+            preexec_fn=os.setsid
             # preexec_fn=os.setsid # crucial -> all childs will have the same ID
             )
         # Set the process group ID to the subprocess PID
@@ -191,7 +192,8 @@ class RosBagDumper():
 
         term_trigger.close()
 
-        os.kill(proc.pid, signal.SIGINT)
+        os.killpg(os.getpgid(proc.pid), signal.SIGINT)
+        # os.kill(proc.pid, signal.SIGINT)
         # proc.send_signal(signal.SIGINT)
             
         try:
