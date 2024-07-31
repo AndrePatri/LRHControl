@@ -130,7 +130,6 @@ class RosBagDumper():
     def _launch_rosbag(self, 
             namespace: str, dump_path: str, timeout_sec:float, use_shared_drop_dir: bool = True):
         
-        import multiprocess as mp
         import os
 
         # using a shared drop dir if enabled
@@ -166,8 +165,9 @@ class RosBagDumper():
             command = f"{this_dir_path}/launch_rosbag.sh --ns {namespace} --output_path {dump_path}"
 
         import subprocess
-        proc = subprocess.Popen(command, shell=False, 
-            preexec_fn=os.setsid # crucial -> all childs will have the same ID
+        proc = subprocess.Popen(command, shell=shell,
+            stdin=subprocess.DEVNULL 
+            # preexec_fn=os.setsid # crucial -> all childs will have the same ID
             )
         # Set the process group ID to the subprocess PID
         # os.setpgid(proc.pid, proc.pid)
@@ -191,7 +191,7 @@ class RosBagDumper():
 
         term_trigger.close()
 
-        os.killpg(os.getpgid(proc.pid), signal.SIGINT)
+        os.kill(proc.pid, signal.SIGINT)
         # proc.send_signal(signal.SIGINT)
             
         try:
