@@ -1,4 +1,5 @@
 import torch
+import math
 
 from control_cluster_bridge.utilities.shared_data.rhc_data import RobotState
 from control_cluster_bridge.utilities.shared_data.rhc_data import RhcCmds
@@ -23,6 +24,7 @@ from lrhc_control.utils.shared_data.training_env import EpisodesCounter,TaskRand
 from lrhc_control.utils.episodic_rewards import EpisodicRewards
 from lrhc_control.utils.episodic_data import EpisodicData
 from lrhc_control.utils.episodic_data import MemBuffer
+from lrhc_control.utils.math_utils import check_capsize
 
 from SharsorIPCpp.PySharsorIPC import VLevel
 from SharsorIPCpp.PySharsorIPC import LogType
@@ -744,6 +746,11 @@ class LRhcTrainingEnvBase():
                             fill_value=False) 
         
         self._terminations.run()
+
+        device = "cuda" if self._use_gpu else "cpu"
+        self._is_capsized=torch.zeros((self._n_envs,1), 
+            dtype=torch.bool, device=device)
+        self._max_pitch_angle=60.0*math.pi/180.0
     
     def _init_truncations(self):
         
@@ -1042,8 +1049,15 @@ class LRhcTrainingEnvBase():
         # default behaviour-> to be overriden by child
         terminations = self._terminations.get_torch_mirror(gpu=self._use_gpu)
         # terminate upon controller failure
-        terminations[:, :] = self._rhc_status.fails.get_torch_mirror(gpu=self._use_gpu)
-    
+
+        robot_q_meas = self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
+        check_capsize(quat=robot_q_meas,max_angle=self._max_pitch_angle,
+            output_t=self._is_capsized)
+
+        # terminate if either MPC explodes or if robot capsizes
+        terminations[:, :] = torch.logical_or(self._rhc_status.fails.get_torch_mirror(gpu=self._use_gpu),
+            self._is_capsized)
+
     @abstractmethod
     def _pre_step(self):
         pass
