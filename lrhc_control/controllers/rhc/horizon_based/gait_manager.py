@@ -29,7 +29,12 @@ class GaitManager:
         self._freg_timeline_names = []
         for contact_name, timeline_name in contact_map.items():
             self._contact_timelines[contact_name] = self.phase_manager.getTimelines()[timeline_name]
-            self._f_reg_timelines[contact_name] = self.phase_manager.getTimelines()[timeline_name+"_f_reg"]
+            self._f_reg_timelines[contact_name] = None
+            try:
+                self._f_reg_timelines[contact_name] = self.phase_manager.getTimelines()[timeline_name+"_f_reg"]
+            except:
+                pass
+            
             self._timeline_names.append(contact_name)
             self._freg_timeline_names.append(contact_name)
 
@@ -44,7 +49,8 @@ class GaitManager:
         timeline.addPhase(timeline.getRegisteredPhase(f'stance_{timeline_name}_short'))
         # f reg
         freg_timeline = self._f_reg_timelines[timeline_name]
-        freg_timeline.addPhase(freg_timeline.getRegisteredPhase(f'freg_{timeline_name}_short'))
+        if freg_timeline is not None:
+            freg_timeline.addPhase(freg_timeline.getRegisteredPhase(f'freg_{timeline_name}_short'))
     
     def add_flight(self, timeline_name):
         timeline = self._contact_timelines[timeline_name]
@@ -52,5 +58,6 @@ class GaitManager:
             pos=self._injection_node, absolute_position=True)
         # f reg
         freg_timeline = self._f_reg_timelines[timeline_name]
-        freg_timeline.addPhase(freg_timeline.getRegisteredPhase(f'freg_{timeline_name}_empty'),
-            pos=self._injection_node, absolute_position=True)
+        if freg_timeline is not None:
+            freg_timeline.addPhase(freg_timeline.getRegisteredPhase(f'freg_{timeline_name}_empty'),
+                pos=self._injection_node, absolute_position=True)
