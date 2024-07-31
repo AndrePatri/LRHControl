@@ -343,6 +343,8 @@ class LRhcTrainingEnvBase():
 
         if self._rand_safety_reset_counter is not None:
             self._rand_safety_reset_counter.increment(to_be_incremented=episode_finished_cpu.flatten())
+            # truncated[:,:] = torch.logical_or(truncated,
+            #     self._rand_safety_reset_counter.time_limits_reached().cuda())
 
         if self._act_mem_buffer is not None:
             self._act_mem_buffer.reset(to_be_reset=episode_finished.flatten(),
@@ -365,26 +367,20 @@ class LRhcTrainingEnvBase():
         # here after reset, so that is can access all states post reset if necessary      
 
         # synchronize and reset counters for finished episodes
-        self._ep_timeout_counter.reset(to_be_reset=episode_finished_cpu,randomize_limits=True,
-            randomize_offsets=False)# reset and randomize duration 
-        self._task_rand_counter.reset(to_be_reset=episode_finished_cpu,randomize_limits=True,
-            randomize_offsets=False)# reset and randomize duration 
+        self._ep_timeout_counter.reset(to_be_reset=episode_finished_cpu)# reset and randomize duration 
+        self._task_rand_counter.reset(to_be_reset=episode_finished_cpu)# reset and randomize duration 
         # safety reset counter is only when it reches its reset interval (just to keep
         # the counter bounded)
         if self._rand_safety_reset_counter is not None:
-            self._rand_safety_reset_counter.reset(to_be_reset=self._rand_safety_reset_counter.time_limits_reached(),
-                randomize_limits=True,
-                randomize_offsets=False)
+            self._rand_safety_reset_counter.reset(to_be_reset=self._rand_safety_reset_counter.time_limits_reached())
 
         return rm_reset_ok
     
     def _to_be_reset(self):
         terminated = self._terminations.get_torch_mirror(gpu=self._use_gpu)
         # can be overriden by child -> defines the logic for when to reset envs
-        to_be_reset=torch.logical_or(terminated.cpu(), # if terminal
-            self._ep_timeout_counter.time_limits_reached() # episode timeouted
-            )
-        
+        to_be_reset=terminated.cpu()
+
         if self._rand_safety_reset_counter is not None:
             to_be_reset[:, :]=torch.logical_or(to_be_reset,
                 self._rand_safety_reset_counter.time_limits_reached())
@@ -443,13 +439,11 @@ class LRhcTrainingEnvBase():
         self._terminations.reset()
         self._truncations.reset()
 
-        self._ep_timeout_counter.reset(randomize_limits=True,
-            randomize_offsets=True)
-        self._task_rand_counter.reset(randomize_limits=True,
-            randomize_offsets=True)
+        self._ep_timeout_counter.reset(randomize_offsets=True)
+        self._task_rand_counter.reset()
+        self._task_rand_counter.sync_counters(other_counter=self._ep_timeout_counter)
         if self._rand_safety_reset_counter is not None:
-            self._rand_safety_reset_counter.reset(randomize_limits=True,
-                            randomize_offsets=True)
+            self._rand_safety_reset_counter.reset()
 
         if self._act_mem_buffer is not None:
             self._act_mem_buffer.reset_all()
@@ -870,7 +864,6 @@ class LRhcTrainingEnvBase():
                             with_gpu_mirror=False) # handles step counter through episodes and through envs
         self._task_rand_counter.run()
         self._task_rand_counter.sync_counters(other_counter=self._ep_timeout_counter)
-
         if self._use_random_safety_reset:
             self._rand_safety_reset_counter=SafetyRandResetsCounter(namespace=self._namespace,
                             n_envs=self._n_envs,

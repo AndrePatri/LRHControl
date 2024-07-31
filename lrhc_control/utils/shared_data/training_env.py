@@ -675,7 +675,7 @@ class SimpleCounters(SharedDataBase):
 
     def reset(self,
             to_be_reset: torch.Tensor = None,
-            randomize_limits: bool = True,
+            randomize_limits: bool = False,
             randomize_offsets: bool = False):
 
         if to_be_reset is None:
