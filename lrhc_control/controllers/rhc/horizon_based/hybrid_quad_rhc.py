@@ -261,14 +261,24 @@ class HybridQuadRhc(RHController):
     
     def _update_closed_loop(self):
 
-        self._set_ig()
+        xig, _ = self._set_ig()
 
         # sets state on node 0 from measurements
         robot_state = self._assemble_meas_robot_state(x_opt=self._ti.solution['x_opt'],
                                         close_all=self._close_loop_all)
-
-        self._prb.setInitialState(x0=
-                        robot_state)
+        
+        mstate_p=None
+        try:
+            mstate_p=self._prb.getParameters("measured_state")
+        except:
+            pass
+        if mstate_p is not None: # perform a soft initial state update
+            mstate_p.assign(val=robot_state)
+            self._prb.setInitialStateSoft(x0_meas=robot_state, 
+                x0_internal=xig[:, 0:1])
+        else: # just set the measured state
+            self._prb.setInitialState(x0=
+                            robot_state)
     
     def _solve(self):
         
