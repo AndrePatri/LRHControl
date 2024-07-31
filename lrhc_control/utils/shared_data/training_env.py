@@ -662,7 +662,11 @@ class SimpleCounters(SharedDataBase):
 
         # to be called after increment or decrement 
 
-        return (self.get() % self._n_steps) == 0
+        valid_counters=~(self.get()==0)
+        time_l_reached = (self.get() % self._n_steps) == 0
+
+        # counters at 0 are neglected 
+        return torch.logical_and(time_l_reached,valid_counters)
     
     def steps_ub(self):
         return self._n_steps_ub
