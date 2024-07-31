@@ -581,6 +581,7 @@ class SActorCriticAlgoBase():
                 f"experience to q fun grad ratio: {experience_to_qfun_grad_ratio}\n" + \
                 f"experience to trgt q fun grad ratio: {experience_to_tqfun_grad_ratio}\n"+ \
                 f"Warmstart completed: {self._vec_transition_counter > self._warmstart_vectimesteps}\n" +\
+                f"Replay buffer full: {self._replay_bf_full}\n" +\
                 f"Elapsed time: {self._elapsed_min[self._log_it_counter].item()/60.0} h\n" + \
                 f"Estimated remaining training time: " + \
                 f"{est_remaining_time_h} h\n" + \
