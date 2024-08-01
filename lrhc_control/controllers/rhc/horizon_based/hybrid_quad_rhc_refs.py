@@ -46,13 +46,16 @@ class HybridQuadRhcRefs(RhcRefs):
             
         # handles phase transitions
         self.gait_manager = gait_manager
-
+        self._kin_dyn = self.gait_manager.task_interface.model.kd
+        self._ti=self.gait_manager.task_interface
         self._timelines = self.gait_manager._contact_timelines
         
         self._timeline_names = self.gait_manager._timeline_names
 
         # task interfaces from horizon for setting commands to rhc
         self._get_tasks()
+
+        self._total_weight = np.atleast_2d(np.array([0, 0, self._kin_dyn.mass() * 9.81])).T # the robot's weight
 
     def _get_tasks(self):
         # can be overridden by child
@@ -93,14 +96,19 @@ class HybridQuadRhcRefs(RhcRefs):
             
             if phase_id == -1: # custom phases
                 contact_flags = self.contact_flags.get_numpy_mirror()[self.robot_index, :]
+                n_limbs_in_contact=np.sum(contact_flags).item()
+                force_ref = self._ti.getTask('force_regularization')
                 is_contact = contact_flags.flatten().tolist() 
                 for i in range(len(is_contact)):
                     timeline_name = self._timeline_names[i]
                     timeline = self.gait_manager._contact_timelines[timeline_name]
-                    if timeline.getEmptyNodes() > 0: # after shift, always add a stance
-                        self.gait_manager.add_stand(timeline_name)
-                    if is_contact[i] == False:
+                    if is_contact[i]==False:
                         self.gait_manager.add_flight(timeline_name)
+                    else:
+                        force_ref.setRef(index=i, # force
+                            ref=self._total_weight/n_limbs_in_contact)
+                        if timeline.getEmptyNodes() > 0: # if there's space, always add a stance
+                            self.gait_manager.add_stand(timeline_name)
 
                 for timeline_name in self._timeline_names: # sanity check
                     timeline = self.gait_manager._contact_timelines[timeline_name]
