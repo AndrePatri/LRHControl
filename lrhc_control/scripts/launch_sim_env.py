@@ -34,6 +34,7 @@ if __name__ == '__main__':
     parser.add_argument('--remote_stepping', action='store_true', 
                 help='Whether to use remote stepping for cluster triggering (to be set during training)')
     parser.add_argument('--cpu_pipeline', action=argparse.BooleanOptionalAction, default=False, help='Whether to use the cpu pipeline (greatly increases GPU RX data)')
+    parser.add_argument('--use_gpu', action=argparse.BooleanOptionalAction, default=True, help='Whether to use gpu simulation')
     parser.add_argument('--enable_debug', action=argparse.BooleanOptionalAction, default=False, help='Whether to enable debug mode (may introduce significant overhead)')
     parser.add_argument('--headless', action=argparse.BooleanOptionalAction, default=True, help='Whether to run simulation in headless mode')
     parser.add_argument('--verbose', action=argparse.BooleanOptionalAction, default=True, help='')
@@ -70,9 +71,13 @@ if __name__ == '__main__':
 
     # simulation parameters
     sim_params = {}
-    sim_params["use_gpu_pipeline"] = not args.cpu_pipeline # disabling gpu pipeline is necessary to be able
-    # to retrieve some quantities from the simulator which, otherwise, would have random values
-    # sim_params["use_gpu"] = False # does this actually do anything?
+    if not args.use_gpu:
+        sim_params["use_gpu_pipeline"]=False
+        sim_params["use_gpu"] = False # does this actually do anything?
+    else:
+        sim_params["use_gpu_pipeline"] = not args.cpu_pipeline # disabling gpu pipeline is necessary to be able
+        # to retrieve some quantities from the simulator which, otherwise, would have random values
+        sim_params["use_gpu"] = True # does this actually do anything?
     if sim_params["use_gpu_pipeline"]:
         sim_params["device"] = "cuda"
     else:
