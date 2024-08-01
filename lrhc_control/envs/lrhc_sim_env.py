@@ -403,13 +403,15 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
         for i in range(0, self.cluster_servers[robot_name].n_contact_sensors()):
             contact_link = self.cluster_servers[robot_name].contact_linknames()[i]
             if not self.using_gpu:
-                f_contact = self.task.omni_contact_sensors[robot_name].get(dt = self.task.integration_dt(), 
-                                        contact_link = contact_link,
-                                        env_indxs = env_indxs,
-                                        clone = False)
-                # assigning measured net contact forces
-                self.cluster_servers[robot_name].get_state().contact_wrenches.set(data=f_contact, data_type="f",
-                        contact_name=contact_link, robot_idxs = env_indxs, gpu=self.using_gpu)
+                contact_sensors=self.task.omni_contact_sensors[robot_name]
+                if contact_sensors is not None:
+                    f_contact = self.task.omni_contact_sensors[robot_name].get(dt = self.task.integration_dt(), 
+                                            contact_link = contact_link,
+                                            env_indxs = env_indxs,
+                                            clone = False)
+                    # assigning measured net contact forces
+                    self.cluster_servers[robot_name].get_state().contact_wrenches.set(data=f_contact, data_type="f",
+                            contact_name=contact_link, robot_idxs = env_indxs, gpu=self.using_gpu)
             else:
                 if (self.debug and ((self.cluster_step_counters[robot_name] + 1) % 10000) == 0):
                     # sporadic warning
