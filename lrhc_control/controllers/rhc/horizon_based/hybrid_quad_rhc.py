@@ -275,7 +275,7 @@ class HybridQuadRhc(RHController):
         if meas_state_p is not None: # perform a soft initial state update
             meas_state_p.assign(val=robot_state)
             self._prb.setInitialStateSoft(x0_meas=robot_state, 
-                x0_internal=xig[:, 0:1])
+                x0_internal=xig[:, 0:1]) # (xig is already shifted by the set_ig method)
         else: # just set the measured state
             self._prb.setInitialState(x0=
                             robot_state)
