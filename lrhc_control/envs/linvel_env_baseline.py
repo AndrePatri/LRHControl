@@ -75,9 +75,13 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         env_name = "LinVelTrack"
         
         device = "cuda" if use_gpu else "cpu"
+        
+        # health reward 
+        self._health_value = 1.0
 
-        self._task_weight = 1.0
-        self._task_scale = 0.3
+        # task tracking
+        self._task_offset= 10.0
+        self._task_scale = 1.0
         self._task_err_weights = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.0) 
         self._task_err_weights[0, 0] = 1.0
@@ -88,11 +92,12 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._task_err_weights[0, 5] = 1e-6
         self._task_err_weights_sum = torch.sum(self._task_err_weights).item()
 
-        self._rhc_fail_idx_weight = 0.0
+        # fail idx
+        self._rhc_fail_idx_offset = 0.0
         self._rhc_fail_idx_scale = 1e-4
 
         # power penalty
-        self._power_weight = 0.0
+        self._power_offset = 0.0
         self._power_scale = 0.005
         self._power_penalty_weights = torch.full((1, n_jnts), dtype=dtype, device=device,
                             fill_value=1.0)
@@ -106,7 +111,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._power_penalty_weights_sum = torch.sum(self._power_penalty_weights).item()
 
         # jnt vel penalty 
-        self._jnt_vel_weight = 0.0
+        self._jnt_vel_offset = 0.0
         self._jnt_vel_scale = 0.3
         self._jnt_vel_penalty_weights = torch.full((1, n_jnts), dtype=dtype, device=device,
                             fill_value=1.0)
@@ -153,7 +158,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     n_steps_task_rand_lb=n_steps_task_rand_lb,
                     n_steps_task_rand_ub=n_steps_task_rand_ub,
                     random_reset_freq=random_reset_freq,
-                    use_random_safety_reset=True,
+                    use_random_safety_reset=False,
                     action_repeat=action_repeat,
                     env_name=env_name,
                     n_preinit_steps=n_preinit_steps,
@@ -171,9 +176,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     act_membf_size=30)
 
         # action regularization
-        self._actions_diff_rew_weight = 0.0
+        self._actions_diff_rew_offset = 0.0
         if not self._use_prev_actions_stats: # we need the action in obs to use this reward
-            self._actions_diff_rew_weight=0.0
+            self._actions_diff_rew_offset=0.0
         self._actions_diff_scale = 1.0
         self._action_diff_weights = torch.full((1, actions_dim), dtype=dtype, device=device,
                             fill_value=1.0)
@@ -205,8 +210,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
     def _custom_post_init(self):
         # overriding parent's defaults 
-        self._reward_thresh_lb[:, :]=-10
-        self._reward_thresh_ub[:, :]=10
+        self._reward_thresh_lb[:, :]=0.0
+        self._reward_thresh_ub[:, :]=1000
 
         self._obs_threshold_lb = -1e3 # used for clipping observations
         self._obs_threshold_ub = 1e3
@@ -497,14 +502,14 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         weighted_jnt_vel = self._jnt_vel_penalty(task_ref=task_ref,jnts_vel=jnts_vel)
 
         sub_rewards = self._sub_rewards.get_torch_mirror(gpu=self._use_gpu)
-        sub_rewards[:, 0:1] = self._task_weight*(1.0-self._task_scale*task_error_pseudolin)
-        sub_rewards[:, 1:2] = self._power_weight * (1.0 - self._power_scale * weighted_mech_power)
-        sub_rewards[:, 2:3] = self._jnt_vel_weight * (1.0 - self._jnt_vel_scale * weighted_jnt_vel)
-        sub_rewards[:, 3:4] = self._rhc_fail_idx_weight * (1.0 - self._rhc_fail_idx(gpu=self._use_gpu))
-        sub_rewards[:, 4:5] = 1 # health reward
-        sub_rewards[:, 5:6] = self._actions_diff_rew_weight * (1.0 - \
+        sub_rewards[:, 0:1] = self._task_offset-self._task_scale*task_error_pseudolin
+        sub_rewards[:, 1:2] = self._power_offset - self._power_scale * weighted_mech_power
+        sub_rewards[:, 2:3] = self._jnt_vel_offset - self._jnt_vel_scale * weighted_jnt_vel
+        sub_rewards[:, 3:4] = self._rhc_fail_idx_offset - self._rhc_fail_idx(gpu=self._use_gpu)
+        sub_rewards[:, 4:5] = self._health_value # health reward
+        sub_rewards[:, 5:6] = self._actions_diff_rew_offset - \
                                         self._actions_diff_scale*self._weighted_actions_diff(gpu=self._use_gpu,
-                                                                        obs=obs,next_obs=next_obs)) # action regularization reward
+                                                                        obs=obs,next_obs=next_obs) # action regularization reward
 
     def _randomize_task_refs(self,
                 env_indxs: torch.Tensor = None):
