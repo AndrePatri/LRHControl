@@ -81,7 +81,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         # task tracking
         self._task_offset= 10.0
-        self._task_scale = 1.0
+        self._task_scale = 5.0
         self._task_err_weights = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.0) 
         self._task_err_weights[0, 0] = 1.0
@@ -94,11 +94,11 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         # fail idx
         self._rhc_fail_idx_offset = 0.0
-        self._rhc_fail_idx_scale = 1e-4
+        self._rhc_fail_idx_scale = 0.0 # 1e-4
 
         # power penalty
-        self._power_offset = 0.0
-        self._power_scale = 0.005
+        self._power_offset = 10.0
+        self._power_scale = 5.0
         self._power_penalty_weights = torch.full((1, n_jnts), dtype=dtype, device=device,
                             fill_value=1.0)
         n_jnts_per_limb = round(n_jnts/n_contacts) # assuming same topology along limbs
@@ -112,7 +112,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         # jnt vel penalty 
         self._jnt_vel_offset = 0.0
-        self._jnt_vel_scale = 0.3
+        self._jnt_vel_scale = 0.0 # 0.3
         self._jnt_vel_penalty_weights = torch.full((1, n_jnts), dtype=dtype, device=device,
                             fill_value=1.0)
         jnt_vel_weights_along_limb = [1.0] * n_jnts_per_limb
@@ -158,7 +158,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     n_steps_task_rand_lb=n_steps_task_rand_lb,
                     n_steps_task_rand_ub=n_steps_task_rand_ub,
                     random_reset_freq=random_reset_freq,
-                    use_random_safety_reset=False,
+                    use_random_safety_reset=True,
                     action_repeat=action_repeat,
                     env_name=env_name,
                     n_preinit_steps=n_preinit_steps,
@@ -179,7 +179,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._actions_diff_rew_offset = 0.0
         if not self._use_prev_actions_stats: # we need the action in obs to use this reward
             self._actions_diff_rew_offset=0.0
-        self._actions_diff_scale = 1.0
+        self._actions_diff_scale = 0.0#1.0
         self._action_diff_weights = torch.full((1, actions_dim), dtype=dtype, device=device,
                             fill_value=1.0)
         self._action_diff_weights[:, 6:10]=1.0 # minimal reg for contact flags
