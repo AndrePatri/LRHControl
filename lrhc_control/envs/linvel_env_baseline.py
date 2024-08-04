@@ -77,7 +77,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         device = "cuda" if use_gpu else "cpu"
         
         # health reward 
-        self._health_value = 1.0
+        self._health_value = 10.0
 
         # task tracking
         self._task_offset= 10.0
@@ -86,7 +86,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                             fill_value=0.0) 
         self._task_err_weights[0, 0] = 1.0
         self._task_err_weights[0, 1] = 1.0
-        self._task_err_weights[0, 2] = 1e-3
+        self._task_err_weights[0, 2] = 0.1
         self._task_err_weights[0, 3] = 1e-3
         self._task_err_weights[0, 4] = 1e-3
         self._task_err_weights[0, 5] = 1e-6
@@ -97,8 +97,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._rhc_fail_idx_scale = 0.0 # 1e-4
 
         # power penalty
-        self._power_offset = 10.0
-        self._power_scale = 5.0
+        self._power_offset = 0.0
+        self._power_scale = 0.0
         self._power_penalty_weights = torch.full((1, n_jnts), dtype=dtype, device=device,
                             fill_value=1.0)
         n_jnts_per_limb = round(n_jnts/n_contacts) # assuming same topology along limbs
@@ -158,7 +158,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     n_steps_task_rand_lb=n_steps_task_rand_lb,
                     n_steps_task_rand_ub=n_steps_task_rand_ub,
                     random_reset_freq=random_reset_freq,
-                    use_random_safety_reset=True,
+                    use_random_safety_reset=False,
                     action_repeat=action_repeat,
                     env_name=env_name,
                     n_preinit_steps=n_preinit_steps,
@@ -210,8 +210,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
     def _custom_post_init(self):
         # overriding parent's defaults 
-        self._reward_thresh_lb[:, :]=0.0
-        self._reward_thresh_ub[:, :]=1000
+        self._reward_thresh_lb[:, :]=-torch.inf
+        self._reward_thresh_ub[:, :]=torch.inf
 
         self._obs_threshold_lb = -1e3 # used for clipping observations
         self._obs_threshold_ub = 1e3
