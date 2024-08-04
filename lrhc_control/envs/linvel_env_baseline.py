@@ -97,8 +97,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._rhc_fail_idx_scale = 0.0 # 1e-4
 
         # power penalty
-        self._power_offset = 0.0
-        self._power_scale = 0.0
+        self._power_offset = 10.0
+        self._power_scale = 0.1
         self._power_penalty_weights = torch.full((1, n_jnts), dtype=dtype, device=device,
                             fill_value=1.0)
         n_jnts_per_limb = round(n_jnts/n_contacts) # assuming same topology along limbs
@@ -125,7 +125,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         
         # task rand
         self._use_pof0 = True
-        self._pof0 = 0.2
+        self._pof0 = 0.1
         self._twist_ref_lb = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=-0.8) 
         self._twist_ref_ub = torch.full((1, 6), dtype=dtype, device=device,
@@ -468,8 +468,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     obs: torch.Tensor,
                     next_obs: torch.Tensor):
         
-        task_error_fun = self._task_err_pseudolin
-        # task_error_fun = self._task_err_pseudolinv2
+        # task_error_fun = self._task_err_pseudolin
+        task_error_fun = self._task_err_pseudolinv2
 
         # task error
         # task_meas = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu) # robot twist meas (local base if _use_local_base_frame)
