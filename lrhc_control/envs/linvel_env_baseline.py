@@ -561,15 +561,16 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # next_idx+=len(self.contact_names)
         obs_names[next_idx] = "rhc_fail_idx"
         next_idx+=1
-        action_names = self._get_action_names()
-        for prev_act_idx in range(self.actions_dim()):
-            obs_names[next_idx+prev_act_idx] = action_names[prev_act_idx]+f"_prev"
-        next_idx+=self.actions_dim()
-        for prev_act_mean in range(self.actions_dim()):
-            obs_names[next_idx+prev_act_mean] = action_names[prev_act_mean]+f"_avrg"
-        next_idx+=self.actions_dim()
-        for prev_act_mean in range(self.actions_dim()):
-            obs_names[next_idx+prev_act_mean] = action_names[prev_act_mean]+f"_std"
+        if self._use_prev_actions_stats:
+            action_names = self._get_action_names()
+            for prev_act_idx in range(self.actions_dim()):
+                obs_names[next_idx+prev_act_idx] = action_names[prev_act_idx]+f"_prev"
+            next_idx+=self.actions_dim()
+            for prev_act_mean in range(self.actions_dim()):
+                obs_names[next_idx+prev_act_mean] = action_names[prev_act_mean]+f"_avrg"
+            next_idx+=self.actions_dim()
+            for prev_act_mean in range(self.actions_dim()):
+                obs_names[next_idx+prev_act_mean] = action_names[prev_act_mean]+f"_std"
         return obs_names
 
     def _get_action_names(self):
