@@ -45,6 +45,9 @@ if __name__ == "__main__":
     parser.add_argument('--rmdb', action=argparse.BooleanOptionalAction, default=True, help='Whether to enable remote debug (e.g. data logging on remote servers)')
     parser.add_argument('--obs_norm', action=argparse.BooleanOptionalAction, default=True, help='Whether to enable the use of running normalizer in agent')
 
+    parser.add_argument('--use_cer', action=argparse.BooleanOptionalAction, default=False, help='')
+    parser.add_argument('--sac', action=argparse.BooleanOptionalAction, default=True, help='')
+
     parser.add_argument('--override_agent_refs', action=argparse.BooleanOptionalAction, default=False, \
                 help='Whether to override automatically generated agent refs (useful for debug)')
     parser.add_argument('--anomaly_detect', action=argparse.BooleanOptionalAction, default=False, \
@@ -76,17 +79,22 @@ if __name__ == "__main__":
     for i in range(len(sim_info_keys)):
         sim_data[sim_info_keys[i]] = sim_info_data[i]
     
-    # algo = PPO(env=env, 
-    #        debug=args.db, 
-    #        remote_db=args.rmdb,
-    #        seed=args.seed)
-    algo = SAC(env=env, 
+    custom_args={}
+    if args.sac:
+        algo = SAC(env=env, 
             debug=args.db, 
             remote_db=args.rmdb,
             seed=args.seed)
-    custom_args={}
+        custom_args["use_combined_exp_replay"]=args.use_cer
+    else:
+        algo = PPO(env=env, 
+               debug=args.db, 
+               remote_db=args.rmdb,
+               seed=args.seed)
+    
     custom_args.update(args_dict)
     custom_args.update(sim_data)
+
     algo.setup(run_name=args.run_name, 
         ns=args.ns,
         verbose=True,
