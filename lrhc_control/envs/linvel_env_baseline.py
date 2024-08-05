@@ -25,7 +25,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         
         action_repeat = 1
 
-        self._use_prev_actions_stats = True
+        self._use_prev_actions_stats = False
         self._use_horizontal_frame_for_refs = False # usually impractical for task rand to set this to True 
         self._use_local_base_frame = True
 
@@ -59,8 +59,10 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         # obs_dim = 4+6+2*n_jnts+2+actions_dim
         # obs_dim = 4+6+2*n_jnts+2+1+actions_dim
-        obs_dim = 4+6+2*n_jnts+2+1+3*actions_dim
-
+        if self._use_prev_actions_stats:
+            obs_dim = 4+6+2*n_jnts+2+1+3*actions_dim
+        else:
+            obs_dim = 4+6+2*n_jnts+2+1
         # obs_dim = 4+6+2*n_jnts+2+2+actions_dim
 
         # obs_dim = 4+6+n_jnts+2+2+actions_dim
@@ -210,7 +212,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
     def _custom_post_init(self):
         # overriding parent's defaults 
-        self._reward_thresh_lb[:, :]=-torch.inf
+        self._reward_thresh_lb[:, :]=0.0 # neg rewards can be nasty depending on the algorithm
         self._reward_thresh_ub[:, :]=torch.inf
 
         self._obs_threshold_lb = -1e3 # used for clipping observations
@@ -243,7 +245,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._zero_t_aux = torch.zeros((self._n_envs, 1),dtype=self._dtype,device=device)
         self._zero_t_aux_cpu = torch.zeros((self._n_envs, 1),dtype=self._dtype,device="cpu")
 
-        self._defaut_bf_action[:, :] = (self._actions_ub+self._actions_lb)/2.0
+        if self._use_prev_actions_stats:
+            self._defaut_bf_action[:, :] = (self._actions_ub+self._actions_lb)/2.0
 
     def get_file_paths(self):
 
