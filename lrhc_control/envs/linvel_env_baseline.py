@@ -96,7 +96,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         # fail idx
         self._rhc_fail_idx_offset = 0.0
-        self._rhc_fail_idx_scale = 0.0 # 1e-4
+        self._rhc_fail_idx_rew_scale = 0.0 # 1e-4
+        self._rhc_fail_idx_scale=1.0
 
         # power penalty
         self._power_offset = 0# 10.0
@@ -499,7 +500,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         sub_rewards[:, 0:1] = self._task_offset-self._task_scale*task_error_pseudolin
         sub_rewards[:, 1:2] = self._power_offset - self._power_scale * weighted_mech_power
         sub_rewards[:, 2:3] = self._jnt_vel_offset - self._jnt_vel_scale * weighted_jnt_vel
-        sub_rewards[:, 3:4] = self._rhc_fail_idx_offset - self._rhc_fail_idx(gpu=self._use_gpu)
+        sub_rewards[:, 3:4] = self._rhc_fail_idx_offset - self._rhc_fail_idx_rew_scale* self._rhc_fail_idx(gpu=self._use_gpu)
         sub_rewards[:, 4:5] = self._health_value # health reward
         sub_rewards[:, 5:6] = self._actions_diff_rew_offset - \
                                         self._actions_diff_scale*self._weighted_actions_diff(gpu=self._use_gpu,
