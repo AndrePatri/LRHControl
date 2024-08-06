@@ -117,6 +117,14 @@ class ActorCriticAlgoBase():
         
         self._torch_device = torch.device("cuda" if torch.cuda.is_available() and self._use_gpu else "cpu")
 
+        try:
+            layer_size_actor=self._hyperparameters["layer_size_actor"]
+            layer_size_critic=self._hyperparameters["layer_size_critic"]
+        except:
+            layer_size_actor=256
+            layer_size_critic=256
+            pass
+
         self._agent = ACAgent(obs_dim=self._env.obs_dim(),
                         actions_dim=self._env.actions_dim(),
                         actor_std=0.01,
@@ -125,7 +133,9 @@ class ActorCriticAlgoBase():
                         device=self._torch_device,
                         dtype=self._dtype,
                         is_eval=self._eval,
-                        debug=self._debug)
+                        debug=self._debug,
+                        layer_size_actor=layer_size_actor,
+                        layer_size_critic=layer_size_actor)
         # self._agent.to(self._torch_device) # move agent to target device
 
         # load model if necessary 

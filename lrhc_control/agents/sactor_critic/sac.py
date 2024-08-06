@@ -23,13 +23,17 @@ class SACAgent(nn.Module):
             dtype=torch.float32,
             is_eval:bool=False,
             epsilon:float=1e-8,
-            debug:bool=False):
+            debug:bool=False,
+            layer_size_actor:int=256,
+            layer_size_critic:int=256):
 
         super().__init__()
 
         self._normalize_obs = norm_obs
 
         self._debug = debug
+        layer_size_actor=layer_size_actor
+        layer_size_critic=layer_size_critic
 
         self.actor = Actor(obs_dim=obs_dim,
                     actions_dim=actions_dim,
@@ -37,23 +41,28 @@ class SACAgent(nn.Module):
                     actions_lb=actions_lb,
                     device=device,
                     dtype=dtype,
+                    layer_size=layer_size_actor
                     )
         self.qf1 = CriticQ(obs_dim=obs_dim,
                     actions_dim=actions_dim,
                     device=device,
-                    dtype=dtype)
+                    dtype=dtype,
+                    layer_size=layer_size_critic)
         self.qf1_target = CriticQ(obs_dim=obs_dim,
                     actions_dim=actions_dim,
                     device=device,
-                    dtype=dtype)
+                    dtype=dtype,
+                    layer_size=layer_size_critic)
         self.qf2 = CriticQ(obs_dim=obs_dim,
                     actions_dim=actions_dim,
                     device=device,
-                    dtype=dtype)
+                    dtype=dtype,
+                    layer_size=layer_size_critic)
         self.qf2_target = CriticQ(obs_dim=obs_dim,
                     actions_dim=actions_dim,
                     device=device,
-                    dtype=dtype)
+                    dtype=dtype,
+                    layer_size=layer_size_critic)
       
         self.qf1_target.load_state_dict(self.qf1.state_dict())
         self.qf2_target.load_state_dict(self.qf2.state_dict())
@@ -100,7 +109,8 @@ class CriticQ(nn.Module):
             obs_dim: int, 
             actions_dim: int,
             device:str="cuda",
-            dtype=torch.float32):
+            dtype=torch.float32,
+            layer_size:int=256):
 
         super().__init__()
 
@@ -111,7 +121,7 @@ class CriticQ(nn.Module):
         self._actions_dim = actions_dim
         self._q_net_dim = self._obs_dim+self._actions_dim
 
-        size_internal_layer = 128
+        size_internal_layer=layer_size
     
         self._q_net = nn.Sequential(
             self._layer_init(layer=nn.Linear(self._q_net_dim, size_internal_layer), device=self._torch_device,dtype=self._torch_dtype),
@@ -151,7 +161,8 @@ class Actor(nn.Module):
             actions_ub: List[float] = None,
             actions_lb: List[float] = None,
             device:str="cuda",
-            dtype=torch.float32):
+            dtype=torch.float32,
+            layer_size:int=256):
         super().__init__()
 
         self._torch_device = device
@@ -198,7 +209,7 @@ class Actor(nn.Module):
             "action_bias", actions_bias
         )
 
-        size_internal_layer = 64
+        size_internal_layer = layer_size
         self.LOG_STD_MAX = 2
         self.LOG_STD_MIN = -5
 
