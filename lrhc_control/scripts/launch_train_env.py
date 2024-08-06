@@ -56,10 +56,16 @@ if __name__ == "__main__":
     parser.add_argument('--anomaly_detect', action=argparse.BooleanOptionalAction, default=False, \
                 help='Whether to override automatically generated agent refs (useful for debug)')
 
+    parser.add_argument('--actor_size', type=int, help='seed', default=256)
+    parser.add_argument('--critic_size', type=int, help='seed', default=256)
+
     args = parser.parse_args()
     args_dict = vars(args)
     
-    mpath_full = os.path.join(args.mpath, args.mname)
+    if (not args.mpath is None) and (not args.mname is None):
+        mpath_full = os.path.join(args.mpath, args.mname)
+    else:
+        mpath_full=None
 
     if not args.eval:
         from lrhc_control.envs.linvel_env_baseline import LinVelTrackBaseline
@@ -113,6 +119,8 @@ if __name__ == "__main__":
                remote_db=args.rmdb,
                seed=args.seed)
     
+    custom_args["layer_size_actor"]=args.actor_size
+    custom_args["layer_size_critic"]=args.critic_size
     custom_args.update(args_dict)
     custom_args.update(sim_data)
 

@@ -165,6 +165,13 @@ class SActorCriticAlgoBase():
 
         self._torch_device = torch.device("cuda" if torch.cuda.is_available() and self._use_gpu else "cpu")
 
+        try:
+            layer_size_actor=self._hyperparameters["layer_size_actor"]
+            layer_size_critic=self._hyperparameters["layer_size_critic"]
+        except:
+            layer_size_actor=256
+            layer_size_critic=256
+            pass
         self._agent = SACAgent(obs_dim=self._env.obs_dim(),
                     actions_dim=self._env.actions_dim(),
                     actions_ub=self._env.get_actions_ub().flatten().tolist(),
@@ -173,7 +180,9 @@ class SActorCriticAlgoBase():
                     device=self._torch_device,
                     dtype=self._dtype,
                     is_eval=self._eval,
-                    debug=self._debug)
+                    debug=self._debug,
+                    layer_size_actor=layer_size_actor,
+                    layer_size_critic=layer_size_actor)
 
         # load model if necessary 
         if self._eval: # load pretrained model
@@ -734,8 +743,8 @@ class SActorCriticAlgoBase():
         self._total_timesteps_vec = self._total_timesteps // self._num_envs
         self._total_timesteps = self._total_timesteps_vec*self._num_envs # actual n transitions
 
-        self._lr_policy = 3e-4
-        self._lr_q = 1e-3
+        self._lr_policy = 1e-4
+        self._lr_q = 1e-4
 
         self._discount_factor = 0.99
         self._smoothing_coeff = 0.005
