@@ -25,7 +25,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         
         action_repeat = 1
 
-        self._use_prev_actions_stats = False
+        self._use_prev_actions_stats = True
         self._use_horizontal_frame_for_refs = False # usually impractical for task rand to set this to True 
         self._use_local_base_frame = True
 
@@ -82,8 +82,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._health_value = 10.0
 
         # task tracking
-        self._task_offset= 10.0
-        self._task_scale = 5.0
+        self._task_offset= 0 # 10.0
+        self._task_scale =0 # 5.0
         self._task_err_weights = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.0) 
         self._task_err_weights[0, 0] = 1.0
@@ -99,8 +99,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._rhc_fail_idx_scale = 0.0 # 1e-4
 
         # power penalty
-        self._power_offset = 10.0
-        self._power_scale = 0.1
+        self._power_offset = 0# 10.0
+        self._power_scale = 0# 0.1
         self._power_penalty_weights = torch.full((1, n_jnts), dtype=dtype, device=device,
                             fill_value=1.0)
         n_jnts_per_limb = round(n_jnts/n_contacts) # assuming same topology along limbs
@@ -127,7 +127,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         
         # task rand
         self._use_pof0 = True
-        self._pof0 = 0.1
+        self._pof0 = 1.0
         self._twist_ref_lb = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=-0.8) 
         self._twist_ref_ub = torch.full((1, 6), dtype=dtype, device=device,
@@ -305,15 +305,6 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # self.randomize_task_refs(env_indxs=self._task_rand_counter.time_limits_reached().flatten()) # randomize 
         # refs of envs that reached task randomization time
         self.randomize_task_refs(env_indxs=episode_finished.flatten())
-
-        if self._use_prev_actions_stats: # if ep finished we need to reset the prev action
-        # in the obs, otherwise there's bias between episodes
-            terminated = self._terminations.get_torch_mirror(gpu=self._use_gpu)
-            truncated = self._truncations.get_torch_mirror(gpu=self._use_gpu)
-            episode_finished= torch.logical_or(terminated,
-                                truncated)
-            obs=self._obs.get_torch_mirror(gpu=self._use_gpu)
-            obs[episode_finished.flatten(), self._prev_act_idx:(self._prev_act_idx+self.actions_dim())]=0
 
     def _apply_actions_to_rhc(self):
         
