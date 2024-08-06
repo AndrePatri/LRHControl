@@ -1,24 +1,23 @@
-from lrhc_control.envs.linvel_env_baseline import LinVelTrackBaseline
-
 from lrhc_control.training_algs.ppo.ppo import PPO
 from lrhc_control.training_algs.sac.sac import SAC
 
 from control_cluster_bridge.utilities.shared_data.sim_data import SharedSimInfo
 
-from SharsorIPCpp.PySharsorIPC import VLevel
+from SharsorIPCpp.PySharsorIPC import VLevel, Journal
 from SharsorIPCpp.PySharsorIPC import StringTensorServer
 
 import os, argparse
 
 from perf_sleep.pyperfsleep import PerfSleep
 
-# Function to set CPU affinity
-def set_affinity(cores):
-    try:
-        os.sched_setaffinity(0, cores)
-        print(f"Set CPU affinity to cores: {cores}")
-    except Exception as e:
-        print(f"Error setting CPU affinity: {e}")
+import importlib.util
+
+# Function to dynamically import a module from a specific file path
+def import_env_module(env_path):
+    spec = importlib.util.spec_from_file_location("env_module", env_path)
+    env_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(env_module)
+    return env_module
 
 if __name__ == "__main__":  
 
@@ -28,25 +27,29 @@ if __name__ == "__main__":
     parser.add_argument('--run_name', type=str, help='Name of training run', default="LRHCTraining")
     parser.add_argument('--ns', type=str, help='Namespace to be used for shared memory')
     parser.add_argument('--drop_dir', type=str, help='Directory root where all run data will be dumped')
+    parser.add_argument('--dump_checkpoints', action=argparse.BooleanOptionalAction, default=True, help='Whether to dump model checkpoints during training')
+   
+    parser.add_argument('--obs_norm', action=argparse.BooleanOptionalAction, default=True, help='Whether to enable the use of running normalizer in agent')
+
+    parser.add_argument('--use_cer', action=argparse.BooleanOptionalAction, default=False, help='')
+    parser.add_argument('--sac', action=argparse.BooleanOptionalAction, default=True, help='')
+
+    parser.add_argument('--eval', action=argparse.BooleanOptionalAction, default=False, help='Whether to perform an evaluation run')
     parser.add_argument('--n_evals', type=int, help='N. of evaluation rollouts to be performed', default=None)
     parser.add_argument('--n_timesteps', type=int, help='Toal n. of timesteps for each evaluation rollout', default=None)
     parser.add_argument('--mpath', type=str, help='Model path to be used for policy evaluation',default=None)
+    parser.add_argument('--mname', type=str, help='Model name',default=None)
+
     parser.add_argument('--comment', type=str, help='Any useful comment associated with this run',default="")
     parser.add_argument('--seed', type=int, help='seed', default=1)
     
     parser.add_argument('--timeout_ms', type=int, help='connection timeout after which the script self-terminates', default=60000)
 
-    parser.add_argument('--eval', action=argparse.BooleanOptionalAction, default=False, help='Whether to perform an evaluation run')
-    parser.add_argument('--dump_checkpoints', action=argparse.BooleanOptionalAction, default=True, help='Whether to dump model checkpoints during training')
     parser.add_argument('--use_cpu', action=argparse.BooleanOptionalAction, default=False, help='If set, all the training (data included) will be perfomed on CPU')
     parser.add_argument('--db', action=argparse.BooleanOptionalAction, default=True, help='Whether to enable local data logging for the algorithm (reward metrics, etc..)')
     parser.add_argument('--env_db', action=argparse.BooleanOptionalAction, default=True, help='Whether to enable env db data logging on \
                             shared mem (e.g.reward metrics are not available for reading anymore)')
     parser.add_argument('--rmdb', action=argparse.BooleanOptionalAction, default=True, help='Whether to enable remote debug (e.g. data logging on remote servers)')
-    parser.add_argument('--obs_norm', action=argparse.BooleanOptionalAction, default=True, help='Whether to enable the use of running normalizer in agent')
-
-    parser.add_argument('--use_cer', action=argparse.BooleanOptionalAction, default=False, help='')
-    parser.add_argument('--sac', action=argparse.BooleanOptionalAction, default=True, help='')
 
     parser.add_argument('--override_agent_refs', action=argparse.BooleanOptionalAction, default=False, \
                 help='Whether to override automatically generated agent refs (useful for debug)')
@@ -55,18 +58,36 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     args_dict = vars(args)
-
-    # Set CPU affinity if cores are provided
-    if args.cores:
-        set_affinity(args.cores)
     
-    env = LinVelTrackBaseline(namespace=args.ns,
-                    verbose=True,
-                    vlevel=VLevel.V2,
-                    use_gpu=not args.use_cpu,
-                    debug=args.env_db,
-                    override_agent_refs=args.override_agent_refs,
-                    timeout_ms=args.timeout_ms)
+    mpath_full = os.path.join(mpath, mname)
+
+    if not args.eval:
+        from lrhc_control.envs.linvel_env_baseline import LinVelTrackBaseline
+        env = LinVelTrackBaseline(namespace=args.ns,
+                        verbose=True,
+                        vlevel=VLevel.V2,
+                        use_gpu=not args.use_cpu,
+                        debug=args.env_db,
+                        override_agent_refs=args.override_agent_refs,
+                        timeout_ms=args.timeout_ms)
+    else:
+        env_fname="linvel_env_baseline.py"
+        env_classname="LinVelTrackBaseline"
+        env_path=os.path.join(args.mpath, env_fname)
+        env_module = import_env_module(env_path)
+        EnvClass=getattr(env_module, env_classname)
+        env = EnvClass(namespace=args.ns,
+            verbose=True,
+            vlevel=VLevel.V2,
+            use_gpu=not args.use_cpu,
+            debug=args.env_db,
+            override_agent_refs=args.override_agent_refs,
+            timeout_ms=args.timeout_ms)
+        Journal.log("launch_train_env.py",
+            f"loading evaluation env {env_classname} at {env_path}",
+            info,
+            LogType.INFO,
+            throw_when_excep = True)
     
     # getting some sim info for debugging
     sim_data = {}
@@ -102,7 +123,7 @@ if __name__ == "__main__":
         custom_args=custom_args,
         comment=args.comment,
         eval=args.eval,
-        model_path=args.mpath,
+        model_path=mpath_full,
         n_evals=args.n_evals,
         n_timesteps_per_eval=args.n_timesteps,
         dump_checkpoints=args.dump_checkpoints,
