@@ -447,6 +447,9 @@ if __name__ == "__main__":
     parser.add_argument('--render', action=argparse.BooleanOptionalAction, default=False, help='Whether to render environemnt')
     parser.add_argument('--handle_final_obs', action=argparse.BooleanOptionalAction, default=True, help='Whether to handle terminal obs properly')
 
+    parser.add_argument('--sac', action=argparse.BooleanOptionalAction, default=True, help='')
+    parser.add_argument('--use_cer', action=argparse.BooleanOptionalAction, default=False, help='use combined experience replay')
+
     args = parser.parse_args()
     args_dict = vars(args)
     render_mode = "human" if args.render else None
@@ -463,16 +466,19 @@ if __name__ == "__main__":
                         seed=args.seed,
                         gym_env_dtype=np.float32,
                         handle_final_obs=args.handle_final_obs)
-    algo = SAC(env=env_wrapper, 
-            debug=args.db, 
-            remote_db=args.rmdb,
-            seed=args.seed)
-    # algo = PPO(env=env_wrapper, 
-    #         debug=args.db, 
-    #         remote_db=args.rmdb,
-    #         seed=args.seed)
-    
+
     custom_args_dict = {}
+    if args.sac:
+        algo = SAC(env=env_wrapper, 
+                debug=args.db, 
+                remote_db=args.rmdb,
+                seed=args.seed)
+        custom_args_dict["use_combined_exp_replay"]=args.use_cer
+    else:
+        algo = PPO(env=env_wrapper, 
+                debug=args.db, 
+                remote_db=args.rmdb,
+                seed=args.seed)
     custom_args_dict.update(args_dict)
     custom_args_dict.update({"gymansium_env_type": env_type})
 
