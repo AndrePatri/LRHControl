@@ -874,19 +874,7 @@ class SActorCriticAlgoBase():
         if self._bpos == self._replay_buffer_size_vec:
             self._replay_bf_full = True
             self._bpos = 0
-    
-    def _sample_with_comb_exp_replay(self):
 
-        
-
-        batched_obs = self._obs.view((-1, self._env.obs_dim()))
-        batched_next_obs = self._next_obs.view((-1, self._env.obs_dim()))
-        batched_actions = self._actions.view((-1, self._env.actions_dim()))
-        batched_rewards = self._rewards.view(-1)
-        batched_terminal = self._next_terminal.view(-1)
-
-    
-            
     def _sample(self):
         
         batched_obs = self._obs.view((-1, self._env.obs_dim()))
@@ -895,10 +883,10 @@ class SActorCriticAlgoBase():
         batched_rewards = self._rewards.view(-1)
         batched_terminal = self._next_terminal.view(-1)
 
-        if self._sample_with_comb_exp_replay:
+        if self._use_combined_exp_replay:
             # we always add the latest vec transition to 
             # the sampled batch
-            last_transition_idx=self._pos-1 if not self._pos==0 else self._replay_buffer_size_vec-1
+            last_transition_idx=self._bpos-1 if not self._bpos==0 else self._replay_buffer_size_vec-1
             obs_last=self._obs[last_transition_idx].view((-1, self._env.obs_dim()))
             next_obs_last=self._next_obs[last_transition_idx].view((-1, self._env.obs_dim()))
             next_actions_last=self._actions[last_transition_idx].view((-1, self._env.actions_dim()))
@@ -912,11 +900,11 @@ class SActorCriticAlgoBase():
                 shuffled_buffer_idxs = torch.randint(0, up_to,
                                             (n_uncorrelated_samples,)) 
 
-                sampled_obs =torch.cat(batched_obs[shuffled_buffer_idxs], obs_last, dim=0)
-                sampled_next_obs = torch.cat(batched_next_obs[shuffled_buffer_idxs], next_obs_last, dim=0)
-                sampled_actions = torch.cat(batched_actions[shuffled_buffer_idxs], next_actions_last, dim=0)
-                sampled_rewards =torch.cat(batched_rewards[shuffled_buffer_idxs], next_rewards_last, dim=0)
-                sampled_terminal =torch.cat(batched_terminal[shuffled_buffer_idxs], next_terminal_last, dim=0)
+                sampled_obs =torch.cat((batched_obs[shuffled_buffer_idxs], obs_last), dim=0)
+                sampled_next_obs = torch.cat((batched_next_obs[shuffled_buffer_idxs], next_obs_last), dim=0)
+                sampled_actions = torch.cat((batched_actions[shuffled_buffer_idxs], next_actions_last), dim=0)
+                sampled_rewards =torch.cat((batched_rewards[shuffled_buffer_idxs], next_rewards_last), dim=0)
+                sampled_terminal =torch.cat((batched_terminal[shuffled_buffer_idxs], next_terminal_last), dim=0)
             else:
                 sampled_obs = obs_last.clone()
                 sampled_next_obs = next_obs_last.clone()
