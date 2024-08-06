@@ -3,7 +3,7 @@ from lrhc_control.training_algs.sac.sac import SAC
 
 from control_cluster_bridge.utilities.shared_data.sim_data import SharedSimInfo
 
-from SharsorIPCpp.PySharsorIPC import VLevel, Journal
+from SharsorIPCpp.PySharsorIPC import VLevel, Journal, LogType
 from SharsorIPCpp.PySharsorIPC import StringTensorServer
 
 import os, argparse
@@ -59,7 +59,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     args_dict = vars(args)
     
-    mpath_full = os.path.join(mpath, mname)
+    mpath_full = os.path.join(args.mpath, args.mname)
 
     if not args.eval:
         from lrhc_control.envs.linvel_env_baseline import LinVelTrackBaseline
@@ -84,8 +84,8 @@ if __name__ == "__main__":
             override_agent_refs=args.override_agent_refs,
             timeout_ms=args.timeout_ms)
         Journal.log("launch_train_env.py",
+            "",
             f"loading evaluation env {env_classname} at {env_path}",
-            info,
             LogType.INFO,
             throw_when_excep = True)
     
