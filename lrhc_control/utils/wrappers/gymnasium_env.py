@@ -449,6 +449,9 @@ if __name__ == "__main__":
 
     parser.add_argument('--sac', action=argparse.BooleanOptionalAction, default=True, help='')
     parser.add_argument('--use_cer', action=argparse.BooleanOptionalAction, default=False, help='use combined experience replay')
+    
+    parser.add_argument('--actor_size', type=int, help='seed', default=64)
+    parser.add_argument('--critic_size', type=int, help='seed', default=64)
 
     args = parser.parse_args()
     args_dict = vars(args)
@@ -480,6 +483,8 @@ if __name__ == "__main__":
                 remote_db=args.rmdb,
                 seed=args.seed)
     custom_args_dict.update(args_dict)
+    custom_args["layer_size_actor"]=args.actor_size
+    custom_args["layer_size_critic"]=args.critic_size
     custom_args_dict.update({"gymansium_env_type": env_type})
 
     algo.setup(run_name=args.run_name, 
