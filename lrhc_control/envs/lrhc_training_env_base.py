@@ -989,8 +989,14 @@ class LRhcTrainingEnvBase():
                 throw: bool = False):
         if not torch.isfinite(tensor).all().item():
             exception = f"Found nonfinite elements in {name} tensor!!"
-            if throw:
-                print(tensor)
+            if name=="observations":
+                print(', '.join(self.obs_names()))
+            if name=="rewards":
+                print(', '.join(self.sub_rew_names()))
+            non_finite_idxs=torch.nonzero(~torch.isfinite(tensor))
+            print("Non-finite idxs [[env_idx,data_idx],...]:")
+            print(non_finite_idxs)
+            print(tensor)
             Journal.log(self.__class__.__name__,
                 "_check_finite",
                 exception,
