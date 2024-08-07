@@ -737,7 +737,7 @@ class SActorCriticAlgoBase():
         self._replay_buffer_size_nominal = int(10e6) # 32768
         self._replay_buffer_size_vec = self._replay_buffer_size_nominal//self._num_envs # 32768
         self._replay_buffer_size = self._replay_buffer_size_vec*self._num_envs
-        self._batch_size = 16384
+        self._batch_size = 1024
         self._total_timesteps = int(50e6)
         self._total_timesteps = self._total_timesteps//self._env_n_action_reps # correct with n of action reps
         self._total_timesteps_vec = self._total_timesteps // self._num_envs
@@ -943,9 +943,9 @@ class SActorCriticAlgoBase():
         actions = self._env.get_actions()
 
         action_scale = (self._env.get_actions_ub()-self._env.get_actions_lb())/2.0
-        action_offset = (self._env.get_actions_ub()+self._env.get_actions_lb())/2.0
+        action_bias = (self._env.get_actions_ub()+self._env.get_actions_lb())/2.0
 
-        random_actions = torch.randn_like(actions) * action_scale + action_offset
+        random_actions = torch.randn_like(actions)*action_scale+action_bias
 
         return random_actions
     
