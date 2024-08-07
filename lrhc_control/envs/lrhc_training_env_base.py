@@ -109,7 +109,7 @@ class LRhcTrainingEnvBase():
         self._namespace = namespace
         self._with_gpu_mirror = True
         self._safe_shared_mem = False
-
+        
         self._obs_dim = obs_dim
         self._actions_dim = actions_dim
 
@@ -988,14 +988,20 @@ class LRhcTrainingEnvBase():
                 name: str, 
                 throw: bool = False):
         if not torch.isfinite(tensor).all().item():
-            exception = f"Found nonfinite elements in {name} tensor!!"
-            if name=="observations":
-                print(', '.join(self.obs_names()))
-            if name=="rewards":
-                print(', '.join(self.sub_rew_names()))
+            exception = f"Found nonfinite elements in {name} tensor!!"            
             non_finite_idxs=torch.nonzero(~torch.isfinite(tensor))
-            print("Non-finite idxs [[env_idx,data_idx],...]:")
-            print(non_finite_idxs)
+            n_nonf_elems=non_finite_idxs.shape[0]
+
+            if name=="observations":
+                for i in range(n_nonf_elems):
+                    db_msg=f"{self.obs_names()[non_finite_idxs[i,1]]} (env. {non_finite_idxs[i,0]}):" + \
+                        f" {tensor[non_finite_idxs[i,0],non_finite_idxs[i,1]].item()}"
+                    print(db_msg)
+            if name=="rewards":
+                for i in range(n_nonf_elems):
+                    db_msg=f"{self.sub_rew_names()[non_finite_idxs[i,1]]} (env. {non_finite_idxs[i,0]}):" + \
+                        f" {tensor[non_finite_idxs[i,0],non_finite_idxs[i,1]].item()}"
+                    print(db_msg)
             print(tensor)
             Journal.log(self.__class__.__name__,
                 "_check_finite",
