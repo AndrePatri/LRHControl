@@ -483,8 +483,8 @@ if __name__ == "__main__":
                 remote_db=args.rmdb,
                 seed=args.seed)
     custom_args_dict.update(args_dict)
-    custom_args["layer_size_actor"]=args.actor_size
-    custom_args["layer_size_critic"]=args.critic_size
+    custom_args_dict["layer_size_actor"]=args.actor_size
+    custom_args_dict["layer_size_critic"]=args.critic_size
     custom_args_dict.update({"gymansium_env_type": env_type})
 
     algo.setup(run_name=args.run_name, 
