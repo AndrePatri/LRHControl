@@ -105,8 +105,9 @@ class HybridQuadRhcRefs(RhcRefs):
                     if is_contact[i]==False:
                         self.gait_manager.add_flight(timeline_name)
                     else:
-                        force_ref.setRef(index=i, # force
-                            ref=self._total_weight/n_limbs_in_contact)
+                        if force_ref is not None:
+                            force_ref.setRef(index=i, # force
+                                ref=self._total_weight/n_limbs_in_contact)
                         if timeline.getEmptyNodes() > 0: # if there's space, always add a stance
                             self.gait_manager.add_stand(timeline_name)
 
