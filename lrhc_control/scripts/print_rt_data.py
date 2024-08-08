@@ -33,9 +33,12 @@ if __name__ == "__main__":
     parser.add_argument('--resolution', type=int, help='', default=2)
     parser.add_argument('--with_sub_r', action=argparse.BooleanOptionalAction, default=True, help='')
     parser.add_argument('--with_sinfo', action=argparse.BooleanOptionalAction, default=True, help='')
+    parser.add_argument('--obs_names', nargs='+', default=None,
+                        help='')
 
     args = parser.parse_args()
 
+    obs_selected_names=args.obs_names
     update_dt=args.update_dt
     run_for=args.run_for_nominal
     namespace=args.ns
@@ -86,6 +89,11 @@ if __name__ == "__main__":
     obs.run()
     # next_obs.run()
     obs_names=obs.col_names()
+    if obs_selected_names is not None:
+        obs_idxs = [obs_selected_names.index(item) for item in obs_selected_names]
+        if len(obs_idxs)==0:
+            obs_idxs=list(range(0,len(obs_names)))
+            obs_selected_names=obs_names
     act.run()
     act_names=act.col_names()
     rew.run()
@@ -147,8 +155,8 @@ if __name__ == "__main__":
             if sim_data is not None:
                 print(f"sim time: {round(sim_time, 2)} [s] -->\n")
             print("\nobservations:")
-            print(obs_names, sep = ", ")
-            print(obs.get_torch_mirror(gpu=False)[idx:idx+env_range, :])
+            print(obs_selected_names, sep = ", ")
+            print(obs.get_torch_mirror(gpu=False)[idx:idx+env_range, obs_idxs])
             # print("-->next observations:")
             # print(next_obs.get_torch_mirror(gpu=False)[idx:idx+env_range, :])
             print("\nactions:")
