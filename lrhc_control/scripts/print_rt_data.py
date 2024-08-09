@@ -14,7 +14,6 @@ from SharsorIPCpp.PySharsorIPC import VLevel
 from SharsorIPCpp.PySharsorIPC import LogType
 from SharsorIPCpp.PySharsorIPC import Journal
 from SharsorIPCpp.PySharsorIPC import dtype as sharsor_dtype
-
 import torch
 
 if __name__ == "__main__":  
@@ -51,7 +50,7 @@ if __name__ == "__main__":
     dtype=sharsor_dtype.Float
     if args.dtype == "double":
         dtype=sharsor_dtype.Double
-
+    
     obs = Observations(namespace=namespace,is_server=False,verbose=True, 
                 vlevel=VLevel.V2,safe=False,
                 with_gpu_mirror=False,dtype=dtype)
@@ -89,11 +88,13 @@ if __name__ == "__main__":
     obs.run()
     # next_obs.run()
     obs_names=obs.col_names()
+    obs_idxs=list(range(0,len(obs_names)))
     if obs_selected_names is not None:
-        obs_idxs = [obs_selected_names.index(item) for item in obs_selected_names]
+        obs_idxs = [obs_names.index(item) for item in obs_selected_names]
         if len(obs_idxs)==0:
-            obs_idxs=list(range(0,len(obs_names)))
             obs_selected_names=obs_names
+    else:
+        obs_selected_names=obs_names
     act.run()
     act_names=act.col_names()
     rew.run()
@@ -148,7 +149,7 @@ if __name__ == "__main__":
             if sub_rew is not None:
                 sub_rew.synch_all(read=True, retry=True)
             trunc.synch_all(read=True, retry=True)
-            term.synch_all(read=True, retry=True)
+            term.synch_all(read=True, retry=True)            
 
             print(f"########################")
             print(f"wall time: {round(elapsed_tot_nom, 2)} [s] -->\n")
@@ -182,8 +183,9 @@ if __name__ == "__main__":
                 print(task_counter.counter().get_torch_mirror(gpu=False)[idx:idx+env_range, :])
             if random_reset is not None:
                 random_reset.counter().synch_all(read=True, retry=True)
-                print("\random reset counter:")
+                print("\n random reset counter:")
                 print(random_reset.counter().get_torch_mirror(gpu=False)[idx:idx+env_range, :])
+            
             elapsed_time = time.perf_counter() - start_time
             time_to_sleep_ns = int((update_dt - elapsed_time) * 1e+9) # [ns]
             if time_to_sleep_ns < 0:
