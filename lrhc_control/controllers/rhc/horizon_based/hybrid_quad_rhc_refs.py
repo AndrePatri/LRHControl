@@ -43,13 +43,13 @@ class HybridQuadRhcRefs(RhcRefs):
                 exception,
                 LogType.EXCEP,
                 throw_when_excep = True)
-            
-        # handles phase transitions
+               
         self.gait_manager = gait_manager
         self._kin_dyn = self.gait_manager.task_interface.model.kd
         self._ti=self.gait_manager.task_interface
+        self._prb=self._ti.prb
+
         self._timelines = self.gait_manager._contact_timelines
-        
         self._timeline_names = self.gait_manager._timeline_names
 
         # task interfaces from horizon for setting commands to rhc
@@ -59,8 +59,23 @@ class HybridQuadRhcRefs(RhcRefs):
 
     def _get_tasks(self):
         # can be overridden by child
-        self.base_position = self.gait_manager.task_interface.getTask('base_position')
-        self.base_orientation = self.gait_manager.task_interface.getTask('base_orientation')
+        # cartesian tasks are in LOCAL_WORLD_ALIGNED (frame centered at distal link, oriented as WORLD)
+        self.base_lin_vel = self.gait_manager.task_interface.getTask('base_lin_vel')
+        self.base_omega = self.gait_manager.task_interface.getTask('base_omega')
+        self.base_height = self.gait_manager.task_interface.getTask('base_height')
+
+        self._f_reg_ref=[None]*len(self._timeline_names)
+        self._n_forces_per_contact=[1]*len(self._timeline_names)
+        i=0
+        for timeline in self._timeline_names:
+            self._f_reg_ref[i]=[]
+            j=0
+            forces_on_contact=self._ti.model.cmap[timeline]
+            self._n_forces_per_contact[i]=len(forces_on_contact)
+            for force in forces_on_contact:
+                self._f_reg_ref[i].append(self._prb.getParameters(name=f"{timeline}_force_reg_f{j}_ref"))
+                j+=1
+            i+=1
 
     def run(self):
 
@@ -73,7 +88,7 @@ class HybridQuadRhcRefs(RhcRefs):
                 exception,
                 LogType.EXCEP,
                 throw_when_excep = True)
-        contact_names = self.gait_manager.task_interface.model.cmap.keys()
+        contact_names = self._ti.model.cmap.keys()
         if not (self.n_contacts() == len(contact_names)):
             exception = f"N of contacts within problem {len(contact_names)} does not match n of contacts {self.n_contacts()}"
             Journal.log(self.__class__.__name__,
@@ -97,21 +112,20 @@ class HybridQuadRhcRefs(RhcRefs):
             if phase_id == -1: # custom phases
                 contact_flags = self.contact_flags.get_numpy_mirror()[self.robot_index, :]
                 n_limbs_in_contact=np.sum(contact_flags).item()
-                force_ref = self._ti.getTask('force_regularization')
                 is_contact = contact_flags.flatten().tolist() 
-                for i in range(len(is_contact)):
+                for i in range(len(is_contact)): # loop through contact timelines
                     timeline_name = self._timeline_names[i]
                     timeline = self.gait_manager._contact_timelines[timeline_name]
-                    if is_contact[i]==False:
+                    if is_contact[i]==False: # flight phase
                         self.gait_manager.add_flight(timeline_name)
-                    else:
-                        if force_ref is not None:
-                            force_ref.setRef(index=i, # force
-                                ref=self._total_weight/n_limbs_in_contact)
+                    else: # contact phase
+                        for contact_force_ref in self._f_reg_ref[i]: # set for references depending on n of contacts and contact forces per-contact
+                            scale=self._n_forces_per_contact[i]*n_limbs_in_contact
+                            contact_force_ref.assign(self._total_weight/scale)
                         if timeline.getEmptyNodes() > 0: # if there's space, always add a stance
                             self.gait_manager.add_stand(timeline_name)
 
-                for timeline_name in self._timeline_names: # sanity check
+                for timeline_name in self._timeline_names: # sanity check on the timeline to avoid nasty empty nodes
                     timeline = self.gait_manager._contact_timelines[timeline_name]
                     if timeline.getEmptyNodes() > 0:
                         error = f"Empty nodes detected over the horizon! Make sure to fill the whole horizon with valid phases!!"
