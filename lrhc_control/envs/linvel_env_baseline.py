@@ -23,7 +23,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             override_agent_refs: bool = False,
             timeout_ms: int = 60000):
         
-        action_repeat = 1
+        action_repeat = 10
 
         self._use_prev_actions_stats = True
         self._use_horizontal_frame_for_refs = False # usually impractical for task rand to set this to True 
@@ -82,8 +82,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._health_value = 10.0
 
         # task tracking
-        self._task_offset= 0 # 10.0
-        self._task_scale =0 # 5.0
+        self._task_offset= 10.0 # 10.0
+        self._task_scale = 5.0 # 5.0
         self._task_err_weights = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.0) 
         self._task_err_weights[0, 0] = 1.0
@@ -128,7 +128,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         
         # task rand
         self._use_pof0 = True
-        self._pof0 = 1.0
+        self._pof0 = 0.1
         self._twist_ref_lb = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=-0.8) 
         self._twist_ref_ub = torch.full((1, 6), dtype=dtype, device=device,
