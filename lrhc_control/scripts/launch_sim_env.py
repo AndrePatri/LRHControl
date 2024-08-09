@@ -47,7 +47,7 @@ if __name__ == '__main__':
     parser.add_argument('--wheel_damp', type=float, default=10.0, help='damping coeff for low level vel control of wheels (if present)')
     parser.add_argument('--wheel_radius', type=float, default=0.124, help='wheel radius (used for contact sensing)')
     parser.add_argument('--spawning_height', type=float, default=0.6, help='initial height at which robots will be spawned')
-    parser.add_argument('--physics_dt', type=float, default=1e-3, help='')
+    parser.add_argument('--physics_dt', type=float, default=5e-4, help='')
     parser.add_argument('--use_custom_jnt_imp', action=argparse.BooleanOptionalAction, default=True, 
         help='Whether to override the default PD controller with a custom one')
     parser.add_argument('--diff_vels', action=argparse.BooleanOptionalAction, default=False, 
