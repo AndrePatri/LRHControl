@@ -210,7 +210,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self.custom_db_info["use_local_base_frame"] = self._use_local_base_frame
         self.custom_db_info["use_pof0"] = self._use_pof0
         self.custom_db_info["pof0"] = self._pof0
-        self.custom_db_info["action_repeat"] = self.action_repeat
+        self.custom_db_info["action_repeat"] = self._action_repeat
 
     def _custom_post_init(self):
         # overriding parent's defaults 
