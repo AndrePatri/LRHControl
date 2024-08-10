@@ -174,6 +174,7 @@ class ActorCriticAlgoBase():
         if (self._debug):
             if self._remote_db:
                 job_type = "evaluation" if self._eval else "training"
+                full_run_config={**self._hyperparameters,**self._env.custom_db_info}
                 wandb.init(
                     project="LRHControl",
                     group=self._run_name,
@@ -186,7 +187,7 @@ class ActorCriticAlgoBase():
                     mode="online", # "online", "offline" or "disabled"
                     entity=None,
                     sync_tensorboard=True,
-                    config=self._hyperparameters,
+                    config=full_run_config,
                     monitor_gym=True,
                     save_code=True,
                     dir=self._drop_dir
