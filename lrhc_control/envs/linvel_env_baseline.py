@@ -23,7 +23,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             override_agent_refs: bool = False,
             timeout_ms: int = 60000):
         
-        action_repeat = 10
+        action_repeat = 1
 
         self._use_prev_actions_stats = True
         self._use_horizontal_frame_for_refs = False # usually impractical for task rand to set this to True 
@@ -82,7 +82,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._health_value = 10.0
 
         # task tracking
-        self._task_offset= 10.0 # 10.0
+        self._task_offset = 10.0 # 10.0
         self._task_scale = 5.0 # 5.0
         self._task_err_weights = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.0) 
@@ -210,6 +210,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self.custom_db_info["use_local_base_frame"] = self._use_local_base_frame
         self.custom_db_info["use_pof0"] = self._use_pof0
         self.custom_db_info["pof0"] = self._pof0
+        self.custom_db_info["action_repeat"] = self.action_repeat
 
     def _custom_post_init(self):
         # overriding parent's defaults 
