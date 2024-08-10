@@ -88,7 +88,7 @@ class LRhcTrainingEnvBase():
             self._action_repeat = 1
         
         self._use_act_mem_bf = use_act_mem_bf
-        self._act_membf_size = act_membf_size
+        self._act_membf_size = round(act_membf_size/self._action_repeat) 
         
         self._closed = False
 
