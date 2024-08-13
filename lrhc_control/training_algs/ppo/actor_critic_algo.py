@@ -790,7 +790,7 @@ class ActorCriticAlgoBase():
         self._total_timesteps = int(50e6) # total timesteps to be collected (including sub envs)
         self._total_timesteps = self._total_timesteps//self._env_n_action_reps # correct with n of action reps
         
-        self._rollout_timesteps = 256 # numer of vectorized steps (does not include env substepping) 
+        self._rollout_timesteps = 256 # numer of vectorized steps (rescaled depending on env substepping) 
         # to be done per policy rollout (influences adv estimation!!!)
         self._batch_size = self._rollout_timesteps * self._num_envs
 
@@ -799,11 +799,11 @@ class ActorCriticAlgoBase():
         self._total_timesteps_vec = self._iterations_n*self._rollout_timesteps
 
         # policy update
-        self._num_minibatches = 32
+        self._num_minibatches = 4
         self._minibatch_size = self._batch_size // self._num_minibatches
         
-        self._base_lr_actor = 1e-4
-        self._base_lr_critic = 5e-4
+        self._base_lr_actor = 5e-4
+        self._base_lr_critic = 1e-3
         self._lr_now_actor = self._base_lr_actor
         self._lr_now_critic= self._base_lr_critic
         self._anneal_lr = False
