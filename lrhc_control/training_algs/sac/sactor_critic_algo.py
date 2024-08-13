@@ -465,7 +465,7 @@ class SActorCriticAlgoBase():
         
             self._env_step_fps[self._log_it_counter] = (self._db_vecstep_frequency*self._num_envs)/ self._collection_dt[self._log_it_counter]
             if "control_clust_dt" in self._hyperparameters:
-                self._env_step_rt_factor[self._log_it_counter] = self._env_step_fps[self._log_it_counter]*self._hyperparameters["control_clust_dt"]
+                self._env_step_rt_factor[self._log_it_counter] = self._env_step_fps[self._log_it_counter]*self._env_n_action_reps*self._hyperparameters["control_clust_dt"]
 
             self._n_of_played_episodes[self._log_it_counter] = self._episodic_reward_metrics.get_n_played_episodes()
             self._n_timesteps_done[self._log_it_counter]=(self._vec_transition_counter+1)*self._num_envs
@@ -603,8 +603,8 @@ class SActorCriticAlgoBase():
                 f"{est_remaining_time_h} h\n" + \
                 f"Average episodic return across all environments: {self._episodic_rewards_env_avrg[self._log_it_counter, :, :].item()}\n" + \
                 f"Average episodic returns across all environments {self._reward_names_str}: {self._episodic_sub_rewards_env_avrg[self._log_it_counter, :]}\n" + \
-                f"Current env. step fps: {self._env_step_fps[self._log_it_counter].item()}, time for experience collection {self._collection_dt[self._log_it_counter].item()} s\n" + \
-                f"Current env step rt factor: {self._env_step_rt_factor[self._log_it_counter].item()}\n" + \
+                f"Current env. step sps: {self._env_step_fps[self._log_it_counter].item()}, time for experience collection {self._collection_dt[self._log_it_counter].item()} s\n" + \
+                f"Current env (sub-steping) rt factor: {self._env_step_rt_factor[self._log_it_counter].item()}\n" + \
                 f"Current policy update fps: {self._policy_update_fps[self._log_it_counter].item()}, time for policy updates {self._policy_update_dt[self._log_it_counter].item()} s\n"
             
             

@@ -508,8 +508,8 @@ class ActorCriticAlgoBase():
 
             self._env_step_fps[self._log_it_counter] = self._db_vecstep_freq_it * self._batch_size / self._rollout_dt[self._log_it_counter]
             if "control_clust_dt" in self._hyperparameters:
-                self._env_step_rt_factor[self._log_it_counter] = self._env_step_fps[self._log_it_counter] * self._hyperparameters["control_clust_dt"]
-            self._policy_update_fps[self._log_it_counter] = self._db_vecstep_freq_it * self._update_epochs * self._num_minibatches / self._policy_update_dt[self._log_it_counter]
+                self._env_step_rt_factor[self._log_it_counter] = self._env_step_fps[self._log_it_counter]*self._env_n_action_reps*self._hyperparameters["control_clust_dt"] 
+            self._policy_update_fps[self._log_it_counter] = self._db_vecstep_freq_it * self._update_epochs*self._num_minibatches/self._policy_update_dt[self._log_it_counter]
 
             # after rolling out policy, we get the episodic reward for the current policy
             self._episodic_rewards[self._log_it_counter, :, :] = self._episodic_reward_metrics.get_avrg_over_eps() # total ep. rewards across envs
@@ -618,8 +618,8 @@ class ActorCriticAlgoBase():
                 f"{est_remaining_time} h\n" + \
                 f"Average episodic return across all environments: {self._episodic_rewards_env_avrg[self._log_it_counter, :, :].item()}\n" + \
                 f"Average episodic returns across all environments {self._reward_names_str}: {self._episodic_sub_rewards_env_avrg[self._log_it_counter, :]}\n" + \
-                f"Current rollout fps: {self._env_step_fps[self._log_it_counter].item()}, time for rollout {self._rollout_dt[self._log_it_counter].item()} s\n" + \
-                f"Current rollout rt factor: {self._env_step_rt_factor[self._log_it_counter].item()}\n" + \
+                f"Current rollout sps: {self._env_step_fps[self._log_it_counter].item()}, time for rollout {self._rollout_dt[self._log_it_counter].item()} s\n" + \
+                f"Current rollout (sub-steping) rt factor: {self._env_step_rt_factor[self._log_it_counter].item()}\n" + \
                 f"Time to compute bootstrap {self._gae_dt[self._log_it_counter].item()} s\n" + \
                 f"Current policy update fps: {self._policy_update_fps[self._log_it_counter].item()}, time for policy updates {self._policy_update_dt[self._log_it_counter].item()} s\n" + \
                 f"Experience-to-policy grad ratio: {exp_to_pol_grad_ratio}\n"
