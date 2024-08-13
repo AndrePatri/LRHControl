@@ -314,15 +314,17 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # the meaning of each component of this tensor
 
         rhc_latest_twist_ref = self._rhc_refs.rob_refs.root_state.get(data_type="twist", gpu=self._use_gpu)
-        rhc_latest_p_ref = self._rhc_refs.rob_refs.root_state.get(data_type="p", gpu=self._use_gpu)
+        # rhc_latest_p_ref = self._rhc_refs.rob_refs.root_state.get(data_type="p", gpu=self._use_gpu)
         rhc_latest_contact_ref = self._rhc_refs.contact_flags.get_torch_mirror(gpu=self._use_gpu)
 
-        rhc_latest_twist_ref[:, 0:2] = agent_action[:, 0:2] # lin vel cmd
-        rhc_latest_p_ref[:, 2:3] = agent_action[:, 2:3] # h cmds
-        rhc_latest_twist_ref[:, 3:6] = agent_action[:, 3:6] # omega cmd
+        # rhc_latest_twist_ref[:, 0:2] = agent_action[:, 0:2] # lin vel cmd
+        # rhc_latest_p_ref[:, 2:3] = agent_action[:, 2:3] # h cmds
+        # rhc_latest_twist_ref[:, 3:6] = agent_action[:, 3:6] # omega cmd
 
-        self._rhc_refs.rob_refs.root_state.set(data_type="p", data=rhc_latest_p_ref,
-                                            gpu=self._use_gpu)
+        rhc_latest_twist_ref[:, 0:6] = agent_action[:, 0:6]
+        
+        # self._rhc_refs.rob_refs.root_state.set(data_type="p", data=rhc_latest_p_ref,
+        #                                     gpu=self._use_gpu)
         self._rhc_refs.rob_refs.root_state.set(data_type="twist", data=rhc_latest_twist_ref,
                                             gpu=self._use_gpu) 
         
@@ -574,7 +576,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         action_names = [""] * self.actions_dim()
         action_names[0] = "vx_cmd" # twist commands from agent to RHC controller
         action_names[1] = "vy_cmd"
-        action_names[2] = "h_cmd"
+        action_names[2] = "vz_cmd"
         action_names[3] = "roll_twist_cmd"
         action_names[4] = "pitch_twist_cmd"
         action_names[5] = "yaw_twist_cmd"

@@ -62,7 +62,7 @@ class HybridQuadRhcRefs(RhcRefs):
         # cartesian tasks are in LOCAL_WORLD_ALIGNED (frame centered at distal link, oriented as WORLD)
         self.base_lin_vel = self.gait_manager.task_interface.getTask('base_lin_vel')
         self.base_omega = self.gait_manager.task_interface.getTask('base_omega')
-        self.base_height = self.gait_manager.task_interface.getTask('base_height')
+        # self.base_height = self.gait_manager.task_interface.getTask('base_height')
 
         self._f_reg_ref=[None]*len(self._timeline_names)
         self._n_forces_per_contact=[1]*len(self._timeline_names)
