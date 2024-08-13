@@ -750,6 +750,8 @@ class LRhcTrainingEnvBase():
         device = "cuda" if self._use_gpu else "cpu"
         self._is_capsized=torch.zeros((self._n_envs,1), 
             dtype=torch.bool, device=device)
+        self._is_rhc_capsized=torch.zeros((self._n_envs,1), 
+            dtype=torch.bool, device=device)
         self._max_pitch_angle=60.0*math.pi/180.0
     
     def _init_truncations(self):
@@ -1067,12 +1069,17 @@ class LRhcTrainingEnvBase():
         # terminate upon controller failure
 
         robot_q_meas = self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
+        robot_q_pred = self._rhc_cmds.root_state.get(data_type="q",gpu=self._use_gpu)
+
+        # terminate when either the real robot or the prediction from the MPC are capsized
         check_capsize(quat=robot_q_meas,max_angle=self._max_pitch_angle,
             output_t=self._is_capsized)
-
+        check_capsize(quat=robot_q_pred,max_angle=self._max_pitch_angle,
+            output_t=self._is_rhc_capsized)
+        
         # terminate if either MPC explodes or if robot capsizes
         terminations[:, :] = torch.logical_or(self._rhc_status.fails.get_torch_mirror(gpu=self._use_gpu),
-            self._is_capsized)
+            torch.logical_or(self._is_capsized,self._is_rhc_capsized))
 
     @abstractmethod
     def _pre_step(self):
