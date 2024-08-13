@@ -150,6 +150,13 @@ class HybridQuadRhc(RHController):
 
         return self._kin_dyn.mass()
 
+    def _get_root_full_q_from_sol(self, node_idx=1):
+
+        return self._ti.solution['q'][0:7, 1].reshape(1, 7)
+
+    def _get_root_twist_from_sol(self, node_idx=1):
+        return self._ti.solution['v'][0:6, 1].reshape(1, 6)
+
     def _get_cmd_jnt_q_from_sol(self):
         
         # wrapping joint q commands between 2pi and -2pi
