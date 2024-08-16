@@ -23,7 +23,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             override_agent_refs: bool = False,
             timeout_ms: int = 60000):
         
-        action_repeat = 1
+        action_repeat = 3
 
         self._use_prev_actions_stats = True
         self._use_horizontal_frame_for_refs = False # usually impractical for task rand to set this to True 
@@ -55,7 +55,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         robot_state_tmp.close()
         rhc_status_tmp.close()
 
-        actions_dim = 2 + 1 + 3 + 4 # [vxy_cmd, h_cmd, twist_cmd, dostep_0, dostep_1, dostep_2, dostep_3]
+        actions_dim = 2 + 1 + 3 + 4 # [vxzy_cmd, twist_cmd, dostep_0, dostep_1, dostep_2, dostep_3]
 
         # obs_dim = 4+6+2*n_jnts+2+actions_dim
         # obs_dim = 4+6+2*n_jnts+2+1+actions_dim
@@ -79,7 +79,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         device = "cuda" if use_gpu else "cpu"
         
         # health reward 
-        self._health_value = 10.0
+        self._health_value = 0.0
 
         # task tracking
         self._task_offset = 10.0 # 10.0
@@ -127,7 +127,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._jnt_vel_penalty_weights_sum = torch.sum(self._jnt_vel_penalty_weights).item()
         
         # task rand
-        self._use_pof0 = True
+        self._use_pof0 = False
         self._pof0 = 0.1
         self._twist_ref_lb = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=-0.8) 
@@ -161,7 +161,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     n_steps_task_rand_lb=n_steps_task_rand_lb,
                     n_steps_task_rand_ub=n_steps_task_rand_ub,
                     random_reset_freq=random_reset_freq,
-                    use_random_safety_reset=False,
+                    use_random_safety_reset=True,
                     action_repeat=action_repeat,
                     env_name=env_name,
                     n_preinit_steps=n_preinit_steps,
@@ -466,8 +466,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     obs: torch.Tensor,
                     next_obs: torch.Tensor):
         
-        # task_error_fun = self._task_err_pseudolin
-        task_error_fun = self._task_err_pseudolinv2
+        task_error_fun = self._task_err_pseudolin
+        # task_error_fun = self._task_err_pseudolinv2
 
         # task error
         # task_meas = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu) # robot twist meas (local base if _use_local_base_frame)
