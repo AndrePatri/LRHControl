@@ -6,6 +6,7 @@ from lrhc_control.controllers.rhc.horizon_based.utils.math_utils import hor2w_fr
 
 from control_cluster_bridge.utilities.shared_data.rhc_data import RobotState
 from control_cluster_bridge.utilities.shared_data.rhc_data import RhcRefs
+from control_cluster_bridge.utilities.shared_data.rhc_data import RhcCmds
 from control_cluster_bridge.utilities.shared_data.rhc_data import RhcInternal
 from control_cluster_bridge.utilities.shared_data.sim_data import SharedSimInfo
 
@@ -267,6 +268,16 @@ class RhcToViz2Bridge:
         # to rviz conventions (i, k, k, w)
         self.rhc_refs.run()
 
+        self.rhc_cmds = RhcCmds(namespace=self.namespace,
+                                is_server=False,
+                                with_gpu_mirror=False,
+                                safe=False,
+                                verbose=self.verbose,
+                                vlevel=self.vlevel) 
+        self.rhc_cmds.set_q_remapping(q_remapping=[1, 2, 3, 0]) # remapping from w, i, j, k
+        # to rviz and horizon's conventions (i, k, k, w)
+        self.rhc_cmds.run()
+
         if self._with_agent_refs:
             self.agent_refs = AgentRefs(namespace=self.namespace,
                                 is_server=False,
@@ -426,6 +437,7 @@ class RhcToViz2Bridge:
                 # read from shared memory
                 self.robot_state.synch_from_shared_mem()
                 self.rhc_refs.rob_refs.synch_from_shared_mem()
+                self.rhc_cmds.synch_from_shared_mem()
                 if self._with_agent_refs:
                     self.agent_refs.rob_refs.synch_from_shared_mem()
                 self.rhc_internal_clients[self._current_index].synch(read=True)
@@ -456,7 +468,9 @@ class RhcToViz2Bridge:
                 self.robot_state.close()
             if not self.rhc_refs is None:
                 self.rhc_refs.close()
-            
+            if not self.rhc_cmds is None:
+                self.rhc_cmds.close()
+
             self.node.destroy_node()
             # rclpy.shutdown()
             self._closed=True
@@ -512,8 +526,11 @@ class RhcToViz2Bridge:
         
         if self._rhc_refs_in_hor_frame:
             rhc_ref_twist_h = rhc_ref_twist.copy().reshape(-1, 1)
+            # using orientaton q (remapped to horizon's and rviz convetions) internal to the controller
+            # (this HAS to match inside the controller!)
+            rhc_q_cmd=self.rhc_cmds.root_state.get(data_type="q",robot_idxs=self._current_index).reshape(-1, 1)
             hor2w_frame(t_h=rhc_ref_twist.reshape(-1, 1), 
-                        q_b=rhc_q[0:4].reshape(-1, 1), 
+                        q_b=rhc_q_cmd, 
                         t_out=rhc_ref_twist_h)
             rhc_refs = np.concatenate((rhc_ref_pose, rhc_ref_twist_h.flatten()), axis=0)
         else:
