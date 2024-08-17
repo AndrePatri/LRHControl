@@ -172,7 +172,7 @@ class HybridQuadRhc(RHController):
 
     def _get_cmd_jnt_a_from_sol(self):
 
-        return self._get_a_from_sol()[6:, 1].reshape(1,  
+        return self._get_a_from_sol()[6:, 0].reshape(1,  
                     self.n_dofs)
 
     def _get_cmd_jnt_eff_from_sol(self):
