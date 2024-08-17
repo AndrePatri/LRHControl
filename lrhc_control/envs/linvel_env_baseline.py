@@ -27,7 +27,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         self._use_prev_actions_stats = False
         self._use_horizontal_frame_for_refs = False # usually impractical for task rand to set this to True 
-        self._use_local_base_frame = False
+        self._use_local_base_frame = True
 
         # temporarily creating robot state client to get n jnts
         robot_state_tmp = RobotState(namespace=namespace,
@@ -83,14 +83,15 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         # task tracking
         self._task_offset = 10.0 # 10.0
-        self._task_scale = 5.0 # 5.0
+        self._task_scale = 10.0 # perc-based
+        # self._task_scale = 20.0 # 5.0
         self._task_err_weights = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.0) 
         self._task_err_weights[0, 0] = 1.0
         self._task_err_weights[0, 1] = 1.0
         self._task_err_weights[0, 2] = 0.1
-        self._task_err_weights[0, 3] = 1e-3
-        self._task_err_weights[0, 4] = 1e-3
+        self._task_err_weights[0, 3] = 1e-6
+        self._task_err_weights[0, 4] = 1e-6
         self._task_err_weights[0, 5] = 1e-6
         self._task_err_weights_sum = torch.sum(self._task_err_weights).item()
 
@@ -467,8 +468,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     next_obs: torch.Tensor):
         
         # task_error_fun = self._task_err_pseudolin
-        # task_error_fun = self._task_err_pseudolinv2
-        task_error_fun = self._task_err_quad
+        task_error_fun = self._task_err_pseudolinv2
+        # task_error_fun = self._task_err_quad
         # task error
         # task_meas = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu) # robot twist meas (local base if _use_local_base_frame)
         task_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu) # high level agent refs (hybrid twist)
