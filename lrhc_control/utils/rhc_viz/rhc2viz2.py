@@ -513,8 +513,7 @@ class RhcToViz2Bridge:
         if self._rhc_refs_in_hor_frame:
             rhc_ref_twist_h = rhc_ref_twist.copy().reshape(-1, 1)
             hor2w_frame(t_h=rhc_ref_twist.reshape(-1, 1), 
-                        q_b=self.robot_state.root_state.get(data_type="q",
-                        robot_idxs=self._current_index).reshape(-1, 1), 
+                        q_b=rhc_q[0:4].reshape(-1, 1), 
                         t_out=rhc_ref_twist_h)
             rhc_refs = np.concatenate((rhc_ref_pose, rhc_ref_twist_h.flatten()), axis=0)
         else:
