@@ -23,11 +23,11 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             override_agent_refs: bool = False,
             timeout_ms: int = 60000):
         
-        action_repeat = 3
+        action_repeat = 1
 
-        self._use_prev_actions_stats = True
+        self._use_prev_actions_stats = False
         self._use_horizontal_frame_for_refs = False # usually impractical for task rand to set this to True 
-        self._use_local_base_frame = True
+        self._use_local_base_frame = False
 
         # temporarily creating robot state client to get n jnts
         robot_state_tmp = RobotState(namespace=namespace,
@@ -223,12 +223,12 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         v_cmd_max = self.max_ref
         omega_cmd_max = self.max_ref
         self._actions_lb[:, 0:2] = -v_cmd_max 
-        self._actions_ub[:, 0:2] = v_cmd_max  # vxy cmd
-        self._actions_lb[:, 2:3] = 0 # h cmd
-        self._actions_ub[:, 2:3] = 1  
+        self._actions_ub[:, 0:2] = v_cmd_max  
+        self._actions_lb[:, 2:3] = -v_cmd_max 
+        self._actions_ub[:, 2:3] = v_cmd_max  # vxyz cmd
         self._actions_lb[:, 3:6] = -omega_cmd_max # twist cmds
         self._actions_ub[:, 3:6] = omega_cmd_max  
-        self._actions_lb[:, 6:10] = -0.5 # contact flags
+        self._actions_lb[:, 6:10] = -1.0 # contact flags
         self._actions_ub[:, 6:10] = 1.0 
 
         # some aux data to avoid allocations at training runtime
@@ -359,7 +359,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         next_idx+=self._n_jnts
         obs[:, next_idx:(next_idx+self._n_jnts)] = robot_jnt_v_meas
         next_idx+=self._n_jnts
-        obs[:, next_idx:(next_idx+2)] = agent_twist_ref[:, 0:2] # high lev agent ref (local base if self._use_local_base_frame)
+        obs[:, next_idx:(next_idx+2)] = agent_twist_ref[:, 0:2] # high lev agent refs
         next_idx+=2
         # obs[:, next_idx:(next_idx+1)] = self._rhc_const_viol(gpu=self._use_gpu)
         # next_idx+=1
@@ -466,9 +466,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     obs: torch.Tensor,
                     next_obs: torch.Tensor):
         
-        task_error_fun = self._task_err_pseudolin
+        # task_error_fun = self._task_err_pseudolin
         # task_error_fun = self._task_err_pseudolinv2
-
+        task_error_fun = self._task_err_quad
         # task error
         # task_meas = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu) # robot twist meas (local base if _use_local_base_frame)
         task_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu) # high level agent refs (hybrid twist)
