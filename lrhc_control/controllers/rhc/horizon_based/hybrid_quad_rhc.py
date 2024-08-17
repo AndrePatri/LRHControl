@@ -152,11 +152,11 @@ class HybridQuadRhc(RHController):
 
     def _get_root_full_q_from_sol(self, node_idx=1):
 
-        return self._ti.solution['q'][0:7, 1].reshape(1, 7)
+        return self._ti.solution['q'][0:7, node_idx].reshape(1, 7)
 
     def _get_root_twist_from_sol(self, node_idx=1):
 
-        return self._get_v_from_sol()[0:6, 1].reshape(1, 6)
+        return self._get_v_from_sol()[0:6, node_idx].reshape(1, 6)
 
     def _get_cmd_jnt_q_from_sol(self):
         
@@ -313,8 +313,8 @@ class HybridQuadRhc(RHController):
         if self._refs_in_hor_frame:
             # q_base=self.robot_state.root_state.get(data_type="q", 
             #     robot_idxs=self.controller_index).reshape(-1, 1)
-            q_base=self._ti.solution['q'][3:7, 0].reshape(-1, 1) # using internal 
-            # base pose from rhc. in case of closed loop, it will be the meas state
+            q_base=self._get_root_full_q_from_sol(node_idx=1).reshape(-1, 1)[3:7,0:1]
+            # using internal base pose from rhc. in case of closed loop, it will be the meas state
             self.rhc_refs.step(q_base=q_base)
         else:
             self.rhc_refs.step()
@@ -343,8 +343,8 @@ class HybridQuadRhc(RHController):
         if self._refs_in_hor_frame:
             # q_base=self.robot_state.root_state.get(data_type="q", 
             #     robot_idxs=self.controller_index).reshape(-1, 1)
-            q_base=self._ti.solution['q'][3:7, 0].reshape(-1, 1) # using internal 
-            # base pose from rhc. in case of closed loop, it will be the meas state
+            q_base=self._get_root_full_q_from_sol(node_idx=1).reshape(-1, 1)[3:7,0:1]
+            # using internal base pose from rhc. in case of closed loop, it will be the meas state
             self.rhc_refs.step(q_base=q_base) # updates rhc references
         else:
             self.rhc_refs.step()
