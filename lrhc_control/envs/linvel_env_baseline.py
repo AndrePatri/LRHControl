@@ -60,9 +60,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # obs_dim = 4+6+2*n_jnts+2+actions_dim
         # obs_dim = 4+6+2*n_jnts+2+1+actions_dim
         if self._use_prev_actions_stats:
-            obs_dim = 4+6+2*n_jnts+2+1+3*actions_dim
+            obs_dim = 4+6+2*n_jnts+4+2+1+3*actions_dim
         else:
-            obs_dim = 4+6+2*n_jnts+2+1
+            obs_dim = 4+6+2*n_jnts+4+2+1
         # obs_dim = 4+6+2*n_jnts+2+2+actions_dim
 
         # obs_dim = 4+6+n_jnts+2+2+actions_dim
@@ -345,6 +345,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         robot_jnt_q_meas = self._robot_state.jnts_state.get(data_type="q",gpu=self._use_gpu)
         robot_twist_meas = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu)
         robot_jnt_v_meas = self._robot_state.jnts_state.get(data_type="v",gpu=self._use_gpu)
+        rhc_q_internal =self._rhc_cmds.root_state.get(data_type="q",gpu=self._use_gpu)
         agent_twist_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu)
 
         next_idx=0
@@ -360,6 +361,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         next_idx+=self._n_jnts
         obs[:, next_idx:(next_idx+self._n_jnts)] = robot_jnt_v_meas
         next_idx+=self._n_jnts
+        obs[:, next_idx:(next_idx+4)] = rhc_q_internal
+        next_idx+=4
         obs[:, next_idx:(next_idx+2)] = agent_twist_ref[:, 0:2] # high lev agent refs
         next_idx+=2
         # obs[:, next_idx:(next_idx+1)] = self._rhc_const_viol(gpu=self._use_gpu)
@@ -550,6 +553,11 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         for i in range(self._n_jnts): # jnt obs (v):
             obs_names[next_idx+i] = f"v_{jnt_names[i]}"
         next_idx+=self._n_jnts
+        obs_names[next_idx] = "q_w_rhc"
+        obs_names[next_idx+1] = "q_i_rhc"
+        obs_names[next_idx+2] = "q_j_rhc"
+        obs_names[next_idx+3] = "q_k_rhc"
+        next_idx+=4
         obs_names[next_idx] = "lin_vel_x_ref" # specified in the "horizontal frame"
         obs_names[next_idx+1] = "lin_vel_y_ref"
         next_idx+=2
