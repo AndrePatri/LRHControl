@@ -155,7 +155,8 @@ class HybridQuadRhc(RHController):
         return self._ti.solution['q'][0:7, 1].reshape(1, 7)
 
     def _get_root_twist_from_sol(self, node_idx=1):
-        return self._ti.solution['v'][0:6, 1].reshape(1, 6)
+
+        return self._get_v_from_sol()[0:6, 1].reshape(1, 6)
 
     def _get_cmd_jnt_q_from_sol(self):
         
@@ -166,7 +167,12 @@ class HybridQuadRhc(RHController):
     
     def _get_cmd_jnt_v_from_sol(self):
 
-        return self._ti.solution['v'][6:, 1].reshape(1,  
+        return self._get_v_from_sol()[6:, 1].reshape(1,  
+                    self.n_dofs)
+
+    def _get_cmd_jnt_a_from_sol(self):
+
+        return self._get_a_from_sol()[6:, 1].reshape(1,  
                     self.n_dofs)
 
     def _get_cmd_jnt_eff_from_sol(self):
