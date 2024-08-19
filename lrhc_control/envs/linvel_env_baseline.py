@@ -570,7 +570,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         if self._add_contact_idx_to_obs:
             i = 0
             for contact in self.contact_names:
-                obs_names[next_idx+i] = f"contact_idx{contact}"
+                obs_names[next_idx+i] = f"contact_idx_{contact}"
                 i+=1        
             next_idx+=len(self.contact_names)
         obs_names[next_idx] = "lin_vel_x_ref" # specified in the "horizontal frame"
