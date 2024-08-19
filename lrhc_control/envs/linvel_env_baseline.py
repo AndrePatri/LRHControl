@@ -497,7 +497,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
            w2hor_frame(t_w=self._robot_twist_meas_w,q_b=next_obs[:, 0:4],t_out=self._robot_twist_meas_h)
            task_error_pseudolin = task_error_fun(task_meas=self._robot_twist_meas_h, 
                                                 task_ref=task_ref)
-        else: not self._use_horizontal_frame_for_refs:
+        else:
             base2world_frame(t_b=next_obs[:, 4:10],q_b=next_obs[:, 0:4],t_out=self._robot_twist_meas_w)
             task_error_pseudolin = task_error_fun(task_meas=self._robot_twist_meas_w, 
                                                 task_ref=task_ref)
