@@ -23,13 +23,22 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             override_agent_refs: bool = False,
             timeout_ms: int = 60000):
         
-        action_repeat = 1
+        action_repeat = 1 # frame skipping (different agent action every action_repeat
+        # env substeps)
 
-        self._use_prev_actions_stats = False
-        self._use_horizontal_frame_for_refs = False # usually impractical for task rand to set this to True 
-        self._use_local_base_frame = True
+        self._use_horizontal_frame_for_refs = False # (vel refs for agent are in horizontal frame)
+        # usually impractical for task rand to set this to True 
+        self._twist_meas_is_base_local = False # twist meas from remote sim env are already base-local
+        # (usually, this has to be set to True when running on the real robot)
+        # we assume the twist meas for the agent to be provided always in local base frame
 
-        # temporarily creating robot state client to get n jnts
+        self._add_prev_actions_stats_to_obs = True # add actions std, mean + last action over a horizon to obs
+        self._add_contact_idx_to_obs=True # add a variable which reflects the magnitute of the contact force over the horizon
+        self._add_internal_rhc_q_to_obs=True # add base orientation internal to the rhc controller (useful when running controller
+        # in open loop)
+        self._add_fail_idx_to_obs=True # add a failure index which is directly correlated to env failure due to rhc controller explosion
+
+        # temporarily creating robot state client to get some data
         robot_state_tmp = RobotState(namespace=namespace,
                                 is_server=False, 
                                 safe=False,
@@ -45,7 +54,6 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                         with_torch_view=False, 
                         with_gpu_mirror=False)
         rhc_status_tmp.run()
-
         n_jnts = robot_state_tmp.n_jnts()
         # n_contacts = robot_state_tmp.n_contacts()
         self.contact_names = robot_state_tmp.contact_names()
@@ -55,15 +63,21 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         robot_state_tmp.close()
         rhc_status_tmp.close()
 
+        # defining actions and obs dimensions
         actions_dim = 2 + 1 + 3 + 4 # [vxzy_cmd, twist_cmd, dostep_0, dostep_1, dostep_2, dostep_3]
 
-        # obs_dim = 4+6+2*n_jnts+2+actions_dim
-        # obs_dim = 4+6+2*n_jnts+2+1+actions_dim
-        if self._use_prev_actions_stats:
-            obs_dim = 4+6+2*n_jnts+4+2+1+3*actions_dim
-        else:
-            obs_dim = 4+6+2*n_jnts+4+2+1
-        # obs_dim = 4+6+2*n_jnts+2+2+actions_dim
+        obs_dim=4 # base orientation quaternion 
+        obs_dim+=6 # meas twist
+        obs_dim+=2*n_jnts # joint pos + vel
+        if self._add_internal_rhc_q_to_obs:
+            obs_dim+=4 # internal rhc base orientation
+        if self._add_contact_idx_to_obs:
+            obs_dim+=n_contacts # contact index var
+        obs_dim+=2 # 2D lin vel reference to be tracked
+        if self._add_fail_idx_to_obs:
+            obs_dim+=1 # rhc controller failure index
+        if self._add_prev_actions_stats_to_obs:
+            obs_dim+=3*actions_dim # previous agent actions statistics (mean, std + last action)
 
         # obs_dim = 4+6+n_jnts+2+2+actions_dim
         episode_timeout_lb = 1024 # episode timeouts (including env substepping when action_repeat>1)
@@ -176,12 +190,12 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     rescale_rewards=True,
                     srew_drescaling=True,
                     srew_tsrescaling=False,
-                    use_act_mem_bf=self._use_prev_actions_stats,
+                    use_act_mem_bf=self._add_prev_actions_stats_to_obs,
                     act_membf_size=30)
 
         # action regularization
         self._actions_diff_rew_offset = 0.0
-        if not self._use_prev_actions_stats: # we need the action in obs to use this reward
+        if not self._add_prev_actions_stats_to_obs: # we need the action in obs to use this reward
             self._actions_diff_rew_offset=0.0
         self._actions_diff_scale = 0.0#1.0
         self._action_diff_weights = torch.full((1, actions_dim), dtype=dtype, device=device,
@@ -206,9 +220,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._add_custom_db_info(db_data=rhc_fail_idx)
 
         # other static db info 
-        self.custom_db_info["add_last_action_to_obs"] = self._use_prev_actions_stats
+        self.custom_db_info["add_last_action_to_obs"] = self._add_prev_actions_stats_to_obs
         self.custom_db_info["use_horizontal_frame_for_refs"] = self._use_horizontal_frame_for_refs
-        self.custom_db_info["use_local_base_frame"] = self._use_local_base_frame
+        self.custom_db_info["twist_meas_is_base_local"] = self._twist_meas_is_base_local
         self.custom_db_info["use_pof0"] = self._use_pof0
         self.custom_db_info["pof0"] = self._pof0
         self.custom_db_info["action_repeat"] = self._action_repeat
@@ -248,7 +262,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._zero_t_aux = torch.zeros((self._n_envs, 1),dtype=self._dtype,device=device)
         self._zero_t_aux_cpu = torch.zeros((self._n_envs, 1),dtype=self._dtype,device="cpu")
 
-        if self._use_prev_actions_stats:
+        if self._add_prev_actions_stats_to_obs:
             self._defaut_bf_action[:, :] = (self._actions_ub+self._actions_lb)/2.0
 
     def get_file_paths(self):
@@ -351,10 +365,11 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         next_idx=0
         obs[:, next_idx:(next_idx+4)] = robot_q_meas # [w, i, j, k] (IsaacSim convention)
         next_idx+=4
-        if self._use_local_base_frame: # measurement from world to local base link
+        if not self._twist_meas_is_base_local: # measurement read on shared mem is in
+            # world (simulator) world frame -> we want it base-local
             world2base_frame(t_w=robot_twist_meas,q_b=robot_q_meas,t_out=self._robot_twist_meas_b)
             obs[:, next_idx:(next_idx+6)] = self._robot_twist_meas_b
-        else:
+        else:  # measurement read on shared mem is already in local base frame
             obs[:, next_idx:(next_idx+6)] = robot_twist_meas
         next_idx+=6
         obs[:, next_idx:(next_idx+self._n_jnts)] = robot_jnt_q_meas
@@ -363,18 +378,18 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         next_idx+=self._n_jnts
         obs[:, next_idx:(next_idx+4)] = rhc_q_internal
         next_idx+=4
+        obs[:, next_idx:(next_idx+len(self.contact_names))] = self._rhc_step_var(gpu=self._use_gpu)
+        next_idx+=len(self.contact_names)
         obs[:, next_idx:(next_idx+2)] = agent_twist_ref[:, 0:2] # high lev agent refs
         next_idx+=2
         # obs[:, next_idx:(next_idx+1)] = self._rhc_const_viol(gpu=self._use_gpu)
         # next_idx+=1
         # obs[:, next_idx:(next_idx+1)] = self._rhc_cost(gpu=self._use_gpu)
         # next_idx+=1
-        # obs[:, next_idx:(next_idx+len(self.contact_names))] = self._rhc_step_var(gpu=self._use_gpu)
-        # next_idx+=len(self.contact_names)
         # adding last action to obs at the back of the obs tensor
         obs[:, next_idx:(next_idx+1)] = self._rhc_fail_idx(gpu=self._use_gpu)
         next_idx+=1
-        if self._use_prev_actions_stats:
+        if self._add_prev_actions_stats_to_obs:
             self._prev_act_idx=next_idx
             obs[:, next_idx:(next_idx+self.actions_dim())]=self._act_mem_buffer.get(idx=0) # last obs
             next_idx+=self.actions_dim()
@@ -455,7 +470,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
     
     def _weighted_actions_diff(self, gpu: bool, obs, next_obs):
 
-        if self._use_prev_actions_stats:
+        if self._add_prev_actions_stats_to_obs:
             prev_act=obs[:,self._prev_act_idx:(self._prev_act_idx+self.actions_dim())]
             action_now=next_obs[:,self._prev_act_idx:(self._prev_act_idx+self.actions_dim())]
             weighted_actions_diff = torch.sum((action_now-prev_act)*self._action_diff_weights,dim=1,keepdim=True)/self._action_diff_w_sum
@@ -477,22 +492,15 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # task_meas = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu) # robot twist meas (local base if _use_local_base_frame)
         task_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu) # high level agent refs (hybrid twist)
         # task_error_wmse = self._task_err_quad(task_meas=task_meas, task_ref=task_ref)
-        if self._use_local_base_frame and self._use_horizontal_frame_for_refs:
+        if self._use_horizontal_frame_for_refs:
            base2world_frame(t_b=next_obs[:, 4:10],q_b=next_obs[:, 0:4],t_out=self._robot_twist_meas_w)
            w2hor_frame(t_w=self._robot_twist_meas_w,q_b=next_obs[:, 0:4],t_out=self._robot_twist_meas_h)
            task_error_pseudolin = task_error_fun(task_meas=self._robot_twist_meas_h, 
                                                 task_ref=task_ref)
-        elif self._use_local_base_frame and not self._use_horizontal_frame_for_refs:
+        else: not self._use_horizontal_frame_for_refs:
             base2world_frame(t_b=next_obs[:, 4:10],q_b=next_obs[:, 0:4],t_out=self._robot_twist_meas_w)
             task_error_pseudolin = task_error_fun(task_meas=self._robot_twist_meas_w, 
                                                 task_ref=task_ref)
-        elif not self._use_local_base_frame and self._use_horizontal_frame_for_refs:
-            w2hor_frame(t_w=next_obs[:, 4:10],q_b=next_obs[:, 0:4],t_out=self._robot_twist_meas_h)
-            task_error_pseudolin = task_error_fun(task_meas=self._robot_twist_meas_h, 
-                                                task_ref=task_ref)
-        else: # all in world frame
-            task_error_pseudolin = task_error_fun(task_meas=next_obs[:, 4:10], 
-                                                task_ref=task_ref) 
         
         # mech power
         jnts_vel = self._robot_state.jnts_state.get(data_type="v",gpu=self._use_gpu)
@@ -553,22 +561,25 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         for i in range(self._n_jnts): # jnt obs (v):
             obs_names[next_idx+i] = f"v_{jnt_names[i]}"
         next_idx+=self._n_jnts
-        obs_names[next_idx] = "q_w_rhc"
-        obs_names[next_idx+1] = "q_i_rhc"
-        obs_names[next_idx+2] = "q_j_rhc"
-        obs_names[next_idx+3] = "q_k_rhc"
-        next_idx+=4
+        if self._add_internal_rhc_q_to_obs:
+            obs_names[next_idx] = "q_w_rhc"
+            obs_names[next_idx+1] = "q_i_rhc"
+            obs_names[next_idx+2] = "q_j_rhc"
+            obs_names[next_idx+3] = "q_k_rhc"
+            next_idx+=4
+        if self._add_contact_idx_to_obs:
+            i = 0
+            for contact in self.contact_names:
+                obs_names[next_idx+i] = f"contact_idx{contact}"
+                i+=1        
+            next_idx+=len(self.contact_names)
         obs_names[next_idx] = "lin_vel_x_ref" # specified in the "horizontal frame"
         obs_names[next_idx+1] = "lin_vel_y_ref"
         next_idx+=2
-        # i = 0
-        # for contact in self.contact_names:
-        #     obs_names[next_idx+i] = f"step_var_{contact}"
-        #     i+=1        
-        # next_idx+=len(self.contact_names)
-        obs_names[next_idx] = "rhc_fail_idx"
-        next_idx+=1
-        if self._use_prev_actions_stats:
+        if self._add_fail_idx_to_obs:
+            obs_names[next_idx] = "rhc_fail_idx"
+            next_idx+=1
+        if self._add_prev_actions_stats_to_obs:
             action_names = self._get_action_names()
             for prev_act_idx in range(self.actions_dim()):
                 obs_names[next_idx+prev_act_idx] = action_names[prev_act_idx]+f"_prev"
