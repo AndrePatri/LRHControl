@@ -766,11 +766,13 @@ class LRhcTrainingEnvBase():
         sub_term_names = self.sub_term_names()
         sub_term_data = EpisodicData("SubTerminations", sub_term, sub_term_names,
             ep_vec_freq=self._vec_ep_freq_metrics_db)
+        sub_term_data.set_constant_data_scaling(enable=True,scaling=self._n_steps_task_rand_ub)
         self._add_custom_db_info(db_data=sub_term_data)
         sub_trunc = self._sub_truncations.get_torch_mirror()
         sub_trunc_names = self.sub_trunc_names()
         sub_trunc_data = EpisodicData("SubTruncations", sub_trunc, sub_trunc_names,
             ep_vec_freq=self._vec_ep_freq_metrics_db)
+        sub_trunc_data.set_constant_data_scaling(enable=True,scaling=self._n_steps_task_rand_ub)
         self._add_custom_db_info(db_data=sub_trunc_data)
 
     def _add_custom_db_info(self, db_data: EpisodicData):
