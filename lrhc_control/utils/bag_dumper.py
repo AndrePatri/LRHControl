@@ -114,12 +114,14 @@ class RosBagDumper():
                                             vlevel=VLevel.V1,
                                             force_reconnection=True)
     
-    def run(self):
+    def init(self):
 
         self._term_trigger.run()
+        self._bridge.init(update_dt=self._ros_bridge_dt)
+    
+    def step(self):
+        return self._bridge.step()
 
-        self._bridge.run(update_dt=self._ros_bridge_dt)
-                
     def training_done(self):
         
         return self._shared_info.get().flatten()[self._is_done_idx]>0.5

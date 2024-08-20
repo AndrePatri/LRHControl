@@ -108,8 +108,7 @@ class RhcToViz2Bridge:
         self._stime_before=-1.0
 
         self._initialize()
-        
-        
+           
     def __del__(self):
         self.close()
 
@@ -342,18 +341,18 @@ class RhcToViz2Bridge:
                 
         self.jnt_names_rhc_encoded = string_array.encode(self.jnt_names_rhc) # encoding 
         # jnt names ifor rhc controllers   
-        
-    def run(self,
-        update_dt: float = 0.01):
+    
+    def init(self, update_dt: float = 0.01):
 
         self._is_running = True
 
-        start_time = 0.0
-        elapsed_time = 0.0
+        self._update_dt = update_dt
+        self._start_time = 0.0
+        self._elapsed_time = 0.0
 
-        time_to_sleep_ns = 0
+        self._time_to_sleep_ns = 0
 
-        info = f": starting bridge with (realtime) update dt {update_dt} s and sim time target {self._sim_time_trgt} s"
+        info = f": initializing bridge with (realtime) update dt {self._update_dt} s and sim time target {self._sim_time_trgt} s"
         Journal.log(self.__class__.__name__,
             "run",
             info,
@@ -364,58 +363,71 @@ class RhcToViz2Bridge:
         self._sim_time_init = self._sim_data.get()[self._simtime_idx].item()
         self._stime_before=self._sim_time # record stime now
 
-        safety_check_start_time = time.monotonic() 
-        sporadic_log_freq=500
-        log_counter=0
+        self._safety_check_start_time = time.monotonic() 
+        self._sporadic_log_freq=500
+        self._log_counter=0
+
+    def step(self):
+
+        t_before_update = time.monotonic() 
+                
+        self._update() # update data on ROS
+
+        if self._log_counter%self._sporadic_log_freq==0:
+            Journal.log(self.__class__.__name__,
+                "run",
+                f"elapsed sim time {round(self._sim_time,2)}/{self._sim_time_trgt} s.",
+                LogType.INFO)
+
+        self._log_counter+=1
+        # check if we need to stop
+        if (t_before_update-self._safety_check_start_time)*1.0/60.0>=self._safety_abort_walldt:
+            # every self._safety_abort_walldt [min]
+            safety_check_start_time=time.monotonic() 
+            if (self._sim_time-self._stime_before)<=self._abort_stime_res:
+                warn=f"terminating rhc2viz bridge due to timeout!\t" + \
+                    f"No sim time update detected over {self._safety_abort_walldt} min. \n" +  \
+                    f"stime before: {self._stime_before} s, stime now: {self._sim_time}"
+                Journal.log(self.__class__.__name__,
+                    "run",
+                    warn,
+                    LogType.WARN)
+                return False
+
+            self._stime_before=self._sim_time # record stime now
+
+        if self._sim_time >= self._sim_time_trgt:
+            Journal.log(self.__class__.__name__,
+                "run",
+                f"terminating rhc2viz bridge ({self._sim_time}>={self._sim_time_trgt})",
+                LogType.INFO)
+            return False
+
+        self._elapsed_time = time.monotonic() - t_before_update
+        self._time_to_sleep_ns = int((self._update_dt - elapsed_time) * 1e+9) # [ns]
+        if self._time_to_sleep_ns < 0:
+            warning = f"Could not match desired (realtime) update dt of {self._update_dt} s. " + \
+                f"Elapsed time to update {elapsed_time}."
+            Journal.log(self.__class__.__name__,
+                "run",
+                warning,
+                LogType.WARN,
+                throw_when_excep = True)
+        else:
+            PerfSleep.thread_sleep(self.time_to_sleep_ns) 
+            
+        return True
+
+    def run(self,
+        update_dt: float = 0.01):
+
+        self.init(update_dt)
+
         while (self._is_running and not self._closed):
 
             try:
-                t_before_update = time.monotonic() 
-                
-                self._update() # update data on ROS
-
-                if log_counter%sporadic_log_freq==0:
-                    Journal.log(self.__class__.__name__,
-                        "run",
-                        f"elapsed sim time {round(self._sim_time,2)}/{self._sim_time_trgt} s.",
-                        LogType.INFO)
-
-                log_counter+=1
-                # check if we need to stop
-                if (t_before_update-safety_check_start_time)*1.0/60.0>=self._safety_abort_walldt:
-                    # every self._safety_abort_walldt [min]
-                    safety_check_start_time=time.monotonic() 
-                    if (self._sim_time-self._stime_before)<=self._abort_stime_res:
-                        warn=f"terminating rhc2viz bridge due to timeout!\t" + \
-                            f"Sim time did not update within {self._safety_abort_walldt} min. \n" +  \
-                            f"stime before: {self._stime_before} s, stime now: {self._sim_time}"
-                        Journal.log(self.__class__.__name__,
-                            "run",
-                            warn,
-                            LogType.WARN)
-                        break
-
-                    self._stime_before=self._sim_time # record stime now
-
-                if self._sim_time >= self._sim_time_trgt:
-                    Journal.log(self.__class__.__name__,
-                        "run",
-                        f"terminating rhc2viz bridge ({self._sim_time}>={self._sim_time_trgt})",
-                        LogType.INFO)
-                    break
-
-                elapsed_time = time.monotonic() - t_before_update
-                time_to_sleep_ns = int((update_dt - elapsed_time) * 1e+9) # [ns]
-                if time_to_sleep_ns < 0:
-                    warning = f"Could not match desired (realtime) update dt of {update_dt} s. " + \
-                        f"Elapsed time to update {elapsed_time}."
-                    Journal.log(self.__class__.__name__,
-                        "run",
-                        warning,
-                        LogType.WARN,
-                        throw_when_excep = True)
-                else:
-                    PerfSleep.thread_sleep(time_to_sleep_ns) 
+                if not self.step():
+                    break                 
 
             except KeyboardInterrupt:
                 self.close()

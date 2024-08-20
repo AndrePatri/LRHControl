@@ -45,13 +45,16 @@ if __name__ == '__main__':
             with_agent_refs=args.with_agent_refs,
             rhc_refs_in_h_frame=args.rhc_refs_in_h_frame,
             agent_refs_in_h_frame=args.agent_refs_in_h_frame)
-        training_done=bag_dumper.training_done()
-        if training_done:
-            bag_dumper.close()
-            break
 
+        if bag_dumper.training_done():
+            break
+            
         start_time=time.monotonic() 
-        bag_dumper.run()
+        bag_dumper.init() 
+        while True:
+            done=not bag_dumper.step()
+            if done:
+                break
         bag_dumper.close()
 
         elapsed_min=(time.monotonic()-start_time)*1.0/60.0
