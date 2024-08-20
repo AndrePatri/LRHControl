@@ -34,13 +34,17 @@ class SAC(SActorCriticAlgoBase):
         # with next_obs!!!
         if self._vec_transition_counter > self._warmstart_vectimesteps or \
             self._eval:
-            actions, _, _ = self._agent.actor.get_action(x=obs)
+            actions, _, mean = self._agent.actor.get_action(x=obs)
             actions = actions.detach()
         else:
             actions = self._sample_random_actions()
                 
         # perform a step of the (vectorized) env and retrieve trajectory
-        env_step_ok = self._env.step(actions)
+        env_step_ok=True
+        if self._eval:
+            env_step_ok = self._env.step(actions)
+        else: # use stochastic policy
+            env_step_ok = self._env.step(mean)
         
         if not self._eval: # add experience to replay buffer
             self._add_experience(obs=obs,
