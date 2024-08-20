@@ -595,7 +595,7 @@ class LRhcTrainingEnvBase():
         # to be overridden by child class
         return None
     
-    def _get_sub_term_names():
+    def _get_sub_term_names(self):
         # to be overridden by child class
         sub_term_names = []
         sub_term_names.append("rhc_failure")
@@ -604,7 +604,7 @@ class LRhcTrainingEnvBase():
 
         return sub_term_names
     
-    def _get_sub_trunc_names():
+    def _get_sub_trunc_names(self):
         # to be overridden by child class
         sub_trunc_names = []
         sub_trunc_names.append("ep_timeout")
@@ -793,12 +793,12 @@ class LRhcTrainingEnvBase():
                             fill_value=False) 
         self._terminations.run()
 
-        sub_term_names = self._get_sub_term_names()
-        n_sub_term = 1 if sub_term_names is None else len(sub_term_names)
+        sub_t_names = self.sub_term_names()
+        n_sub_term = 1 if sub_t_names is None else len(sub_t_names)
         self._sub_terminations = SubTerminations(namespace=self._namespace,
                 n_envs=self._n_envs,
                 n_term=n_sub_term,
-                term_names=sub_term_names,
+                term_names=sub_t_names,
                 is_server=True,
                 verbose=self._verbose,
                 vlevel=self._vlevel,
@@ -829,13 +829,13 @@ class LRhcTrainingEnvBase():
         
         self._truncations.run()
 
-        sub_trunc_names = self._get_sub_trunc_names()
-        n_sub_trunc = 1 if sub_trunc_names is None else len(sub_trunc_names)
+        sub_trc_names = self.sub_trunc_names()
+        n_sub_trunc = 1 if sub_trc_names is None else len(sub_trc_names)
 
         self._sub_truncations = SubTruncations(namespace=self._namespace,
                 n_envs=self._n_envs,
                 n_trunc=n_sub_trunc,
-                truc_names=sub_trunc_names,
+                truc_names=sub_trc_names,
                 is_server=True,
                 verbose=self._verbose,
                 vlevel=self._vlevel,
