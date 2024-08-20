@@ -284,36 +284,12 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         aux_dirs.append(path_getter.RHCDIR)
         return aux_dirs
 
-    def _check_truncations(self):
-
-        truncations = self._truncations.get_torch_mirror(gpu=self._use_gpu)
-
-        # time unlimited episodes, using time limits just for diversifying 
-        # experience
-        ep_time_limits_reached = self._ep_timeout_counter.time_limits_reached()
-        time_to_randomize_refs = self._task_rand_counter.time_limits_reached()
-        truncations[:, :] = torch.logical_or(ep_time_limits_reached, 
-                                    time_to_randomize_refs) # truncate when reference changes
-        # but only reset env if time limit reached (not with ref rand. this way the agent 
-        # experiences difference robot states)
+    def _check_sub_truncations(self):
+        # overrides parent
+        sub_truncations = self._sub_truncations.get_torch_mirror(gpu=self._use_gpu)
+        sub_truncations[:, 0:1] = self._ep_timeout_counter.time_limits_reached()
+        sub_truncations[:, 1:2] = self._task_rand_counter.time_limits_reached()
         
-        # time_limits_reached = self._ep_timeout_counter.time_limits_reached()
-        # truncations[:, :] = time_limits_reached
-
-    # def _check_terminations(self):
-
-    #     terminations = self._terminations.get_torch_mirror(gpu=self._use_gpu)
-
-    #     rhc_const_viol = self._rhc_const_viol(gpu=self._use_gpu)
-    #     rhc_cost = self._rhc_cost(gpu=self._use_gpu)
-
-    #     cost_scaling = 2*1e-4#tuned from batch db data
-    #     explosion_idx_thresh = 100 # terminate if above this threshold
-    #     explosion_idx = rhc_const_viol+rhc_cost*cost_scaling 
-
-    #     terminations[:, :] = torch.logical_or(explosion_idx>explosion_idx_thresh,
-    #                         self._rhc_status.fails.get_torch_mirror(gpu=self._use_gpu))
-
     def _pre_step(self): 
         pass
 
@@ -620,3 +596,10 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         reward_names[5] = "action_reg"
 
         return reward_names
+
+    def _get_sub_trunc_names(self):
+        sub_trunc_names = []
+        sub_trunc_names.append("ep_timeout")
+        sub_trunc_names.append("task_ref_rand")
+        return sub_trunc_names
+

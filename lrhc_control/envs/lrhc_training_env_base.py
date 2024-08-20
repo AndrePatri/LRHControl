@@ -17,8 +17,8 @@ from lrhc_control.utils.shared_data.training_env import Observations, NextObserv
 from lrhc_control.utils.shared_data.training_env import TotRewards
 from lrhc_control.utils.shared_data.training_env import Rewards
 from lrhc_control.utils.shared_data.training_env import Actions
-from lrhc_control.utils.shared_data.training_env import Terminations
-from lrhc_control.utils.shared_data.training_env import Truncations
+from lrhc_control.utils.shared_data.training_env import Terminations, SubTerminations
+from lrhc_control.utils.shared_data.training_env import Truncations, SubTruncations
 from lrhc_control.utils.shared_data.training_env import EpisodesCounter,TaskRandCounter,SafetyRandResetsCounter
 
 from lrhc_control.utils.episodic_rewards import EpisodicRewards
@@ -150,6 +150,8 @@ class LRhcTrainingEnvBase():
         self._actions_lb = None
         self._tot_rewards = None
         self._sub_rewards = None
+        self._sub_terminations = None
+        self._sub_truncations = None
         self._terminations = None
         self._truncations = None
         self._act_mem_buffer = None
@@ -163,10 +165,10 @@ class LRhcTrainingEnvBase():
         self._init_obs()
         self._init_actions(actions_dim)
         self._init_rewards()
-        self._init_infos()
         self._init_terminations()
         self._init_truncations()
-        
+        self._init_infos()
+
         self._custom_post_init()
 
         # self._wait_for_sim_env()
@@ -225,7 +227,9 @@ class LRhcTrainingEnvBase():
             self._tot_rewards.synch_mirror(from_gpu=True)
             self._sub_rewards.synch_mirror(from_gpu=True)
             self._truncations.synch_mirror(from_gpu=True) 
+            self._sub_truncations.synch_mirror(from_gpu=True)
             self._terminations.synch_mirror(from_gpu=True)
+            self._sub_terminations.synch_mirror(from_gpu=True)
 
         self._obs.synch_all(read=False, retry=True) # copies data on CPU shared mem
         self._next_obs.synch_all(read=False, retry=True)
@@ -233,7 +237,9 @@ class LRhcTrainingEnvBase():
         self._tot_rewards.synch_all(read=False, retry=True)
         self._sub_rewards.synch_all(read=False, retry=True)
         self._truncations.synch_all(read=False, retry = True) # writes on shared mem
+        self._sub_truncations.synch_all(read=False, retry = True)
         self._terminations.synch_all(read=False, retry = True) # writes on shared mem
+        self._sub_terminations.synch_all(read=False, retry = True)
 
     def _remote_sim_step(self):
 
@@ -296,7 +302,7 @@ class LRhcTrainingEnvBase():
         if self._act_mem_buffer is not None:
             self._act_mem_buffer.update(new_data=self.get_actions(clone=True))
 
-        self._apply_actions_to_rhc() # apply agent actions to rhc controller
+        # self._apply_actions_to_rhc() # apply agent actions to rhc controller
 
         stepping_ok = True
         tot_rewards = self._tot_rewards.get_torch_mirror(gpu=self._use_gpu)
@@ -397,7 +403,11 @@ class LRhcTrainingEnvBase():
                                     ep_finished=episode_finished) # before potentially resetting the flags, get data
         self.custom_db_data["Actions"].update(new_data=self._actions.get_torch_mirror(gpu=False), 
                                     ep_finished=episode_finished)
-                
+        self.custom_db_data["SubTerminations"].update(new_data=self._sub_terminations.get_torch_mirror(gpu=False), 
+                                    ep_finished=episode_finished)
+        self.custom_db_data["SubTruncations"].update(new_data=self._sub_truncations.get_torch_mirror(gpu=False), 
+                                    ep_finished=episode_finished)
+        
         self._get_custom_db_data(episode_finished=episode_finished)
 
     def reset_custom_db_data(self, keep_track: bool = False):
@@ -439,7 +449,9 @@ class LRhcTrainingEnvBase():
         self._sub_rewards.reset()
         self._tot_rewards.reset()
         self._terminations.reset()
+        self._sub_terminations.reset()
         self._truncations.reset()
+        self._sub_truncations.reset()
 
         self._ep_timeout_counter.reset(randomize_offsets=True)
         self._task_rand_counter.reset()
@@ -486,7 +498,9 @@ class LRhcTrainingEnvBase():
             self._tot_rewards.close()
 
             self._terminations.close()
+            self._sub_terminations.close()
             self._truncations.close()
+            self._sub_truncations.close()
 
             self._closed = True
 
@@ -562,7 +576,13 @@ class LRhcTrainingEnvBase():
 
     def sub_rew_names(self):
         return self._get_rewards_names()
-
+    
+    def sub_term_names(self):
+        return self._get_sub_term_names()
+    
+    def sub_trunc_names(self):
+        return self._get_sub_trunc_names()
+    
     def _get_obs_names(self):
         # to be overridden by child class
         return None
@@ -574,6 +594,22 @@ class LRhcTrainingEnvBase():
     def _get_rewards_names(self):
         # to be overridden by child class
         return None
+    
+    def _get_sub_term_names():
+        # to be overridden by child class
+        sub_term_names = []
+        sub_term_names.append("rhc_failure")
+        sub_term_names.append("robot_capsize")
+        sub_term_names.append("rhc_capsize")
+
+        return sub_term_names
+    
+    def _get_sub_trunc_names():
+        # to be overridden by child class
+        sub_trunc_names = []
+        sub_trunc_names.append("ep_timeout")
+
+        return sub_trunc_names
     
     def _get_custom_db_data(self, episode_finished):
         # to be overridden by child class
@@ -725,6 +761,17 @@ class LRhcTrainingEnvBase():
         action_data = EpisodicData("Actions", actions, action_names,
             ep_vec_freq=self._vec_ep_freq_metrics_db)
         self._add_custom_db_info(db_data=action_data)
+        # log sub-term and sub-truncations data
+        sub_term = self._sub_terminations.get_torch_mirror()
+        sub_term_names = self.sub_term_names()
+        sub_term_data = EpisodicData("SubTerminations", sub_term, sub_term_names,
+            ep_vec_freq=self._vec_ep_freq_metrics_db)
+        self._add_custom_db_info(db_data=sub_term_data)
+        sub_trunc = self._sub_truncations.get_torch_mirror()
+        sub_trunc_names = self.sub_trunc_names()
+        sub_trunc_data = EpisodicData("SubTruncations", sub_trunc, sub_trunc_names,
+            ep_vec_freq=self._vec_ep_freq_metrics_db)
+        self._add_custom_db_info(db_data=sub_trunc_data)
 
     def _add_custom_db_info(self, db_data: EpisodicData):
         self.custom_db_data[db_data.name()] = db_data
@@ -744,8 +791,22 @@ class LRhcTrainingEnvBase():
                             force_reconnection=True,
                             with_gpu_mirror=self._use_gpu,
                             fill_value=False) 
-        
         self._terminations.run()
+
+        sub_term_names = self._get_sub_term_names()
+        n_sub_term = 1 if sub_term_names is None else len(sub_term_names)
+        self._sub_terminations = SubTerminations(namespace=self._namespace,
+                n_envs=self._n_envs,
+                n_term=n_sub_term,
+                term_names=sub_term_names,
+                is_server=True,
+                verbose=self._verbose,
+                vlevel=self._vlevel,
+                safe=True,
+                force_reconnection=True,
+                with_gpu_mirror=self._use_gpu,
+                fill_value=False)
+        self._sub_terminations.run()
 
         device = "cuda" if self._use_gpu else "cpu"
         self._is_capsized=torch.zeros((self._n_envs,1), 
@@ -767,6 +828,22 @@ class LRhcTrainingEnvBase():
                             fill_value=False) 
         
         self._truncations.run()
+
+        sub_trunc_names = self._get_sub_trunc_names()
+        n_sub_trunc = 1 if sub_trunc_names is None else len(sub_trunc_names)
+
+        self._sub_truncations = SubTruncations(namespace=self._namespace,
+                n_envs=self._n_envs,
+                n_trunc=n_sub_trunc,
+                truc_names=sub_trunc_names,
+                is_server=True,
+                verbose=self._verbose,
+                vlevel=self._vlevel,
+                safe=True,
+                force_reconnection=True,
+                with_gpu_mirror=self._use_gpu,
+                fill_value=False)
+        self._sub_terminations.run()
         
     def _attach_to_shared_mem(self):
 
@@ -1055,34 +1132,39 @@ class LRhcTrainingEnvBase():
             return True
     
     def _check_truncations(self):
-        # default behaviour-> to be overriden by child
+        
+        self._check_sub_truncations()
+        sub_truncations = self._sub_truncations.get_torch_mirror(gpu=self._use_gpu)
         truncations = self._truncations.get_torch_mirror(gpu=self._use_gpu)
-        time_limits_reached = self._ep_timeout_counter.time_limits_reached()
-        # truncate when episode timeout occurs
-        truncations[:, :] = time_limits_reached
+        truncations[:, :] = torch.any(sub_truncations,dim=1,keepdim=True)
 
     def _check_terminations(self):
-        # default behaviour-> to be overriden by child
+        
+        self._check_sub_terminations()
+        sub_terminations = self._sub_terminations.get_torch_mirror(gpu=self._use_gpu)
         terminations = self._terminations.get_torch_mirror(gpu=self._use_gpu)
-        # terminate upon controller failure
+        terminations[:, :] = torch.any(sub_terminations,dim=1,keepdim=True)
 
+    def _check_sub_truncations(self):
+        # default behaviour-> to be overriden by child
+        sub_truncations = self._sub_truncations.get_torch_mirror(gpu=self._use_gpu)
+        sub_truncations[:, 0:1]=self._ep_timeout_counter.time_limits_reached()
+
+    def _check_sub_terminations(self):
+        # default behaviour-> to be overriden by child
+        sub_terminations = self._sub_terminations.get_torch_mirror(gpu=self._use_gpu)
         robot_q_meas = self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
+        robot_q_pred = self._rhc_cmds.root_state.get(data_type="q",gpu=self._use_gpu)
+
+        # terminate when either the real robot or the prediction from the MPC are capsized
         check_capsize(quat=robot_q_meas,max_angle=self._max_pitch_angle,
             output_t=self._is_capsized)
-        terminations[:, :] = torch.logical_or(self._rhc_status.fails.get_torch_mirror(gpu=self._use_gpu), self._is_capsized)
-
-        # robot_q_meas = self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
-        # robot_q_pred = self._rhc_cmds.root_state.get(data_type="q",gpu=self._use_gpu)
-
-        # # terminate when either the real robot or the prediction from the MPC are capsized
-        # check_capsize(quat=robot_q_meas,max_angle=self._max_pitch_angle,
-        #     output_t=self._is_capsized)
-        # check_capsize(quat=robot_q_pred,max_angle=self._max_pitch_angle,
-        #     output_t=self._is_rhc_capsized)
+        check_capsize(quat=robot_q_pred,max_angle=self._max_pitch_angle,
+            output_t=self._is_rhc_capsized)
         
-        # # terminate if either MPC explodes or if robot capsizes
-        # terminations[:, :] = torch.logical_or(self._rhc_status.fails.get_torch_mirror(gpu=self._use_gpu),
-        #     torch.logical_or(self._is_capsized,self._is_rhc_capsized))
+        sub_terminations[:, 0:1] = self._rhc_status.fails.get_torch_mirror(gpu=self._use_gpu)
+        sub_terminations[:, 1:2] = self._is_capsized
+        sub_terminations[:, 2:3] = self._is_rhc_capsized
 
     @abstractmethod
     def _pre_step(self):

@@ -520,6 +520,72 @@ class Truncations(SharedTWrapper):
 
         self.to_zero()
 
+class SubTerminations(NamedSharedTWrapper):
+
+    def __init__(self,
+            namespace: str,
+            n_envs: int = None, 
+            n_term: int = None, 
+            term_names: List[str] = None,
+            env_names: List[str] = None,
+            is_server = False, 
+            verbose: bool = False, 
+            vlevel: VLevel = VLevel.V0,
+            safe: bool = True,
+            force_reconnection: bool = False,
+            with_gpu_mirror: bool = False,
+            fill_value = False):
+
+        basename = "SubTerminations"
+
+        super().__init__(namespace=namespace,
+                    basename=basename,
+                    n_rows=n_envs,
+                    n_cols=n_term,
+                    dtype=sharsor_dtype.Bool,
+                    col_names=term_names,
+                    row_names=env_names,
+                    is_server=is_server,
+                    verbose=verbose,
+                    vlevel=vlevel,
+                    safe=safe,
+                    force_reconnection=force_reconnection,
+                    with_gpu_mirror=with_gpu_mirror,
+                    fill_value=fill_value)
+
+class SubTruncations(NamedSharedTWrapper):
+
+    def __init__(self,
+            namespace: str,
+            n_envs: int = None, 
+            n_trunc: int = None, 
+            truc_names: List[str] = None,
+            env_names: List[str] = None,
+            is_server = False, 
+            verbose: bool = False, 
+            vlevel: VLevel = VLevel.V0,
+            safe: bool = True,
+            force_reconnection: bool = False,
+            with_gpu_mirror: bool = False,
+            fill_value = False):
+
+        basename = "SubTruncations"
+
+        super().__init__(namespace=namespace,
+                    basename=basename,
+                    n_rows=n_envs,
+                    n_cols=n_trunc,
+                    dtype=sharsor_dtype.Bool,
+                    col_names=truc_names,
+                    row_names=env_names,
+                    is_server=is_server,
+                    verbose=verbose,
+                    vlevel=vlevel,
+                    safe=safe,
+                    force_reconnection=force_reconnection,
+                    with_gpu_mirror=with_gpu_mirror,
+                    fill_value=fill_value)
+        
 class SimpleCounters(SharedDataBase):
     
     class StepCounter(SharedTWrapper):
