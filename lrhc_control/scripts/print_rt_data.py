@@ -2,8 +2,8 @@ from lrhc_control.utils.shared_data.training_env import Observations, NextObserv
 from lrhc_control.utils.shared_data.training_env import TotRewards
 from lrhc_control.utils.shared_data.training_env import Rewards
 from lrhc_control.utils.shared_data.training_env import Actions
-from lrhc_control.utils.shared_data.training_env import Terminations
-from lrhc_control.utils.shared_data.training_env import Truncations
+from lrhc_control.utils.shared_data.training_env import Terminations, SubTerminations
+from lrhc_control.utils.shared_data.training_env import Truncations, SubTruncations
 from lrhc_control.utils.shared_data.training_env import EpisodesCounter, TaskRandCounter, SafetyRandResetsCounter
 from control_cluster_bridge.utilities.shared_data.sim_data import SharedSimInfo
 
@@ -31,6 +31,7 @@ if __name__ == "__main__":
     parser.add_argument('--with_safety_counter', action=argparse.BooleanOptionalAction, default=False, help='')
     parser.add_argument('--resolution', type=int, help='', default=2)
     parser.add_argument('--with_sub_r', action=argparse.BooleanOptionalAction, default=True, help='')
+    parser.add_argument('--with_sub_t', action=argparse.BooleanOptionalAction, default=True, help='')
     parser.add_argument('--with_sinfo', action=argparse.BooleanOptionalAction, default=True, help='')
     parser.add_argument('--obs_names', nargs='+', default=None,
                         help='')
@@ -76,6 +77,19 @@ if __name__ == "__main__":
     term = Terminations(namespace=namespace,is_server=False,verbose=True, 
                 vlevel=VLevel.V2,safe=False,
                 with_gpu_mirror=False)
+    sub_trunc = None
+    sub_term = None
+    if args.with_sub_t:
+        sub_trunc = SubTruncations(namespace=namespace,
+                        is_server=False,
+                        verbose=True,
+                        vlevel=VLevel.V2,
+                        with_gpu_mirror=False)
+        sub_term = SubTerminations(namespace=namespace,
+                        is_server=False,
+                        verbose=True,
+                        vlevel=VLevel.V2,
+                        with_gpu_mirror=False)
     
     sim_data = None
     if args.with_sinfo:
@@ -103,6 +117,12 @@ if __name__ == "__main__":
         sub_rew_names = sub_rew.col_names()
     trunc.run()
     term.run()
+    if sub_trunc is not None:
+        sub_trunc.run()
+        sub_trunc_names = sub_trunc.col_names()
+    if sub_term is not None:
+        sub_term.run()
+        sub_term_names = sub_term.col_names()
     if sim_data is not None:
         sim_data.run()
         sim_datanames = sim_data.param_keys
@@ -148,6 +168,10 @@ if __name__ == "__main__":
             rew.synch_all(read=True, retry=True)
             if sub_rew is not None:
                 sub_rew.synch_all(read=True, retry=True)
+            if sub_trunc is not None:
+                sub_trunc.synch_all(read=True, retry=True)
+            if sub_term is not None:
+                sub_term.synch_all(read=True, retry=True)
             trunc.synch_all(read=True, retry=True)
             term.synch_all(read=True, retry=True)            
 
@@ -173,6 +197,14 @@ if __name__ == "__main__":
             print(term.get_torch_mirror(gpu=False)[idx:idx+env_range, :])
             print("\ntruncations:")
             print(trunc.get_torch_mirror(gpu=False)[idx:idx+env_range, :])
+            if sub_trunc is not None:
+                print("\nsub-truncations:")
+                print(*sub_trunc_names, sep = ", ") 
+                print(sub_trunc.get_torch_mirror(gpu=False)[idx:idx+env_range, :])
+            if sub_term is not None:
+                print("\nsub-terminations:")
+                print(*sub_term_names, sep = ", ") 
+                print(sub_term.get_torch_mirror(gpu=False)[idx:idx+env_range, :])
             if ep_counter is not None:
                 ep_counter.counter().synch_all(read=True, retry=True)
                 print("\nep. counter:")
