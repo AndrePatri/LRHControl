@@ -36,15 +36,13 @@ class SAC(SActorCriticAlgoBase):
             self._eval:
             actions, _, mean = self._agent.actor.get_action(x=obs)
             actions = actions.detach()
+            if self._eval: # use mean instead of stochastic policy
+                actions[:, :] = mean
         else:
             actions = self._sample_random_actions()
                 
         # perform a step of the (vectorized) env and retrieve trajectory
-        env_step_ok=True
-        if self._eval:
-            env_step_ok = self._env.step(actions)
-        else: # use stochastic policy
-            env_step_ok = self._env.step(mean)
+        env_step_ok = self._env.step(actions)
         
         if not self._eval: # add experience to replay buffer
             self._add_experience(obs=obs,
