@@ -1054,7 +1054,6 @@ class LRhcTrainingEnvBase():
                 return False
             return True
     
-    @abstractmethod
     def _check_truncations(self):
         # default behaviour-> to be overriden by child
         truncations = self._truncations.get_torch_mirror(gpu=self._use_gpu)
@@ -1062,24 +1061,28 @@ class LRhcTrainingEnvBase():
         # truncate when episode timeout occurs
         truncations[:, :] = time_limits_reached
 
-    @abstractmethod
     def _check_terminations(self):
         # default behaviour-> to be overriden by child
         terminations = self._terminations.get_torch_mirror(gpu=self._use_gpu)
         # terminate upon controller failure
 
         robot_q_meas = self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
-        robot_q_pred = self._rhc_cmds.root_state.get(data_type="q",gpu=self._use_gpu)
-
-        # terminate when either the real robot or the prediction from the MPC are capsized
         check_capsize(quat=robot_q_meas,max_angle=self._max_pitch_angle,
             output_t=self._is_capsized)
-        check_capsize(quat=robot_q_pred,max_angle=self._max_pitch_angle,
-            output_t=self._is_rhc_capsized)
+        terminations[:, :] = torch.logical_or(self._rhc_status.fails.get_torch_mirror(gpu=self._use_gpu), self._is_capsized)
+
+        # robot_q_meas = self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
+        # robot_q_pred = self._rhc_cmds.root_state.get(data_type="q",gpu=self._use_gpu)
+
+        # # terminate when either the real robot or the prediction from the MPC are capsized
+        # check_capsize(quat=robot_q_meas,max_angle=self._max_pitch_angle,
+        #     output_t=self._is_capsized)
+        # check_capsize(quat=robot_q_pred,max_angle=self._max_pitch_angle,
+        #     output_t=self._is_rhc_capsized)
         
-        # terminate if either MPC explodes or if robot capsizes
-        terminations[:, :] = torch.logical_or(self._rhc_status.fails.get_torch_mirror(gpu=self._use_gpu),
-            torch.logical_or(self._is_capsized,self._is_rhc_capsized))
+        # # terminate if either MPC explodes or if robot capsizes
+        # terminations[:, :] = torch.logical_or(self._rhc_status.fails.get_torch_mirror(gpu=self._use_gpu),
+        #     torch.logical_or(self._is_capsized,self._is_rhc_capsized))
 
     @abstractmethod
     def _pre_step(self):

@@ -176,7 +176,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     n_steps_task_rand_lb=n_steps_task_rand_lb,
                     n_steps_task_rand_ub=n_steps_task_rand_ub,
                     random_reset_freq=random_reset_freq,
-                    use_random_safety_reset=True,
+                    use_random_safety_reset=False,
                     action_repeat=action_repeat,
                     env_name=env_name,
                     n_preinit_steps=n_preinit_steps,
