@@ -54,7 +54,6 @@ class RosBagDumper():
         self._term_trigger=None
 
         self._is_done_idx=None
-        self._training_done=False
         
         self._abort_wallmin=abort_wallmin
 
@@ -120,12 +119,10 @@ class RosBagDumper():
         self._term_trigger.run()
 
         self._bridge.run(update_dt=self._ros_bridge_dt)
-        self._training_done = self._shared_info.get().flatten()[self._is_done_idx]>0.5
                 
     def training_done(self):
         
-        self._training_done = self._shared_info.get().flatten()[self._is_done_idx]>0.5
-        return self._training_done
+        return self._shared_info.get().flatten()[self._is_done_idx]>0.5
 
     def _launch_rosbag(self, 
             namespace: str, dump_path: str, timeout_sec:float, use_shared_drop_dir: bool = True):
@@ -213,4 +210,6 @@ class RosBagDumper():
                 self._bag_proc.join()
             if self._term_trigger is not None:
                 self._term_trigger.close()
+            
+            self._bridge.close()
             self._closed=True
