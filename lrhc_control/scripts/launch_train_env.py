@@ -31,7 +31,7 @@ if __name__ == "__main__":
    
     parser.add_argument('--obs_norm', action=argparse.BooleanOptionalAction, default=True, help='Whether to enable the use of running normalizer in agent')
 
-    parser.add_argument('--use_cer', action=argparse.BooleanOptionalAction, default=True, help='')
+    parser.add_argument('--use_cer', action=argparse.BooleanOptionalAction, default=False, help='')
     parser.add_argument('--sac', action=argparse.BooleanOptionalAction, default=True, help='')
 
     parser.add_argument('--eval', action=argparse.BooleanOptionalAction, default=False, help='Whether to perform an evaluation run')
