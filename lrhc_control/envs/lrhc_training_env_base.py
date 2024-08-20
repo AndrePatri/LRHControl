@@ -747,10 +747,6 @@ class LRhcTrainingEnvBase():
         self._episodic_rewards_metrics.set_constant_data_scaling(scaling=scaling)
         
     def _init_infos(self):
-        
-        data_scaling = torch.full((self._n_envs, 1),
-                    fill_value=self._n_steps_task_rand_ub,
-                    dtype=torch.int32,device="cpu")
 
         self.custom_db_data = {}
         # by default always log this contact data
@@ -765,7 +761,12 @@ class LRhcTrainingEnvBase():
         action_data = EpisodicData("Actions", actions, action_names,
             ep_vec_freq=self._vec_ep_freq_metrics_db)
         self._add_custom_db_info(db_data=action_data)
+
         # log sub-term and sub-truncations data
+        t_scaling=1 # 1 so that we log an interpretable data in terms of why the episode finished
+        data_scaling = torch.full((self._n_envs, 1),
+                    fill_value=t_scaling,
+                    dtype=torch.int32,device="cpu")
         sub_term = self._sub_terminations.get_torch_mirror()
         sub_term_names = self.sub_term_names()
         sub_term_data = EpisodicData("SubTerminations", sub_term, sub_term_names,
