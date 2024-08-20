@@ -843,7 +843,7 @@ class LRhcTrainingEnvBase():
                 force_reconnection=True,
                 with_gpu_mirror=self._use_gpu,
                 fill_value=False)
-        self._sub_terminations.run()
+        self._sub_truncations.run()
         
     def _attach_to_shared_mem(self):
 
