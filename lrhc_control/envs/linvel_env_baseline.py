@@ -307,9 +307,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
     def _custom_post_step(self,episode_finished):
         # executed after checking truncations and terminations
-        self.randomize_task_refs(env_indxs=self._task_rand_counter.time_limits_reached().flatten()) # randomize 
-        # refs of envs that reached task randomization time
-        # self.randomize_task_refs(env_indxs=episode_finished.flatten())
+        time_to_rand_or_ep_finished = torch.logical_or(self._task_rand_counter.time_limits_reached(),episode_finished)
+        self.randomize_task_refs(env_indxs=time_to_rand_or_ep_finished)
 
     def _apply_actions_to_rhc(self):
         
