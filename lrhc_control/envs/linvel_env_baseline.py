@@ -26,6 +26,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         action_repeat = 1 # frame skipping (different agent action every action_repeat
         # env substeps)
 
+        self._single_task_ref_per_episode=False # if True, the task ref is constant over the episode (ie
+        # episodes are truncated when task is changed)
         self._use_horizontal_frame_for_refs = False # (vel refs for agent are in horizontal frame)
         # usually impractical for task rand to set this to True 
         self._twist_meas_is_base_local = False # twist meas from remote sim env are already base-local
@@ -284,11 +286,18 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         aux_dirs.append(path_getter.RHCDIR)
         return aux_dirs
 
+    def _get_reward_scaling(self):
+        if self._single_task_ref_per_episode:
+            return self._n_steps_task_rand_ub
+        else:
+            return self._episode_timeout_ub
+        
     def _check_sub_truncations(self):
         # overrides parent
         sub_truncations = self._sub_truncations.get_torch_mirror(gpu=self._use_gpu)
         sub_truncations[:, 0:1] = self._ep_timeout_counter.time_limits_reached()
-        # sub_truncations[:, 1:2] = self._task_rand_counter.time_limits_reached()
+        if self._single_task_ref_per_episode:
+            sub_truncations[:, 1:2] = self._task_rand_counter.time_limits_reached()
     
     def _custom_reset(self): # reset if truncated
         return self._truncations.get_torch_mirror(gpu=self._use_gpu).cpu()
@@ -298,9 +307,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
     def _custom_post_step(self,episode_finished):
         # executed after checking truncations and terminations
-        # self.randomize_task_refs(env_indxs=self._task_rand_counter.time_limits_reached().flatten()) # randomize 
+        self.randomize_task_refs(env_indxs=self._task_rand_counter.time_limits_reached().flatten()) # randomize 
         # refs of envs that reached task randomization time
-        self.randomize_task_refs(env_indxs=episode_finished.flatten())
+        # self.randomize_task_refs(env_indxs=episode_finished.flatten())
 
     def _apply_actions_to_rhc(self):
         
@@ -603,6 +612,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
     def _get_sub_trunc_names(self):
         sub_trunc_names = []
         sub_trunc_names.append("ep_timeout")
-        # sub_trunc_names.append("task_ref_rand")
+        if self._single_task_ref_per_episode:
+            sub_trunc_names.append("task_ref_rand")
         return sub_trunc_names
 

@@ -746,12 +746,11 @@ class LRhcTrainingEnvBase():
                                         reward_names=self._get_rewards_names(),
                                         max_episode_length=self._episode_timeout_ub,
                                         ep_vec_freq=self._vec_ep_freq_metrics_db)
-        self._set_ep_rewards_scaling(scaling=self._n_steps_task_rand_ub)
+        self._episodic_rewards_metrics.set_constant_data_scaling(scaling=self._get_reward_scaling())
         
-    def _set_ep_rewards_scaling(self,
-                        scaling: int):
-        
-        self._episodic_rewards_metrics.set_constant_data_scaling(scaling=scaling)
+    def _get_reward_scaling(self):
+        # to be overridden by child (default to no scaling)
+        return 1
         
     def _init_infos(self):
 
