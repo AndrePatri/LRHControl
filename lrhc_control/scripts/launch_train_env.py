@@ -59,6 +59,9 @@ if __name__ == "__main__":
     parser.add_argument('--actor_size', type=int, help='seed', default=256)
     parser.add_argument('--critic_size', type=int, help='seed', default=256)
 
+    parser.add_argument('--env_fname', type=str, default="linvel_env_baseline", help="training env file name (without extension)")
+    parser.add_argument('--env_classname', type=str, default="LinVelTrackBaseline", help='training env class name')
+
     args = parser.parse_args()
     args_dict = vars(args)
     
@@ -66,35 +69,32 @@ if __name__ == "__main__":
         mpath_full = os.path.join(args.mpath, args.mname)
     else:
         mpath_full=None
-
+    
+    env_fname=args.env_fname
+    env_classname = args.env_classname
+    env_path=""
     if not args.eval:
-        from lrhc_control.envs.linvel_env_baseline import LinVelTrackBaseline
-        env = LinVelTrackBaseline(namespace=args.ns,
-                        verbose=True,
-                        vlevel=VLevel.V2,
-                        use_gpu=not args.use_cpu,
-                        debug=args.env_db,
-                        override_agent_refs=args.override_agent_refs,
-                        timeout_ms=args.timeout_ms)
+        env_path = f"lrhc_control.envs.{env_fname}"
     else:
-        env_fname="linvel_env_baseline.py"
-        env_classname="LinVelTrackBaseline"
-        env_path=os.path.join(args.mpath, env_fname)
-        env_module = import_env_module(env_path)
-        EnvClass=getattr(env_module, env_classname)
-        env = EnvClass(namespace=args.ns,
+        env_path=os.path.join(args.mpath, env_fname+".py")
+    
+    # load env class dynamically
+    env_module = importlib.import_module(env_path)
+    EnvClass = getattr(env_module, class_name)
+    env = EnvClass(namespace=args.ns,
             verbose=True,
             vlevel=VLevel.V2,
             use_gpu=not args.use_cpu,
             debug=args.env_db,
             override_agent_refs=args.override_agent_refs,
             timeout_ms=args.timeout_ms)
-        Journal.log("launch_train_env.py",
+    env_type="training" is not args.eval else "evaluation"
+    Journal.log("launch_train_env.py",
             "",
-            f"loading evaluation env {env_classname} at {env_path}",
+            f"loading {env_type} env {env_classname} at {env_path}",
             LogType.INFO,
             throw_when_excep = True)
-    
+
     # getting some sim info for debugging
     sim_data = {}
     sim_info_shared = SharedSimInfo(namespace=args.ns,
