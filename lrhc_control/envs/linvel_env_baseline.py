@@ -307,8 +307,12 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
     def _custom_post_step(self,episode_finished):
         # executed after checking truncations and terminations
-        time_to_rand_or_ep_finished = torch.logical_or(self._task_rand_counter.time_limits_reached().cuda(),episode_finished)
-        self.randomize_task_refs(env_indxs=time_to_rand_or_ep_finished.flatten())
+        if self._use_gpu:
+            time_to_rand_or_ep_finished = torch.logical_or(self._task_rand_counter.time_limits_reached().cuda(),episode_finished)
+            self.randomize_task_refs(env_indxs=time_to_rand_or_ep_finished.flatten())
+        else:
+            time_to_rand_or_ep_finished = torch.logical_or(self._task_rand_counter.time_limits_reached(),episode_finished)
+            self.randomize_task_refs(env_indxs=time_to_rand_or_ep_finished.flatten())
 
     def _apply_actions_to_rhc(self):
         
