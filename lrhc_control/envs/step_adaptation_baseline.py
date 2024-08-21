@@ -298,7 +298,10 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
             sub_truncations[:, 1:2] = self._task_rand_counter.time_limits_reached()
     
     def _custom_reset(self): # reset if truncated
-        return self._truncations.get_torch_mirror(gpu=self._use_gpu).cpu()
+        if self._single_task_ref_per_episode:
+            return None
+        else:
+            return self._truncations.get_torch_mirror(gpu=self._use_gpu).cpu()
     
     def _pre_step(self): 
         pass
