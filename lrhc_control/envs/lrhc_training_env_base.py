@@ -366,17 +366,19 @@ class LRhcTrainingEnvBase():
             self._episodic_rewards_metrics.update(rewards = self._sub_rewards.get_torch_mirror(gpu=False),
                             ep_finished=episode_finished_cpu)
 
-        # remotely reset envs only if terminated or if a timeout is reached
-        
+        # remotely reset envs
         to_be_reset=self._to_be_reset()
+        to_be_reset_custom=self._custom_reset()
+        if to_be_reset_custom is not None:
+            to_be_reset[:, :] = torch.logical_or(to_be_reset,to_be_reset_custom)
         rm_reset_ok = self._remote_reset(reset_mask=to_be_reset)
         
         self._custom_post_step(episode_finished=episode_finished) # any additional logic from child env  
         # here after reset, so that is can access all states post reset if necessary      
 
         # synchronize and reset counters for finished episodes
-        self._ep_timeout_counter.reset(to_be_reset=episode_finished_cpu)# reset and randomize duration 
-        self._task_rand_counter.reset(to_be_reset=episode_finished_cpu)# reset and randomize duration 
+        self._ep_timeout_counter.reset(to_be_reset=episode_finished_cpu)
+        self._task_rand_counter.reset(to_be_reset=episode_finished_cpu)
         # safety reset counter is only when it reches its reset interval (just to keep
         # the counter bounded)
         if self._rand_safety_reset_counter is not None:
@@ -385,8 +387,9 @@ class LRhcTrainingEnvBase():
         return rm_reset_ok
     
     def _to_be_reset(self):
+        # always reset if a termination occurred or if there's a random safety reset
+        # request
         terminated = self._terminations.get_torch_mirror(gpu=self._use_gpu)
-        # can be overriden by child -> defines the logic for when to reset envs
         to_be_reset=terminated.cpu()
 
         if self._rand_safety_reset_counter is not None:
@@ -395,6 +398,10 @@ class LRhcTrainingEnvBase():
 
         return to_be_reset
 
+    def _custom_reset(self):
+        # can be overridden by child
+        return None
+    
     def _update_custom_db_data(self,
                     episode_finished):
 

@@ -288,8 +288,11 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # overrides parent
         sub_truncations = self._sub_truncations.get_torch_mirror(gpu=self._use_gpu)
         sub_truncations[:, 0:1] = self._ep_timeout_counter.time_limits_reached()
-        sub_truncations[:, 1:2] = self._task_rand_counter.time_limits_reached()
-        
+        # sub_truncations[:, 1:2] = self._task_rand_counter.time_limits_reached()
+    
+    def _custom_reset(self): # reset if truncated
+        return self._truncations.get_torch_mirror(gpu=self._use_gpu).cpu()
+    
     def _pre_step(self): 
         pass
 
@@ -600,6 +603,6 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
     def _get_sub_trunc_names(self):
         sub_trunc_names = []
         sub_trunc_names.append("ep_timeout")
-        sub_trunc_names.append("task_ref_rand")
+        # sub_trunc_names.append("task_ref_rand")
         return sub_trunc_names
 
