@@ -799,7 +799,7 @@ class ActorCriticAlgoBase():
         self._total_timesteps_vec = self._iterations_n*self._rollout_timesteps
 
         # policy update
-        self._num_minibatches = 4
+        self._num_minibatches = 8
         self._minibatch_size = self._batch_size // self._num_minibatches
         
         self._base_lr_actor = 5e-4
