@@ -237,8 +237,8 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         self._obs_threshold_lb = -1e3 # used for clipping observations
         self._obs_threshold_ub = 1e3
 
-        v_cmd_max = self.max_ref
-        omega_cmd_max = self.max_ref
+        v_cmd_max = self.max_ref_lin
+        omega_cmd_max = self.max_ref_omega
         self._actions_lb[:, 0:1] = -v_cmd_max 
         self._actions_ub[:, 1:1] = v_cmd_max  # vxyz cmd
         self._actions_lb[:, 1:3] = -omega_cmd_max # twist cmds
