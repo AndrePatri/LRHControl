@@ -80,7 +80,7 @@ if __name__ == "__main__":
     
     # load env class dynamically
     env_module = importlib.import_module(env_path)
-    EnvClass = getattr(env_module, class_name)
+    EnvClass = getattr(env_module, env_classname)
     env = EnvClass(namespace=args.ns,
             verbose=True,
             vlevel=VLevel.V2,
