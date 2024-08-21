@@ -323,8 +323,8 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         rhc_latest_contact_ref = self._rhc_refs.contact_flags.get_torch_mirror(gpu=self._use_gpu)
         
         # refs have to be applied in the MPC's horizontal frame
-        rhc_q_internal =self._rhc_cmds.root_state.get(data_type="q",gpu=self._use_gpu)
-        w2hor_frame(t_w=agent_twist_ref_current,q_b=rhc_q_internal,t_out=self._agent_twist_ref_h)
+        robot_q_meas = self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
+        w2hor_frame(t_w=agent_twist_ref_current,q_b=robot_q_meas,t_out=self._agent_twist_ref_h)
         # 2D lin vel applied directly to MPC
         rhc_latest_twist_ref[:, 0:2] = self._agent_twist_ref_h[:, 0:2] # 2D lin vl
 
