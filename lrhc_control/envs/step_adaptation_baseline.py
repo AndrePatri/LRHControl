@@ -28,8 +28,7 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
 
         self._single_task_ref_per_episode=True # if True, the task ref is constant over the episode (ie
         # episodes are truncated when task is changed)
-        self._use_horizontal_frame_for_refs = False # (vel refs for agent are in horizontal frame)
-        # usually impractical for task rand to set this to True 
+ 
         self._twist_meas_is_base_local = False # twist meas from remote sim env are already base-local
         # (usually, this has to be set to True when running on the real robot)
         # we assume the twist meas for the agent to be provided always in local base frame
@@ -66,7 +65,7 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         rhc_status_tmp.close()
 
         # defining actions and obs dimensions
-        actions_dim = 3 + 4 # [vz_cmd, omega_roll, omega_pitch, dostep_0, dostep_1, dostep_2, dostep_3]
+        actions_dim = 4 # [vz_cmd, omega_roll, omega_pitch, dostep_0, dostep_1, dostep_2, dostep_3]
 
         obs_dim=4 # base orientation quaternion 
         obs_dim+=6 # meas twist
@@ -223,7 +222,6 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
 
         # other static db info 
         self.custom_db_info["add_last_action_to_obs"] = self._add_prev_actions_stats_to_obs
-        self.custom_db_info["use_horizontal_frame_for_refs"] = self._use_horizontal_frame_for_refs
         self.custom_db_info["twist_meas_is_base_local"] = self._twist_meas_is_base_local
         self.custom_db_info["use_pof0"] = self._use_pof0
         self.custom_db_info["pof0"] = self._pof0
@@ -250,6 +248,8 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         self._robot_twist_meas_h = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu).clone()
         self._robot_twist_meas_b = self._robot_twist_meas_h.clone()
         self._robot_twist_meas_w = self._robot_twist_meas_h.clone()
+        
+        self._agent_twist_ref_h = self._robot_twist_meas_h.clone()
 
         # task aux objs
         device = "cuda" if self._use_gpu else "cpu"
@@ -321,20 +321,18 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         rhc_latest_twist_ref = self._rhc_refs.rob_refs.root_state.get(data_type="twist", gpu=self._use_gpu)
         agent_twist_ref_current = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu)
         rhc_latest_contact_ref = self._rhc_refs.contact_flags.get_torch_mirror(gpu=self._use_gpu)
-
-        # 2D lin vel + yaw twist ref are directly set from high lev refs
-        rhc_latest_twist_ref[:, 0:2] = agent_twist_ref_current[:, 0:2] # 2D lin vl
-        rhc_latest_twist_ref[:, 5:6] = agent_twist_ref_current[:, 5:6] # yaw twist
-        # the reset of the twist components are controlled by the agent
-        rhc_latest_twist_ref[:, 2:5] = agent_action[:, 0:3]
         
-        # self._rhc_refs.rob_refs.root_state.set(data_type="p", data=rhc_latest_p_ref,
-        #                                     gpu=self._use_gpu)
+        # refs have to be applied in the MPC's horizontal frame
+        rhc_q_internal =self._rhc_cmds.root_state.get(data_type="q",gpu=self._use_gpu)
+        w2hor_frame(t_w=agent_twist_ref_current,q_b=rhc_q_internal,t_out=self._agent_twist_ref_h)
+        # 2D lin vel applied directly to MPC
+        rhc_latest_twist_ref[:, 0:2] = self._agent_twist_ref_h[:, 0:2] # 2D lin vl
+
         self._rhc_refs.rob_refs.root_state.set(data_type="twist", data=rhc_latest_twist_ref,
                                             gpu=self._use_gpu) 
         
-        # contact flags
-        rhc_latest_contact_ref[:, :] = agent_action[:, 3:7] > 0 # keep contact if agent action > 0
+        # agent sets contact flags
+        rhc_latest_contact_ref[:, :] = agent_action[:, 0:4] > 0 # keep contact if agent action > 0
 
         if self._use_gpu:
             self._rhc_refs.rob_refs.root_state.synch_mirror(from_gpu=self._use_gpu) # write from gpu to cpu mirror
@@ -475,19 +473,12 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         # task_error_fun = self._task_err_pseudolin
         task_error_fun = self._task_err_pseudolinv2
         # task_error_fun = self._task_err_quad
-        # task error
-        # task_meas = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu) # robot twist meas (local base if _use_local_base_frame)
+
         task_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu) # high level agent refs (hybrid twist)
-        # task_error_wmse = self._task_err_quad(task_meas=task_meas, task_ref=task_ref)
-        if self._use_horizontal_frame_for_refs:
-           base2world_frame(t_b=next_obs[:, 4:10],q_b=next_obs[:, 0:4],t_out=self._robot_twist_meas_w)
-           w2hor_frame(t_w=self._robot_twist_meas_w,q_b=next_obs[:, 0:4],t_out=self._robot_twist_meas_h)
-           task_error_pseudolin = task_error_fun(task_meas=self._robot_twist_meas_h, 
-                                                task_ref=task_ref)
-        else:
-            base2world_frame(t_b=next_obs[:, 4:10],q_b=next_obs[:, 0:4],t_out=self._robot_twist_meas_w)
-            task_error_pseudolin = task_error_fun(task_meas=self._robot_twist_meas_w, 
-                                                task_ref=task_ref)
+   
+        base2world_frame(t_b=next_obs[:, 4:10],q_b=next_obs[:, 0:4],t_out=self._robot_twist_meas_w)
+        task_error_pseudolin = task_error_fun(task_meas=self._robot_twist_meas_w, 
+                                            task_ref=task_ref)
         
         # mech power
         jnts_vel = self._robot_state.jnts_state.get(data_type="v",gpu=self._use_gpu)
