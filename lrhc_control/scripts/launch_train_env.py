@@ -74,7 +74,7 @@ if __name__ == "__main__":
     env_classname = args.env_classname
     env_path=""
     if not args.eval:
-        env_path = f"lrhc_control.envs.{env_fname+".py"}"
+        env_path = f"lrhc_control.envs.{env_fname}"
     else:
         env_path=os.path.join(args.mpath, env_fname+".py")
     
