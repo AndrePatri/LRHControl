@@ -453,11 +453,12 @@ if __name__ == "__main__":
     parser.add_argument('--actor_size', type=int, help='seed', default=64)
     parser.add_argument('--critic_size', type=int, help='seed', default=64)
 
+    parser.add_argument('--env_type', type=str, help='Name of env to be created',default="HalfCheetah-v4")
+
     args = parser.parse_args()
     args_dict = vars(args)
     render_mode = "human" if args.render else None
-    # env_type = 'InvertedPendulum-v4'
-    env_type = 'HalfCheetah-v4'
+    env_type = args.env_type
 
     env_wrapper = Gymnasium2LRHCEnv(env_type=env_type,
                         namespace=args.ns,
