@@ -26,7 +26,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         action_repeat = 1 # frame skipping (different agent action every action_repeat
         # env substeps)
 
-        self._single_task_ref_per_episode=False # if True, the task ref is constant over the episode (ie
+        self._single_task_ref_per_episode=True # if True, the task ref is constant over the episode (ie
         # episodes are truncated when task is changed)
         self._use_horizontal_frame_for_refs = False # (vel refs for agent are in horizontal frame)
         # usually impractical for task rand to set this to True 
@@ -178,7 +178,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     n_steps_task_rand_lb=n_steps_task_rand_lb,
                     n_steps_task_rand_ub=n_steps_task_rand_ub,
                     random_reset_freq=random_reset_freq,
-                    use_random_safety_reset=False,
+                    use_random_safety_reset=True,
                     action_repeat=action_repeat,
                     env_name=env_name,
                     n_preinit_steps=n_preinit_steps,
@@ -300,7 +300,10 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             sub_truncations[:, 1:2] = self._task_rand_counter.time_limits_reached()
     
     def _custom_reset(self): # reset if truncated
-        return self._truncations.get_torch_mirror(gpu=self._use_gpu).cpu()
+        if self._single_task_ref_per_episode:
+            return None
+        else:
+            return self._truncations.get_torch_mirror(gpu=self._use_gpu).cpu()
     
     def _pre_step(self): 
         pass
