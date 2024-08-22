@@ -73,13 +73,14 @@ if __name__ == "__main__":
     env_fname=args.env_fname
     env_classname = args.env_classname
     env_path=""
+    env_module=None
     if not args.eval:
         env_path = f"lrhc_control.envs.{env_fname}"
+        env_module = importlib.import_module(env_path)
     else:
         env_path=os.path.join(args.mpath, env_fname+".py")
-    
-    # load env class dynamically
-    env_module = importlib.import_module(env_path)
+        env_module=import_env_module(env_path)
+       
     EnvClass = getattr(env_module, env_classname)
     env = EnvClass(namespace=args.ns,
             verbose=True,
@@ -91,7 +92,7 @@ if __name__ == "__main__":
     env_type="training" if not args.eval else "evaluation"
     Journal.log("launch_train_env.py",
             "",
-            f"loading {env_type} env {env_classname} at {env_path}",
+            f"loading {env_type} env {env_classname} from {env_path}",
             LogType.INFO,
             throw_when_excep = True)
 
