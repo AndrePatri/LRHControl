@@ -65,7 +65,7 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         rhc_status_tmp.close()
 
         # defining actions and obs dimensions
-        actions_dim = 4 # [vz_cmd, omega_roll, omega_pitch, dostep_0, dostep_1, dostep_2, dostep_3]
+        actions_dim = 4 + 3 # [vz_cmd, omega_roll, omega_pitch, dostep_0, dostep_1, dostep_2, dostep_3]
 
         obs_dim=4 # base orientation quaternion 
         obs_dim+=6 # meas twist
@@ -116,8 +116,8 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         self._rhc_fail_idx_scale=1.0
 
         # power penalty
-        self._power_offset = 10# 10.0
-        self._power_scale = 0.5# 0.1
+        self._power_offset = 10 # 10.0
+        self._power_scale = 0.5 # 0.1
         self._power_penalty_weights = torch.full((1, n_jnts), dtype=dtype, device=device,
                             fill_value=1.0)
         n_jnts_per_limb = round(n_jnts/n_contacts) # assuming same topology along limbs
@@ -144,7 +144,7 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         
         # task rand
         self._use_pof0 = True
-        self._pof0 = 0.2
+        self._pof0 = 0.0
         self._twist_ref_lb = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=-0.8) 
         self._twist_ref_ub = torch.full((1, 6), dtype=dtype, device=device,
@@ -193,7 +193,7 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
                     srew_drescaling=True,
                     srew_tsrescaling=False,
                     use_act_mem_bf=self._add_prev_actions_stats_to_obs,
-                    act_membf_size=30)
+                    act_membf_size=10)
 
         # action regularization
         self._actions_diff_rew_offset = 0.0
@@ -331,13 +331,14 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         w2hor_frame(t_w=agent_twist_ref_current,q_b=robot_q_meas,t_out=self._agent_twist_ref_h)
         # 2D lin vel applied directly to MPC
         rhc_latest_twist_ref[:, 0:2] = self._agent_twist_ref_h[:, 0:2] # 2D lin vl
+        rhc_latest_twist_ref[:, 2:5] = agent_action[:, 0:3]
         rhc_latest_twist_ref[:, 5:6] = self._agent_twist_ref_h[:, 5:6] # yaw twist
 
         self._rhc_refs.rob_refs.root_state.set(data_type="twist", data=rhc_latest_twist_ref,
                                             gpu=self._use_gpu) 
         
         # agent sets contact flags
-        rhc_latest_contact_ref[:, :] = agent_action[:, 0:4] > 0 # keep contact if agent action > 0
+        rhc_latest_contact_ref[:, :] = agent_action[:, 3:7] > 0 # keep contact if agent action > 0
 
         if self._use_gpu:
             self._rhc_refs.rob_refs.root_state.synch_mirror(from_gpu=self._use_gpu) # write from gpu to cpu mirror
@@ -475,8 +476,8 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
                     obs: torch.Tensor,
                     next_obs: torch.Tensor):
         
-        # task_error_fun = self._task_err_pseudolin
-        task_error_fun = self._task_err_pseudolinv2
+        task_error_fun = self._task_err_pseudolin
+        # task_error_fun = self._task_err_pseudolinv2
         # task_error_fun = self._task_err_quad
 
         task_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu) # high level agent refs (hybrid twist)
@@ -579,9 +580,9 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
     def _get_action_names(self):
 
         action_names = [""] * self.actions_dim()
-        # action_names[0] = "vz_cmd"
-        # action_names[1] = "roll_twist_cmd"
-        # action_names[2] = "pitch_twist_cmd"
+        action_names[0] = "vz_cmd"
+        action_names[1] = "roll_twist_cmd"
+        action_names[2] = "pitch_twist_cmd"
         action_names[0] = "contact_0"
         action_names[1] = "contact_1"
         action_names[2] = "contact_2"
