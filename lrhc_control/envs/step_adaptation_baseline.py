@@ -74,7 +74,8 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
             obs_dim+=4 # internal rhc base orientation
         if self._add_contact_idx_to_obs:
             obs_dim+=n_contacts # contact index var
-        obs_dim+=2 # 2D lin vel + twist reference to be tracked
+        obs_dim+=2 # 2D lin vel 
+        obs_dim+=1 # twist reference to be tracked
         if self._add_fail_idx_to_obs:
             obs_dim+=1 # rhc controller failure index
         if self._add_prev_actions_stats_to_obs:
@@ -115,8 +116,8 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         self._rhc_fail_idx_scale=1.0
 
         # power penalty
-        self._power_offset = 0# 10.0
-        self._power_scale = 0# 0.1
+        self._power_offset = 10# 10.0
+        self._power_scale = 0.5# 0.1
         self._power_penalty_weights = torch.full((1, n_jnts), dtype=dtype, device=device,
                             fill_value=1.0)
         n_jnts_per_limb = round(n_jnts/n_contacts) # assuming same topology along limbs
@@ -142,15 +143,15 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         self._jnt_vel_penalty_weights_sum = torch.sum(self._jnt_vel_penalty_weights).item()
         
         # task rand
-        self._use_pof0 = False
-        self._pof0 = 0.1
+        self._use_pof0 = True
+        self._pof0 = 0.2
         self._twist_ref_lb = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=-0.8) 
         self._twist_ref_ub = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.8)
         # lin vel
-        self.max_ref_lin=0.8
-        self.max_ref_omega=0.8
+        self.max_ref_lin=1.5
+        self.max_ref_omega=1.0
         self._twist_ref_lb[0, 0] = -self.max_ref_lin
         self._twist_ref_lb[0, 1] = -self.max_ref_lin
         self._twist_ref_lb[0, 2] = 0.0
@@ -160,10 +161,10 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         # angular vel
         self._twist_ref_lb[0, 3] = 0.0
         self._twist_ref_lb[0, 4] = 0.0
-        self._twist_ref_lb[0, 5] = 0.0
+        self._twist_ref_lb[0, 5] = -self.max_ref_omega
         self._twist_ref_ub[0, 3] = 0.0
         self._twist_ref_ub[0, 4] = 0.0
-        self._twist_ref_ub[0, 5] = 0.0
+        self._twist_ref_ub[0, 5] = self.max_ref_omega
 
         self._rhc_step_var_scale = 1
 
@@ -177,7 +178,7 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
                     n_steps_task_rand_lb=n_steps_task_rand_lb,
                     n_steps_task_rand_ub=n_steps_task_rand_ub,
                     random_reset_freq=random_reset_freq,
-                    use_random_safety_reset=False,
+                    use_random_safety_reset=True,
                     action_repeat=action_repeat,
                     env_name=env_name,
                     n_preinit_steps=n_preinit_steps,
@@ -330,6 +331,7 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         w2hor_frame(t_w=agent_twist_ref_current,q_b=robot_q_meas,t_out=self._agent_twist_ref_h)
         # 2D lin vel applied directly to MPC
         rhc_latest_twist_ref[:, 0:2] = self._agent_twist_ref_h[:, 0:2] # 2D lin vl
+        rhc_latest_twist_ref[:, 5:6] = self._agent_twist_ref_h[:, 5:6] # yaw twist
 
         self._rhc_refs.rob_refs.root_state.set(data_type="twist", data=rhc_latest_twist_ref,
                                             gpu=self._use_gpu) 
@@ -373,8 +375,8 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         next_idx+=len(self.contact_names)
         obs[:, next_idx:(next_idx+2)] = agent_twist_ref[:, 0:2] # lin vel 2D agent refs
         next_idx+=2
-        # obs[:, next_idx:(next_idx+1)] = agent_twist_ref[:, 5:6]
-        # next_idx+=1
+        obs[:, next_idx:(next_idx+1)] = agent_twist_ref[:, 5:6] # twist yaw
+        next_idx+=1
         obs[:, next_idx:(next_idx+1)] = self._rhc_fail_idx(gpu=self._use_gpu)
         next_idx+=1
         if self._add_prev_actions_stats_to_obs:
@@ -557,8 +559,8 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         obs_names[next_idx] = "lin_vel_x_ref" # specified in the "horizontal frame"
         obs_names[next_idx+1] = "lin_vel_y_ref"
         next_idx+=2
-        # obs_names[next_idx+1] = "twist_yaw_ref"
-        # next_idx+=1
+        obs_names[next_idx+1] = "twist_yaw_ref"
+        next_idx+=1
         if self._add_fail_idx_to_obs:
             obs_names[next_idx] = "rhc_fail_idx"
             next_idx+=1
