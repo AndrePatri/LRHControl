@@ -97,7 +97,7 @@ class MemBuffer():
                 self._check_new_data(new_data=init_data)
             self._mem_buff[to_be_reset, :, :]=init_data[to_be_reset, :].unsqueeze(2)
         # _membf_pos kept at last one
-        self._running_mean[to_be_reset, :]=0
+        self._running_mean[to_be_reset, :]=0.0
         self._running_std[to_be_reset, :]=0.0
         
     def _check_new_data(self,new_data):

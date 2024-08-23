@@ -33,7 +33,7 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         # (usually, this has to be set to True when running on the real robot)
         # we assume the twist meas for the agent to be provided always in local base frame
 
-        self._add_prev_actions_stats_to_obs = False # add actions std, mean + last action over a horizon to obs
+        self._add_prev_actions_stats_to_obs = True # add actions std, mean + last action over a horizon to obs
         self._add_contact_idx_to_obs=True # add a variable which reflects the magnitute of the contact force over the horizon
         self._add_internal_rhc_q_to_obs=True # add base orientation internal to the rhc controller (useful when running controller
         # in open loop)
@@ -161,10 +161,13 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         # angular vel
         self._twist_ref_lb[0, 3] = 0.0
         self._twist_ref_lb[0, 4] = 0.0
-        self._twist_ref_lb[0, 5] = -self.max_ref_omega
+        self._twist_ref_lb[0, 5] = 0.0
         self._twist_ref_ub[0, 3] = 0.0
         self._twist_ref_ub[0, 4] = 0.0
-        self._twist_ref_ub[0, 5] = self.max_ref_omega
+        self._twist_ref_ub[0, 5] = 0.0
+
+        self._twist_ref_offset = (self._twist_ref_ub + self._twist_ref_lb)/2.0
+        self._twist_ref_scale = (self._twist_ref_ub - self._twist_ref_lb)/2.0
 
         self._rhc_step_var_scale = 1
 
@@ -193,7 +196,7 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
                     srew_drescaling=True,
                     srew_tsrescaling=False,
                     use_act_mem_bf=self._add_prev_actions_stats_to_obs,
-                    act_membf_size=10)
+                    act_membf_size=30)
 
         # action regularization
         self._actions_diff_rew_offset = 0.0
@@ -238,10 +241,13 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
 
         v_cmd_max = self.max_ref_lin
         omega_cmd_max = self.max_ref_omega
+
         self._actions_lb[:, 0:1] = -v_cmd_max 
-        self._actions_ub[:, 1:1] = v_cmd_max  # vxyz cmd
+        self._actions_ub[:, 0:1] = v_cmd_max  # vxyz cmd
+
         self._actions_lb[:, 1:3] = -omega_cmd_max # twist cmds
         self._actions_ub[:, 1:3] = omega_cmd_max  
+
         self._actions_lb[:, 3:7] = -1.0 # contact flags
         self._actions_ub[:, 3:7] = 1.0 
 
@@ -505,17 +511,22 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
                                                                         obs=obs,next_obs=next_obs) # action regularization reward
 
     def _randomize_task_refs(self,
-                env_indxs: torch.Tensor = None):
+        env_indxs: torch.Tensor = None):
         
         agent_twist_ref_current = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu)
         if self._use_pof0: # sample from bernoulli distribution
             torch.bernoulli(input=self._pof1_b,out=self._bernoulli_coeffs) # by default bernoulli_coeffs are 1 if not _use_pof0
         if env_indxs is None:
-            agent_twist_ref_current[:, :] = torch.rand_like(agent_twist_ref_current[:, :]) * (self._twist_ref_ub-self._twist_ref_lb) + self._twist_ref_lb
-            agent_twist_ref_current[:, :] = agent_twist_ref_current[:, :]*self._bernoulli_coeffs
+            random_uniform=torch.full_like(agent_twist_ref_current, fill_value=0.0)
+            torch.nn.init.uniform_(random_uniform, a=-1, b=1)
+            agent_twist_ref_current[:, :] = random_uniform*self._twist_ref_scale + self._twist_ref_offset
+            agent_twist_ref_current[:, :] = agent_twist_ref_current*self._bernoulli_coeffs
         else:
-            agent_twist_ref_current[env_indxs, :] = (torch.rand_like(agent_twist_ref_current[env_indxs, :])) * (self._twist_ref_ub-self._twist_ref_lb) + self._twist_ref_lb
+            random_uniform=torch.full_like(agent_twist_ref_current[env_indxs, :], fill_value=0.0)
+            torch.nn.init.uniform_(random_uniform, a=-1, b=1)
+            agent_twist_ref_current[env_indxs, :] = random_uniform * self._twist_ref_scale + self._twist_ref_offset
             agent_twist_ref_current[env_indxs, :] = agent_twist_ref_current[env_indxs, :]*self._bernoulli_coeffs[env_indxs, :]
+            
         self._agent_refs.rob_refs.root_state.set(data_type="twist", data=agent_twist_ref_current,
                                             gpu=self._use_gpu)
         
@@ -583,10 +594,10 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         action_names[1] = "roll_twist_cmd"
         action_names[2] = "pitch_twist_cmd"
 
-        action_names[0] = "contact_0"
-        action_names[1] = "contact_1"
-        action_names[2] = "contact_2"
-        action_names[3] = "contact_3"
+        action_names[3] = "contact_0"
+        action_names[4] = "contact_1"
+        action_names[5] = "contact_2"
+        action_names[6] = "contact_3"
 
         return action_names
 

@@ -945,8 +945,11 @@ class SActorCriticAlgoBase():
 
         action_scale = (self._env.get_actions_ub()-self._env.get_actions_lb())/2.0
         action_bias = (self._env.get_actions_ub()+self._env.get_actions_lb())/2.0
-
-        random_actions = torch.randn_like(actions)*action_scale+action_bias
+        
+        random_uniform = torch.full_like(actions, fill_value=0.0)
+        torch.nn.init.uniform_(random_uniform, a=-1, b=1)
+        
+        random_actions = random_uniform*action_scale+action_bias
 
         return random_actions
     
