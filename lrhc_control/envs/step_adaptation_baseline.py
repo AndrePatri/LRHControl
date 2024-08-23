@@ -116,8 +116,8 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         self._rhc_fail_idx_scale=1.0
 
         # power penalty
-        self._power_offset = 10 # 10.0
-        self._power_scale = 0.5 # 0.1
+        self._power_offset = 0.0 # 10.0
+        self._power_scale = 0.0 # 0.1
         self._power_penalty_weights = torch.full((1, n_jnts), dtype=dtype, device=device,
                             fill_value=1.0)
         n_jnts_per_limb = round(n_jnts/n_contacts) # assuming same topology along limbs
@@ -196,7 +196,7 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
                     srew_drescaling=True,
                     srew_tsrescaling=False,
                     use_act_mem_bf=self._add_prev_actions_stats_to_obs,
-                    act_membf_size=30)
+                    act_membf_size=10)
 
         # action regularization
         self._actions_diff_rew_offset = 0.0
