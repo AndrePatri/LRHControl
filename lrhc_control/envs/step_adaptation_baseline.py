@@ -33,7 +33,7 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         # (usually, this has to be set to True when running on the real robot)
         # we assume the twist meas for the agent to be provided always in local base frame
 
-        self._add_prev_actions_stats_to_obs = True # add actions std, mean + last action over a horizon to obs
+        self._add_prev_actions_stats_to_obs = False # add actions std, mean + last action over a horizon to obs
         self._add_contact_idx_to_obs=True # add a variable which reflects the magnitute of the contact force over the horizon
         self._add_internal_rhc_q_to_obs=True # add base orientation internal to the rhc controller (useful when running controller
         # in open loop)
@@ -254,7 +254,7 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
 
         # task aux objs
         device = "cuda" if self._use_gpu else "cpu"
-        self._ni_scaling = torch.zeros((self._n_envs, 1),dtype=self._dtype,device=device)
+        self._task_err_scaling = torch.zeros((self._n_envs, 1),dtype=self._dtype,device=device)
 
         self._pof1_b = torch.full(size=(self._n_envs,1),dtype=self._dtype,device=device,fill_value=1-self._pof0)
         self._bernoulli_coeffs = self._pof1_b.clone()
@@ -423,27 +423,27 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         weighted_jnt_vel = torch.sum((jnts_vel_sqrd)*self._jnt_vel_penalty_weights, dim=1, keepdim=True)/self._jnt_vel_penalty_weights_sum
         return weighted_jnt_vel
     
-    def _task_err_quadv2(self, task_ref, task_meas):
-        delta = 0.01 # [m/s]
+    def _task_perc_err_wms(self, task_ref, task_meas):
         ref_norm = task_ref.norm(dim=1,keepdim=True)
-        below_thresh = ref_norm < delta
-        self._ni_scaling[:, :] = ref_norm
-        self._ni_scaling[below_thresh] = 10*delta
-        task_error = (task_ref-task_meas)/(self._ni_scaling)
+        epsi=1.0
+        self._task_err_scaling[:, :] = ref_norm+epsi
+        task_perc_err=self._task_err_wms(task_ref=task_ref, task_meas=task_meas, scaling=self._task_err_scaling)
+        perc_err_thresh=2.0 # no more than perc_err_thresh*100 % error on each dim
+        task_perc_err.clamp_(0.0,perc_err_thresh**2) 
+        return task_perc_err
+    
+    def _task_err_wms(self, task_ref, task_meas, scaling):
+        task_error = (task_ref-task_meas)/scaling
         task_wmse = torch.sum((task_error*task_error)*self._task_err_weights, dim=1, keepdim=True)/self._task_err_weights_sum
         return task_wmse # weighted mean square error (along task dimension)
     
-    def _task_err_pseudolinv2(self, task_ref, task_meas):
-        task_wmse = self._task_err_quadv2(task_ref=task_ref, task_meas=task_meas)
+    def _task_perc_err_lin(self, task_ref, task_meas):
+        task_wmse = self._task_perc_err_wms(task_ref=task_ref, task_meas=task_meas)
         return task_wmse.sqrt()
     
-    def _task_err_quad(self, task_ref, task_meas):
-        task_error = (task_ref-task_meas)
-        task_wmse = torch.sum((task_error*task_error)*self._task_err_weights, dim=1, keepdim=True)/self._task_err_weights_sum
-        return task_wmse # weighted mean square error (along task dimension)
-    
-    def _task_err_pseudolin(self, task_ref, task_meas):
-        task_wmse = self._task_err_quad(task_ref=task_ref, task_meas=task_meas)
+    def _task_err_lin(self, task_ref, task_meas):
+        self._task_err_scaling[:, :] = 1
+        task_wmse = self._task_err_wms(task_ref=task_ref, task_meas=task_meas, scaling=self._task_err_scaling)
         return task_wmse.sqrt()
     
     def _rhc_fail_idx(self, gpu: bool):
@@ -476,9 +476,8 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
                     obs: torch.Tensor,
                     next_obs: torch.Tensor):
         
-        task_error_fun = self._task_err_pseudolin
-        # task_error_fun = self._task_err_pseudolinv2
-        # task_error_fun = self._task_err_quad
+        # task_error_fun = self._task_err_lin
+        task_error_fun = self._task_perc_err_lin
 
         task_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu) # high level agent refs (hybrid twist)
    
@@ -583,6 +582,7 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         action_names[0] = "vz_cmd"
         action_names[1] = "roll_twist_cmd"
         action_names[2] = "pitch_twist_cmd"
+
         action_names[0] = "contact_0"
         action_names[1] = "contact_1"
         action_names[2] = "contact_2"
