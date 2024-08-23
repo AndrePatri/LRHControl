@@ -25,8 +25,10 @@ class QuadrupedGaitPatternGenerator:
 
     def _trot(self) -> Dict[str, Union[float, List[float]]]:
 
-        phase_offset = [0.0, self._phase_period / 2, 0.0, self._phase_period / 2]  # Diagonally opposite phases
-        phase_thresh = [0.0] * self._n_phases  # No threshold for simplicity
+        phase_offset = [self._phase_period / 2, 0.0, 0.0, self._phase_period / 2]  # Diagonally opposite phases
+        flight_length=self._phase_period / 4
+        t_star = 3/4*self._phase_period-flight_length/2
+        phase_thresh = [np.sin(2*np.pi/self._phase_period*t_star)] * self._n_phases
         
         return {
             "n_phases": self._n_phases,
@@ -176,6 +178,10 @@ class GaitScheduler:
         else:
             return self._signal    
 
+    def threshold(self):
+
+        return self._threshold
+    
 # Testing code
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
