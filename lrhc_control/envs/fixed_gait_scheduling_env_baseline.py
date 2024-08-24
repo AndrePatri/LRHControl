@@ -275,14 +275,14 @@ class FixedGaitSchedEnvBaseline(LRhcTrainingEnvBase):
             self._defaut_bf_action[:, :] = (self._actions_ub+self._actions_lb)/2.0
 
         phase_period=1.0
-        self._pattern_gen = QuadrupedGaitPatternGenerator(phase_period=phase_period)
-        gait_params = self._pattern_gen.get_params("walk")
-        n_phases = gait_params["n_phases"]
         update_dt = 0.03
-        phase_period = gait_params["phase_period"]
-        phase_offset = gait_params["phase_offset"]
-        phase_thresh = gait_params["phase_thresh"]
-        self._gait_scheduler = GaitScheduler(
+        self._pattern_gen = QuadrupedGaitPatternGenerator(phase_period=phase_period)
+        gait_params_walk = self._pattern_gen.get_params("walk")
+        n_phases = gait_params_walk["n_phases"]
+        phase_period = gait_params_walk["phase_period"]
+        phase_offset = gait_params_walk["phase_offset"]
+        phase_thresh = gait_params_walk["phase_thresh"]
+        self._gait_scheduler_walk = GaitScheduler(
             n_phases=n_phases,
             n_envs=self._n_envs,
             update_dt=update_dt,
@@ -292,6 +292,22 @@ class FixedGaitSchedEnvBaseline(LRhcTrainingEnvBase):
             use_gpu=self._use_gpu,
             dtype=self._dtype
         )
+        gait_params_trot = self._pattern_gen.get_params("trot")
+        n_phases = gait_params_trot["n_phases"]
+        phase_period = gait_params_trot["phase_period"]
+        phase_offset = gait_params_trot["phase_offset"]
+        phase_thresh = gait_params_trot["phase_thresh"]
+        self._gait_scheduler_trot = GaitScheduler(
+            n_phases=n_phases,
+            n_envs=self._n_envs,
+            update_dt=update_dt,
+            phase_period=phase_period,
+            phase_offset=phase_offset,
+            phase_thresh=phase_thresh,
+            use_gpu=self._use_gpu,
+            dtype=self._dtype
+        )
+
         
     def get_file_paths(self):
 
@@ -339,24 +355,32 @@ class FixedGaitSchedEnvBaseline(LRhcTrainingEnvBase):
         if self._use_gpu:
             time_to_rand_or_ep_finished = torch.logical_or(self._task_rand_counter.time_limits_reached().cuda(),episode_finished)
             self.randomize_task_refs(env_indxs=time_to_rand_or_ep_finished.flatten())
-            self._gait_scheduler.reset(to_be_reset=episode_finished.cuda().flatten())
+            self._gait_scheduler_walk.reset(to_be_reset=episode_finished.cuda().flatten())
+            self._gait_scheduler_trot.reset(to_be_reset=episode_finished.cuda().flatten())
         else:
             time_to_rand_or_ep_finished = torch.logical_or(self._task_rand_counter.time_limits_reached(),episode_finished)
             self.randomize_task_refs(env_indxs=time_to_rand_or_ep_finished.flatten())
-            self._gait_scheduler.reset(to_be_reset=episode_finished.cpu().flatten())
+            self._gait_scheduler_walk.reset(to_be_reset=episode_finished.cpu().flatten())
+            self._gait_scheduler_trot.reset(to_be_reset=episode_finished.cuda().flatten())
 
     def _apply_actions_to_rhc(self):
         
         agent_action = self.get_actions() # see _get_action_names() to get 
         # the meaning of each component of this tensor
 
-        # overwriting agent actions with gait scheduler ones
-        self._gait_scheduler.step()
-        agent_action[:, :] = self._gait_scheduler.get_signal(clone=True)
-        
         rhc_latest_twist_ref = self._rhc_refs.rob_refs.root_state.get(data_type="twist", gpu=self._use_gpu)
         agent_twist_ref_current = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu)
         rhc_latest_contact_ref = self._rhc_refs.contact_flags.get_torch_mirror(gpu=self._use_gpu)
+
+        # overwriting agent actions with gait scheduler ones
+        self._gait_scheduler_walk.step()
+        self._gait_scheduler_trot.step()
+        walk_to_trot_thresh=0.8 # [m/s]
+        have_to_go_fast=agent_twist_ref_current.norm(dim=1,keepdim=True)>walk_to_trot_thresh
+        # default to walk
+        agent_action[:, :] = self._gait_scheduler_walk.get_signal(clone=True)
+        # for fast enough refs, trot
+        agent_action[have_to_go_fast.flatten(), :] = self._gait_scheduler_trot.get_signal(clone=True)
         
         # refs have to be applied in the MPC's horizontal frame
         robot_q_meas = self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
@@ -369,7 +393,7 @@ class FixedGaitSchedEnvBaseline(LRhcTrainingEnvBase):
                                             gpu=self._use_gpu) 
         
         # agent sets contact flags
-        rhc_latest_contact_ref[:, :] = agent_action[:, 0:4] > self._gait_scheduler.threshold() # keep contact if agent action > 0
+        rhc_latest_contact_ref[:, :] = agent_action[:, 0:4] > self._gait_scheduler_walk.threshold() # keep contact if agent action > 0
 
         if self._use_gpu:
             self._rhc_refs.rob_refs.root_state.synch_mirror(from_gpu=self._use_gpu) # write from gpu to cpu mirror
