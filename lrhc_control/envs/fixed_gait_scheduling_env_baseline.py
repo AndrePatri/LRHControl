@@ -614,8 +614,8 @@ class FixedGaitSchedEnvBaseline(LRhcTrainingEnvBase):
         obs_names[next_idx] = "lin_vel_x_ref" # specified in the "horizontal frame"
         obs_names[next_idx+1] = "lin_vel_y_ref"
         next_idx+=2
-        obs_names[next_idx] = "twist_yaw_ref"
-        next_idx+=1
+        # obs_names[next_idx] = "twist_yaw_ref"
+        # next_idx+=1
         if self._add_fail_idx_to_obs:
             obs_names[next_idx] = "rhc_fail_idx"
             next_idx+=1
