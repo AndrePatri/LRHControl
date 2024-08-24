@@ -337,7 +337,7 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         w2hor_frame(t_w=agent_twist_ref_current,q_b=robot_q_meas,t_out=self._agent_twist_ref_h)
         # 2D lin vel applied directly to MPC
         rhc_latest_twist_ref[:, 0:2] = self._agent_twist_ref_h[:, 0:2] # 2D lin vl
-        rhc_latest_twist_ref[:, 2:5] = agent_action[:, 0:3]
+        # rhc_latest_twist_ref[:, 2:5] = agent_action[:, 0:3]
         # rhc_latest_twist_ref[:, 5:6] = self._agent_twist_ref_h[:, 5:6] # yaw twist
 
         self._rhc_refs.rob_refs.root_state.set(data_type="twist", data=rhc_latest_twist_ref,

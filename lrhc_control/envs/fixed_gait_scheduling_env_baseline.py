@@ -77,7 +77,7 @@ class FixedGaitSchedEnvBaseline(LRhcTrainingEnvBase):
         if self._add_contact_idx_to_obs:
             obs_dim+=n_contacts # contact index var
         obs_dim+=2 # 2D lin vel 
-        obs_dim+=1 # twist reference to be tracked
+        # obs_dim+=1 # twist reference to be tracked
         if self._add_fail_idx_to_obs:
             obs_dim+=1 # rhc controller failure index
         if self._add_prev_actions_stats_to_obs:
@@ -244,14 +244,8 @@ class FixedGaitSchedEnvBaseline(LRhcTrainingEnvBase):
         v_cmd_max = self.max_ref_lin
         omega_cmd_max = self.max_ref_omega
 
-        self._actions_lb[:, 0:1] = -v_cmd_max 
-        self._actions_ub[:, 0:1] = v_cmd_max  # vxyz cmd
-
-        self._actions_lb[:, 1:3] = -omega_cmd_max # twist cmds
-        self._actions_ub[:, 1:3] = omega_cmd_max  
-
-        self._actions_lb[:, 3:7] = -1.0 # contact flags
-        self._actions_ub[:, 3:7] = 1.0 
+        self._actions_lb[:, 0:4] = -1.0 # contact flags
+        self._actions_ub[:, 0:4] = 1.0 
 
         # some aux data to avoid allocations at training runtime
         self._robot_twist_meas_h = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu).clone()
