@@ -276,7 +276,7 @@ class FixedGaitSchedEnvBaseline(LRhcTrainingEnvBase):
 
         phase_period=1.0
         self._pattern_gen = QuadrupedGaitPatternGenerator(phase_period=phase_period)
-        gait_params = self._pattern_gen.get_params("trot")
+        gait_params = self._pattern_gen.get_params("walk")
         n_phases = gait_params["n_phases"]
         update_dt = 0.03
         phase_period = gait_params["phase_period"]

@@ -65,7 +65,7 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         rhc_status_tmp.close()
 
         # defining actions and obs dimensions
-        actions_dim = 4 + 3 # [vz_cmd, omega_roll, omega_pitch, dostep_0, dostep_1, dostep_2, dostep_3]
+        actions_dim = 4  
 
         obs_dim=4 # base orientation quaternion 
         obs_dim+=6 # meas twist
@@ -75,7 +75,7 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         if self._add_contact_idx_to_obs:
             obs_dim+=n_contacts # contact index var
         obs_dim+=2 # 2D lin vel 
-        obs_dim+=1 # twist reference to be tracked
+        # obs_dim+=1 # twist reference to be tracked
         if self._add_fail_idx_to_obs:
             obs_dim+=1 # rhc controller failure index
         if self._add_prev_actions_stats_to_obs:
@@ -242,14 +242,14 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         v_cmd_max = self.max_ref_lin
         omega_cmd_max = self.max_ref_omega
 
-        self._actions_lb[:, 0:1] = -v_cmd_max 
-        self._actions_ub[:, 0:1] = v_cmd_max  # vxyz cmd
+        # self._actions_lb[:, 0:1] = -v_cmd_max 
+        # self._actions_ub[:, 0:1] = v_cmd_max  # vxyz cmd
 
-        self._actions_lb[:, 1:3] = -omega_cmd_max # twist cmds
-        self._actions_ub[:, 1:3] = omega_cmd_max  
+        # self._actions_lb[:, 1:3] = -omega_cmd_max # twist cmds
+        # self._actions_ub[:, 1:3] = omega_cmd_max  
 
-        self._actions_lb[:, 3:7] = -1.0 # contact flags
-        self._actions_ub[:, 3:7] = 1.0 
+        self._actions_lb[:, 0:4] = -1.0 # contact flags
+        self._actions_ub[:, 0:4] = 1.0 
 
         # some aux data to avoid allocations at training runtime
         self._robot_twist_meas_h = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu).clone()
@@ -338,13 +338,13 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         # 2D lin vel applied directly to MPC
         rhc_latest_twist_ref[:, 0:2] = self._agent_twist_ref_h[:, 0:2] # 2D lin vl
         rhc_latest_twist_ref[:, 2:5] = agent_action[:, 0:3]
-        rhc_latest_twist_ref[:, 5:6] = self._agent_twist_ref_h[:, 5:6] # yaw twist
+        # rhc_latest_twist_ref[:, 5:6] = self._agent_twist_ref_h[:, 5:6] # yaw twist
 
         self._rhc_refs.rob_refs.root_state.set(data_type="twist", data=rhc_latest_twist_ref,
                                             gpu=self._use_gpu) 
         
         # agent sets contact flags
-        rhc_latest_contact_ref[:, :] = agent_action[:, 3:7] > 0 # keep contact if agent action > 0
+        rhc_latest_contact_ref[:, :] = agent_action[:, 0:4] > 0 # keep contact if agent action > 0
 
         if self._use_gpu:
             self._rhc_refs.rob_refs.root_state.synch_mirror(from_gpu=self._use_gpu) # write from gpu to cpu mirror
@@ -382,8 +382,8 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         next_idx+=len(self.contact_names)
         obs[:, next_idx:(next_idx+2)] = agent_twist_ref[:, 0:2] # lin vel 2D agent refs
         next_idx+=2
-        obs[:, next_idx:(next_idx+1)] = agent_twist_ref[:, 5:6] # twist yaw
-        next_idx+=1
+        # obs[:, next_idx:(next_idx+1)] = agent_twist_ref[:, 5:6] # twist yaw
+        # next_idx+=1
         obs[:, next_idx:(next_idx+1)] = self._rhc_fail_idx(gpu=self._use_gpu)
         next_idx+=1
         if self._add_prev_actions_stats_to_obs:
@@ -570,8 +570,8 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         obs_names[next_idx] = "lin_vel_x_ref" # specified in the "horizontal frame"
         obs_names[next_idx+1] = "lin_vel_y_ref"
         next_idx+=2
-        obs_names[next_idx] = "twist_yaw_ref"
-        next_idx+=1
+        # obs_names[next_idx] = "twist_yaw_ref"
+        # next_idx+=1
         if self._add_fail_idx_to_obs:
             obs_names[next_idx] = "rhc_fail_idx"
             next_idx+=1
@@ -590,14 +590,14 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
     def _get_action_names(self):
 
         action_names = [""] * self.actions_dim()
-        action_names[0] = "vz_cmd"
-        action_names[1] = "roll_twist_cmd"
-        action_names[2] = "pitch_twist_cmd"
+        # action_names[0] = "vz_cmd"
+        # action_names[1] = "roll_twist_cmd"
+        # action_names[2] = "pitch_twist_cmd"
 
-        action_names[3] = "contact_0"
-        action_names[4] = "contact_1"
-        action_names[5] = "contact_2"
-        action_names[6] = "contact_3"
+        action_names[0] = "contact_0"
+        action_names[1] = "contact_1"
+        action_names[2] = "contact_2"
+        action_names[3] = "contact_3"
 
         return action_names
 
