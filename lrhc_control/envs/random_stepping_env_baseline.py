@@ -381,8 +381,8 @@ class RandomSteppingEnvBaseline(LRhcTrainingEnvBase):
         next_idx+=len(self.contact_names)
         obs[:, next_idx:(next_idx+2)] = agent_twist_ref[:, 0:2] # lin vel 2D agent refs
         next_idx+=2
-        obs[:, next_idx:(next_idx+1)] = agent_twist_ref[:, 5:6] # twist yaw
-        next_idx+=1
+        # obs[:, next_idx:(next_idx+1)] = agent_twist_ref[:, 5:6] # twist yaw
+        # next_idx+=1
         obs[:, next_idx:(next_idx+1)] = self._rhc_fail_idx(gpu=self._use_gpu)
         next_idx+=1
         if self._add_prev_actions_stats_to_obs:
