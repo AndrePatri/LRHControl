@@ -60,15 +60,18 @@ class MemBuffer():
         self._mem_buff=torch.full(size=(self._n_envs, self._data_size,self._horizon), 
                 fill_value=0.0,
                 dtype=self._dtype, 
-                device=self._torch_device)
+                device=self._torch_device,
+                requires_grad=False)
         self._running_mean=torch.full(size=(self._n_envs, self._data_size), 
                 fill_value=0.0,
                 dtype=self._dtype, 
-                device=self._torch_device)
+                device=self._torch_device,
+                requires_grad=False)
         self._running_std=torch.full(size=(self._n_envs, self._data_size), 
                 fill_value=0.0,
                 dtype=self._dtype, 
-                device=self._torch_device)
+                device=self._torch_device,
+                requires_grad=False)
         
         self._membf_pos=0
     
@@ -255,48 +258,59 @@ class EpisodicData():
         
         # undiscounted sum of each env, during a single episode
         self._current_ep_sum = torch.full(size=(self._n_envs, self._data_size), 
-                                    fill_value=0.0,
-                                    dtype=self._dtype, device="cpu") # we don't need it on GPU
+                fill_value=0.0,
+                dtype=self._dtype, device="cpu",
+                requires_grad=False) # we don't need it on GPU
         # avrg data of each env, during a single episode, over the number of transitions
         self._current_ep_sum_scaled = torch.full(size=(self._n_envs, self._data_size), 
-                                    fill_value=0.0,
-                                    dtype=self._dtype, device="cpu")
+                fill_value=0.0,
+                dtype=self._dtype, device="cpu",
+                requires_grad=False)
         
         # avrg data of each env, over all the ALREADY played episodes.
         self._tot_sum_up_to_now = torch.full(size=(self._n_envs, self._data_size), 
-                                    fill_value=0.0,
-                                    dtype=self._dtype, device="cpu")
+                fill_value=0.0,
+                dtype=self._dtype, device="cpu",
+                requires_grad=False)
         # avrg over n of episodes (including the current one)
         self._average_over_eps = torch.full(size=(self._n_envs, self._data_size), 
-                                    fill_value=0.0,
-                                    dtype=self._dtype, device="cpu")
+                fill_value=0.0,
+                dtype=self._dtype, device="cpu",
+                requires_grad=False)
         self._average_over_eps_last = torch.full_like(self._average_over_eps,
-                                            fill_value=0.0)
+                fill_value=0.0,
+                requires_grad=False)
         # current episode index
         self._n_played_eps = torch.full(size=(self._n_envs, 1), 
-                                    fill_value=0,
-                                    dtype=torch.int32, device="cpu")
+                fill_value=0,
+                dtype=torch.int32, device="cpu",
+                requires_grad=False)
         self._n_played_eps_last = torch.full(size=(self._n_envs, 1), 
-                                    fill_value=0,
-                                    dtype=torch.int32, device="cpu")
+                fill_value=0,
+                dtype=torch.int32, device="cpu",
+                requires_grad=False)
 
         # current ste counter (within this episode)
         self._steps_counter = torch.full(size=(self._n_envs, 1), 
-                                    fill_value=0,
-                                    dtype=torch.int32, device="cpu")
+                fill_value=0,
+                dtype=torch.int32, device="cpu",
+                requires_grad=False)
 
         self._scale_now = torch.full(size=(self._n_envs, 1), 
-                                    fill_value=1,
-                                    dtype=torch.int32, device="cpu")
+                fill_value=1,
+                dtype=torch.int32, device="cpu",
+                requires_grad=False)
 
         # just used if use_constant_scaling
         self._scaling = torch.full(size=(self._n_envs, 1), 
-                                    fill_value=1,
-                                    dtype=torch.int32, device="cpu") # default to scaling 1
+                fill_value=1,
+                dtype=torch.int32, device="cpu",
+                requires_grad=False) # default to scaling 1
 
         self._fresh_metrics_avail = torch.full(size=(self._n_envs, 1), 
-                                    fill_value=False,
-                                    dtype=torch.bool, device="cpu")
+            fill_value=False,
+            dtype=torch.bool, device="cpu",
+            requires_grad=False)
 
     def reset(self,
             keep_track: bool = None,
@@ -441,9 +455,12 @@ if __name__ == "__main__":
     n_steps = 100
     n_envs = 4
     data_dim = 1
-    ep_finished = torch.full((n_envs, n_steps),fill_value=False,dtype=torch.bool,device="cpu")
-    new_data = torch.full((n_envs, data_dim),fill_value=0,dtype=torch.float32,device="cpu")
-    data_scaling = torch.full((n_envs, 1),fill_value=1,dtype=torch.int32,device="cpu")
+    ep_finished = torch.full((n_envs, n_steps),fill_value=False,dtype=torch.bool,device="cpu",
+                requires_grad=False)
+    new_data = torch.full((n_envs, data_dim),fill_value=0,dtype=torch.float32,device="cpu",
+                requires_grad=False)
+    data_scaling = torch.full((n_envs, 1),fill_value=1,dtype=torch.int32,device="cpu",
+                requires_grad=False)
     data_names = ["data1"]
     test_data = EpisodicData("TestData",
                 data_tensor=new_data,
@@ -511,8 +528,10 @@ if __name__ == "__main__":
     #****************MEM BUFFER********************
     # n_envs = 3
     # data_dim = 4
-    # new_data = torch.full((n_envs, data_dim),fill_value=0,dtype=torch.float32,device="cuda")
-    # to_be_reset = torch.full((n_envs, 1),fill_value=False,dtype=torch.bool,device="cuda")
+    # new_data = torch.full((n_envs, data_dim),fill_value=0,dtype=torch.float32,device="cuda",
+                # requires_grad=False)
+    # to_be_reset = torch.full((n_envs, 1),fill_value=False,dtype=torch.bool,device="cuda",
+                # requires_grad=False)
     # data_names = ["okokok", "sdcsdc", "cdcsdcplpl","sacasca"]
     # new_data.fill_(1.0)
     # stds = torch.tensor([0.1, 0.2, 0.3, 0.4])  # Example standard deviations for each column
