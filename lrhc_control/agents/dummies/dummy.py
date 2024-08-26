@@ -52,7 +52,6 @@ class DummyAgent(nn.Module):
                                     debug=self._debug)
             self.running_norm.type(dtype) # ensuring correct dtype for whole module
 
-        self._dummy_action = torch.full(. fill_value=0.0)
     def get_impl_path(self):
         import os 
         return os.path.abspath(__file__)
@@ -133,8 +132,6 @@ class DummyActor(nn.Module):
         self.register_buffer(
             "action_bias", actions_bias
         )
-
-        self._dummy_action = 
 
     def get_n_params(self):
         return sum(p.numel() for p in self.parameters())

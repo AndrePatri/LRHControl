@@ -93,7 +93,7 @@ class DummyTestAlgoBase():
         return True
 
     def learn(self):
-        return eval()
+        return self.eval()
     
     @abstractmethod
     def _collect_transition(self)->bool:
