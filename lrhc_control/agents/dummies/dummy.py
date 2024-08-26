@@ -30,8 +30,6 @@ class DummyAgent(nn.Module):
         self._normalize_obs = norm_obs
 
         self._debug = debug
-        layer_size_actor=layer_size_actor
-        layer_size_critic=layer_size_critic
 
         self.actor = None
         self.critic = None

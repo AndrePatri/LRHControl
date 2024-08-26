@@ -91,6 +91,9 @@ class DummyTestAlgoBase():
         self._post_step()
 
         return True
+
+    def learn(self):
+        return eval()
     
     @abstractmethod
     def _collect_transition(self)->bool:
