@@ -347,10 +347,11 @@ class Gymnasium2LRHCEnv():
         stepping_ok = True
         
         actions = self._actions.get_torch_mirror(gpu=self._use_gpu)
-        actions[:, :] = action.detach().cpu().numpy() # writes actions
+        actions[:, :] = action.detach() # writes actions
 
         # step gymnasium env using the given action
-        observations, rewards, terminations, truncations, infos = self._env.step(actions)
+        gym_env_action = actions.cpu().numpy()
+        observations, rewards, terminations, truncations, infos = self._env.step(gym_env_action)
 
         if self._render:
             self._env.render()
@@ -421,7 +422,8 @@ if __name__ == "__main__":
     from lrhc_control.training_algs.sac.sac import SAC
     from lrhc_control.training_algs.ppo.ppo import PPO
 
-    import argparse
+    import argparse,os
+
     parser = argparse.ArgumentParser(description="Set CPU affinity for the script.")
     parser.add_argument('--db', action=argparse.BooleanOptionalAction, default=True, help='Whether to enable local data logging for the algorithm (reward metrics, etc..)')
     parser.add_argument('--env_db', action=argparse.BooleanOptionalAction, default=True, help='Whether to enable env db data logging on \
@@ -432,10 +434,12 @@ if __name__ == "__main__":
     parser.add_argument('--drop_dir', type=str, help='Directory root where all run data will be dumped',default="/tmp")
     parser.add_argument('--comment', type=str, help='Any useful comment associated with this run',default="")
     parser.add_argument('--seed', type=int, help='seed', default=1)
+    
     parser.add_argument('--eval', action=argparse.BooleanOptionalAction, default=False, help='Whether to perform an evaluation run')
     parser.add_argument('--mpath', type=str, help='Model path to be used for policy evaluation',default=None)
-    parser.add_argument('--n_evals', type=int, help='N. of evaluation rollouts to be performed', default=None)
-    parser.add_argument('--n_timesteps', type=int, help='Toal n. of timesteps for each evaluation rollout', default=None)
+    parser.add_argument('--mname', type=str, help='Model name',default=None)
+
+    parser.add_argument('--n_eval_timesteps', type=int, help='N. of evaluation timesteps to be performed', default=None)
     parser.add_argument('--dump_checkpoints', action=argparse.BooleanOptionalAction, default=False, help='Whether to dump model checkpoints during training')
     parser.add_argument('--use_cpu', action=argparse.BooleanOptionalAction, default=False, help='If set, all the training (data included) will be perfomed on CPU')
 
@@ -458,6 +462,11 @@ if __name__ == "__main__":
     render_mode = "human" if args.render else None
     env_type = args.env_type
 
+    if (not args.mpath is None) and (not args.mname is None):
+        mpath_full = os.path.join(args.mpath, args.mname)
+    else:
+        mpath_full=None
+
     env_wrapper = Gymnasium2LRHCEnv(env_type=env_type,
                         namespace=args.ns,
                         verbose=True,
@@ -468,7 +477,13 @@ if __name__ == "__main__":
                         seed=args.seed,
                         gym_env_dtype=np.float32,
                         handle_final_obs=args.handle_final_obs)
-
+    env_type2="training" if not args.eval else "evaluation"
+    Journal.log("gymnasium_env.py",
+            "wrapper_test",
+            f"loading {env_type2} env {env_type}",
+            LogType.INFO,
+            throw_when_excep = True)
+    
     custom_args_dict = {}
     if args.sac:
         algo = SAC(env=env_wrapper, 
@@ -481,23 +496,21 @@ if __name__ == "__main__":
                 debug=args.db, 
                 remote_db=args.rmdb,
                 seed=args.seed)
+    
     custom_args_dict.update(args_dict)
-    custom_args_dict["layer_size_actor"]=args.actor_size
-    custom_args_dict["layer_size_critic"]=args.critic_size
     custom_args_dict.update({"gymansium_env_type": env_type})
 
-    algo.setup(run_name=args.run_name, 
+    algo.setup(run_name=args.run_name,
+        ns=args.ns, 
         verbose=True,
         drop_dir_name=args.drop_dir,
         custom_args = custom_args_dict,
         comment=args.comment,
         eval=args.eval,
-        model_path=args.mpath,
-        n_evals=args.n_evals,
-        n_timesteps_per_eval=args.n_timesteps,
+        model_path=mpath_full,
+        n_eval_timesteps=args.n_eval_timesteps,
         dump_checkpoints=args.dump_checkpoints,
-        norm_obs=args.obs_norm,
-        ns=args.ns)
+        norm_obs=args.obs_norm)
     
     try:
         while not algo.is_done():
