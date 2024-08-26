@@ -62,7 +62,7 @@ class ActorCriticAlgoBase():
         tot_tsteps = 50e6
         rollout_tsteps = 256
         self._init_params(tot_tsteps=tot_tsteps,
-            rollout_tstep=rollout_tsteps)
+            rollout_tsteps=rollout_tsteps)
         
         self._init_dbdata()
 
