@@ -347,11 +347,9 @@ class Gymnasium2LRHCEnv():
         stepping_ok = True
         
         actions = self._actions.get_torch_mirror(gpu=self._use_gpu)
-        actions[:, :] = action # writes actions
+        actions[:, :] = action.detach().cpu().numpy() # writes actions
 
         # step gymnasium env using the given action
-        actions = action.cpu().numpy()
-
         observations, rewards, terminations, truncations, infos = self._env.step(actions)
 
         if self._render:
