@@ -260,41 +260,41 @@ class Gymnasium2LRHCEnv():
 
     def get_obs(self, clone:bool=False):
         if clone:
-            return self._obs.get_torch_mirror(gpu=self._use_gpu).detach().clone()
+            return self._obs.get_torch_mirror(gpu=self._use_gpu).clone()
         else:
-            return self._obs.get_torch_mirror(gpu=self._use_gpu).detach()
+            return self._obs.get_torch_mirror(gpu=self._use_gpu)
 
     def get_next_obs(self, clone:bool=False):
         if clone:
-            return self._next_obs.get_torch_mirror(gpu=self._use_gpu).detach().clone()
+            return self._next_obs.get_torch_mirror(gpu=self._use_gpu).clone()
         else:
-            return self._next_obs.get_torch_mirror(gpu=self._use_gpu).detach()
+            return self._next_obs.get_torch_mirror(gpu=self._use_gpu)
         
     def get_actions(self, clone:bool=False):
         if clone:
-            return self._actions.get_torch_mirror(gpu=self._use_gpu).detach().clone()
+            return self._actions.get_torch_mirror(gpu=self._use_gpu).clone()
         else:
-            return self._actions.get_torch_mirror(gpu=self._use_gpu).detach()
+            return self._actions.get_torch_mirror(gpu=self._use_gpu)
             
     def get_rewards(self, clone:bool=False):
         if clone:
-            return self._tot_rewards.get_torch_mirror(gpu=self._use_gpu).detach().clone()
+            return self._tot_rewards.get_torch_mirror(gpu=self._use_gpu).clone()
         else:
-            return self._tot_rewards.get_torch_mirror(gpu=self._use_gpu).detach()
+            return self._tot_rewards.get_torch_mirror(gpu=self._use_gpu)
 
     def get_terminations(self, clone:bool=False):
         if clone:
-            return self._terminations.get_torch_mirror(gpu=self._use_gpu).detach().clone()
+            return self._terminations.get_torch_mirror(gpu=self._use_gpu).clone()
         else:
-            return self._terminations.get_torch_mirror(gpu=self._use_gpu).detach()
+            return self._terminations.get_torch_mirror(gpu=self._use_gpu)
         
         return self._terminations.get_torch_mirror(gpu=self._use_gpu)
 
     def get_truncations(self, clone:bool=False):
         if clone:
-            return self._truncations.get_torch_mirror(gpu=self._use_gpu).detach().clone()
+            return self._truncations.get_torch_mirror(gpu=self._use_gpu).clone()
         else:
-            return self._truncations.get_torch_mirror(gpu=self._use_gpu).detach()
+            return self._truncations.get_torch_mirror(gpu=self._use_gpu)
         
     def get_actions_lb(self):
         return self._actions_lb

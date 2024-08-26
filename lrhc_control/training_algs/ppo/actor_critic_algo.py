@@ -240,14 +240,15 @@ class ActorCriticAlgoBase():
 
         self._start_time = time.perf_counter()
 
-        rollout_ok = self._play()
-        if not rollout_ok:
-            return False
-    
-        self._rollout_t = time.perf_counter()
+        with torch.no_grad(): # don't want grad computation here
+            rollout_ok = self._play()
+            if not rollout_ok:
+                return False
+        
+            self._rollout_t = time.perf_counter()
 
-        self._compute_returns()
-        self._gae_t = time.perf_counter()
+            self._compute_returns()
+            self._gae_t = time.perf_counter()
 
         self._improve_policy()
         self._policy_update_t = time.perf_counter()

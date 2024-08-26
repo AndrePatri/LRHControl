@@ -124,16 +124,6 @@ class ACAgent(nn.Module):
         torch.nn.init.orthogonal_(layer.weight, std)
         torch.nn.init.constant_(layer.bias, bias_const)
         return layer
-
-    def train(self, is_training: bool = True):
-        super().train(is_training)  # call the parent's train method
-        
-        if not is_training:
-            for param in self.parameters():
-                param.requires_grad = False
-        else:
-            for param in self.parameters():
-                param.requires_grad = True
     
     def load_state_dict(self, param_dict):
 
