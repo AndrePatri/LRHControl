@@ -37,7 +37,7 @@ class SAC(SActorCriticAlgoBase):
             actions, _, mean = self._agent.get_action(x=obs)
             actions = actions.detach()
             if self._eval: # use mean instead of stochastic policy
-                actions[:, :] = mean
+                actions[:, :] = mean.detach()
         else:
             actions = self._sample_random_actions()
                 
