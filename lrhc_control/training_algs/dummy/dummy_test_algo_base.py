@@ -1,5 +1,5 @@
 from lrhc_control.utils.shared_data.algo_infos import SharedRLAlgorithmInfo
-from lrhc_control.agents.sactor_critic.sac import SACAgent
+from lrhc_control.agents.dummies.dummy import DummyAgent
 
 import torch 
 import torch.optim as optim
