@@ -84,10 +84,7 @@ class ACAgent(nn.Module):
 
     def get_value(self, x):
         if self.running_norm is not None:
-            was_training = self.running_norm.training
-            self.running_norm.train(True) # freeze stats (stat update is done by actor only)
             x = self.running_norm(x)
-            self.running_norm.train(was_training) # restore previous flag state
         return self.critic(x)
 
     def get_action_and_value(self, x, action=None):

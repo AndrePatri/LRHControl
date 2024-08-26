@@ -34,7 +34,7 @@ class SAC(SActorCriticAlgoBase):
         # with next_obs!!!
         if self._vec_transition_counter > self._warmstart_vectimesteps or \
             self._eval:
-            actions, _, mean = self._agent.actor.get_action(x=obs)
+            actions, _, mean = self._agent.get_action(x=obs)
             actions = actions.detach()
             if self._eval: # use mean instead of stochastic policy
                 actions[:, :] = mean

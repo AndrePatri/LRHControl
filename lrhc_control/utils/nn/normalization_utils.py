@@ -111,6 +111,7 @@ class RunningNormalizer(torch.nn.Module):
         self.register_buffer("vec_running_count", self._running_stats.count)
 
     def forward(self, x):
+        
         if not (self.training or self._freeze_stats):
             self._running_stats.update(x)
         

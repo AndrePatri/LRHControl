@@ -551,7 +551,7 @@ class ActorCriticAlgoBase():
     
     def _log_info(self):
         
-        if self._verbose and self._debug:
+        if self._verbose or self._debug:
             exp_to_pol_grad_ratio=self._n_timesteps_done[self._log_it_counter].item()/self._n_policy_updates[self._log_it_counter].item()
             est_remaining_time=self._elapsed_min[self._log_it_counter].item()/60*1/self._it_counter*(self._iterations_n-self._it_counter)
             elapsed_h=self._elapsed_min[self._log_it_counter].item()/60.0
