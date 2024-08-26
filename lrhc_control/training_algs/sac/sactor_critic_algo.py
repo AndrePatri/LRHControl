@@ -202,7 +202,8 @@ class SActorCriticAlgoBase():
             else: # everything is ok 
                 self._model_path = model_path
                 # overwrite init params
-                self._init_params(tot_tsteps=n_eval_timesteps)
+                self._init_params(tot_tsteps=n_eval_timesteps,
+                    run_name=self._run_name)
                 
             self._load_model(self._model_path)
 
@@ -709,7 +710,8 @@ class SActorCriticAlgoBase():
                     dtype=torch.float32, fill_value=0.0, device="cpu")
         
     def _init_params(self,
-            tot_tsteps: int):
+            tot_tsteps: int,
+            run_name: str = "SACDefaultRunName"):
 
         self._dtype = self._env.dtype()
 
@@ -717,7 +719,7 @@ class SActorCriticAlgoBase():
         self._obs_dim = self._env.obs_dim()
         self._actions_dim = self._env.actions_dim()
 
-        self._run_name = "DefaultRun" # default
+        self._run_name = run_name # default
         self._env_name = self._env.name()
         self._episode_timeout_lb, self._episode_timeout_ub = self._env.episode_timeout_bounds()
         self._task_rand_timeout_lb, self._task_rand_timeout_ub = self._env.task_rand_timeout_bounds()
