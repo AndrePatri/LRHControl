@@ -28,14 +28,11 @@ class Dummy(DummyTestAlgoBase):
         # experience collection
         self._switch_training_mode(train=False)
 
-        obs = self._env.get_obs(clone=True) # also accounts for resets when envs are 
-        # either terminated or truncated. CRUCIAL: we need to clone, 
-        # otherwise obs is be a view and will be overridden in the call to step
-        # with next_obs!!!
-        actions, _, mean = self._agent.get_action(x=obs)
+        obs = self._env.get_obs(clone=True) # we beed cloned obs (they are modified upon env stepping by the
+        # env itself
+
+        actions = self._agent.get_action(x=obs)
         actions = actions.detach()
-                
-        # perform a step of the (vectorized) env and retrieve trajectory
         env_step_ok = self._env.step(actions)
 
         return env_step_ok
