@@ -127,6 +127,7 @@ if __name__ == "__main__":
         sim_data.run()
         sim_datanames = sim_data.param_keys
         simtime_idx = sim_datanames.index("cluster_time")
+        rt_factor_idx = sim_datanames.index("sim_rt_factor") 
 
     ep_counter=None
     task_counter=None
@@ -161,7 +162,9 @@ if __name__ == "__main__":
 
             # read data
             if sim_data is not None:
-                sim_time=sim_data.get()[simtime_idx].item()
+                sim_data_read=sim_data.get()
+                sim_time=sim_data_read[simtime_idx].item()
+                sim_rt_factor=sim_data_read[rt_factor_idx].item() 
             obs.synch_all(read=True, retry=True)
             # next_obs.synch_all(read=True, retry=True)
             act.synch_all(read=True, retry=True)
@@ -178,7 +181,7 @@ if __name__ == "__main__":
             print(f"########################")
             print(f"wall time: {round(elapsed_tot_nom, 2)} [s] -->\n")
             if sim_data is not None:
-                print(f"sim time: {round(sim_time, 2)} [s] -->\n")
+                print(f"sim time: {round(sim_time, 2)} [s]; rt factor: {round(sim_rt_factor, 2)}\n")
             print("\nobservations:")
             print(obs_selected_names, sep = ", ")
             print(obs.get_torch_mirror(gpu=False)[idx:idx+env_range, obs_idxs])
