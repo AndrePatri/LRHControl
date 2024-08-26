@@ -447,7 +447,7 @@ class SActorCriticAlgoBase():
         self._policy_update_dt[self._log_it_counter] += \
             (self._policy_update_t - self._collection_t)
     
-        if self._vec_transition_counter > self._warmstart_vectimesteps:
+        if (self._vec_transition_counter > self._warmstart_vectimesteps and (not self._eval)):
             if self._vec_transition_counter % self._policy_freq == 0:
                 self._n_policy_updates[self._log_it_counter]+=self._policy_freq # td3 delaye update
             # updating qfun at each vec timesteps
@@ -456,7 +456,7 @@ class SActorCriticAlgoBase():
             if self._vec_transition_counter % self._trgt_net_freq == 0:
                 self._n_tqfun_updates[self._log_it_counter]+=1
 
-        if (self._vec_transition_counter) > self._warmstart_vectimesteps and \
+        if (self._vec_transition_counter > self._warmstart_vectimesteps or self._eval) and \
             self._vec_transition_counter % self._db_vecstep_frequency== 0:
             # only log data every n timesteps 
         
@@ -593,7 +593,7 @@ class SActorCriticAlgoBase():
                 f"experience to policy grad ratio: {experience_to_policy_grad_ratio}\n" + \
                 f"experience to q fun grad ratio: {experience_to_qfun_grad_ratio}\n" + \
                 f"experience to trgt q fun grad ratio: {experience_to_tqfun_grad_ratio}\n"+ \
-                f"Warmstart completed: {self._vec_transition_counter > self._warmstart_vectimesteps}\n" +\
+                f"Warmstart completed: {self._vec_transition_counter > self._warmstart_vectimesteps or self._eval}\n" +\
                 f"Replay buffer full: {self._replay_bf_full}\n" +\
                 f"Elapsed time: {self._elapsed_min[self._log_it_counter].item()/60.0} h\n" + \
                 f"Estimated remaining training time: " + \
