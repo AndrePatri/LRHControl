@@ -370,12 +370,15 @@ class FixedGaitSchedEnvBaseline(LRhcTrainingEnvBase):
         self._gait_scheduler_walk.step()
         self._gait_scheduler_trot.step()
         walk_to_trot_thresh=0.8 # [m/s]
+        stopping_thresh=0.05
         have_to_go_fast=agent_twist_ref_current.norm(dim=1,keepdim=True)>walk_to_trot_thresh
+        have_to_stop=agent_twist_ref_current.norm(dim=1,keepdim=True)<stopping_thresh
         # default to walk
         agent_action[:, :] = self._gait_scheduler_walk.get_signal(clone=True)
         # for fast enough refs, trot
         agent_action[have_to_go_fast.flatten(), :] = \
             self._gait_scheduler_trot.get_signal(clone=True)[have_to_go_fast.flatten(), :]
+        agent_action[have_to_stop.flatten(), :] = 1.0
         
         # refs have to be applied in the MPC's horizontal frame
         robot_q_meas = self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
