@@ -1,5 +1,6 @@
 from lrhc_control.training_algs.ppo.ppo import PPO
 from lrhc_control.training_algs.sac.sac import SAC
+from lrhc_control.training_algs.dummy.dummy import Dummy
 
 from control_cluster_bridge.utilities.shared_data.sim_data import SharedSimInfo
 
@@ -34,9 +35,10 @@ if __name__ == "__main__":
 
     parser.add_argument('--use_cer', action=argparse.BooleanOptionalAction, default=False, help='')
     parser.add_argument('--sac', action=argparse.BooleanOptionalAction, default=True, help='')
+    parser.add_argument('--dummy', action=argparse.BooleanOptionalAction, default=False, help='')
 
     parser.add_argument('--eval', action=argparse.BooleanOptionalAction, default=False, help='Whether to perform an evaluation run')
-    parser.add_argument('--n_eval_timesteps', type=int, help='Toal n. of timesteps to be evaluated', default=None)
+    parser.add_argument('--n_eval_timesteps', type=int, help='Toal n. of timesteps to be evaluated', default=1e6)
     parser.add_argument('--mpath', type=str, help='Model path to be used for policy evaluation',default=None)
     parser.add_argument('--mname', type=str, help='Model name',default=None)
 
@@ -108,18 +110,25 @@ if __name__ == "__main__":
         sim_data[sim_info_keys[i]] = sim_info_data[i]
     
     custom_args={}
-    if args.sac:
-        algo = SAC(env=env, 
-            debug=args.db, 
-            remote_db=args.rmdb,
-            seed=args.seed)
-        custom_args["use_combined_exp_replay"]=args.use_cer
+    algo=None
+    if not args.dummy:
+        if args.sac:
+            algo = SAC(env=env, 
+                debug=args.db, 
+                remote_db=args.rmdb,
+                seed=args.seed)
+            custom_args["use_combined_exp_replay"]=args.use_cer
+        else:
+            algo = PPO(env=env, 
+                debug=args.db, 
+                remote_db=args.rmdb,
+                seed=args.seed)
     else:
-        algo = PPO(env=env, 
-               debug=args.db, 
-               remote_db=args.rmdb,
-               seed=args.seed)
-    
+        algo=Dummy(env=env, 
+                debug=args.db, 
+                remote_db=args.rmdb,
+                seed=args.seed)
+
     custom_args.update(args_dict)
     custom_args.update(sim_data)
 
