@@ -60,7 +60,7 @@ class ActorCriticAlgoBase():
         self._episodic_reward_metrics = self._env.ep_rewards_metrics()
         
         tot_tsteps = 50e6
-        rollout_tstep = 256
+        rollout_tsteps = 256
         self._init_params(tot_tsteps=tot_tsteps,
             rollout_tstep=rollout_tsteps)
         
