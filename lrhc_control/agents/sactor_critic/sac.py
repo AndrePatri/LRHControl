@@ -115,16 +115,6 @@ class SACAgent(nn.Module):
             x = self.running_norm(x)
         return self.qf2_target(x, a)
 
-    def train(self, is_training: bool = True):
-        super().train(is_training)  # call the parent's train method
-        
-        if not is_training:
-            for param in self.parameters():
-                param.requires_grad = False
-        else:
-            for param in self.parameters():
-                param.requires_grad = True
-
     def load_state_dict(self, param_dict):
 
         missing, unexpected = super().load_state_dict(param_dict,
