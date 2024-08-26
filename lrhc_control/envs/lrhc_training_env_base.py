@@ -514,39 +514,39 @@ class LRhcTrainingEnvBase():
 
     def get_obs(self, clone:bool=False):
         if clone:
-            return self._obs.get_torch_mirror(gpu=self._use_gpu).clone()
+            return self._obs.get_torch_mirror(gpu=self._use_gpu).detach().clone()
         else:
-            return self._obs.get_torch_mirror(gpu=self._use_gpu)
+            return self._obs.get_torch_mirror(gpu=self._use_gpu).detach()
 
     def get_next_obs(self, clone:bool=False):
         if clone:
-            return self._next_obs.get_torch_mirror(gpu=self._use_gpu).clone()
+            return self._next_obs.get_torch_mirror(gpu=self._use_gpu).detach().clone()
         else:
-            return self._next_obs.get_torch_mirror(gpu=self._use_gpu)
+            return self._next_obs.get_torch_mirror(gpu=self._use_gpu).detach()
         
     def get_actions(self, clone:bool=False):
         if clone:
-            return self._actions.get_torch_mirror(gpu=self._use_gpu).clone()
+            return self._actions.get_torch_mirror(gpu=self._use_gpu).detach().clone()
         else:
-            return self._actions.get_torch_mirror(gpu=self._use_gpu)
+            return self._actions.get_torch_mirror(gpu=self._use_gpu).detach()
             
     def get_rewards(self, clone:bool=False):
         if clone:
-            return self._tot_rewards.get_torch_mirror(gpu=self._use_gpu).clone()
+            return self._tot_rewards.get_torch_mirror(gpu=self._use_gpu).detach().clone()
         else:
-            return self._tot_rewards.get_torch_mirror(gpu=self._use_gpu)
+            return self._tot_rewards.get_torch_mirror(gpu=self._use_gpu).detach()
         
     def get_terminations(self, clone:bool=False):
         if clone:
-            return self._terminations.get_torch_mirror(gpu=self._use_gpu).clone()
+            return self._terminations.get_torch_mirror(gpu=self._use_gpu).detach().clone()
         else:
-            return self._terminations.get_torch_mirror(gpu=self._use_gpu)
+            return self._terminations.get_torch_mirror(gpu=self._use_gpu).detach()
     
     def get_truncations(self, clone:bool=False):
         if clone:
-            return self._truncations.get_torch_mirror(gpu=self._use_gpu).clone()
+            return self._truncations.get_torch_mirror(gpu=self._use_gpu).detach().clone()
         else:
-            return self._truncations.get_torch_mirror(gpu=self._use_gpu)
+            return self._truncations.get_torch_mirror(gpu=self._use_gpu).detach()
         
     def obs_dim(self):
 

@@ -164,21 +164,21 @@ class MemBuffer():
     
     def get_bf(self,clone:bool=False):
         if clone:
-            return self._mem_buff.clone()
+            return self._mem_buff.detach().clone()
         else:
-            return self._mem_buff
+            return self._mem_buff.detach()
         
     def std(self,clone:bool=False):
         if clone:
-            return self._running_std.clone()
+            return self._running_std.detach().clone()
         else:
-            return self._running_std
+            return self._running_std.detach()
     
     def mean(self,clone:bool=False):
         if clone:
-            return self._running_mean.clone()
+            return self._running_mean.detach().clone()
         else:
-            return self._running_mean
+            return self._running_mean.detach()
 
     def pos(self):
         return self._membf_pos
