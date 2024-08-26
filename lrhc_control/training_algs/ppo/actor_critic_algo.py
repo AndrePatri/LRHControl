@@ -434,7 +434,7 @@ class ActorCriticAlgoBase():
         
         self._agent.load_state_dict(torch.load(model_path, 
                             map_location=self._torch_device))
-        self._agent.eval()
+        self._agent._switch_training_mode(False)
 
     def _set_all_deterministic(self):
 

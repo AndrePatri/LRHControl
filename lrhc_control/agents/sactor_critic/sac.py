@@ -35,6 +35,15 @@ class SACAgent(nn.Module):
         layer_size_actor=layer_size_actor
         layer_size_critic=layer_size_critic
 
+        self.actor = None
+        self.qf1 = None
+        self.qf1_target = None
+        self.qf2 = None
+        self.qf2_target = None
+
+        self._torch_device = device
+        self._torch_dtype = dtype
+
         self.actor = Actor(obs_dim=obs_dim,
                     actions_dim=actions_dim,
                     actions_ub=actions_ub,
@@ -48,24 +57,26 @@ class SACAgent(nn.Module):
                     device=device,
                     dtype=dtype,
                     layer_size=layer_size_critic)
-        self.qf1_target = CriticQ(obs_dim=obs_dim,
-                    actions_dim=actions_dim,
-                    device=device,
-                    dtype=dtype,
-                    layer_size=layer_size_critic)
-        self.qf2 = CriticQ(obs_dim=obs_dim,
-                    actions_dim=actions_dim,
-                    device=device,
-                    dtype=dtype,
-                    layer_size=layer_size_critic)
-        self.qf2_target = CriticQ(obs_dim=obs_dim,
-                    actions_dim=actions_dim,
-                    device=device,
-                    dtype=dtype,
-                    layer_size=layer_size_critic)
-      
-        self.qf1_target.load_state_dict(self.qf1.state_dict())
-        self.qf2_target.load_state_dict(self.qf2.state_dict())
+
+        if not is_eval: # just needed for training
+            self.qf1_target = CriticQ(obs_dim=obs_dim,
+                        actions_dim=actions_dim,
+                        device=device,
+                        dtype=dtype,
+                        layer_size=layer_size_critic)
+            self.qf2 = CriticQ(obs_dim=obs_dim,
+                        actions_dim=actions_dim,
+                        device=device,
+                        dtype=dtype,
+                        layer_size=layer_size_critic)
+            self.qf2_target = CriticQ(obs_dim=obs_dim,
+                        actions_dim=actions_dim,
+                        device=device,
+                        dtype=dtype,
+                        layer_size=layer_size_critic)
+        
+            self.qf1_target.load_state_dict(self.qf1.state_dict())
+            self.qf2_target.load_state_dict(self.qf2.state_dict())
 
         self.running_norm = None
         if self._normalize_obs:
@@ -103,6 +114,16 @@ class SACAgent(nn.Module):
         if self.running_norm is not None:
             x = self.running_norm(x)
         return self.qf2_target(x, a)
+
+    def train(self, is_training: bool = True):
+        super().train(is_training)  # call the parent's train method
+        
+        if not is_training:
+            for param in self.parameters():
+                param.requires_grad = False
+        else:
+            for param in self.parameters():
+                param.requires_grad = True
 
 class CriticQ(nn.Module):
     def __init__(self,
