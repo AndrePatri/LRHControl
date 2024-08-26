@@ -59,7 +59,10 @@ class ActorCriticAlgoBase():
         
         self._episodic_reward_metrics = self._env.ep_rewards_metrics()
         
-        self._init_params()
+        tot_tsteps = 50e6
+        rollout_tstep = 256
+        self._init_params(tot_tsteps=tot_tsteps,
+            rollout_tstep=rollout_tstep)
         
         self._init_dbdata()
 
@@ -86,8 +89,7 @@ class ActorCriticAlgoBase():
             drop_dir_name: str = None,
             eval: bool = False,
             model_path: str = None,
-            n_evals: int = None,
-            n_timesteps_per_eval: int = None,
+            n_eval_timesteps: int = None,
             comment: str = "",
             dump_checkpoints: bool = False,
             norm_obs: bool = True):
@@ -146,22 +148,18 @@ class ActorCriticAlgoBase():
                     f"When eval is True, a model_path should be provided!!",
                     LogType.EXCEP,
                     throw_when_excep = True)
-            elif n_timesteps_per_eval is None:
+            elif n_eval_timesteps is None:
                 Journal.log(self.__class__.__name__,
                     "setup",
-                    f"When eval is True, n_timesteps_per_eval should be provided!!",
+                    f"When eval is True, n_eval_timesteps should be provided!!",
                     LogType.EXCEP,
                     throw_when_excep = True)
-            elif n_evals is None:
-                Journal.log(self.__class__.__name__,
-                    "setup",
-                    f"When eval is True, n_evals should be provided!!",
-                    LogType.EXCEP,
-                    throw_when_excep = True)
-            else:
+            else: # everything ok
                 self._model_path = model_path
-                self._rollout_timesteps = int(n_timesteps_per_eval/self._num_envs) # overrides 
-                self._iterations_n = n_evals
+                # overwrite init params (recomputes n_iterations, etc...)
+                self._init_params(tot_tsteps=n_eval_timesteps,
+                    rollout_tstep=self._rollout_timesteps)
+                
             self._load_model(self._model_path)
 
         # create dump directory + copy important files for debug
@@ -768,7 +766,9 @@ class ActorCriticAlgoBase():
         self._running_std_obs = torch.full((self._db_data_size, self._env.obs_dim()), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
 
-    def _init_params(self):
+    def _init_params(self, 
+            tot_tsteps: int,
+            rollout_tsteps: int):
 
         self._dtype = self._env.dtype()
 
@@ -787,10 +787,10 @@ class ActorCriticAlgoBase():
         self._torch_deterministic = True
 
         # policy rollout and return comp./adv estimation
-        self._total_timesteps = int(50e6) # total timesteps to be collected (including sub envs)
+        self._total_timesteps = int(tot_tsteps) # total timesteps to be collected (including sub envs)
         self._total_timesteps = self._total_timesteps//self._env_n_action_reps # correct with n of action reps
         
-        self._rollout_timesteps = 256 # numer of vectorized steps (rescaled depending on env substepping) 
+        self._rollout_timesteps = int(rollout_tsteps) # numer of vectorized steps (rescaled depending on env substepping) 
         # to be done per policy rollout (influences adv estimation!!!)
         self._batch_size = self._rollout_timesteps * self._num_envs
 

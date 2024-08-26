@@ -35,8 +35,7 @@ if __name__ == "__main__":
     parser.add_argument('--sac', action=argparse.BooleanOptionalAction, default=True, help='')
 
     parser.add_argument('--eval', action=argparse.BooleanOptionalAction, default=False, help='Whether to perform an evaluation run')
-    parser.add_argument('--n_evals', type=int, help='N. of evaluation rollouts to be performed', default=None)
-    parser.add_argument('--n_timesteps', type=int, help='Toal n. of timesteps for each evaluation rollout', default=None)
+    parser.add_argument('--n_eval_timesteps', type=int, help='Toal n. of timesteps to be evaluated', default=None)
     parser.add_argument('--mpath', type=str, help='Model path to be used for policy evaluation',default=None)
     parser.add_argument('--mname', type=str, help='Model name',default=None)
 
@@ -133,8 +132,7 @@ if __name__ == "__main__":
         comment=args.comment,
         eval=args.eval,
         model_path=mpath_full,
-        n_evals=args.n_evals,
-        n_timesteps_per_eval=args.n_timesteps,
+        n_eval_timesteps=args.n_eval_timesteps,
         dump_checkpoints=args.dump_checkpoints,
         norm_obs=args.obs_norm)
 

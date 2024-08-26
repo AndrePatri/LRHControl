@@ -57,7 +57,8 @@ class SActorCriticAlgoBase():
         
         self._episodic_reward_metrics = self._env.ep_rewards_metrics()
         
-        self._init_params()
+        tot_tsteps=50e6
+        self._init_params(tot_tsteps=tot_tsteps)
         
         self._init_dbdata()
 
@@ -128,8 +129,7 @@ class SActorCriticAlgoBase():
             drop_dir_name: str = None,
             eval: bool = False,
             model_path: str = None,
-            n_evals: int = None,
-            n_timesteps_per_eval: int = None,
+            n_eval_timesteps: int = None,
             comment: str = "",
             dump_checkpoints: bool = False,
             norm_obs: bool = True):
@@ -192,21 +192,17 @@ class SActorCriticAlgoBase():
                     f"When eval is True, a model_path should be provided!!",
                     LogType.EXCEP,
                     throw_when_excep = True)
-            elif n_timesteps_per_eval is None:
+            elif n_eval_timesteps is None:
                 Journal.log(self.__class__.__name__,
                     "setup",
-                    f"When eval is True, n_timesteps_per_eval should be provided!!",
+                    f"When eval is True, n_eval_timesteps should be provided!!",
                     LogType.EXCEP,
                     throw_when_excep = True)
-            elif n_evals is None:
-                Journal.log(self.__class__.__name__,
-                    "setup",
-                    f"When eval is True, n_evals should be provided!!",
-                    LogType.EXCEP,
-                    throw_when_excep = True)
-            else:
+            else: # everything is ok 
                 self._model_path = model_path
-                self._total_timesteps = n_evals
+                # overwrite init params
+                self._init_params(tot_tsteps=n_eval_timesteps)
+                
             self._load_model(self._model_path)
 
         # create dump directory + copy important files for debug
@@ -711,7 +707,8 @@ class SActorCriticAlgoBase():
         self._running_std_obs = torch.full((self._db_data_size, self._env.obs_dim()), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
         
-    def _init_params(self):
+    def _init_params(self,
+            tot_tsteps: int):
 
         self._dtype = self._env.dtype()
 
@@ -739,7 +736,7 @@ class SActorCriticAlgoBase():
         self._replay_buffer_size_vec = self._replay_buffer_size_nominal//self._num_envs # 32768
         self._replay_buffer_size = self._replay_buffer_size_vec*self._num_envs
         self._batch_size = 4096
-        self._total_timesteps = int(50e6)
+        self._total_timesteps = int(tot_tsteps)
         self._total_timesteps = self._total_timesteps//self._env_n_action_reps # correct with n of action reps
         self._total_timesteps_vec = self._total_timesteps // self._num_envs
         self._total_timesteps = self._total_timesteps_vec*self._num_envs # actual n transitions
