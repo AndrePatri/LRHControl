@@ -297,7 +297,8 @@ class LRhcTrainingEnvBase():
 
         # set action from agent
         actions = self._actions.get_torch_mirror(gpu=self._use_gpu)
-        actions[:, :] = action # writes actions
+        actions[:, :] = action.detach() # writes actions (detaching to avoid
+        # grads prop
         
         if self._act_mem_buffer is not None:
             self._act_mem_buffer.update(new_data=self.get_actions(clone=True))
@@ -1064,6 +1065,7 @@ class LRhcTrainingEnvBase():
         if self._is_debug:
             self._check_finite(obs, "observations", False)
         torch.nan_to_num(input=obs, out=obs, nan=torch.inf, posinf=None, neginf=None) # prevent nans
+
         obs.clamp_(self._obs_threshold_lb, self._obs_threshold_ub)
     
     def _clamp_rewards(self, 

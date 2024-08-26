@@ -391,8 +391,8 @@ class SActorCriticAlgoBase():
             throw_when_excep = True)
         
         self._agent.load_state_dict(torch.load(model_path, 
-                            map_location=self._torch_device))
-        self._agent._switch_training_mode(False)
+                    map_location=self._torch_device))
+        self._switch_training_mode(False)
 
     def _set_all_deterministic(self):
 

@@ -125,6 +125,22 @@ class SACAgent(nn.Module):
             for param in self.parameters():
                 param.requires_grad = True
 
+    def load_state_dict(self, param_dict):
+
+        missing, unexpected = super().load_state_dict(param_dict,
+            strict=False)
+        if not len(missing)==0:
+            Journal.log(self.__class__.__name__,
+                "load_state_dict",
+                f"These parameters are missing from the provided state dictionary: {str(missing)}\n",
+                LogType.EXCEP,
+                throw_when_excep = True)
+        if not len(unexpected)==0:
+            Journal.log(self.__class__.__name__,
+                "load_state_dict",
+                f"These parameters present in the provided state dictionary are not needed: {str(unexpected)}\n",
+                LogType.WARN)
+            
 class CriticQ(nn.Module):
     def __init__(self,
             obs_dim: int, 
