@@ -119,8 +119,6 @@ if __name__ == "__main__":
                remote_db=args.rmdb,
                seed=args.seed)
     
-    custom_args["layer_size_actor"]=args.actor_size
-    custom_args["layer_size_critic"]=args.critic_size
     custom_args.update(args_dict)
     custom_args.update(sim_data)
 
