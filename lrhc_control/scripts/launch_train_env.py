@@ -11,6 +11,7 @@ import os, argparse
 from perf_sleep.pyperfsleep import PerfSleep
 
 import importlib.util
+import torch
 
 # Function to dynamically import a module from a specific file path
 def import_env_module(env_path):
@@ -150,14 +151,19 @@ if __name__ == "__main__":
             continue
         else:
             break
-
-    try:
-        while not algo.is_done():
-            if not args.eval:
+    
+    if not args.eval:
+        try:
+            while not algo.is_done():
                 if not algo.learn():
                     algo.done()
-            else: # eval phase
-                if not algo.eval():
-                    algo.done()
-    except KeyboardInterrupt:
-        algo.done() # in case it's interrupted by user
+        except KeyboardInterrupt:
+            algo.done() # in case it's interrupted by user
+    else: # eval phase
+        with torch.no_grad(): # no need for grad computation
+            try:
+                while not algo.is_done():
+                    if not algo.eval():
+                        algo.done()
+            except KeyboardInterrupt:
+                algo.done() # in case it's interrupted by user
