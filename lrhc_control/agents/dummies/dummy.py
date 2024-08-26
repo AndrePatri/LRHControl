@@ -57,7 +57,7 @@ class DummyAgent(nn.Module):
         return os.path.abspath(__file__)
     
     def get_action(self, x):
-        return None
+        return self.actor.get_action(x)
     
     def get_val(self, x, a):
         return None

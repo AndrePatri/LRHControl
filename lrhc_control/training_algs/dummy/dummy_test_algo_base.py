@@ -618,3 +618,7 @@ class DummyTestAlgoBase():
         # write some initializations
         self._shared_algo_data.write(dyn_info_name=["is_done"],
                 val=[0.0])
+    
+    def _switch_training_mode(self, 
+                    train: bool = True):
+        self._agent.train(train)
