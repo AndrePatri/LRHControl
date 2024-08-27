@@ -35,7 +35,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # we assume the twist meas for the agent to be provided always in local base frame
 
         self._add_prev_actions_stats_to_obs = True # add actions std, mean + last action over a horizon to obs
-        self._add_contact_idx_to_obs=True # add a variable which reflects the magnitute of the contact force over the horizon
+        self._add_contact_idx_to_obs=False # add a variable which reflects the magnitute of the contact forces over the horizon
+        self._add_rhc_fz_to_obs=True # add estimate vertical contact f to obs
         self._add_internal_rhc_q_to_obs=True # add base orientation internal to the rhc controller (useful when running controller
         # in open loop)
         self._add_fail_idx_to_obs=True # add a failure index which is directly correlated to env failure due to rhc controller explosion
@@ -75,6 +76,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             obs_dim+=4 # internal rhc base orientation
         if self._add_contact_idx_to_obs:
             obs_dim+=n_contacts # contact index var
+        if self._add_rhc_fz_to_obs:
+            obs_dim+=n_contacts
         obs_dim+=2 # 2D lin vel reference to be tracked
         if self._add_fail_idx_to_obs:
             obs_dim+=1 # rhc controller failure index
@@ -375,8 +378,12 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         next_idx+=self._n_jnts
         obs[:, next_idx:(next_idx+4)] = rhc_q_internal
         next_idx+=4
-        obs[:, next_idx:(next_idx+len(self.contact_names))] = self._rhc_step_var(gpu=self._use_gpu)
-        next_idx+=len(self.contact_names)
+        if self._add_contact_idx_to_obs:
+            obs[:, next_idx:(next_idx+len(self.contact_names))] = self._rhc_step_var(gpu=self._use_gpu)
+            next_idx+=len(self.contact_names)
+        if self._add_rhc_fz_to_obs:
+            obs[:, next_idx:(next_idx+len(self.contact_names))] = self._rhc_fz(gpu=self._use_gpu, node_idx=0)
+            next_idx+=len(self.contact_names)
         obs[:, next_idx:(next_idx+2)] = agent_twist_ref[:, 0:2] # high lev agent refs
         next_idx+=2
         # obs[:, next_idx:(next_idx+1)] = self._rhc_const_viol(gpu=self._use_gpu)
@@ -384,8 +391,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # obs[:, next_idx:(next_idx+1)] = self._rhc_cost(gpu=self._use_gpu)
         # next_idx+=1
         # adding last action to obs at the back of the obs tensor
-        obs[:, next_idx:(next_idx+1)] = self._rhc_fail_idx(gpu=self._use_gpu)
-        next_idx+=1
+        if self._add_fail_idx_to_obs:
+            obs[:, next_idx:(next_idx+1)] = self._rhc_fail_idx(gpu=self._use_gpu)
+            next_idx+=1
         if self._add_prev_actions_stats_to_obs:
             self._prev_act_idx=next_idx
             obs[:, next_idx:(next_idx+self.actions_dim())]=self._act_mem_buffer.get(idx=0) # last obs
@@ -464,6 +472,15 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             end_idx=i*self.n_nodes+self.n_nodes
             to_be_cat.append(torch.sum(step_var[:, start_idx:end_idx], dim=1, keepdim=True)/self.n_nodes)
         return self._rhc_step_var_scale * torch.cat(to_be_cat, dim=1) 
+    
+    def _rhc_fz(self, gpu: bool, node_idx:int=0):
+        step_var = self._rhc_status.rhc_step_var.get_torch_mirror(gpu=gpu)
+        to_be_cat = []
+        for i in range(len(self.contact_names)):
+            start_idx=i*self.n_nodes+node_idx
+            contact_fz=step_var[:, start_idx:start_idx+1]
+            to_be_cat.append(contact_fz)
+        return self._rhc_step_var_scale * torch.cat(to_be_cat, dim=1)
     
     def _weighted_actions_diff(self, gpu: bool, obs, next_obs):
 
@@ -571,6 +588,12 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             i = 0
             for contact in self.contact_names:
                 obs_names[next_idx+i] = f"contact_idx_{contact}"
+                i+=1        
+            next_idx+=len(self.contact_names)
+        if self._add_rhc_fz_to_obs:
+            i = 0
+            for contact in self.contact_names:
+                obs_names[next_idx+i] = f"rhc_fz_{contact}"
                 i+=1        
             next_idx+=len(self.contact_names)
         obs_names[next_idx] = "lin_vel_x_ref" # specified in the "horizontal frame"
