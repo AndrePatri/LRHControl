@@ -625,7 +625,7 @@ class LRhcTrainingEnvBase():
 
     def _init_obs(self):
         
-        obs_threshold_default = 10.0
+        obs_threshold_default = 100.0
         self._obs_threshold_lb = -obs_threshold_default # used for clipping observations
         self._obs_threshold_ub = obs_threshold_default
 
@@ -1064,7 +1064,9 @@ class LRhcTrainingEnvBase():
             obs: torch.Tensor):
         if self._is_debug:
             self._check_finite(obs, "observations", False)
-        torch.nan_to_num(input=obs, out=obs, nan=torch.inf, posinf=None, neginf=None) # prevent nans
+        torch.nan_to_num(input=obs, out=obs, nan=self._obs_threshold_ub, 
+            posinf=self._obs_threshold_ub, 
+            neginf=self._obs_threshold_lb) # prevent nans
 
         obs.clamp_(self._obs_threshold_lb, self._obs_threshold_ub)
     
@@ -1072,7 +1074,9 @@ class LRhcTrainingEnvBase():
             rewards: torch.Tensor):
         if self._is_debug:
             self._check_finite(rewards, "rewards", False)
-        torch.nan_to_num(input=rewards, out=rewards, nan=torch.inf, posinf=None, neginf=None) # prevent nans
+        torch.nan_to_num(input=rewards, out=rewards, nan=self._reward_thresh_ub, 
+            posinf=self._reward_thresh_ub, 
+            neginf=self._reward_thresh_lb) # prevent nans
         rewards.clamp_(self._reward_thresh_lb, self._reward_thresh_ub)
 
     def get_actions_lb(self):
