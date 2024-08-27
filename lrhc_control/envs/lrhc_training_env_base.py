@@ -1074,9 +1074,9 @@ class LRhcTrainingEnvBase():
             rewards: torch.Tensor):
         if self._is_debug:
             self._check_finite(rewards, "rewards", False)
-        torch.nan_to_num(input=rewards, out=rewards, nan=self._reward_thresh_ub, 
-            posinf=self._reward_thresh_ub, 
-            neginf=self._reward_thresh_lb) # prevent nans
+        torch.nan_to_num(input=rewards, out=rewards, nan=torch.inf, 
+            posinf=None, 
+            neginf=None) # prevent nans
         rewards.clamp_(self._reward_thresh_lb, self._reward_thresh_ub)
 
     def get_actions_lb(self):
