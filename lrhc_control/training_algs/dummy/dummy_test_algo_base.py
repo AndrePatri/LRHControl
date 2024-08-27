@@ -56,11 +56,6 @@ class DummyTestAlgoBase():
         
         self._episodic_reward_metrics = self._env.ep_rewards_metrics()
         
-        tot_tsteps=50e6
-        self._init_params(tot_tsteps=tot_tsteps)
-        
-        self._init_dbdata()
-
         self._setup_done = False
 
         self._verbose = False
@@ -91,6 +86,9 @@ class DummyTestAlgoBase():
         self._post_step()
 
         return True
+
+    def learn(self):
+        return self.eval()
     
     @abstractmethod
     def _collect_transition(self)->bool:
@@ -99,15 +97,19 @@ class DummyTestAlgoBase():
     def setup(self,
             run_name: str,
             ns: str,
+            n_eval_timesteps: int,
             custom_args: Dict = {},
             verbose: bool = False,
             drop_dir_name: str = None,
-            eval: bool = False,
+            eval: bool = True,
             model_path: str = None,
-            n_eval_timesteps: int = None,
             comment: str = "",
             dump_checkpoints: bool = False,
             norm_obs: bool = True):
+
+        self._init_params(tot_tsteps=n_eval_timesteps)
+        
+        self._init_dbdata()
 
         self._verbose = verbose
 
@@ -231,25 +233,10 @@ class DummyTestAlgoBase():
             # profiling data
             hf.create_dataset('env_step_fps', data=self._env_step_fps.numpy())
             hf.create_dataset('env_step_rt_factor', data=self._env_step_rt_factor.numpy())
-            hf.create_dataset('policy_update_dt', data=self._policy_update_dt.numpy())
-            hf.create_dataset('policy_update_fps', data=self._policy_update_fps.numpy())
             hf.create_dataset('n_of_played_episodes', data=self._n_of_played_episodes.numpy())
             hf.create_dataset('n_timesteps_done', data=self._n_timesteps_done.numpy())
-            hf.create_dataset('n_policy_updates', data=self._n_policy_updates.numpy())
-            hf.create_dataset('n_qfun_updates', data=self._n_qfun_updates.numpy())
-            hf.create_dataset('n_tqfun_updates', data=self._n_tqfun_updates.numpy())
 
-            hf.create_dataset('elapsed_min', data=self._elapsed_min.numpy())
-
-            # algo data 
-            hf.create_dataset('qf1_vals', data=self._qf1_vals.numpy())
-            hf.create_dataset('qf2_vals', data=self._qf2_vals.numpy())
-            hf.create_dataset('qf1_loss', data=self._qf1_loss.numpy())
-            hf.create_dataset('qf2_loss', data=self._qf2_loss.numpy())
-            hf.create_dataset('qf_loss', data=self._qf_loss.numpy())
-            hf.create_dataset('actor_loss', data=self._actor_loss.numpy())
-            hf.create_dataset('alphas', data=self._alphas.numpy())
-            hf.create_dataset('alpha_loss', data=self._alpha_loss.numpy())
+            hf.create_dataset('elapsed_min', data=self._elapsed_min.numpy())            
 
             # dump all custom env data
             db_data_names = list(self._env.custom_db_data.keys())
@@ -318,13 +305,13 @@ class DummyTestAlgoBase():
 
     def _post_step(self):
                 
-        self._step_dt[self._log_it_counter] += \
+        self._collection_dt[self._log_it_counter] += \
             (self._collection_t-self._start_time) 
     
         if self._vec_transition_counter % self._db_vecstep_frequency== 0:
             # only log data every n timesteps 
         
-            self._env_step_fps[self._log_it_counter] = (self._db_vecstep_frequency*self._num_envs)/ self._step_dt[self._log_it_counter]
+            self._env_step_fps[self._log_it_counter] = (self._db_vecstep_frequency*self._num_envs)/ self._collection_dt[self._log_it_counter]
             if "control_clust_dt" in self._hyperparameters:
                 self._env_step_rt_factor[self._log_it_counter] = self._env_step_fps[self._log_it_counter]*self._env_n_action_reps*self._hyperparameters["control_clust_dt"]
 
@@ -392,10 +379,15 @@ class DummyTestAlgoBase():
                 info_names=self._shared_algo_data.dynamic_info.get()
                 info_data = [
                     self._n_timesteps_done[self._log_it_counter].item(),
+                    -1.0,
+                    -1.0,
                     elapsed_h,
                     est_remaining_time_h,
                     self._env_step_fps[self._log_it_counter].item(),
                     self._env_step_rt_factor[self._log_it_counter].item(),
+                    self._collection_dt[self._log_it_counter].item(),
+                    -1.0,
+                    -1.0,
                     is_done
                     ]
                 self._shared_algo_data.write(dyn_info_name=info_names,
@@ -424,7 +416,7 @@ class DummyTestAlgoBase():
                 f"{est_remaining_time_h} h\n" + \
                 f"Average episodic return across all environments: {self._episodic_rewards_env_avrg[self._log_it_counter, :, :].item()}\n" + \
                 f"Average episodic returns across all environments {self._reward_names_str}: {self._episodic_sub_rewards_env_avrg[self._log_it_counter, :]}\n" + \
-                f"Current env. step sps: {self._env_step_fps[self._log_it_counter].item()}, time for experience collection {self._step_dt[self._log_it_counter].item()} s\n" + \
+                f"Current env. step sps: {self._env_step_fps[self._log_it_counter].item()}, time for experience collection {self._collection_dt[self._log_it_counter].item()} s\n" + \
                 f"Current env (sub-steping) rt factor: {self._env_step_rt_factor[self._log_it_counter].item()}\n"            
             
             Journal.log(self.__class__.__name__,
@@ -436,7 +428,14 @@ class DummyTestAlgoBase():
     def _init_dbdata(self):
 
         # initalize some debug data
+        self._collection_dt = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
         self._collection_t = -1.0
+        
+        self._env_step_fps = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._env_step_rt_factor = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
         
         self._n_of_played_episodes = torch.full((self._db_data_size, 1), 
                     dtype=torch.int32, fill_value=0, device="cpu")
@@ -615,3 +614,7 @@ class DummyTestAlgoBase():
         # write some initializations
         self._shared_algo_data.write(dyn_info_name=["is_done"],
                 val=[0.0])
+    
+    def _switch_training_mode(self, 
+                    train: bool = True):
+        self._agent.train(train)
