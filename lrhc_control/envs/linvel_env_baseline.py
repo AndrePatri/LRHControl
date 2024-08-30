@@ -26,7 +26,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         action_repeat = 1 # frame skipping (different agent action every action_repeat
         # env substeps)
 
-        self._single_task_ref_per_episode=True # if True, the task ref is constant over the episode (ie
+        self._single_task_ref_per_episode=False # if True, the task ref is constant over the episode (ie
         # episodes are truncated when task is changed)
         self._use_horizontal_frame_for_refs = False # (vel refs for agent are in horizontal frame)
         # usually impractical for task rand to set this to True 
@@ -67,7 +67,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         rhc_status_tmp.close()
 
         # defining actions and obs dimensions
-        actions_dim = 2 + 1 + 3 + 4 # [vxzy_cmd, twist_cmd, dostep_0, dostep_1, dostep_2, dostep_3]
+        actions_dim = 6 + 4 # [twist_cmd, contact_flags]
 
         obs_dim=4 # base orientation quaternion 
         obs_dim+=6 # meas twist
@@ -85,8 +85,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             obs_dim+=3*actions_dim # previous agent actions statistics (mean, std + last action)
 
         # obs_dim = 4+6+n_jnts+2+2+actions_dim
-        episode_timeout_lb = 1024 # episode timeouts (including env substepping when action_repeat>1)
-        episode_timeout_ub = 1024
+        episode_timeout_lb = 640 # episode timeouts (including env substepping when action_repeat>1)
+        episode_timeout_ub = 640
         n_steps_task_rand_lb = 320 # agent refs randomization freq
         n_steps_task_rand_ub = 320 # lb not eq. to ub to remove correlations between episodes
         # across diff envs
@@ -120,15 +120,12 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._rhc_fail_idx_scale=1.0
 
         # power penalty
-        self._power_offset = 0# 10.0
-        self._power_scale = 0# 0.1
+        self._power_offset = 0 # 10.0
+        self._power_scale = 0 # 0.1
         self._power_penalty_weights = torch.full((1, n_jnts), dtype=dtype, device=device,
                             fill_value=1.0)
         n_jnts_per_limb = round(n_jnts/n_contacts) # assuming same topology along limbs
         pow_weights_along_limb = [1.0] * n_jnts_per_limb
-        pow_weights_along_limb[0] = 1.0 # strongest actuator
-        pow_weights_along_limb[1] = 1.0
-        pow_weights_along_limb[2] = 1.0 # weakest actuator
         for i in range(round(n_jnts/n_contacts)):
             self._power_penalty_weights[0, i*n_contacts:(n_contacts*(i+1))] = pow_weights_along_limb[i]
         self._power_penalty_weights_sum = torch.sum(self._power_penalty_weights).item()
@@ -139,9 +136,6 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._jnt_vel_penalty_weights = torch.full((1, n_jnts), dtype=dtype, device=device,
                             fill_value=1.0)
         jnt_vel_weights_along_limb = [1.0] * n_jnts_per_limb
-        jnt_vel_weights_along_limb[0] = 1.0
-        jnt_vel_weights_along_limb[1] = 1.0
-        jnt_vel_weights_along_limb[2] = 1.0
         for i in range(round(n_jnts/n_contacts)):
             self._jnt_vel_penalty_weights[0, i*n_contacts:(n_contacts*(i+1))] = jnt_vel_weights_along_limb[i]
         self._jnt_vel_penalty_weights_sum = torch.sum(self._jnt_vel_penalty_weights).item()
@@ -199,7 +193,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     srew_drescaling=True,
                     srew_tsrescaling=False,
                     use_act_mem_bf=self._add_prev_actions_stats_to_obs,
-                    act_membf_size=30)
+                    act_membf_size=10)
 
         # action regularization
         self._actions_diff_rew_offset = 0.0
@@ -208,12 +202,13 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._actions_diff_scale = 0.0#1.0
         self._action_diff_weights = torch.full((1, actions_dim), dtype=dtype, device=device,
                             fill_value=1.0)
-        self._action_diff_weights[:, 6:10]=1.0 # minimal reg for contact flags
+        self._action_diff_weights[:, 6:10]=1.0 
         self._prev_actions = torch.full_like(input=self.get_actions(),fill_value=0.0)
         self._prev_actions[:, :] = self.get_actions()
         range_scale=(self._actions_ub-self._actions_lb)/2.0
         self._action_diff_weights[:, :]*=1.0/range_scale
         self._action_diff_w_sum = torch.sum(self._action_diff_weights).item()
+
         # custom db info 
         step_idx_data = EpisodicData("ContactIndex", self._rhc_step_var(gpu=False), self.contact_names,
             ep_vec_freq=self._vec_ep_freq_metrics_db)
@@ -245,10 +240,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         v_cmd_max = self.max_ref
         omega_cmd_max = self.max_ref
-        self._actions_lb[:, 0:2] = -v_cmd_max 
-        self._actions_ub[:, 0:2] = v_cmd_max  
-        self._actions_lb[:, 2:3] = -v_cmd_max 
-        self._actions_ub[:, 2:3] = v_cmd_max  # vxyz cmd
+        self._actions_lb[:, 0:3] = -v_cmd_max 
+        self._actions_ub[:, 0:3] = v_cmd_max  
         self._actions_lb[:, 3:6] = -omega_cmd_max # twist cmds
         self._actions_ub[:, 3:6] = omega_cmd_max  
         self._actions_lb[:, 6:10] = -1.0 # contact flags
@@ -503,7 +496,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         task_error_fun = self._task_perc_err_lin
         
         task_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu) # high level agent refs (hybrid twist)
-        # task_error_wmse = self._task_err_quad(task_meas=task_meas, task_ref=task_ref)
+
         if self._use_horizontal_frame_for_refs:
            base2world_frame(t_b=next_obs[:, 4:10],q_b=next_obs[:, 0:4],t_out=self._robot_twist_meas_w)
            w2hor_frame(t_w=self._robot_twist_meas_w,q_b=next_obs[:, 0:4],t_out=self._robot_twist_meas_h)
