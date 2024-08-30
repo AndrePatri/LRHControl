@@ -4,6 +4,7 @@ from lrhc_control.utils.shared_data.remote_stepping import RemoteResetClnt
 from lrhc_control.utils.shared_data.remote_stepping import RemoteResetRequest
 
 from control_cluster_bridge.utilities.homing import RobotHomer
+from control_cluster_bridge.utilities.shared_data.jnt_imp_control import JntImpCntrlData
 
 from SharsorIPCpp.PySharsorIPC import VLevel, Journal, LogType
 
@@ -128,7 +129,9 @@ class LRhcEnvBase():
 
         self._srdf_paths = robot_srdf_paths
         self._homers = {} 
-
+        self._jnt_imp_cntrl_shared_data = {}
+        self._jnt_imp_controllers = {}
+        
         # control cluster data
         self.cluster_timers = {}
         self.cluster_step_counters = {}
@@ -150,7 +153,7 @@ class LRhcEnvBase():
 
         # remote sim stepping options
         self._timeout = timeout_ms # timeout for remote stepping
-        self._use_remote_stepping = use_remote_stepping # whether the task associated with robot i 
+        self._use_remote_stepping = use_remote_stepping
         # should use remote stepping
         self._remote_steppers = {}
         self._remote_resetters = {}
@@ -189,7 +192,7 @@ class LRhcEnvBase():
             if not isinstance(self._cluster_dt[i], (float)):
                 exception = f"cluster_dt[{i}] should be a float!"
                 Journal.log(self.__class__.__name__,
-                    "set_task",
+                    "_setup",
                     exception,
                     LogType.EXCEP,
                     throw_when_excep = True)
@@ -246,9 +249,21 @@ class LRhcEnvBase():
             
             self._init_safe_cluster_actions(robot_name=robot_name)
 
+            self._jnt_imp_cntrl_shared_data[robot_name] = JntImpCntrlData(is_server=True, 
+                                            n_envs=self._num_envs, 
+                                            n_jnts=len(self._robot_jnt_names(robot_name=robot_name)),
+                                            jnt_names=self._robot_jnt_names(robot_name=robot_name),
+                                            namespace=robot_name, 
+                                            verbose=self._verbose, 
+                                            force_reconnection=self._force_reconnection,
+                                            vlevel=self._vlevel,
+                                            use_gpu=self._use_gpu,
+                                            safe=False)
+            self._jnt_imp_cntrl_shared_data[robot_name].run()
+
     def step(self, actions=None) -> bool:
         success=True
-        success = success and self._pre_sim_step()
+        success = success and self._pre_step()
         success = success and self._step_sim()
         success = success and self._post_sim_step()
         return success
@@ -278,12 +293,12 @@ class LRhcEnvBase():
         
         if reset_cluster: # reset the state of clusters using the reset state
             for i in range(len(robot_names)):
-                self._update_cluster_state(robot_name=robot_names[i],
+                self._write_state_to_cluster(robot_name=robot_names[i],
                                 env_indxs=env_indxs)
                 if reset_cluster_counter:
                     self.cluster_step_counters[robot_names[i]] = 0                
 
-    def _update_cluster_state(self, 
+    def _write_state_to_cluster(self, 
         robot_name: str, 
         env_indxs: torch.Tensor = None):
         
@@ -341,7 +356,7 @@ class LRhcEnvBase():
         if self._use_gpu:
             robot_homing=robot_homing.cuda()
         homing=robot_homing.repeat(self._num_envs, 1)
-        null_action = torch.zeros((self.task.num_envs, n_jnts), 
+        null_action = torch.zeros((self._num_envs, n_jnts), 
                         dtype=self._dtype,
                         device=self._device)
         rhc_cmds.jnts_state.set(data=homing, data_type="q", gpu=self.using_gpu)
@@ -356,7 +371,8 @@ class LRhcEnvBase():
     def _step_sim(self) -> bool:
         pass
     
-    def _pre_sim_step(self) -> bool:
+    def _pre_step(self) -> bool:
+
         self._update_state_from_sim()
 
         # cluster step logic here
@@ -402,7 +418,7 @@ class LRhcEnvBase():
             active = control_cluster.get_active_controllers(gpu=self.using_gpu)
             # 2) this runs at @simulation dt i.e. the highest possible rate,
             # using the latest available RHC actions
-            self._update_jnt_imp_cntrl_actions(robot_name<=robot_name, 
+            self._update_jnt_imp_cntrl_actions(robot_name=robot_name, 
                         actions=control_cluster.get_actions(),
                         env_indxs=active)
             # 3) this runs at @cluster_dt: trigger cluster solution
@@ -420,17 +436,13 @@ class LRhcEnvBase():
                 just_deactivated = control_cluster.get_just_deactivated(gpu=self.using_gpu)
                 if just_activated is not None: # transition of some controllers from not active -> active
                     self._update_root_offsets(robot_name,
-                                    env_indxs = just_activated) # we use relative state wrt to this state for the controllers
-                    self._update_jnt_imp_control_gains(robot_name = robot_name, 
-                                    jnt_stiffness = self.task.startup_jnt_stiffness, 
-                                    jnt_damping = self.task.startup_jnt_damping, 
-                                    wheel_stiffness = self.task.startup_wheel_stiffness, 
-                                    wheel_damping = self.task.startup_wheel_damping,
+                                    env_indxs=just_activated) # we use relative state wrt to this state for the controllers
+                    self._reset_jnt_imp_control_gains(robot_name=robot_name, 
                                     env_indxs = just_activated) # setting runtime state for jnt imp controller
                 if just_deactivated is not None:
                     self._reset_jnt_imp_control(robot_name=robot_name,
                             env_indxs=just_deactivated)
-                self._update_cluster_state(robot_name=robot_name, 
+                self._write_state_to_cluster(robot_name=robot_name, 
                                     env_indxs=active) # always update cluster state every cluster dt
                 control_cluster.trigger_solution() # trigger only active controllers
 
@@ -567,6 +579,53 @@ class LRhcEnvBase():
 
         self._remote_resetters[robot_name].ack() # signal reset performed
 
+    def _update_jnt_imp_cntrl_shared_data(self):
+        if self._debug:
+            for i in range(0, len(self._robot_names)):
+                robot_name = self._robot_names[i]
+                # updating all the jnt impedance data - > this may introduce a significant overhead,
+                # on CPU and, if using GPU, also there 
+                imp_data = self.jnt_imp_cntrl_shared_data[robot_name].imp_data_view
+                # set data
+                imp_data.set(data_type="pos_err",
+                        data=self.jnt_imp_controllers[robot_name].pos_err(),
+                        gpu=self.using_gpu)
+                imp_data.set(data_type="vel_err",
+                        data=self.jnt_imp_controllers[robot_name].vel_err(),
+                        gpu=self.using_gpu)
+                imp_data.set(data_type="pos_gains",
+                        data=self.jnt_imp_controllers[robot_name].pos_gains(),
+                        gpu=self.using_gpu)
+                imp_data.set(data_type="vel_gains",
+                        data=self.jnt_imp_controllers[robot_name].vel_gains(),
+                        gpu=self.using_gpu)
+                imp_data.set(data_type="eff_ff",
+                        data=self.jnt_imp_controllers[robot_name].eff_ref(),
+                        gpu=self.using_gpu)
+                imp_data.set(data_type="pos",
+                        data=self.jnt_imp_controllers[robot_name].pos(),
+                        gpu=self.using_gpu)
+                imp_data.set(data_type="pos_ref",
+                        data=self.jnt_imp_controllers[robot_name].pos_ref(),
+                        gpu=self.using_gpu)
+                imp_data.set(data_type="vel",
+                        data=self.jnt_imp_controllers[robot_name].vel(),
+                        gpu=self.using_gpu)
+                imp_data.set(data_type="vel_ref",
+                        data=self.jnt_imp_controllers[robot_name].vel_ref(),
+                        gpu=self.using_gpu)
+                imp_data.set(data_type="eff",
+                        data=self.jnt_imp_controllers[robot_name].eff(),
+                        gpu=self.using_gpu)
+                imp_data.set(data_type="imp_eff",
+                        data=self.jnt_imp_controllers[robot_name].imp_eff(),
+                        gpu=self.using_gpu)
+                # copy from GPU to CPU if using gpu
+                if self.using_gpu:
+                    imp_data.synch_mirror(from_gpu=True)
+                # write copies to shared memory
+                imp_data.synch_all(read=False, retry=False)
+
     @abstractmethod
     def _update_jnt_imp_cntrl_actions(self,
         robot_name: str, 
@@ -574,6 +633,52 @@ class LRhcEnvBase():
         env_indxs: torch.Tensor = None):
         pass
     
+        if env_indxs is not None and self._debug:
+            if not isinstance(env_indxs, torch.Tensor):
+                error = "Provided env_indxs should be a torch tensor of indexes!"
+                Journal.log(self.__class__.__name__,
+                    "_step_jnt_imp_control",
+                    error,
+                    LogType.EXCEP,
+                    True)
+            if self._use_gpu:
+                if not env_indxs.device.type == "cuda":
+                    error = "Provided env_indxs should be on GPU!"
+                    Journal.log(self.__class__.__name__,
+                    "_step_jnt_imp_control",
+                    error,
+                    LogType.EXCEP,
+                    True)
+            else:
+                if not env_indxs.device.type == "cpu":
+                    error = "Provided env_indxs should be on CPU!"
+                    Journal.log(self.__class__.__name__,
+                        "_step_jnt_imp_control",
+                        error,
+                        LogType.EXCEP,
+                        True)
+                
+        # always update ,imp. controller internal state (jnt imp control is supposed to be
+        # always running)
+        self.jnt_imp_controllers[robot_name].update_state(pos = self.jnts_q(robot_name=robot_name), 
+                vel = self.jnts_v(robot_name=robot_name),
+                eff = self.jnts_eff(robot_name=robot_name))
+
+        if actions is not None and env_indxs is not None:
+            # if new actions are received, also update references
+            # (only use actions if env_indxs is provided)
+            self.jnt_imp_controllers[robot_name].set_refs(
+                    pos_ref = actions.jnts_state.get(data_type="q", gpu=self.using_gpu)[env_indxs, :], 
+                    vel_ref = actions.jnts_state.get(data_type="v", gpu=self.using_gpu)[env_indxs, :], 
+                    eff_ref = actions.jnts_state.get(data_type="eff", gpu=self.using_gpu)[env_indxs, :],
+                    robot_indxs = env_indxs)
+
+        # # jnt imp. controller actions are always applied
+        self.jnt_imp_controllers[robot_name].apply_cmds()
+
+        if self._debug_enabled:
+            self._update_jnt_imp_cntrl_shared_data() # only if debug_mode_jnt_imp is enabled
+
     @abstractmethod
     def _reset_jnt_imp_control(self,
         robot_name: str, 
@@ -590,13 +695,9 @@ class LRhcEnvBase():
         robot_name: str, 
         env_indxs: torch.Tensor = None):
         pass
-    
+
     @abstractmethod
-    def _update_jnt_imp_control_gains(self,
+    def _reset_jnt_imp_control_gains(self,
         robot_name: str, 
-        jnt_stiffness: torch.Tensor,
-        jnt_damping: torch.Tensor,
-        wheel_stiffness: torch.Tensor,
-        wheel_damping: torch.Tensor,
         env_indxs: torch.Tensor = None):
         pass
