@@ -2,13 +2,15 @@ from lrhc_control.controllers.rhc.lrhc_cluster_server import LRhcClusterServer
 from lrhc_control.utils.shared_data.remote_stepping import RemoteStepperClnt
 from lrhc_control.utils.shared_data.remote_stepping import RemoteResetClnt
 from lrhc_control.utils.shared_data.remote_stepping import RemoteResetRequest
+from lrhc_control.utils.jnt_imp_control_base import JntImpCntrlBase
+from lrhc_control.utils.hybrid_quad_xrdf_gen import get_xrdf_cmds_isaac
 
 from control_cluster_bridge.utilities.homing import RobotHomer
 from control_cluster_bridge.utilities.shared_data.jnt_imp_control import JntImpCntrlData
 
 from SharsorIPCpp.PySharsorIPC import VLevel, Journal, LogType
 
-from typing import List, Union, Dict
+from typing import List, Union, Dict, TypeVar
 
 import os
 import signal
@@ -19,16 +21,18 @@ import torch
 
 from abc import ABC, abstractmethod
 
+JntImpCntrlChild = TypeVar('JntImpCntrlChild', bound='JntImpCntrlBase')
+
 class LRhcEnvBase():
 
     def __init__(self,
                 robot_names: List[str],
-                robot_pkg_names: List[str],
+                robot_urdf_paths: List[str],
                 robot_srdf_paths: List[str],
                 cluster_dt: List[float],
                 use_remote_stepping: List[bool],
+                name: str = "LRhcEnvBase",
                 num_envs: int = 1,
-                headless: bool = True, 
                 debug = False,
                 verbose: bool = False,
                 vlevel: VLevel = VLevel.V1,
@@ -36,7 +40,9 @@ class LRhcEnvBase():
                 timeout_ms: int = 60000,
                 custom_opts: Dict = None,
                 use_gpu: bool = True,
-                dtype: torch.dtype = torch.float32):
+                dtype: torch.dtype = torch.float32,
+                dump_basepath: str = "/tmp",
+                override_low_lev_controller: bool = False):
 
         # checks on input args
         # type checks
@@ -47,8 +53,15 @@ class LRhcEnvBase():
                 exception,
                 LogType.EXCEP,
                 throw_when_excep = True)
-        if not isinstance(robot_pkg_names, List):
-            exception = "robot_pkg_names must be a list!"
+        if not isinstance(robot_urdf_paths, List):
+            exception = "robot_urdf_paths must be a list!"
+            Journal.log(self.__class__.__name__,
+                "__init__",
+                exception,
+                LogType.EXCEP,
+                throw_when_excep = True)
+        if not isinstance(robot_srdf_paths, List):
+            exception = "robot_srdf_paths must be a list!"
             Journal.log(self.__class__.__name__,
                 "__init__",
                 exception,
@@ -68,16 +81,18 @@ class LRhcEnvBase():
                 exception,
                 LogType.EXCEP,
                 throw_when_excep = True)
-        if not isinstance(robot_srdf_paths, List):
-            exception = "robot_srdf_paths must be a list!"
+        
+        # dim checks
+        if not len(robot_urdf_paths) == len(robot_names):
+            exception = f"robot_urdf_paths has len {len(robot_urdf_paths)}" + \
+             f" while robot_names {len(robot_names)}"
             Journal.log(self.__class__.__name__,
                 "__init__",
                 exception,
                 LogType.EXCEP,
                 throw_when_excep = True)
-        # dim checks
-        if not len(robot_pkg_names) == len(robot_names):
-            exception = f"robot_pkg_names has len {len(robot_pkg_names)}" + \
+        if not len(robot_srdf_paths) == len(robot_names):
+            exception = f"robot_srdf_paths has len {len(robot_srdf_paths)}" + \
              f" while robot_names {len(robot_names)}"
             Journal.log(self.__class__.__name__,
                 "__init__",
@@ -108,9 +123,9 @@ class LRhcEnvBase():
                 exception,
                 LogType.EXCEP,
                 throw_when_excep = True)
-            
+        
+        self._name=name
         self._num_envs=num_envs
-        self._headless=headless
         self._debug=debug
         self._verbose=verbose
         self._vlevel=vlevel
@@ -120,15 +135,18 @@ class LRhcEnvBase():
         self._device = "cuda" if self._use_gpu else "cpu"
         self._dtype=dtype
         self._robot_names=robot_names
-        self._robot_pkg_names=robot_pkg_names
-        self._custom_opts=custom_opts
-            
+        self._robot_urdf_paths=robot_urdf_paths
+        self._robot_srdf_paths=robot_srdf_paths
+        self._custom_opts={}
+        self._custom_opts.update(custom_opts)
+
         self.step_counter = 0 # global step counter
         self._init_steps_done = False
         self._n_init_steps = n_init_step # n steps to be performed before applying solutions from control clusters
 
-        self._srdf_paths = robot_srdf_paths
+        self._srdf_dump_paths = robot_srdf_paths
         self._homers = {} 
+        self._homing = None
         self._jnt_imp_cntrl_shared_data = {}
         self._jnt_imp_controllers = {}
         
@@ -139,7 +157,9 @@ class LRhcEnvBase():
         self._trigger_sol = {}
         self._wait_sol = {}
         self._cluster_dt = {}
-
+        for i in range(len(self._robot_names)):
+            robot_name = self._robot_names[i]
+            self._cluster_dt[robot_name]=cluster_dt[i]
         # db data
         self.debug_data = {}
         self.debug_data["time_to_step_world"] = np.nan
@@ -164,6 +184,39 @@ class LRhcEnvBase():
         # handle ctrl+c event
         signal.signal(signal.SIGINT, self.signal_handler)        
 
+        self._descr_dump_path=dump_basepath+"/"+f"{self.__class__.__name__}"
+        self._urdf_dump_paths = {}
+        self._srdf_dump_paths = {}
+        self.xrdf_cmd_vals = [] # by default empty, needs to be overriden by
+        # child class
+
+        self._override_low_lev_controller = override_low_lev_controller
+
+        self._root_p = {}
+        self._root_q = {}
+        self._jnts_q = {} 
+        self._root_p_prev = {} # used for num differentiation
+        self._root_q_prev = {} # used for num differentiation
+        self._jnts_q_prev = {} # used for num differentiation
+        self._root_p_default = {} 
+        self._root_q_default = {}
+        self._jnts_q_default = {}
+        
+        self._root_v = {}
+        self._root_v_default = {}
+        self._root_omega = {}
+        self._root_omega_default = {}
+        self._jnts_v = {}
+        self._jnts_v_default = {}
+        self._jnts_eff = {}
+        self._jnts_eff_default = {}
+
+        self._root_pos_offsets = {} 
+        self._root_q_offsets = {} 
+
+        self._init_world() # after this point all info from sim or robot is 
+        # available
+
         self._setup()
             
     def signal_handler(self, sig, frame):
@@ -180,6 +233,9 @@ class LRhcEnvBase():
                     self._remote_reset_requests[self._robot_names[i]].close()
                     self._remote_resetters[self._robot_names[i]].close()
                     self._remote_steppers[self._robot_names[i]].close()
+                jnt_imp_shared_data=self._jnt_imp_cntrl_shared_data[self._robot_names[i]]
+                if jnt_imp_shared_data is not None:
+                    jnt_imp_shared_data.close()
             self._close()
             self._closed=True
     
@@ -189,14 +245,14 @@ class LRhcEnvBase():
             robot_name = self._robot_names[i]
             self.cluster_step_counters[robot_name]=0
             self._is_first_trigger[robot_name] = True
-            if not isinstance(self._cluster_dt[i], (float)):
+            if not isinstance(self._cluster_dt[robot_name], (float)):
                 exception = f"cluster_dt[{i}] should be a float!"
                 Journal.log(self.__class__.__name__,
                     "_setup",
                     exception,
                     LogType.EXCEP,
                     throw_when_excep = True)
-            self._cluster_dt[robot_name] = self._cluster_dt[i]
+            self._cluster_dt[robot_name] = self._cluster_dt[robot_name]
             self._trigger_sol[robot_name] = True # allow first trigger
             self._wait_sol[robot_name] = False
 
@@ -243,12 +299,13 @@ class LRhcEnvBase():
                 self._remote_reset_requests[robot_name] = None
                 self._remote_resetters[robot_name] = None
 
-            self._homers[robot_name] = RobotHomer(srdf_path=self._srdf_paths[robot_name], 
+            self._homers[robot_name] = RobotHomer(srdf_path=self._srdf_dump_paths[robot_name], 
                             jnt_names=self._robot_jnt_names(robot_name=robot_name),
                             filter=True)
             
             self._init_safe_cluster_actions(robot_name=robot_name)
 
+            self._jnt_imp_controllers[robot_name] = self._generate_jnt_imp_control()
             self._jnt_imp_cntrl_shared_data[robot_name] = JntImpCntrlData(is_server=True, 
                                             n_envs=self._num_envs, 
                                             n_jnts=len(self._robot_jnt_names(robot_name=robot_name)),
@@ -260,6 +317,8 @@ class LRhcEnvBase():
                                             use_gpu=self._use_gpu,
                                             safe=False)
             self._jnt_imp_cntrl_shared_data[robot_name].run()
+
+        self._setup_done=True
 
     def step(self, actions=None) -> bool:
         success=True
@@ -355,11 +414,11 @@ class LRhcEnvBase():
         robot_homing=torch.from_numpy(self._homers[robot_name].get_homing().reshape(1,-1))
         if self._use_gpu:
             robot_homing=robot_homing.cuda()
-        homing=robot_homing.repeat(self._num_envs, 1)
+        self._homing=robot_homing.repeat(self._num_envs, 1)
         null_action = torch.zeros((self._num_envs, n_jnts), 
                         dtype=self._dtype,
                         device=self._device)
-        rhc_cmds.jnts_state.set(data=homing, data_type="q", gpu=self.using_gpu)
+        rhc_cmds.jnts_state.set(data=self._homing, data_type="q", gpu=self.using_gpu)
         rhc_cmds.jnts_state.set(data=null_action, data_type="v", gpu=self.using_gpu)
         rhc_cmds.jnts_state.set(data=null_action, data_type="eff", gpu=self.using_gpu)
 
@@ -447,6 +506,9 @@ class LRhcEnvBase():
                 control_cluster.trigger_solution() # trigger only active controllers
 
     @abstractmethod
+    def _generate_jnt_imp_control(self) -> JntImpCntrlChild:
+        pass
+
     def _post_sim_step(self) -> bool:
         self.step_counter +=1
         if self.step_counter==self._n_init_steps and \
@@ -464,17 +526,64 @@ class LRhcEnvBase():
     def _render(self, mode:str) -> None:
         pass
 
-    @abstractmethod
     def _reset(self,
-        env_indxs: torch.Tensor,
-        robot_names: List[str],
-        randomize: bool) -> None:
+            env_indxs: torch.Tensor = None,
+            robot_names: List[str] =None,
+            randomize: bool = False):
+
+        # we first reset all target articulations to their default state
+        rob_names = robot_names if (robot_names is not None) else self._robot_names
+        # resets the state of target robot and env to the defaults
+        self._reset_state(env_indxs=env_indxs, 
+                    robot_names=rob_names,
+                    randomize=randomize)
+        # and jnt imp. controllers
+        for i in range(len(rob_names)):
+            self.reset_jnt_imp_control(robot_name=rob_names[i],
+                                env_indxs=env_indxs)
+    
+    def randomize_yaw(self,
+            robot_name: str,
+            env_indxs: torch.Tensor = None):
+
+        root_q_default = self._root_q_default[robot_name]
+        if env_indxs is None:
+            env_indxs = torch.arange(root_q_default.shape[0])
+
+        num_indices = env_indxs.shape[0]
+        yaw_angles = torch.rand((num_indices,), 
+                        device=root_q_default.device) * 2 * torch.pi  # uniformly distributed random angles
+        
+        # Compute cos and sin once
+        cos_half = torch.cos(yaw_angles / 2)
+        root_q_default[env_indxs, :] = torch.stack((cos_half, 
+                                torch.zeros_like(cos_half),
+                                torch.zeros_like(cos_half), 
+                                torch.sin(yaw_angles / 2)), dim=1).reshape(num_indices, 4)
+
+    @abstractmethod
+    def _reset_state(self,
+            env_indxs: torch.Tensor = None,
+            robot_names: List[str] =None,
+            randomize: bool = False):
         pass
     
+    @abstractmethod
+    def _init_world(self):
+        pass
+
     @abstractmethod
     def _reset_sim(self) -> None:
         pass
     
+    @abstractmethod
+    def _move_jnts_to_homing(self):
+        pass
+
+    @abstractmethod
+    def _move_root_to_defconfig(self):
+        pass
+
     @abstractmethod
     def _deactivate(self,
         env_indxs = torch.Tensor,
@@ -490,15 +599,33 @@ class LRhcEnvBase():
         pass
 
     @abstractmethod
-    def physics_dt(self) -> int:
+    def physics_dt(self) -> float:
         pass
     
+    @abstractmethod
+    def rendering_dt(self) -> float:
+        pass
+    
+    @abstractmethod
+    def set_physics_dt(self, physics_dt:float):
+        pass
+
+    @abstractmethod
+    def set_rendering_dt(self, rendering_dt:float):
+        pass
+
     @abstractmethod
     def _robot_jnt_names(self, robot_name: str) -> List[str]:
         pass
     
     @abstractmethod
-    def _update_state_from_sim(self):
+    def _update_state_from_sim(self,
+        env_indxs: torch.Tensor = None,
+        robot_names: List[str] = None):
+        pass
+    
+    @abstractmethod
+    def _init_robots_state(self):
         pass
 
     @abstractmethod
@@ -534,6 +661,14 @@ class LRhcEnvBase():
     @abstractmethod
     def jnts_eff(self, robot_name: str,
         env_idxs: torch.Tensor) -> torch.Tensor:
+        pass
+    
+    @abstractmethod
+    def current_tstep(self) -> int:
+        pass
+    
+    @abstractmethod
+    def current_time(self) -> float:
         pass
 
     def _get_contact_f(self, 
@@ -588,37 +723,37 @@ class LRhcEnvBase():
                 imp_data = self.jnt_imp_cntrl_shared_data[robot_name].imp_data_view
                 # set data
                 imp_data.set(data_type="pos_err",
-                        data=self.jnt_imp_controllers[robot_name].pos_err(),
+                        data=self._jnt_imp_controllers[robot_name].pos_err(),
                         gpu=self.using_gpu)
                 imp_data.set(data_type="vel_err",
-                        data=self.jnt_imp_controllers[robot_name].vel_err(),
+                        data=self._jnt_imp_controllers[robot_name].vel_err(),
                         gpu=self.using_gpu)
                 imp_data.set(data_type="pos_gains",
-                        data=self.jnt_imp_controllers[robot_name].pos_gains(),
+                        data=self._jnt_imp_controllers[robot_name].pos_gains(),
                         gpu=self.using_gpu)
                 imp_data.set(data_type="vel_gains",
-                        data=self.jnt_imp_controllers[robot_name].vel_gains(),
+                        data=self._jnt_imp_controllers[robot_name].vel_gains(),
                         gpu=self.using_gpu)
                 imp_data.set(data_type="eff_ff",
-                        data=self.jnt_imp_controllers[robot_name].eff_ref(),
+                        data=self._jnt_imp_controllers[robot_name].eff_ref(),
                         gpu=self.using_gpu)
                 imp_data.set(data_type="pos",
-                        data=self.jnt_imp_controllers[robot_name].pos(),
+                        data=self._jnt_imp_controllers[robot_name].pos(),
                         gpu=self.using_gpu)
                 imp_data.set(data_type="pos_ref",
-                        data=self.jnt_imp_controllers[robot_name].pos_ref(),
+                        data=self._jnt_imp_controllers[robot_name].pos_ref(),
                         gpu=self.using_gpu)
                 imp_data.set(data_type="vel",
-                        data=self.jnt_imp_controllers[robot_name].vel(),
+                        data=self._jnt_imp_controllers[robot_name].vel(),
                         gpu=self.using_gpu)
                 imp_data.set(data_type="vel_ref",
-                        data=self.jnt_imp_controllers[robot_name].vel_ref(),
+                        data=self._jnt_imp_controllers[robot_name].vel_ref(),
                         gpu=self.using_gpu)
                 imp_data.set(data_type="eff",
-                        data=self.jnt_imp_controllers[robot_name].eff(),
+                        data=self._jnt_imp_controllers[robot_name].eff(),
                         gpu=self.using_gpu)
                 imp_data.set(data_type="imp_eff",
-                        data=self.jnt_imp_controllers[robot_name].imp_eff(),
+                        data=self._jnt_imp_controllers[robot_name].imp_eff(),
                         gpu=self.using_gpu)
                 # copy from GPU to CPU if using gpu
                 if self.using_gpu:
@@ -626,7 +761,6 @@ class LRhcEnvBase():
                 # write copies to shared memory
                 imp_data.synch_all(read=False, retry=False)
 
-    @abstractmethod
     def _update_jnt_imp_cntrl_actions(self,
         robot_name: str, 
         actions = None,
@@ -660,44 +794,260 @@ class LRhcEnvBase():
                 
         # always update ,imp. controller internal state (jnt imp control is supposed to be
         # always running)
-        self.jnt_imp_controllers[robot_name].update_state(pos = self.jnts_q(robot_name=robot_name), 
+        self._jnt_imp_controllers[robot_name].update_state(pos=self.jnts_q(robot_name=robot_name), 
                 vel = self.jnts_v(robot_name=robot_name),
                 eff = self.jnts_eff(robot_name=robot_name))
 
         if actions is not None and env_indxs is not None:
             # if new actions are received, also update references
             # (only use actions if env_indxs is provided)
-            self.jnt_imp_controllers[robot_name].set_refs(
-                    pos_ref = actions.jnts_state.get(data_type="q", gpu=self.using_gpu)[env_indxs, :], 
-                    vel_ref = actions.jnts_state.get(data_type="v", gpu=self.using_gpu)[env_indxs, :], 
-                    eff_ref = actions.jnts_state.get(data_type="eff", gpu=self.using_gpu)[env_indxs, :],
-                    robot_indxs = env_indxs)
+            self._jnt_imp_controllers[robot_name].set_refs(
+                pos_ref=actions.jnts_state.get(data_type="q", gpu=self.using_gpu)[env_indxs, :], 
+                vel_ref=actions.jnts_state.get(data_type="v", gpu=self.using_gpu)[env_indxs, :], 
+                eff_ref=actions.jnts_state.get(data_type="eff", gpu=self.using_gpu)[env_indxs, :],
+                robot_indxs = env_indxs)
 
         # # jnt imp. controller actions are always applied
-        self.jnt_imp_controllers[robot_name].apply_cmds()
+        self._jnt_imp_controllers[robot_name].apply_cmds()
+
+        if self._debug:
+            self._update_jnt_imp_cntrl_shared_data() # only if debug_mode_jnt_imp is enabled
+    
+    def update_root_offsets(self, 
+                    robot_name: str,
+                    env_indxs: torch.Tensor = None):
+        
+        if self._debug_enabled:
+            for_robots = ""
+            if env_indxs is not None:
+                if not isinstance(env_indxs, torch.Tensor):                
+                    msg = "Provided env_indxs should be a torch tensor of indexes!"
+                    Journal.log(self.__class__.__name__,
+                        "update_root_offsets",
+                        msg,
+                        LogType.EXCEP,
+                        throw_when_excep = True)    
+                if self.using_gpu:
+                    if not env_indxs.device.type == "cuda":
+                            error = "Provided env_indxs should be on GPU!"
+                            Journal.log(self.__class__.__name__,
+                            "_step_jnt_imp_control",
+                            error,
+                            LogType.EXCEP,
+                            True)
+                else:
+                    if not env_indxs.device.type == "cpu":
+                        error = "Provided env_indxs should be on CPU!"
+                        Journal.log(self.__class__.__name__,
+                            "_step_jnt_imp_control",
+                            error,
+                            LogType.EXCEP,
+                            True)
+                for_robots = f"for robot {robot_name}, indexes: " + str(env_indxs.tolist())
+            if self._verbose:
+                Journal.log(self.__class__.__name__,
+                    "update_root_offsets",
+                    f"updating root offsets " + for_robots,
+                    LogType.STAT,
+                    throw_when_excep = True)
+
+        # only planar position used
+        if env_indxs is None:
+            self._root_pos_offsets[robot_name][:, 0:2]  = self._root_p[robot_name][:, 0:2]
+            self._root_q_offsets[robot_name][:, :]  = self._root_q[robot_name]
+        else:
+            self._root_pos_offsets[robot_name][env_indxs, 0:2]  = self._root_p[robot_name][env_indxs, 0:2]
+            self._root_q_offsets[robot_name][env_indxs, :]  = self._root_q[robot_name][env_indxs, :]
+
+    def reset_jnt_imp_control(self, 
+                robot_name: str,
+                env_indxs: torch.Tensor = None):
+        
+        if self._debug_enabled:
+            for_robots = ""
+            if env_indxs is not None:
+                if not isinstance(env_indxs, torch.Tensor):
+                    Journal.log(self.__class__.__name__,
+                        "reset_jnt_imp_control",
+                        "Provided env_indxs should be a torch tensor of indexes!",
+                        LogType.EXCEP,
+                        throw_when_excep = True)
+                if self.using_gpu:
+                    if not env_indxs.device.type == "cuda":
+                            error = "Provided env_indxs should be on GPU!"
+                            Journal.log(self.__class__.__name__,
+                            "_step_jnt_imp_control",
+                            error,
+                            LogType.EXCEP,
+                            True)
+                else:
+                    if not env_indxs.device.type == "cpu":
+                        error = "Provided env_indxs should be on CPU!"
+                        Journal.log(self.__class__.__name__,
+                            "_step_jnt_imp_control",
+                            error,
+                            LogType.EXCEP,
+                            True)
+                for_robots = f"for robot {robot_name}, indexes: " + str(env_indxs)
+                                
+            if self._verbose:
+                Journal.log(self.__class__.__name__,
+                    "reset_jnt_imp_control",
+                    f"resetting joint impedances " + for_robots,
+                    LogType.STAT,
+                    throw_when_excep = True)
+
+        # resets all internal data, refs to defaults
+        self._jnt_imp_controllers[robot_name].reset(robot_indxs = env_indxs)
+
+        # restore current state
+        if env_indxs is None:
+            self._jnt_imp_controllers[robot_name].update_state(pos = self._jnts_q[robot_name][:, :], 
+                vel = self._jnts_v[robot_name][:, :],
+                eff = None,
+                robot_indxs = None)
+        else:
+            self._jnt_imp_controllers[robot_name].update_state(pos = self._jnts_q[robot_name][env_indxs, :], 
+                vel = self._jnts_v[robot_name][env_indxs, :],
+                eff = None,
+                robot_indxs = env_indxs)
+        
+        #restore jnt imp refs to homing            
+        if env_indxs is None:                               
+            self._jnt_imp_controllers[robot_name].set_refs(pos_ref=self.homers[robot_name].get_homing()[:, :],
+                                                    robot_indxs = None)
+        else:
+            self._jnt_imp_controllers[robot_name].set_refs(pos_ref=self.homers[robot_name].get_homing()[env_indxs, :],
+                                                            robot_indxs = env_indxs)
+
+        # actually applies reset commands to the articulation
+        # self._jnt_imp_controllers[robot_name].apply_cmds()          
+
+    def synch_default_root_states(self,
+            robot_name: str = None,
+            env_indxs: torch.Tensor = None):
 
         if self._debug_enabled:
-            self._update_jnt_imp_cntrl_shared_data() # only if debug_mode_jnt_imp is enabled
+            for_robots = ""
+            if env_indxs is not None:
+                if not isinstance(env_indxs, torch.Tensor):
+                    msg = "Provided env_indxs should be a torch tensor of indexes!"
+                    Journal.log(self.__class__.__name__,
+                        "synch_default_root_states",
+                        msg,
+                        LogType.EXCEP,
+                        throw_when_excep = True)  
+                if self.using_gpu:
+                    if not env_indxs.device.type == "cuda":
+                            error = "Provided env_indxs should be on GPU!"
+                            Journal.log(self.__class__.__name__,
+                            "_step_jnt_imp_control",
+                            error,
+                            LogType.EXCEP,
+                            True)
+                else:
+                    if not env_indxs.device.type == "cpu":
+                        error = "Provided env_indxs should be on CPU!"
+                        Journal.log(self.__class__.__name__,
+                            "_step_jnt_imp_control",
+                            error,
+                            LogType.EXCEP,
+                            True)  
+                for_robots = f"for robot {robot_name}, indexes: " + str(env_indxs.tolist())
+            if self._verbose:
+                Journal.log(self.__class__.__name__,
+                            "synch_default_root_states",
+                            f"updating default root states " + for_robots,
+                            LogType.STAT,
+                            throw_when_excep = True)
 
-    @abstractmethod
-    def _reset_jnt_imp_control(self,
-        robot_name: str, 
-        env_indxs: torch.Tensor = None):
-        pass
-
-    @abstractmethod
-    def _synch_default_root_states(self,
-        robot_name: str):
-        pass
-
-    @abstractmethod
-    def _update_root_offsets(self,
-        robot_name: str, 
-        env_indxs: torch.Tensor = None):
-        pass
+        if env_indxs is None:
+            self._root_p_default[robot_name][:, :] = self._root_p[robot_name]
+            self._root_q_default[robot_name][:, :] = self._root_q[robot_name]
+        else:
+            self._root_p_default[robot_name][env_indxs, :] = self._root_p[robot_name][env_indxs, :]
+            self._root_q_default[robot_name][env_indxs, :] = self._root_q[robot_name][env_indxs, :]
 
     @abstractmethod
     def _reset_jnt_imp_control_gains(self,
         robot_name: str, 
         env_indxs: torch.Tensor = None):
         pass
+
+    def _generate_srdf(self, 
+        robot_name: str, 
+        srdf_path: str):
+        
+        self._srdf_dump_paths[robot_name] = self._descr_dump_path + "/" + robot_name + ".srdf"
+
+        if self._xrdf_cmds(robot_name=robot_name) is not None:
+            cmds = self._xrdf_cmds(robot_name=robot_name)
+            if cmds is None:
+                xacro_cmd = ["xacro"] + [srdf_path] + ["-o"] + [self._srdf_dump_paths[robot_name]]
+            else:
+                xacro_cmd = ["xacro"] + [srdf_path] + cmds + ["-o"] + [self._srdf_dump_paths[robot_name]]
+
+        if self._xrdf_cmds(robot_name=robot_name) is None:
+            xacro_cmd = ["xacro"] + [srdf_path] + ["-o"] + [self._srdf_dump_paths[robot_name]]
+
+        import subprocess
+        try:
+            xacro_gen = subprocess.check_call(xacro_cmd)
+        except:
+            Journal.log(self.__class__.__name__,
+                "_generate_urdf",
+                "failed to generate " + robot_name + "\'S SRDF!!!",
+                LogType.EXCEP,
+                throw_when_excep = True)
+            
+    def _generate_urdf(self, 
+        robot_name: str, 
+        urdf_path: str):
+
+        # we generate the URDF where the description package is located
+        self._urdf_dump_paths[robot_name] = self._descr_dump_path + "/" + robot_name + ".urdf"
+        
+        if self._xrdf_cmds(robot_name=robot_name) is not None:
+            cmds = self._xrdf_cmds(robot_name=robot_name)
+            if cmds is None:
+                xacro_cmd = ["xacro"] + [urdf_path] + ["-o"] + [self._urdf_dump_paths[robot_name]]
+            else:
+                xacro_cmd = ["xacro"] + [urdf_path] + cmds + ["-o"] + [self._urdf_dump_paths[robot_name]]
+        if self._xrdf_cmds(robot_name=robot_name) is None:
+            xacro_cmd = ["xacro"] + [urdf_path] + ["-o"] + [self._urdf_dump_paths[robot_name]]
+
+        import subprocess
+        try:
+            xacro_gen = subprocess.check_call(xacro_cmd)
+            # we also generate an updated SRDF
+        except:
+            Journal.log(self.__class__.__name__,
+                "_generate_urdf",
+                "Failed to generate " + robot_name + "\'s URDF!!!",
+                LogType.EXCEP,
+                throw_when_excep = True)
+    
+    def _generate_rob_descriptions(self, 
+                    robot_name: str, 
+                    urdf_path: str,
+                    srdf_path: str):
+        
+        Journal.log(self.__class__.__name__,
+                    "update_root_offsets",
+                    "generating URDF for robot "+ f"{robot_name}, from URDF {urdf_path}...",
+                    LogType.STAT,
+                    throw_when_excep = True)
+        self._generate_urdf(robot_name=robot_name, 
+            urdf_path=urdf_path)
+        Journal.log(self.__class__.__name__,
+                    "update_root_offsets",
+                    "generating SRDF for robot "+ f"{robot_name}, from SRDF {srdf_path}...",
+                    LogType.STAT,
+                    throw_when_excep = True)
+        # we also generate SRDF files, which are useful for control
+        self._generate_srdf(robot_name=robot_name, 
+            srdf_path=srdf_path)
+    
+    def _xrdf_cmds(self, robot_name:str):
+        cmds = get_xrdf_cmds_isaac(urdf_root_path=self._robot_urdf_paths[robot_name]) 
+        return cmds

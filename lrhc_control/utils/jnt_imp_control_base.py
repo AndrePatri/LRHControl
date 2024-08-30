@@ -4,6 +4,7 @@ from typing import List
 from enum import Enum
 
 from lrhc_control.utils.urdf_limits_parser import UrdfLimitsParser
+from lrhc_control.utils.jnt_imp_cfg_parser import JntImpConfigParser
 
 import time
 
@@ -144,20 +145,24 @@ class JntImpCntrlBase:
         INVALID = 0
 
     def __init__(self, 
+            num_envs: int,
+            n_jnts: int,
+            jnt_names: List[str],
             default_pgain = 300.0, 
             default_vgain = 30.0, 
-            backend = "torch", 
             device: torch.device = torch.device("cpu"), 
             filter_BW = 50.0, # [Hz]
             filter_dt = None, # should correspond to the dt between samples
-            override_art_controller = False,
-            init_on_creation = False, 
-            dtype = torch.double,
+            dtype = torch.float32,
             enable_safety = True,
             urdf_path: str = None,
+            config_path: str = None,
             enable_profiling: bool = False,
-            debug_checks: bool = False): # [s]
+            debug_checks: bool = False,
+            override_low_lev_controller: bool = False): # [s]
         
+        self._override_low_lev_controller = override_low_lev_controller
+
         self._torch_dtype = dtype
         self._torch_device = device
 
@@ -176,49 +181,38 @@ class JntImpCntrlBase:
         self.limiter = None
         self.robot_limits = None
         self.urdf_path = urdf_path
+        self.config_path = config_path
     
-        self.override_art_controller = override_art_controller # whether to override Isaac's internal joint
-        # articulation PD controller or not
-
-        self.init_art_on_creation = init_on_creation # init. articulation's gains and refs as soon as the controller
-        # is created
-
         self.gains_initialized = False
         self.refs_initialized = False
 
         self._default_pgain = default_pgain
         self._default_vgain = default_vgain
+        
+        self._valid_signal_types = ["pos_ref", "vel_ref", "eff_ref", # references 
+            "pos", "vel", "eff", # measurements
+            "pgain", "vgain"]
 
-        self._filter_BW = filter_BW
-        self._filter_dt = filter_dt
-                
-        self._articulation_view = articulation # used to actually apply control
-        # signals to the robot
-        if not self._articulation_view.initialized:
-            exception = f"the provided articulation_view is not initialized properly!"
+        self.num_envs = num_envs
+        self.n_jnts = n_jnts
+        if not isinstance(jnt_names, List):
+            exception = "jnt_names must be a list!"
             Journal.log(self.__class__.__name__,
                 "__init__",
                 exception,
                 LogType.EXCEP,
                 throw_when_excep = True)
-        
-        self._valid_signal_types = ["pos_ref", "vel_ref", "eff_ref", # references 
-                                    "pos", "vel", "eff", # measurements (necessary if overriding Isaac's art. controller)
-                                    "pgain", "vgain"]
-
-        self.num_robots = self._articulation_view.count
-        self.n_dofs = self._articulation_view.num_dof
-        self.jnts_names = self._articulation_view.dof_names
-
-        if (backend != "torch"):
-            warning = f"Only supported backend is torch!!!"
+        if not len(jnt_names) == n_jnts:
+            exception = f"jnt_names has len {len(jnt_names)}" + \
+                f" which is not {n_jnts}"
             Journal.log(self.__class__.__name__,
                 "__init__",
-                warning,
-                LogType.WARN,
+                exception,
+                LogType.EXCEP,
                 throw_when_excep = True)
-        self._backend = "torch"
+        self.jnts_names = jnt_names
 
+        self._backend = "torch"
         if self.enable_safety:
             if self.urdf_path is None:
                 exception = "If enable_safety is set to True, a urdf_path should be provided too!"
@@ -233,10 +227,18 @@ class JntImpCntrlBase:
                                         device=self._torch_device)
             self.limiter = JntSafety(urdf_parser=self.robot_limits)
         
-        self._null_aux_tensor = torch.full((self.num_robots, self.n_dofs), 
-                                        0, 
-                                        device = self._torch_device, 
-                                        dtype=self._torch_dtype)
+        config_parser=JntImpConfigParser(config_file=self.config_path,
+            joint_names=self.jnts_names,
+            default_p_gain=default_pgain,
+            default_v_gain=default_vgain,
+            backend=self._backend,
+            device=self._torch_device)
+        self._default_pd_gains=config_parser.get_pd_gains()
+
+        self._null_aux_tensor = torch.full((self.num_envs, self.n_jnts), 
+            0.0, 
+            device = self._torch_device, 
+            dtype=self._torch_dtype)
         
         self._pos_err = None
         self._vel_err = None
@@ -246,25 +248,27 @@ class JntImpCntrlBase:
         self._imp_eff = None
 
         self._filter_available = False
+        self._filter_BW = None
+        self._filter_dt = None
         if filter_dt is not None:
             self._filter_BW = filter_BW
             self._filter_dt = filter_dt
             self._pos_ref_filter = FirstOrderFilter(dt=self._filter_dt, 
                                     filter_BW=self._filter_BW, 
-                                    rows=self.num_robots, 
-                                    cols=self.n_dofs, 
+                                    rows=self.num_envs, 
+                                    cols=self.n_jnts, 
                                     device=self._torch_device, 
                                     dtype=self._torch_dtype)
             self._vel_ref_filter = FirstOrderFilter(dt=self._filter_dt, 
                                     filter_BW=self._filter_BW, 
-                                    rows=self.num_robots, 
-                                    cols=self.n_dofs, 
+                                    rows=self.num_envs, 
+                                    cols=self.n_jnts, 
                                     device=self._torch_device, 
                                     dtype=self._torch_dtype)
             self._eff_ref_filter = FirstOrderFilter(dt=self._filter_dt, 
                                     filter_BW=self._filter_BW, 
-                                    rows=self.num_robots, 
-                                    cols=self.n_dofs, 
+                                    rows=self.num_envs, 
+                                    cols=self.n_jnts, 
                                     device=self._torch_device, 
                                     dtype=self._torch_dtype)
             self._filter_available = True
@@ -330,8 +334,8 @@ class JntImpCntrlBase:
                 selector = selector,
                 name="pos_gains") 
             self._pos_gains[selector] = pos_gains
-            if not self.override_art_controller:                
-                self._articulation_view.set_gains(kps = self._pos_gains)
+            if not self._override_low_lev_controller:                
+                self._set_gains(kps = self._pos_gains)
 
         if vel_gains is not None:
 
@@ -339,8 +343,8 @@ class JntImpCntrlBase:
                 selector = selector,
                 name="vel_gains") 
             self._vel_gains[selector] = vel_gains
-            if not self.override_art_controller:
-                self._articulation_view.set_gains(kds = self._vel_gains)
+            if not self._override_low_lev_controller:
+                self._set_gains(kds = self._vel_gains)
     
     def set_refs(self, 
             eff_ref: torch.Tensor = None, 
@@ -386,9 +390,9 @@ class JntImpCntrlBase:
             self.start_time = time.perf_counter()
 
         if not self.gains_initialized:
-            self._apply_init_gains_to_art()
+            self._apply_init_gains()
         if not self.refs_initialized:
-            self._apply_init_refs_to_art()
+            self._apply_init_refs()
                 
         if filter and self._filter_available:
             
@@ -407,12 +411,11 @@ class JntImpCntrlBase:
                                 v_cmd=vel_ref_filt,
                                 eff_cmd=eff_ref_filt)
                 
-            if not self.override_art_controller:
-                # using omniverse's articulation PD controller
+            if not self._override_low_lev_controller:
                 self._check_activation() # processes cmds in case of deactivations
-                self._articulation_view.set_joint_position_targets(pos_ref_filt)
-                self._articulation_view.set_joint_velocity_targets(vel_ref_filt)
-                self._articulation_view.set_joint_efforts(eff_ref_filt)
+                self._set_pos_ref(pos_ref_filt)
+                self._set_vel_ref(vel_ref_filt)
+                self._set_joint_efforts(eff_ref_filt)
 
             else:
                 # impedance torque computed explicitly
@@ -431,7 +434,7 @@ class JntImpCntrlBase:
                     self.limiter.apply(eff_cmd=eff_ref_filt)
                 self._check_activation() # processes cmds in case of deactivations
                 # apply only effort (comprehensive of all imp. terms)
-                self._articulation_view.set_joint_efforts(self._imp_eff)
+                self._set_joint_efforts(self._imp_eff)
 
         else:
             
@@ -441,13 +444,12 @@ class JntImpCntrlBase:
                                 v_cmd=self._vel_ref,
                                 eff_cmd=self._eff_ref)
                     
-            if not self.override_art_controller:
-                # using omniverse's articulation PD controller
+            if not self._override_low_lev_controller:
                 self._check_activation() # processes cmds in case of deactivations
 
-                self._articulation_view.set_joint_position_targets(self._pos_ref)
-                self._articulation_view.set_joint_velocity_targets(self._vel_ref)
-                self._articulation_view.set_joint_efforts(self._eff_ref)
+                self._set_pos_ref(self._pos_ref)
+                self._set_vel_ref(self._vel_ref)
+                self._set_joint_efforts(self._eff_ref)
 
             else:
                 # impedance torque computed explicitly
@@ -468,7 +470,7 @@ class JntImpCntrlBase:
 
                 # apply only effort (comprehensive of all imp. terms)
                 self._check_activation() # processes cmds in case of deactivations
-                self._articulation_view.set_joint_efforts(self._imp_eff)
+                self._set_joint_efforts(self._imp_eff)
         
         if self.enable_profiling:
             self.profiling_data["time_to_apply_cmds"] = \
@@ -541,47 +543,48 @@ class JntImpCntrlBase:
         self.gains_initialized = False
         self.refs_initialized = False
         
-        self._all_dofs_idxs = torch.tensor([i for i in range(0, self.n_dofs)], 
+        self._all_dofs_idxs = torch.tensor([i for i in range(0, self.n_jnts)], 
                                         dtype=torch.int64,
                                         device=self._torch_device)
-        self._all_robots_idxs = torch.tensor([i for i in range(0, self.num_robots)], 
+        self._all_robots_idxs = torch.tensor([i for i in range(0, self.num_envs)], 
                                         dtype=torch.int64,
                                         device=self._torch_device)
         
         if robot_indxs is None: # reset all data
-
             # we assume diagonal joint impedance gain matrices, so we can save on memory and only store the diagonal
-            
-            self._active = torch.full((self.num_robots, 1), 
+            self._active = torch.full((self.num_envs, 1), 
                                     True, 
                                     device = self._torch_device, 
                                     dtype=torch.bool)
             
-            self._pos_gains = torch.full((self.num_robots, self.n_dofs), 
+            self._pos_gains = torch.full((self.num_envs, self.n_jnts), 
                                         self._default_pgain, 
                                         device = self._torch_device, 
                                         dtype=self._torch_dtype)
-            self._vel_gains = torch.full((self.num_robots, self.n_dofs), 
+            self._vel_gains = torch.full((self.num_envs, self.n_jnts), 
                                         self._default_vgain,
                                         device = self._torch_device, 
                                         dtype=self._torch_dtype)
-            self._eff_ref = torch.zeros((self.num_robots, self.n_dofs), device = self._torch_device, 
+            self._pos_gains[:, :] = (self._default_pd_gains[:, 0:1].reshape(1,-1)).expand(self.num_envs, -1)
+            self._vel_gains[:, :] = (self._default_pd_gains[:, 1:2].reshape(1,-1)).expand(self.num_envs, -1)
+
+            self._eff_ref = torch.zeros((self.num_envs, self.n_jnts), device = self._torch_device, 
                                         dtype=self._torch_dtype)
-            self._pos_ref = torch.zeros((self.num_robots, self.n_dofs), device = self._torch_device, 
+            self._pos_ref = torch.zeros((self.num_envs, self.n_jnts), device = self._torch_device, 
                                         dtype=self._torch_dtype)
-            self._vel_ref = torch.zeros((self.num_robots, self.n_dofs), device = self._torch_device, 
+            self._vel_ref = torch.zeros((self.num_envs, self.n_jnts), device = self._torch_device, 
                                         dtype=self._torch_dtype)                
-            self._pos_err = torch.zeros((self.num_robots, self.n_dofs), device = self._torch_device, 
+            self._pos_err = torch.zeros((self.num_envs, self.n_jnts), device = self._torch_device, 
                                         dtype=self._torch_dtype)
-            self._vel_err = torch.zeros((self.num_robots, self.n_dofs), device = self._torch_device, 
+            self._vel_err = torch.zeros((self.num_envs, self.n_jnts), device = self._torch_device, 
                                         dtype=self._torch_dtype)
-            self._pos = torch.zeros((self.num_robots, self.n_dofs), device = self._torch_device, 
+            self._pos = torch.zeros((self.num_envs, self.n_jnts), device = self._torch_device, 
                                         dtype=self._torch_dtype)
-            self._vel = torch.zeros((self.num_robots, self.n_dofs), device = self._torch_device, 
+            self._vel = torch.zeros((self.num_envs, self.n_jnts), device = self._torch_device, 
                                         dtype=self._torch_dtype)
-            self._eff = torch.zeros((self.num_robots, self.n_dofs), device = self._torch_device, 
+            self._eff = torch.zeros((self.num_envs, self.n_jnts), device = self._torch_device, 
                                         dtype=self._torch_dtype)
-            self._imp_eff = torch.zeros((self.num_robots, self.n_dofs), device = self._torch_device, 
+            self._imp_eff = torch.zeros((self.num_envs, self.n_jnts), device = self._torch_device, 
                                         dtype=self._torch_dtype)
             
             if self._filter_available:
@@ -593,43 +596,38 @@ class JntImpCntrlBase:
             
             if self._debug_checks:
                 self._validate_selectors(robot_indxs=robot_indxs) # throws if checks not satisfied
-
             n_envs = robot_indxs.shape[0]
-
             # we assume diagonal joint impedance gain matrices, so we can save on memory and only store the diagonal
-            
+
             self._active[robot_indxs, :] = True # reactivate inactive controller
-            
-            self._pos_gains[robot_indxs, :] =  torch.full((n_envs, self.n_dofs), 
+            self._pos_gains[robot_indxs, :] =  torch.full((n_envs, self.n_jnts), 
                                         self._default_pgain, 
                                         device = self._torch_device, 
                                         dtype=self._torch_dtype)
-            self._vel_gains[robot_indxs, :] = torch.full((n_envs, self.n_dofs), 
+            self._vel_gains[robot_indxs, :] = torch.full((n_envs, self.n_jnts), 
                                         self._default_vgain,
                                         device = self._torch_device, 
                                         dtype=self._torch_dtype)
-            
+            self._pos_gains[robot_indxs, :] = (self._default_pd_gains[:, 0:1].reshape(1,-1)).expand(n_envs, -1)
+            self._vel_gains[robot_indxs, :] = (self._default_pd_gains[:, 1:2].reshape(1,-1)).expand(n_envs, -1)
+
             self._eff_ref[robot_indxs, :] = 0
             self._pos_ref[robot_indxs, :] = 0
             self._vel_ref[robot_indxs, :] = 0
-                
-            # if self.override_art_controller:
-                
-            # saving memory (these are not necessary if not overriding Isaac's art. controller)
-                                        
-            self._pos_err[robot_indxs, :] = torch.zeros((n_envs, self.n_dofs), device = self._torch_device, 
+                                                                        
+            self._pos_err[robot_indxs, :] = torch.zeros((n_envs, self.n_jnts), device = self._torch_device, 
                                         dtype=self._torch_dtype)
-            self._vel_err[robot_indxs, :] = torch.zeros((n_envs, self.n_dofs), device = self._torch_device, 
+            self._vel_err[robot_indxs, :] = torch.zeros((n_envs, self.n_jnts), device = self._torch_device, 
                                         dtype=self._torch_dtype)
             
-            self._pos[robot_indxs, :] = torch.zeros((n_envs, self.n_dofs), device = self._torch_device, 
+            self._pos[robot_indxs, :] = torch.zeros((n_envs, self.n_jnts), device = self._torch_device, 
                                         dtype=self._torch_dtype)
-            self._vel[robot_indxs, :] = torch.zeros((n_envs, self.n_dofs), device = self._torch_device, 
+            self._vel[robot_indxs, :] = torch.zeros((n_envs, self.n_jnts), device = self._torch_device, 
                                         dtype=self._torch_dtype)
-            self._eff[robot_indxs, :] = torch.zeros((n_envs, self.n_dofs), device = self._torch_device, 
+            self._eff[robot_indxs, :] = torch.zeros((n_envs, self.n_jnts), device = self._torch_device, 
                                         dtype=self._torch_dtype)
             
-            self._imp_eff[robot_indxs, :] = torch.zeros((n_envs, self.n_dofs), device = self._torch_device, 
+            self._imp_eff[robot_indxs, :] = torch.zeros((n_envs, self.n_jnts), device = self._torch_device, 
                                         dtype=self._torch_dtype)
 
             if self._filter_available:
@@ -637,11 +635,8 @@ class JntImpCntrlBase:
                 self._vel_ref_filter.reset(idxs = robot_indxs)
                 self._eff_ref_filter.reset(idxs = robot_indxs)
 
-        if self.init_art_on_creation:
-            
-            # will use updated gains/refs based on reset (non updated gains/refs will be the same)
-            self._apply_init_gains_to_art()
-            self._apply_init_refs_to_art()
+            self._apply_init_gains()
+            self._apply_init_refs()
     
     def deactivate(self,
             robot_indxs: torch.Tensor = None):
@@ -654,7 +649,7 @@ class JntImpCntrlBase:
     def _check_activation(self):
         # inactive controllers have their imp effort set to 0 
         inactive = ~self._active.flatten()
-        if not self.override_art_controller:
+        if not self._override_low_lev_controller:
             inactive_idxs=torch.nonzero(inactive)
             if inactive_idxs.numel()>0:
                 self.set_gains(pos_gains=self._null_aux_tensor,
@@ -663,30 +658,40 @@ class JntImpCntrlBase:
         self._eff_ref[inactive, :] = 0.0
         self._imp_eff[inactive, :] = 0.0
 
-    def _apply_init_gains_to_art(self):
-        
+    def _set_gains(self, 
+        kps: torch.Tensor = None, 
+        kds: torch.Tensor = None):
+        pass # to be overridden
+    
+    def _set_pos_ref(self, pos: torch.Tensor):
+        pass # to be overridden
+
+    def _set_vel_ref(self, vel: torch.Tensor):
+        pass # to be overridden
+
+    def _set_joint_efforts(self, effort: torch.Tensor):
+        pass # to be overridden
+
+    def _apply_init_gains(self):
         if not self.gains_initialized:
-            if not self.override_art_controller:
-                self._articulation_view.set_gains(kps = self._pos_gains, 
-                                        kds = self._vel_gains)
-            else:
-                # settings Isaac's PD controller gains to 0
-                no_gains = torch.zeros((self.num_robots, self.n_dofs), device = self._torch_device, 
+            if not self._override_low_lev_controller:
+                self._set_gains(kps=self._pos_gains, 
+                    kds=self._vel_gains)
+            else: # gains of low lev controller are set to zero
+                no_gains = torch.zeros((self.num_envs, self.n_jnts), device = self._torch_device, 
                                     dtype=self._torch_dtype)        
-                self._articulation_view.set_gains(kps = no_gains, 
-                                    kds = no_gains)
-            
+                self._set_gains(kps=no_gains, 
+                    kds=no_gains)
             self.gains_initialized = True
 
-    def _apply_init_refs_to_art(self):
-
+    def _apply_init_refs(self):
         if not self.refs_initialized: 
-            if not self.override_art_controller:
-                self._articulation_view.set_joint_efforts(self._eff_ref)
-                self._articulation_view.set_joint_position_targets(self._pos_ref)
-                self._articulation_view.set_joint_velocity_targets(self._vel_ref)
+            if not self._override_low_lev_controller:
+                self._set_joint_efforts(self._eff_ref)
+                self._set_pos_ref(self._pos_ref)
+                self._set_vel_ref(self._vel_ref)
             else:
-                self._articulation_view.set_joint_efforts(self._eff_ref)
+                self._set_joint_efforts(self._eff_ref)
             self.refs_initialized = True
     
     def _validate_selectors(self, 
@@ -698,14 +703,14 @@ class JntImpCntrlBase:
             if (not (len(robot_indxs_shape) == 1 and \
                 robot_indxs.dtype == torch.int64 and \
                 bool(torch.min(robot_indxs) >= 0) and \
-                bool(torch.max(robot_indxs) < self.num_robots)) and \
+                bool(torch.max(robot_indxs) < self.num_envs)) and \
                 robot_indxs.device.type == self._torch_device.type): # sanity checks 
                 
                 error = "Mismatch in provided selector \n" + \
                     "robot_indxs_shape -> " + f"{len(robot_indxs_shape)}" + " VS" + " expected -> " + f"{1}" + "\n" + \
                     "robot_indxs.dtype -> " + f"{robot_indxs.dtype}" + " VS" + " expected -> " + f"{torch.int64}" + "\n" + \
                     "torch.min(robot_indxs) >= 0) -> " + f"{bool(torch.min(robot_indxs) >= 0)}" + " VS" + f" {True}" + "\n" + \
-                    "torch.max(robot_indxs) < self.num_robots -> " + f"{torch.max(robot_indxs)}" + " VS" + f" {self.num_robots}\n" + \
+                    "torch.max(robot_indxs) < self.num_envs -> " + f"{torch.max(robot_indxs)}" + " VS" + f" {self.num_envs}\n" + \
                     "robot_indxs.device -> " + f"{robot_indxs.device.type}" + " VS" + " expected -> " + f"{self._torch_device.type}" + "\n"
                 Journal.log(self.__class__.__name__,
                     "_validate_selectors",
@@ -714,20 +719,18 @@ class JntImpCntrlBase:
                     throw_when_excep = True)
 
         if jnt_indxs is not None:
-
             jnt_indxs_shape = jnt_indxs.shape
-
             if (not (len(jnt_indxs_shape) == 1 and \
                 jnt_indxs.dtype == torch.int64 and \
                 bool(torch.min(jnt_indxs) >= 0) and \
-                bool(torch.max(jnt_indxs) < self.n_dofs)) and \
+                bool(torch.max(jnt_indxs) < self.n_jnts)) and \
                 jnt_indxs.device.type == self._torch_device.type): # sanity checks 
 
                 error = "Mismatch in provided selector \n" + \
                     "jnt_indxs_shape -> " + f"{len(jnt_indxs_shape)}" + " VS" + " expected -> " + f"{1}" + "\n" + \
                     "jnt_indxs.dtype -> " + f"{jnt_indxs.dtype}" + " VS" + " expected -> " + f"{torch.int64}" + "\n" + \
                     "torch.min(jnt_indxs) >= 0) -> " + f"{bool(torch.min(jnt_indxs) >= 0)}" + " VS" + f" {True}" + "\n" + \
-                    "torch.max(jnt_indxs) < self.n_dofs -> " + f"{torch.max(jnt_indxs)}" + " VS" + f" {self.num_robots}" + \
+                    "torch.max(jnt_indxs) < self.n_jnts -> " + f"{torch.max(jnt_indxs)}" + " VS" + f" {self.num_envs}" + \
                     "robot_indxs.device -> " + f"{jnt_indxs.device.type}" + " VS" + " expected -> " + f"{self._torch_device.type}" + "\n"
                 Journal.log(self.__class__.__name__,
                     "_validate_selectors",
@@ -741,10 +744,8 @@ class JntImpCntrlBase:
                     name: str = "signal"):
         
         if self._debug_checks:
-
             signal_shape = signal.shape
             selector_shape = selector[0].shape
-
             if not (signal_shape[0] == selector_shape[0] and \
                 signal_shape[1] == selector_shape[1] and \
                 signal.device.type == self._torch_device.type and \
@@ -776,4 +777,59 @@ class JntImpCntrlBase:
 
         return torch.meshgrid((robot_indxs, jnt_indxs), 
                             indexing="ij")
-                    
+
+if __name__ == "__main__":
+
+    import tempfile
+    import os
+    import argparse
+    
+    # Parse command line arguments for CPU affinity
+    parser = argparse.ArgumentParser(description="Set CPU affinity for the script.")
+    parser.add_argument('--urdf_path', type=str, help='')
+    args = parser.parse_args()
+
+    yaml_content = """
+motor_pd:
+  j_arm*_1: [500, 10]
+  j_arm*_2: [500, 10]
+  j_arm*_3: [500, 10]
+  j_arm*_4: [500, 10]
+  j_arm*_5: [100, 5]
+  j_arm*_6: [100, 5]
+  j_arm*_7: [100, 5]
+  hip_yaw_*: [3000, 30]
+  hip_pitch_*: [3000, 30]
+  knee_pitch_*: [3000, 30]
+  ankle_pitch_*: [1000, 10]
+  ankle_yaw_*: [300, 10]
+  neck_pitch: [10, 1]
+  neck_yaw: [10, 1]
+  torso_yaw: [1000, 30]
+  j_wheel_*: [0, 30]
+    """
+    # Create a temporary file to store the YAML content
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".yaml") as temp_file:
+        temp_file.write(yaml_content.encode('utf-8'))
+        temp_file_path = temp_file.name
+
+    urdf_path=args.urdf_path
+
+    jnt_names = ["j_arm_1", "j_arm_7", "ankle_pitch_4", "j_wheel_1", "unknown"]
+    jnt_imp_controller=JntImpCntrlBase(num_envs=2,
+        n_jnts=len(jnt_names),
+        jnt_names=jnt_names,
+        default_pgain=356,
+        default_vgain=13,
+        device="cuda",
+        dtype=torch.float32,
+        enable_safety=True,
+        urdf_path=urdf_path,
+        config_path=temp_file_path,
+        enable_profiling=True,
+        debug_checks=True,
+        override_low_lev_controller=True
+        )
+    print(jnt_names)
+    print(jnt_imp_controller.pos_gains())
+    print(jnt_imp_controller.vel_gains())

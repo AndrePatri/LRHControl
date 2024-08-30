@@ -29,24 +29,27 @@ class UrdfLimitsParser:
         self.inf = None
 
         if self.backend == "numpy":
-
             import numpy as np
-
             self.limits_matrix = np.full((num_joints, 6), np.nan)
-            
             self.inf = np.inf
+            self.pi=np.pi
 
         elif self.backend == "torch":
-            
             import torch
-
             self.limits_matrix = torch.full((num_joints, 6), torch.nan, device=self.device)
-
             self.inf = torch.inf
-
+            import math
+            self.pi=torch.tensor([math.pi], device=self.device)
         else:
-
             raise Exception("Backend not supported")
+
+        # defaults to limitless
+        self.limits_matrix[:, 0] = -self.inf
+        self.limits_matrix[:, 3] = self.inf
+        self.limits_matrix[:, 1] = - self.inf
+        self.limits_matrix[:, 4] = self.inf
+        self.limits_matrix[:, 2] = - self.inf
+        self.limits_matrix[:, 5] = self.inf
 
         for joint_name in self.joint_names:
 
