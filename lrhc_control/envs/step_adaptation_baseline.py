@@ -108,9 +108,9 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         self._task_err_weights[0, 0] = 1.0
         self._task_err_weights[0, 1] = 1.0
         self._task_err_weights[0, 2] = 0.1
-        self._task_err_weights[0, 3] = 0.0
-        self._task_err_weights[0, 4] = 0.0
-        self._task_err_weights[0, 5] = 0.0
+        self._task_err_weights[0, 3] = 1e-6
+        self._task_err_weights[0, 4] = 1e-6
+        self._task_err_weights[0, 5] = 1e-6
         self._task_err_weights_sum = torch.sum(self._task_err_weights).item()
 
         # fail idx
@@ -125,9 +125,6 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
                             fill_value=1.0)
         n_jnts_per_limb = round(n_jnts/n_contacts) # assuming same topology along limbs
         pow_weights_along_limb = [1.0] * n_jnts_per_limb
-        pow_weights_along_limb[0] = 1.0 # strongest actuator
-        pow_weights_along_limb[1] = 1.0
-        pow_weights_along_limb[2] = 1.0 # weakest actuator
         for i in range(round(n_jnts/n_contacts)):
             self._power_penalty_weights[0, i*n_contacts:(n_contacts*(i+1))] = pow_weights_along_limb[i]
         self._power_penalty_weights_sum = torch.sum(self._power_penalty_weights).item()
@@ -138,9 +135,6 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         self._jnt_vel_penalty_weights = torch.full((1, n_jnts), dtype=dtype, device=device,
                             fill_value=1.0)
         jnt_vel_weights_along_limb = [1.0] * n_jnts_per_limb
-        jnt_vel_weights_along_limb[0] = 1.0
-        jnt_vel_weights_along_limb[1] = 1.0
-        jnt_vel_weights_along_limb[2] = 1.0
         for i in range(round(n_jnts/n_contacts)):
             self._jnt_vel_penalty_weights[0, i*n_contacts:(n_contacts*(i+1))] = jnt_vel_weights_along_limb[i]
         self._jnt_vel_penalty_weights_sum = torch.sum(self._jnt_vel_penalty_weights).item()
@@ -208,12 +202,13 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         self._actions_diff_scale = 0.0#1.0
         self._action_diff_weights = torch.full((1, actions_dim), dtype=dtype, device=device,
                             fill_value=1.0)
-        self._action_diff_weights[:, 6:10]=1.0 # minimal reg for contact flags
+        self._action_diff_weights[:, 6:10]=1.0
         self._prev_actions = torch.full_like(input=self.get_actions(),fill_value=0.0)
         self._prev_actions[:, :] = self.get_actions()
         range_scale=(self._actions_ub-self._actions_lb)/2.0
         self._action_diff_weights[:, :]*=1.0/range_scale
         self._action_diff_w_sum = torch.sum(self._action_diff_weights).item()
+
         # custom db info 
         step_idx_data = EpisodicData("ContactIndex", self._rhc_step_var(gpu=False), self.contact_names,
             ep_vec_freq=self._vec_ep_freq_metrics_db)
