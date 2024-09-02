@@ -10,7 +10,7 @@ class LRhcClusterServer(ControlClusterServer):
             cluster_dt: float, 
             control_dt: float, 
             jnt_names: List[str],
-            n_contacts: int = 4,
+            n_contacts: int,
             contact_linknames: List[str] = None,
             verbose: bool = False, 
             vlevel: VLevel = VLevel.V1,

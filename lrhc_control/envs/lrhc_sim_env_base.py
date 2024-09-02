@@ -3,7 +3,7 @@ from lrhc_control.utils.shared_data.remote_stepping import RemoteStepperClnt
 from lrhc_control.utils.shared_data.remote_stepping import RemoteResetClnt
 from lrhc_control.utils.shared_data.remote_stepping import RemoteResetRequest
 from lrhc_control.utils.jnt_imp_control_base import JntImpCntrlBase
-from lrhc_control.utils.hybrid_quad_xrdf_gen import get_xrdf_cmds_isaac
+from lrhc_control.utils.hybrid_quad_xrdf_gen import get_xrdf_cmds
 
 from control_cluster_bridge.utilities.homing import RobotHomer
 from control_cluster_bridge.utilities.shared_data.jnt_imp_control import JntImpCntrlData
@@ -29,6 +29,8 @@ class LRhcEnvBase():
                 robot_names: List[str],
                 robot_urdf_paths: List[str],
                 robot_srdf_paths: List[str],
+                jnt_imp_config_paths: List[str],
+                n_contacts: List[int],
                 cluster_dt: List[float],
                 use_remote_stepping: List[bool],
                 name: str = "LRhcEnvBase",
@@ -81,7 +83,21 @@ class LRhcEnvBase():
                 exception,
                 LogType.EXCEP,
                 throw_when_excep = True)
-        
+        if not isinstance(n_contacts, List):
+            exception = "n_contacts must be a list (of integers)!"
+            Journal.log(self.__class__.__name__,
+                "__init__",
+                exception,
+                LogType.EXCEP,
+                throw_when_excep = True)
+        if not isinstance(jnt_imp_config_paths, List):
+            exception = "jnt_imp_config_paths must be a list paths!"
+            Journal.log(self.__class__.__name__,
+                "__init__",
+                exception,
+                LogType.EXCEP,
+                throw_when_excep = True)
+            
         # dim checks
         if not len(robot_urdf_paths) == len(robot_names):
             exception = f"robot_urdf_paths has len {len(robot_urdf_paths)}" + \
@@ -123,6 +139,14 @@ class LRhcEnvBase():
                 exception,
                 LogType.EXCEP,
                 throw_when_excep = True)
+        if not len(jnt_imp_config_paths) == len(robot_names):
+            exception = f"jnt_imp_config_paths has len {len(jnt_imp_config_paths)}" + \
+             f" while robot_names {len(robot_names)}"
+            Journal.log(self.__class__.__name__,
+                "__init__",
+                exception,
+                LogType.EXCEP,
+                throw_when_excep = True)
         
         self._name=name
         self._num_envs=num_envs
@@ -135,8 +159,6 @@ class LRhcEnvBase():
         self._device = "cuda" if self._use_gpu else "cpu"
         self._dtype=dtype
         self._robot_names=robot_names
-        self._robot_urdf_paths=robot_urdf_paths
-        self._robot_srdf_paths=robot_srdf_paths
         self._custom_opts={}
         self._custom_opts.update(custom_opts)
 
@@ -149,7 +171,8 @@ class LRhcEnvBase():
         self._homing = None
         self._jnt_imp_cntrl_shared_data = {}
         self._jnt_imp_controllers = {}
-        
+        self._jnt_imp_config_paths = {}
+
         # control cluster data
         self.cluster_timers = {}
         self.cluster_step_counters = {}
@@ -157,9 +180,19 @@ class LRhcEnvBase():
         self._trigger_sol = {}
         self._wait_sol = {}
         self._cluster_dt = {}
+        self._robot_urdf_paths={}
+        self._robot_srdf_paths={}
+        self._contact_names={}
+        self._num_contacts={}
+
         for i in range(len(self._robot_names)):
             robot_name = self._robot_names[i]
             self._cluster_dt[robot_name]=cluster_dt[i]
+            self._robot_urdf_paths[robot_name]=robot_urdf_paths[i]
+            self._robot_srdf_paths[robot_name]=robot_srdf_paths[i]
+            self._contact_names[robot_name]=None
+            self._num_contacts[robot_name]=n_contacts[i]
+            self._jnt_imp_config_paths[robot_name]=jnt_imp_config_paths[i]
         # db data
         self.debug_data = {}
         self.debug_data["time_to_step_world"] = np.nan
@@ -240,7 +273,7 @@ class LRhcEnvBase():
             self._closed=True
     
     def _setup(self) -> None:
-
+        
         for i in range(len(self._robot_names)):
             robot_name = self._robot_names[i]
             self.cluster_step_counters[robot_name]=0
@@ -262,7 +295,7 @@ class LRhcEnvBase():
                         control_dt=self.physics_dt(), 
                         jnt_names=self._robot_jnt_names(robot_name=robot_name), 
                         n_contacts=self._n_contacts(robot_name=robot_name),
-                        contact_linknames=self._contact_names(robot_name=robot_name), 
+                        contact_linknames=self._contact_names[robot_name], 
                         verbose=self._verbose, 
                         vlevel=self._vlevel,
                         debug=self._debug, 
@@ -302,10 +335,20 @@ class LRhcEnvBase():
             self._homers[robot_name] = RobotHomer(srdf_path=self._srdf_dump_paths[robot_name], 
                             jnt_names=self._robot_jnt_names(robot_name=robot_name),
                             filter=True)
-            
+            robot_homing=torch.from_numpy(self._homers[robot_name].get_homing().reshape(1,-1))
+            if self._use_gpu:
+                robot_homing=robot_homing.cuda()
+            self._homing=robot_homing.repeat(self._num_envs, 1)
+
+            self._jnts_q_default[robot_name] = self._homing
+            self._move_jnts_to_homing()
+            self._move_root_to_defconfig()
+
             self._init_safe_cluster_actions(robot_name=robot_name)
 
-            self._jnt_imp_controllers[robot_name] = self._generate_jnt_imp_control()
+            
+
+            self._jnt_imp_controllers[robot_name] = self._generate_jnt_imp_control(robot_name=robot_name)
             self._jnt_imp_cntrl_shared_data[robot_name] = JntImpCntrlData(is_server=True, 
                                             n_envs=self._num_envs, 
                                             n_jnts=len(self._robot_jnt_names(robot_name=robot_name)),
@@ -344,7 +387,7 @@ class LRhcEnvBase():
         if reset_sim:
             self._reset_sim()
         if robot_names is None:
-            robot_names = self.robot_names
+            robot_names = self._robot_names
 
         self._reset(env_indxs=env_indxs,
             robot_names=robot_names,
@@ -398,7 +441,7 @@ class LRhcEnvBase():
                 env_indxs=env_indxs)
             if f_contact is not None:
                 self.cluster_servers[robot_name].get_state().contact_wrenches.set(data=f_contact, data_type="f",
-                                contact_name=contact_link, robot_idxs = env_indxs, gpu=self.using_gpu)
+                                contact_name=contact_link, robot_idxs = env_indxs, gpu=self._use_gpu)
                     
     def _init_safe_cluster_actions(self,
                             robot_name: str):
@@ -410,17 +453,12 @@ class LRhcEnvBase():
         rhc_cmds = control_cluster.get_actions()
         n_jnts = rhc_cmds.n_jnts()
         
-        robot_homing=None
-        robot_homing=torch.from_numpy(self._homers[robot_name].get_homing().reshape(1,-1))
-        if self._use_gpu:
-            robot_homing=robot_homing.cuda()
-        self._homing=robot_homing.repeat(self._num_envs, 1)
         null_action = torch.zeros((self._num_envs, n_jnts), 
                         dtype=self._dtype,
                         device=self._device)
-        rhc_cmds.jnts_state.set(data=self._homing, data_type="q", gpu=self.using_gpu)
-        rhc_cmds.jnts_state.set(data=null_action, data_type="v", gpu=self.using_gpu)
-        rhc_cmds.jnts_state.set(data=null_action, data_type="eff", gpu=self.using_gpu)
+        rhc_cmds.jnts_state.set(data=self._homing, data_type="q", gpu=self._use_gpu)
+        rhc_cmds.jnts_state.set(data=null_action, data_type="v", gpu=self._use_gpu)
+        rhc_cmds.jnts_state.set(data=null_action, data_type="eff", gpu=self._use_gpu)
 
     @abstractmethod
     def _close(self) -> None:
@@ -455,7 +493,7 @@ class LRhcEnvBase():
                     control_cluster.wait_for_solution() # this is blocking
                     if self._debug:
                         self.cluster_timers[robot_name] = time.perf_counter()
-                    failed = control_cluster.get_failed_controllers(gpu=self.using_gpu)
+                    failed = control_cluster.get_failed_controllers(gpu=self._use_gpu)
                     if self._use_remote_stepping[i]:
                         self._remote_steppers[robot_name].ack() # signal cluster stepping is finished
                         if failed is not None: # deactivate robot completely (basically, deactivate jnt imp controller)
@@ -474,7 +512,7 @@ class LRhcEnvBase():
                         # activate inactive controllers
                         control_cluster.activate_controllers(idxs=control_cluster.get_inactive_controllers())
 
-            active = control_cluster.get_active_controllers(gpu=self.using_gpu)
+            active = control_cluster.get_active_controllers(gpu=self._use_gpu)
             # 2) this runs at @simulation dt i.e. the highest possible rate,
             # using the latest available RHC actions
             self._update_jnt_imp_cntrl_actions(robot_name=robot_name, 
@@ -491,13 +529,13 @@ class LRhcEnvBase():
                 if self._use_remote_stepping[i]:
                         self._wait_for_remote_step_req(robot_name=robot_name)
                 # handling controllers transition to running state
-                just_activated = control_cluster.get_just_activated(gpu=self.using_gpu) 
-                just_deactivated = control_cluster.get_just_deactivated(gpu=self.using_gpu)
+                just_activated = control_cluster.get_just_activated(gpu=self._use_gpu) 
+                just_deactivated = control_cluster.get_just_deactivated(gpu=self._use_gpu)
                 if just_activated is not None: # transition of some controllers from not active -> active
                     self._update_root_offsets(robot_name,
                                     env_indxs=just_activated) # we use relative state wrt to this state for the controllers
-                    self._reset_jnt_imp_control_gains(robot_name=robot_name, 
-                                    env_indxs = just_activated) # setting runtime state for jnt imp controller
+                    # self._reset_jnt_imp_control_gains(robot_name=robot_name, 
+                    #                 env_indxs = just_activated) # setting runtime state for jnt imp controller
                 if just_deactivated is not None:
                     self._reset_jnt_imp_control(robot_name=robot_name,
                             env_indxs=just_deactivated)
@@ -590,13 +628,8 @@ class LRhcEnvBase():
         robot_names = List[str]) -> None:
         pass
     
-    @abstractmethod
     def _n_contacts(self, robot_name: str) -> List[int]:
-        pass
-    
-    @abstractmethod
-    def _contact_names(self, robot_name: str) -> List[str]:
-        pass
+        return self._num_contacts[robot_name]
 
     @abstractmethod
     def physics_dt(self) -> float:
@@ -628,40 +661,68 @@ class LRhcEnvBase():
     def _init_robots_state(self):
         pass
 
-    @abstractmethod
-    def root_p(self, robot_name: str,
-        env_idxs: torch.Tensor) -> torch.Tensor:
-        pass
+    def root_p(self,
+            robot_name: str,
+            env_idxs: torch.Tensor = None):
 
-    @abstractmethod
-    def root_q(self, robot_name: str,
-        env_idxs: torch.Tensor) -> torch.Tensor:
-        pass
+        if env_idxs is None:
+            return self._root_p[robot_name]
+        else:
+            return self._root_p[robot_name][env_idxs, :]
 
-    @abstractmethod
-    def root_v(self, robot_name: str,
-        env_idxs: torch.Tensor) -> torch.Tensor:
-        pass
+    def root_q(self,
+            robot_name: str,
+            env_idxs: torch.Tensor = None):
+
+        if env_idxs is None:
+            return self._root_q[robot_name]
+        else:
+            return self._root_q[robot_name][env_idxs, :]
+
+    def root_v(self,
+            robot_name: str,
+            env_idxs: torch.Tensor = None):
+
+        if env_idxs is None:
+            return self._root_v[robot_name]
+        else:
+            return self._root_v[robot_name][env_idxs, :]
     
-    @abstractmethod
-    def root_omega(self, robot_name: str,
-        env_idxs: torch.Tensor) -> torch.Tensor:
-        pass
+    def root_omega(self,
+            robot_name: str,
+            env_idxs: torch.Tensor = None):
 
-    @abstractmethod
-    def jnts_q(self, robot_name: str,
-        env_idxs: torch.Tensor) -> torch.Tensor:
-        pass
+        if env_idxs is None:
+            return self._root_omega[robot_name]
+        else:
+            return self._root_omega[robot_name][env_idxs, :]
 
-    @abstractmethod
-    def jnts_v(self, robot_name: str,
-        env_idxs: torch.Tensor) -> torch.Tensor:
-        pass
+    def jnts_q(self,
+            robot_name: str,
+            env_idxs: torch.Tensor = None):
+        
+        if env_idxs is None:
+            return self._jnts_q[robot_name]
+        else:
+            return self._jnts_q[robot_name][env_idxs, :]
 
-    @abstractmethod
-    def jnts_eff(self, robot_name: str,
-        env_idxs: torch.Tensor) -> torch.Tensor:
-        pass
+    def jnts_v(self,
+            robot_name: str,
+            env_idxs: torch.Tensor = None):
+
+        if env_idxs is None:
+            return self._jnts_v[robot_name]
+        else:
+            return self._jnts_v[robot_name][env_idxs, :]
+
+    def jnts_eff(self,
+            robot_name: str,
+            env_idxs: torch.Tensor = None): # (measured) efforts
+
+        if env_idxs is None:
+            return self._jnts_eff[robot_name]
+        else:
+            return self._jnts_eff[robot_name][env_idxs, :]
     
     @abstractmethod
     def current_tstep(self) -> int:
@@ -700,7 +761,7 @@ class LRhcEnvBase():
             
         reset_requests = self._remote_reset_requests[robot_name]
         reset_requests.synch_all(read=True, retry=True) # read reset requests from shared mem
-        to_be_reset = reset_requests.to_be_reset(gpu=self.using_gpu)
+        to_be_reset = reset_requests.to_be_reset(gpu=self._use_gpu)
         if to_be_reset is not None:
             self.reset(env_indxs=to_be_reset,
                 robot_names=[robot_name],
@@ -724,39 +785,39 @@ class LRhcEnvBase():
                 # set data
                 imp_data.set(data_type="pos_err",
                         data=self._jnt_imp_controllers[robot_name].pos_err(),
-                        gpu=self.using_gpu)
+                        gpu=self._use_gpu)
                 imp_data.set(data_type="vel_err",
                         data=self._jnt_imp_controllers[robot_name].vel_err(),
-                        gpu=self.using_gpu)
+                        gpu=self._use_gpu)
                 imp_data.set(data_type="pos_gains",
                         data=self._jnt_imp_controllers[robot_name].pos_gains(),
-                        gpu=self.using_gpu)
+                        gpu=self._use_gpu)
                 imp_data.set(data_type="vel_gains",
                         data=self._jnt_imp_controllers[robot_name].vel_gains(),
-                        gpu=self.using_gpu)
+                        gpu=self._use_gpu)
                 imp_data.set(data_type="eff_ff",
                         data=self._jnt_imp_controllers[robot_name].eff_ref(),
-                        gpu=self.using_gpu)
+                        gpu=self._use_gpu)
                 imp_data.set(data_type="pos",
                         data=self._jnt_imp_controllers[robot_name].pos(),
-                        gpu=self.using_gpu)
+                        gpu=self._use_gpu)
                 imp_data.set(data_type="pos_ref",
                         data=self._jnt_imp_controllers[robot_name].pos_ref(),
-                        gpu=self.using_gpu)
+                        gpu=self._use_gpu)
                 imp_data.set(data_type="vel",
                         data=self._jnt_imp_controllers[robot_name].vel(),
-                        gpu=self.using_gpu)
+                        gpu=self._use_gpu)
                 imp_data.set(data_type="vel_ref",
                         data=self._jnt_imp_controllers[robot_name].vel_ref(),
-                        gpu=self.using_gpu)
+                        gpu=self._use_gpu)
                 imp_data.set(data_type="eff",
                         data=self._jnt_imp_controllers[robot_name].eff(),
-                        gpu=self.using_gpu)
+                        gpu=self._use_gpu)
                 imp_data.set(data_type="imp_eff",
                         data=self._jnt_imp_controllers[robot_name].imp_eff(),
-                        gpu=self.using_gpu)
+                        gpu=self._use_gpu)
                 # copy from GPU to CPU if using gpu
-                if self.using_gpu:
+                if self._use_gpu:
                     imp_data.synch_mirror(from_gpu=True)
                 # write copies to shared memory
                 imp_data.synch_all(read=False, retry=False)
@@ -802,9 +863,9 @@ class LRhcEnvBase():
             # if new actions are received, also update references
             # (only use actions if env_indxs is provided)
             self._jnt_imp_controllers[robot_name].set_refs(
-                pos_ref=actions.jnts_state.get(data_type="q", gpu=self.using_gpu)[env_indxs, :], 
-                vel_ref=actions.jnts_state.get(data_type="v", gpu=self.using_gpu)[env_indxs, :], 
-                eff_ref=actions.jnts_state.get(data_type="eff", gpu=self.using_gpu)[env_indxs, :],
+                pos_ref=actions.jnts_state.get(data_type="q", gpu=self._use_gpu)[env_indxs, :], 
+                vel_ref=actions.jnts_state.get(data_type="v", gpu=self._use_gpu)[env_indxs, :], 
+                eff_ref=actions.jnts_state.get(data_type="eff", gpu=self._use_gpu)[env_indxs, :],
                 robot_indxs = env_indxs)
 
         # # jnt imp. controller actions are always applied
@@ -813,11 +874,11 @@ class LRhcEnvBase():
         if self._debug:
             self._update_jnt_imp_cntrl_shared_data() # only if debug_mode_jnt_imp is enabled
     
-    def update_root_offsets(self, 
+    def _update_root_offsets(self, 
                     robot_name: str,
                     env_indxs: torch.Tensor = None):
         
-        if self._debug_enabled:
+        if self._debug:
             for_robots = ""
             if env_indxs is not None:
                 if not isinstance(env_indxs, torch.Tensor):                
@@ -827,7 +888,7 @@ class LRhcEnvBase():
                         msg,
                         LogType.EXCEP,
                         throw_when_excep = True)    
-                if self.using_gpu:
+                if self._use_gpu:
                     if not env_indxs.device.type == "cuda":
                             error = "Provided env_indxs should be on GPU!"
                             Journal.log(self.__class__.__name__,
@@ -859,11 +920,11 @@ class LRhcEnvBase():
             self._root_pos_offsets[robot_name][env_indxs, 0:2]  = self._root_p[robot_name][env_indxs, 0:2]
             self._root_q_offsets[robot_name][env_indxs, :]  = self._root_q[robot_name][env_indxs, :]
 
-    def reset_jnt_imp_control(self, 
-                robot_name: str,
-                env_indxs: torch.Tensor = None):
+    def _reset_jnt_imp_control(self, 
+        robot_name: str,
+        env_indxs: torch.Tensor = None):
         
-        if self._debug_enabled:
+        if self._debug:
             for_robots = ""
             if env_indxs is not None:
                 if not isinstance(env_indxs, torch.Tensor):
@@ -872,7 +933,7 @@ class LRhcEnvBase():
                         "Provided env_indxs should be a torch tensor of indexes!",
                         LogType.EXCEP,
                         throw_when_excep = True)
-                if self.using_gpu:
+                if self._use_gpu:
                     if not env_indxs.device.type == "cuda":
                             error = "Provided env_indxs should be on GPU!"
                             Journal.log(self.__class__.__name__,
@@ -914,10 +975,10 @@ class LRhcEnvBase():
         
         #restore jnt imp refs to homing            
         if env_indxs is None:                               
-            self._jnt_imp_controllers[robot_name].set_refs(pos_ref=self.homers[robot_name].get_homing()[:, :],
+            self._jnt_imp_controllers[robot_name].set_refs(pos_ref=self._homing[:, :],
                                                     robot_indxs = None)
         else:
-            self._jnt_imp_controllers[robot_name].set_refs(pos_ref=self.homers[robot_name].get_homing()[env_indxs, :],
+            self._jnt_imp_controllers[robot_name].set_refs(pos_ref=self._homing[env_indxs, :],
                                                             robot_indxs = env_indxs)
 
         # actually applies reset commands to the articulation
@@ -927,7 +988,7 @@ class LRhcEnvBase():
             robot_name: str = None,
             env_indxs: torch.Tensor = None):
 
-        if self._debug_enabled:
+        if self._debug:
             for_robots = ""
             if env_indxs is not None:
                 if not isinstance(env_indxs, torch.Tensor):
@@ -937,7 +998,7 @@ class LRhcEnvBase():
                         msg,
                         LogType.EXCEP,
                         throw_when_excep = True)  
-                if self.using_gpu:
+                if self._use_gpu:
                     if not env_indxs.device.type == "cuda":
                             error = "Provided env_indxs should be on GPU!"
                             Journal.log(self.__class__.__name__,
@@ -968,7 +1029,6 @@ class LRhcEnvBase():
             self._root_p_default[robot_name][env_indxs, :] = self._root_p[robot_name][env_indxs, :]
             self._root_q_default[robot_name][env_indxs, :] = self._root_q[robot_name][env_indxs, :]
 
-    @abstractmethod
     def _reset_jnt_imp_control_gains(self,
         robot_name: str, 
         env_indxs: torch.Tensor = None):
@@ -1049,5 +1109,10 @@ class LRhcEnvBase():
             srdf_path=srdf_path)
     
     def _xrdf_cmds(self, robot_name:str):
-        cmds = get_xrdf_cmds_isaac(urdf_root_path=self._robot_urdf_paths[robot_name]) 
+        urdfpath=self._robot_urdf_paths[robot_name]
+        # we assume directory tree of the robot package is like
+        # robot-ros-pkg/robot_urdf/urdf/robot.urdf.xacro
+        parts = urdfpath.split('/')
+        urdf_descr_root_path = '/'.join(parts[:-2])
+        cmds = get_xrdf_cmds(urdf_descr_root_path=urdf_descr_root_path) 
         return cmds

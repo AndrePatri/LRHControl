@@ -2,29 +2,32 @@ from typing import List
 from SharsorIPCpp.PySharsorIPC import VLevel
 from SharsorIPCpp.PySharsorIPC import Journal, LogType
 
-def get_xrdf_cmds_isaac(urdf_root_path: str = None):
+def get_xrdf_cmds(urdf_descr_root_path: str = None):
 
-        if "kyon" in urdf_root_path:
-                return get_xrdf_cmds_isaac_kyon(urdf_root_path=urdf_root_path)
-        elif "centauro" in urdf_root_path: 
-                return get_xrdf_cmds_isaac_centauro(urdf_root_path=urdf_root_path)
+        if "kyon" in urdf_descr_root_path:
+                return get_xrdf_cmds_kyon(urdf_descr_root_path=urdf_descr_root_path)
+        elif "centauro" in urdf_descr_root_path: 
+                return get_xrdf_cmds_centauro(urdf_descr_root_path=urdf_descr_root_path)
         else:
-                exception=f"xrdf cmd getter for robot {urdf_root_path} not supported! Please modify this file to add your own."
+                exception=f"xrdf cmd getter for robot {urdf_descr_root_path} not supported! Please modify this file to add your own."
                 Journal.log("hybrid_quad_xrdf_gen.py",
-                        "get_xrdf_cmds_horizon",
+                        "get_xrdf_cmds",
                         exception,
                         LogType.EXCEP,
                         throw_when_excep = False)
                 return None
            
-def get_xrdf_cmds_horizon(urdf_root_path : str = None):
+def get_xrdf_cmds_horizon(urdf_descr_root_path : str = None):
 
-        if "kyon" in urdf_root_path:
-                return get_xrdf_cmds_horizon_kyon(urdf_root_path=urdf_root_path)
-        elif "centauro" in urdf_root_path: 
-                return get_xrdf_cmds_horizon_centauro(urdf_root_path=urdf_root_path)
+        parts = urdf_descr_root_path.split('/')
+        urdf_descr_root_path = '/'.join(parts[:3])
+
+        if "kyon" in urdf_descr_root_path:
+                return get_xrdf_cmds_horizon_kyon(urdf_descr_root_path=urdf_descr_root_path)
+        elif "centauro" in urdf_descr_root_path: 
+                return get_xrdf_cmds_horizon_centauro(urdf_descr_root_path=urdf_descr_root_path)
         else:
-                exception=f"xrdf cmd getter for robot {urdf_root_path} not supported! Please modify this file to add your own."
+                exception=f"xrdf cmd getter for robot {urdf_descr_root_path} not supported! Please modify this file to add your own."
                 Journal.log("hybrid_quad_xrdf_gen.py",
                         "get_xrdf_cmds_horizon",
                         exception,
@@ -32,7 +35,7 @@ def get_xrdf_cmds_horizon(urdf_root_path : str = None):
                         throw_when_excep = False)
                 return None     
 
-def get_xrdf_cmds_isaac_centauro(urdf_root_path: str = None):
+def get_xrdf_cmds_centauro(urdf_descr_root_path: str = None):
 
         cmds_aux = []
         
@@ -51,11 +54,11 @@ def get_xrdf_cmds_isaac_centauro(urdf_root_path: str = None):
         cmds_aux.append("realsense:=" + realsense)
         cmds_aux.append("floating_joint:=" + floating_joint)
         cmds_aux.append("use_abs_mesh_paths:=true") # use absolute paths for meshes             \       
-        cmds_aux.append("root:=" + urdf_root_path)
+        cmds_aux.append("root:=" + urdf_descr_root_path)
 
         return cmds_aux
 
-def get_xrdf_cmds_horizon_centauro(urdf_root_path: str = None):
+def get_xrdf_cmds_horizon_centauro(urdf_descr_root_path: str = None):
 
         cmds = []
         
@@ -76,12 +79,12 @@ def get_xrdf_cmds_horizon_centauro(urdf_root_path: str = None):
         cmds.append("floating_joint:=" + floating_joint)
         cmds.append("use_abs_mesh_paths:=true") # use absolute paths for meshes             \       
         
-        if urdf_root_path is not None:
-                cmds.append("root:=" + urdf_root_path)
+        if urdf_descr_root_path is not None:
+                cmds.append("root:=" + urdf_descr_root_path)
 
         return cmds
 
-def get_xrdf_cmds_isaac_kyon(urdf_root_path: str = None):
+def get_xrdf_cmds_kyon(urdf_descr_root_path: str = None):
 
         cmds_aux = []
         
@@ -102,11 +105,11 @@ def get_xrdf_cmds_isaac_kyon(urdf_root_path: str = None):
         cmds_aux.append("payload:=" + payload)
         cmds_aux.append("use_abs_mesh_paths:=true") # use absolute paths for meshes
         
-        cmds_aux.append("root:=" + urdf_root_path)
+        cmds_aux.append("root:=" + urdf_descr_root_path)
 
         return cmds_aux
 
-def get_xrdf_cmds_horizon_kyon(urdf_root_path: str = None):
+def get_xrdf_cmds_horizon_kyon(urdf_descr_root_path: str = None):
 
         cmds = []
         
@@ -127,7 +130,7 @@ def get_xrdf_cmds_horizon_kyon(urdf_root_path: str = None):
         cmds.append("floating_joint:=" + floating_joint)
         cmds.append("payload:=" + payload)
         
-        if urdf_root_path is not None:
-                cmds.append("root:=" + urdf_root_path)
+        if urdf_descr_root_path is not None:
+                cmds.append("root:=" + urdf_descr_root_path)
 
         return cmds

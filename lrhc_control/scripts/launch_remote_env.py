@@ -18,7 +18,9 @@ if __name__ == '__main__':
     parser.add_argument('--robot_name', type=str, help='Alias to be used for the robot and also shared memory')
     parser.add_argument('--robot_urdf_path', type=str, help='path to the URDF file description for each robot')
     parser.add_argument('--robot_srdf_path', type=str, help='path to the SRDF file description for each robot (used for homing)')
+    parser.add_argument('--jnt_imp_config_path', type=str, help='path to a valid YAML file containing information on jnt impedance gains')
     parser.add_argument('--num_envs', type=int)
+    parser.add_argument('--n_contacts', type=int, default=4)
     parser.add_argument('--cluster_dt', type=float, default=0.03, help='dt at which the control cluster runs')
     parser.add_argument('--dmpdir', type=str, help='directory where data is dumped',default="/root/aux_data")
     parser.add_argument('--contacts_list', nargs='+', default=None,
@@ -54,7 +56,8 @@ if __name__ == '__main__':
     robot_srdf_paths = [args.robot_srdf_path]
     control_clust_dts = [args.cluster_dt]
     use_remote_stepping = [args.remote_stepping]
-
+    n_contacts = [args.n_contacts]
+    jnt_imp_config_paths = [args.jnt_imp_config_path]
     num_envs = args.num_envs
     control_clust_dt = args.cluster_dt # [s]. Dt at which RHC controllers run 
     headless = args.headless
@@ -140,23 +143,6 @@ if __name__ == '__main__':
     sim_params["enable_viewport"] = False
     sim_params["debug_enabled"] = args.enable_debug
 
-    env = IsaacSimEnv(robot_names=robot_names,
-        robot_urdf_paths=robot_urdf_paths,
-        robot_srdf_paths=robot_srdf_paths,
-        cluster_dt=control_clust_dts,
-        use_remote_stepping=use_remote_stepping,
-        name="IsaacSimEnv",
-        num_envs=num_envs,
-        debug=args.enable_debug,
-        verbose=args.verbose,
-        vlevel=VLevel.V2,
-        n_init_step=args.init_timesteps,
-        timeout_ms=args.timeout_ms,
-        sim_opts=sim_params,
-        use_gpu=args.use_gpu,
-        dtype=dtype_torch) # create environment
-    env.reset(reset_sim=True)
-
     # sim info to be broadcasted on shared memory
     # adding some data to dict for debugging
     shared_sim_infos = []
@@ -169,6 +155,24 @@ if __name__ == '__main__':
                                 vlevel=VLevel.V2,
                                 force_reconnection=True) )
         shared_sim_infos[i].run()
+    env = IsaacSimEnv(robot_names=robot_names,
+        robot_urdf_paths=robot_urdf_paths,
+        robot_srdf_paths=robot_srdf_paths,
+        cluster_dt=control_clust_dts,
+        jnt_imp_config_paths=jnt_imp_config_paths,
+        n_contacts=n_contacts,
+        use_remote_stepping=use_remote_stepping,
+        name="IsaacSimEnv",
+        num_envs=num_envs,
+        debug=args.enable_debug,
+        verbose=args.verbose,
+        vlevel=VLevel.V2,
+        n_init_step=args.init_timesteps,
+        timeout_ms=args.timeout_ms,
+        sim_opts=sim_params,
+        use_gpu=args.use_gpu,
+        dtype=dtype_torch) # create environment
+    env.reset(reset_sim=True)
 
     rt_factor = RtFactor(dt_nom=sim_params["physics_dt"],
                 window_size=50000)

@@ -3,12 +3,12 @@ import re
 
 class JntImpConfigParser:
     def __init__(self, 
-        config_file, 
-        joint_names, 
-        default_p_gain=0, 
-        default_v_gain=0, 
-        backend="numpy", 
-        device="cpu"):
+            config_file, 
+            joint_names, 
+            default_p_gain=0, 
+            default_v_gain=0, 
+            backend="numpy", 
+            device="cpu"):
         self.config_file = config_file
         self.joint_names = joint_names
         self.default_p_gain = default_p_gain
@@ -21,17 +21,26 @@ class JntImpConfigParser:
         if self.backend == "numpy" and self.device != "cpu":
             raise Exception("When using numpy backend, only cpu device is supported!")
         
+        # Attempt to load the configuration file
         self.load_config()
+        # Create the gain matrix based on the configuration or default values
         self.create_gain_matrix()
 
     def load_config(self):
-        # Load YAML configuration
-        with open(self.config_file, 'r') as file:
-            self.config_data = yaml.safe_load(file)
-    
+        self.config_data = None  # Set to None to indicate fail
+        if self.config_file is not None:
+            try:
+                # Load YAML configuration
+                with open(self.config_file, 'r') as file:
+                    self.config_data = yaml.safe_load(file)
+            except (FileNotFoundError, yaml.YAMLError) as e:
+                # If the file cannot be loaded, print a warning and use default gains
+                print(f"Warning: Could not load configuration file {self.config_file}. Using default gains. Error: {e}")
+
     def create_gain_matrix(self):
         num_joints = len(self.joint_names)
         
+        # Initialize the gain matrix with the appropriate backend
         if self.backend == "numpy":
             import numpy as np  # Assuming numpy is used for backend in this example
             self.gain_matrix = np.full((num_joints, 2), np.nan)
@@ -41,7 +50,14 @@ class JntImpConfigParser:
         else:
             raise Exception("Backend not supported")
         
-        # Pattern matching setup
+        # If configuration data is not loaded, use default gains for all joints
+        if self.config_data is None or 'motor_pd' not in self.config_data:
+            for jnt_index in range(num_joints):
+                self.gain_matrix[jnt_index, 0] = self.default_p_gain  # kp
+                self.gain_matrix[jnt_index, 1] = self.default_v_gain  # kd
+            return
+        
+        # Pattern matching setup from the loaded configuration
         pattern_dict = {k: v for k, v in self.config_data.get('motor_pd', {}).items()}
         
         for jnt_index, joint_name in enumerate(self.joint_names):
@@ -64,6 +80,7 @@ class JntImpConfigParser:
     
     def get_pd_gains(self):
         return self.gain_matrix
+
 
 # Test the JntImpConfigParser
 if __name__ == "__main__":
@@ -119,6 +136,6 @@ motor_pd:
         torch.set_printoptions(precision=3,sci_mode=False)
     print("Gain Matrix:")
     print(joint_names)
-    print(parser.get_gain_matrix())
+    print(parser.get_pd_gains())
     
     os.remove(temp_file_path)
