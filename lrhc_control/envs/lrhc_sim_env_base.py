@@ -523,7 +523,7 @@ class LRhcEnvBase():
                                     reset_sim=False,
                                     reset_cluster=True,
                                     reset_cluster_counter=False,
-                                    randomize=False)
+                                    randomize=True)
                         # activate inactive controllers
                         control_cluster.activate_controllers(idxs=control_cluster.get_inactive_controllers())
 
@@ -595,7 +595,7 @@ class LRhcEnvBase():
             self.reset_jnt_imp_control(robot_name=rob_names[i],
                                 env_indxs=env_indxs)
     
-    def randomize_yaw(self,
+    def _randomize_yaw(self,
             robot_name: str,
             env_indxs: torch.Tensor = None):
 
