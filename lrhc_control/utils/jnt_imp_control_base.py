@@ -445,6 +445,9 @@ class JntImpCntrlBase:
                                 eff_cmd=self._eff_ref)
                     
             if not self._override_low_lev_controller:
+                self._pos_err  = torch.sub(self._pos_ref, self._pos)
+                self._vel_err = torch.sub(self._vel_ref, self._vel)
+                
                 self._check_activation() # processes cmds in case of deactivations
 
                 self._set_pos_ref(self._pos_ref)
@@ -748,14 +751,14 @@ class JntImpCntrlBase:
             selector_shape = selector[0].shape
             if not (signal_shape[0] == selector_shape[0] and \
                 signal_shape[1] == selector_shape[1] and \
-                signal.device.type == self._torch_device.type and \
+                signal.device.type == torch.device(self._torch_device).type and \
                 signal.dtype == self._torch_dtype):
 
                 big_error = f"Mismatch in provided signal [{name}" + "] and/or selector \n" + \
                     "signal rows -> " + f"{signal_shape[0]}" + " VS" + " expected rows -> " + f"{selector_shape[0]}" + "\n" + \
                     "signal cols -> " + f"{signal_shape[1]}" + " VS" + " expected cols -> " + f"{selector_shape[1]}" + "\n" + \
                     "signal dtype -> " + f"{signal.dtype}" + " VS" + " expected -> " + f"{self._torch_dtype}" + "\n" + \
-                    "signal device -> " + f"{signal.device.type}" + " VS" + " expected type -> " + f"{self._torch_device.type}"
+                    "signal device -> " + f"{signal.device.type}" + " VS" + " expected type -> " + f"{torch.device(self._torch_device).type}"
                 Journal.log(self.__class__.__name__,
                     "_validate_signal",
                     big_error,
