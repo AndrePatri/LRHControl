@@ -147,6 +147,15 @@ class SActorCriticAlgoBase():
         from datetime import datetime
         self._time_id = datetime.now().strftime('d%Y_%m_%d_h%H_m%M_s%S')
         self._unique_id = self._time_id + "-" + self._run_name
+
+        self._hyperparameters["unique_run_id"]=self._unique_id
+
+        self._use_combined_exp_replay=False
+        try:
+            self._use_combined_exp_replay=self._hyperparameters["use_combined_exp_replay"]
+        except:
+            pass
+
         self._init_algo_shared_data(static_params=self._hyperparameters) # can only handle dicts with
         # numeric values
 
@@ -157,12 +166,6 @@ class SActorCriticAlgoBase():
 
         self._hyperparameters.update(custom_args)
         self._hyperparameters.update(data_names)
-
-        self._use_combined_exp_replay=False
-        try:
-            self._use_combined_exp_replay=self._hyperparameters["use_combined_exp_replay"]
-        except:
-            pass
 
         self._torch_device = torch.device("cuda" if torch.cuda.is_available() and self._use_gpu else "cpu")
 

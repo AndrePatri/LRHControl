@@ -106,6 +106,9 @@ class ActorCriticAlgoBase():
         from datetime import datetime
         self._time_id = datetime.now().strftime('d%Y_%m_%d_h%H_m%M_s%S')
         self._unique_id = self._time_id + "-" + self._run_name
+
+        self._hyperparameters["unique_run_id"]=self._unique_id
+        
         self._init_algo_shared_data(static_params=self._hyperparameters) # can only handle dicts with
         # numeric values
         
