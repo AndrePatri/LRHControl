@@ -4,6 +4,7 @@ from lrhc_control.utils.shared_data.remote_stepping import RemoteResetClnt
 from lrhc_control.utils.shared_data.remote_stepping import RemoteResetRequest
 from lrhc_control.utils.jnt_imp_control_base import JntImpCntrlBase
 from lrhc_control.utils.hybrid_quad_xrdf_gen import get_xrdf_cmds
+from lrhc_control.utils.xrdf_gen import generate_srdf, generate_urdf
 
 from control_cluster_bridge.utilities.homing import RobotHomer
 from control_cluster_bridge.utilities.shared_data.jnt_imp_control import JntImpCntrlData
@@ -165,7 +166,6 @@ class LRhcEnvBase():
         self.step_counter = 0 # global step counter
         self._init_steps_done = False
         self._n_init_steps = n_init_step # n steps to be performed before applying solutions from control clusters
-
         self._srdf_dump_paths = robot_srdf_paths
         self._homers = {} 
         self._homing = None
@@ -202,7 +202,7 @@ class LRhcEnvBase():
         self.debug_data["sim_time"] = {}
         self.debug_data["cluster_time"] = {}
         
-        self.env_timer = time.perf_counter()
+        self._env_timer = time.perf_counter()
 
         # remote sim stepping options
         self._timeout = timeout_ms # timeout for remote stepping
@@ -346,8 +346,6 @@ class LRhcEnvBase():
 
             self._init_safe_cluster_actions(robot_name=robot_name)
 
-            
-
             self._jnt_imp_controllers[robot_name] = self._generate_jnt_imp_control(robot_name=robot_name)
             self._jnt_imp_cntrl_shared_data[robot_name] = JntImpCntrlData(is_server=True, 
                                             n_envs=self._num_envs, 
@@ -363,15 +361,21 @@ class LRhcEnvBase():
 
         self._setup_done=True
 
-    def step(self, actions=None) -> bool:
+    def step(self) -> bool:
         success=True
-        success = success and self._pre_step()
-        success = success and self._step_sim()
-        success = success and self._post_sim_step()
+        self._pre_step()
+        if self._debug:
+            self._env_timer=time.perf_counter()
+        self._step_sim()
+        # success = success and 
+        if self._debug:
+            self.debug_data["time_to_step_world"] = \
+                time.perf_counter() - self._env_timer
+        self._post_sim_step()
         return success
     
-    def render(self, mode:str) -> None:
-        self._render(mode)
+    def render(self, mode:str="human") -> None:
+        self._render_sim(mode)
 
     def reset(self,
         env_indxs: torch.Tensor = None,
@@ -399,6 +403,17 @@ class LRhcEnvBase():
                                 env_indxs=env_indxs)
                 if reset_cluster_counter:
                     self.cluster_step_counters[robot_names[i]] = 0                
+
+    def _reset_cluster(self,
+            env_indxs: torch.Tensor = None,
+            robot_names: List[str]=None):
+        rob_names = robot_names
+        if rob_names is None:
+            rob_names = self._robot_names
+        for i in range(len(rob_names)):
+            robot_name = rob_names[i]
+            control_cluster = self.cluster_servers[robot_name]
+            control_cluster.reset_controllers(idxs=env_indxs)
 
     def _write_state_to_cluster(self, 
         robot_name: str, 
@@ -465,10 +480,10 @@ class LRhcEnvBase():
         pass
 
     @abstractmethod
-    def _step_sim(self) -> bool:
+    def _step_sim(self) -> None:
         pass
     
-    def _pre_step(self) -> bool:
+    def _pre_step(self) -> None:
 
         self._update_state_from_sim()
 
@@ -549,7 +564,7 @@ class LRhcEnvBase():
 
     def _post_sim_step(self) -> bool:
         self.step_counter +=1
-        if self.step_counter==self._n_init_steps and \
+        if self.step_counter>=self._n_init_steps and \
                 not self._init_steps_done:
             self._init_steps_done = True
         for i in range(len(self._robot_names)):
@@ -561,7 +576,7 @@ class LRhcEnvBase():
                     self.cluster_servers[robot_name].solution_time()
 
     @abstractmethod
-    def _render(self, mode:str) -> None:
+    def _render_sim(self, mode:str="human") -> None:
         pass
 
     def _reset(self,
@@ -781,7 +796,7 @@ class LRhcEnvBase():
                 robot_name = self._robot_names[i]
                 # updating all the jnt impedance data - > this may introduce a significant overhead,
                 # on CPU and, if using GPU, also there 
-                imp_data = self.jnt_imp_cntrl_shared_data[robot_name].imp_data_view
+                imp_data = self._jnt_imp_cntrl_shared_data[robot_name].imp_data_view
                 # set data
                 imp_data.set(data_type="pos_err",
                         data=self._jnt_imp_controllers[robot_name].pos_err(),
@@ -984,7 +999,7 @@ class LRhcEnvBase():
         # actually applies reset commands to the articulation
         # self._jnt_imp_controllers[robot_name].apply_cmds()          
 
-    def synch_default_root_states(self,
+    def _synch_default_root_states(self,
             robot_name: str = None,
             env_indxs: torch.Tensor = None):
 
@@ -1034,59 +1049,6 @@ class LRhcEnvBase():
         env_indxs: torch.Tensor = None):
         pass
 
-    def _generate_srdf(self, 
-        robot_name: str, 
-        srdf_path: str):
-        
-        self._srdf_dump_paths[robot_name] = self._descr_dump_path + "/" + robot_name + ".srdf"
-
-        if self._xrdf_cmds(robot_name=robot_name) is not None:
-            cmds = self._xrdf_cmds(robot_name=robot_name)
-            if cmds is None:
-                xacro_cmd = ["xacro"] + [srdf_path] + ["-o"] + [self._srdf_dump_paths[robot_name]]
-            else:
-                xacro_cmd = ["xacro"] + [srdf_path] + cmds + ["-o"] + [self._srdf_dump_paths[robot_name]]
-
-        if self._xrdf_cmds(robot_name=robot_name) is None:
-            xacro_cmd = ["xacro"] + [srdf_path] + ["-o"] + [self._srdf_dump_paths[robot_name]]
-
-        import subprocess
-        try:
-            xacro_gen = subprocess.check_call(xacro_cmd)
-        except:
-            Journal.log(self.__class__.__name__,
-                "_generate_urdf",
-                "failed to generate " + robot_name + "\'S SRDF!!!",
-                LogType.EXCEP,
-                throw_when_excep = True)
-            
-    def _generate_urdf(self, 
-        robot_name: str, 
-        urdf_path: str):
-
-        # we generate the URDF where the description package is located
-        self._urdf_dump_paths[robot_name] = self._descr_dump_path + "/" + robot_name + ".urdf"
-        
-        if self._xrdf_cmds(robot_name=robot_name) is not None:
-            cmds = self._xrdf_cmds(robot_name=robot_name)
-            if cmds is None:
-                xacro_cmd = ["xacro"] + [urdf_path] + ["-o"] + [self._urdf_dump_paths[robot_name]]
-            else:
-                xacro_cmd = ["xacro"] + [urdf_path] + cmds + ["-o"] + [self._urdf_dump_paths[robot_name]]
-        if self._xrdf_cmds(robot_name=robot_name) is None:
-            xacro_cmd = ["xacro"] + [urdf_path] + ["-o"] + [self._urdf_dump_paths[robot_name]]
-
-        import subprocess
-        try:
-            xacro_gen = subprocess.check_call(xacro_cmd)
-            # we also generate an updated SRDF
-        except:
-            Journal.log(self.__class__.__name__,
-                "_generate_urdf",
-                "Failed to generate " + robot_name + "\'s URDF!!!",
-                LogType.EXCEP,
-                throw_when_excep = True)
-    
     def _generate_rob_descriptions(self, 
                     robot_name: str, 
                     urdf_path: str,
@@ -1097,16 +1059,20 @@ class LRhcEnvBase():
                     "generating URDF for robot "+ f"{robot_name}, from URDF {urdf_path}...",
                     LogType.STAT,
                     throw_when_excep = True)
-        self._generate_urdf(robot_name=robot_name, 
-            urdf_path=urdf_path)
+        self._urdf_dump_paths[robot_name]=generate_urdf(robot_name=robot_name, 
+            xacro_path=urdf_path,
+            dump_path=self._descr_dump_path,
+            xrdf_cmds=self._xrdf_cmds(robot_name=robot_name))
         Journal.log(self.__class__.__name__,
                     "update_root_offsets",
                     "generating SRDF for robot "+ f"{robot_name}, from SRDF {srdf_path}...",
                     LogType.STAT,
                     throw_when_excep = True)
         # we also generate SRDF files, which are useful for control
-        self._generate_srdf(robot_name=robot_name, 
-            srdf_path=srdf_path)
+        self._srdf_dump_paths[robot_name]=generate_srdf(robot_name=robot_name, 
+            xacro_path=srdf_path,
+            dump_path=self._descr_dump_path,
+            xrdf_cmds=self._xrdf_cmds(robot_name=robot_name))
     
     def _xrdf_cmds(self, robot_name:str):
         urdfpath=self._robot_urdf_paths[robot_name]

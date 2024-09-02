@@ -1,8 +1,10 @@
 from control_cluster_bridge.cluster_client.control_cluster_client import ControlClusterClient
+from lrhc_control.utils.xrdf_gen import generate_srdf, generate_urdf
+from lrhc_control.utils.hybrid_quad_xrdf_gen import get_xrdf_cmds
 
 from SharsorIPCpp.PySharsorIPC import Journal, LogType
 
-from typing import List
+from typing import List, Dict
 
 import os 
 
@@ -12,8 +14,8 @@ class LRhcClusterClient(ControlClusterClient):
     
     def __init__(self, 
             namespace: str, 
-            robot_pkg_name: str, # robot description ros package name (used to make descr. files available to controllers)
-            robot_pkg_pref_path: str,
+            urdf_xacro_path: str,
+            srdf_xacro_path: str,
             cluster_size: int,
             set_affinity: bool = False,
             use_mp_fork: bool = False,
@@ -23,10 +25,13 @@ class LRhcClusterClient(ControlClusterClient):
             debug: bool = False,
             codegen_base_dirname: str = "CodeGen",
             base_dump_dir: str = "/tmp",
-            codegen_override: str = None):
+            codegen_override: str = None,
+            custom_opt: Dict = {}):
 
+        self._custom_opt = custom_opt
+        
         self._base_dump_dir = base_dump_dir
-
+    
         self._temp_path = base_dump_dir + "/" + f"{self.__class__.__name__}" + f"_{namespace}"
         
         self._codegen_base_dirname = codegen_base_dirname
@@ -40,12 +45,13 @@ class LRhcClusterClient(ControlClusterClient):
         if not os.path.exists(self._codegen_basedir):
             os.makedirs(self._codegen_basedir)
 
-        self.robot_pkg_name = robot_pkg_name
-        self.robot_pkg_pref_path = robot_pkg_pref_path
-        
-        self._generate_srdf()
+        self._urdf_xacro_path = urdf_xacro_path
+        self._srdf_xacro_path = srdf_xacro_path
+        self._urdf_path=""
+        self._srdf_path=""
+        self._generate_srdf(namespace=namespace)
 
-        self._generate_urdf()
+        self._generate_urdf(namespace=namespace)
 
         super().__init__(namespace = namespace, 
                         cluster_size=cluster_size,
@@ -64,81 +70,19 @@ class LRhcClusterClient(ControlClusterClient):
 
         return self._codegen_override
     
-    def _generate_srdf(self):
+    def _generate_srdf(self,namespace:str):
         
-        Journal.log(self.__class__.__name__,
-                        "_generate_srdf",
-                        "generating SRDF",
-                        LogType.STAT,
-                        throw_when_excep = True)
-
-        # we generate the URDF where the Kyon description package is located
-
-        xacro_name = self.robot_pkg_name
-        self._srdf_path = self._temp_path + "/" + xacro_name + ".srdf"
-        xacro_path = self.robot_pkg_pref_path + f"/{self.robot_pkg_name}_srdf" + "/srdf/" + xacro_name + ".srdf.xacro"
-        
-        cmds = self._xrdf_cmds()
-        if cmds is None:
-            cmds = []
-        
-        import subprocess
-        try:
-
-            xacro_cmd = ["xacro"] + [xacro_path] + cmds + ["-o"] + [self._srdf_path]
-            xacro_gen = subprocess.check_call(xacro_cmd)
-            Journal.log(self.__class__.__name__,
-                        "_generate_srdf",
-                        "generated SRDF",
-                        LogType.STAT,
-                        throw_when_excep = True)
-            
-        except:
-            
-            Journal.log(self.__class__.__name__,
-                        "_generate_srdf",
-                        "Failed to generate Kyon\'s SRDF!!!.",
-                        LogType.EXCEP,
-                        throw_when_excep = True)
+        self._urdf_path=generate_srdf(robot_name=namespace,
+            xacro_path=self._urdf_xacro_path,
+            dump_path=self._temp_path,
+            xrdf_cmds=self._xrdf_cmds())
     
-    def _generate_urdf(self):
+    def _generate_urdf(self,namespace:str):
         
-        Journal.log(self.__class__.__name__,
-                        "_generate_urdf",
-                        "Generating URDF",
-                        LogType.STAT,
-                        throw_when_excep = True)
-        
-        # we generate the URDF where the Kyon description package is located
-        xacro_name = self.robot_pkg_name
-        self._urdf_path = self._temp_path + "/" + xacro_name + ".urdf"
-        xacro_path = self.robot_pkg_pref_path + f"/{self.robot_pkg_name}_urdf" + "/urdf/" + xacro_name + ".urdf.xacro"
-        
-        cmds = self._xrdf_cmds()
-        if cmds is None:
-
-            cmds = []
-
-        import subprocess
-        try:
-            
-            xacro_cmd = ["xacro"] + [xacro_path] + cmds + ["-o"] + [self._urdf_path]
-
-            xacro_gen = subprocess.check_call(xacro_cmd)
-            
-            Journal.log(self.__class__.__name__,
-                        "_generate_srdf",
-                        "Generated URDF",
-                        LogType.STAT,
-                        throw_when_excep = True)
-            
-        except:
-
-            Journal.log(self.__class__.__name__,
-                        "_generate_urdf",
-                        "Failed to generate Kyon\'s URDF!!!.",
-                        LogType.EXCEP,
-                        throw_when_excep = True)
+        self._srdf_path=generate_urdf(robot_name=namespace,
+            xacro_path=self._srdf_xacro_path,
+            dump_path=self._temp_path,
+            xrdf_cmds=self._xrdf_cmds())
             
     @abstractmethod
     def _xrdf_cmds(self):

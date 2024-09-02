@@ -4,14 +4,14 @@ from lrhc_control.controllers.rhc.horizon_based.hybrid_quad_rhc import HybridQua
 from lrhc_control.utils.hybrid_quad_xrdf_gen import get_xrdf_cmds_horizon
 from lrhc_control.utils.sys_utils import PathsGetter
 
-from typing import List
+from typing import List, Dict
 
 class HybridQuadrupedClusterClient(LRhcClusterClient):
     
     def __init__(self, 
             namespace: str, 
-            robot_pkg_name: str,
-            robot_pkg_pref_path: str,
+            urdf_xacro_path: str,
+            srdf_xacro_path: str,
             cluster_size: int,
             set_affinity: bool = False,
             use_mp_fork: bool = False,
@@ -22,7 +22,8 @@ class HybridQuadrupedClusterClient(LRhcClusterClient):
             open_loop: bool = True,
             base_dump_dir: str = "/tmp",
             timeout_ms: int = 60000,
-            codegen_override: str = None):
+            codegen_override: str = None,
+            custom_opt: Dict = {}):
         
         self._open_loop = open_loop
 
@@ -33,8 +34,8 @@ class HybridQuadrupedClusterClient(LRhcClusterClient):
         self._timeout_ms = timeout_ms
         
         super().__init__(namespace = namespace, 
-                        robot_pkg_name = robot_pkg_name,
-                        robot_pkg_pref_path = robot_pkg_pref_path,
+                        urdf_xacro_path = urdf_xacro_path,
+                        srdf_xacro_path = srdf_xacro_path,
                         cluster_size=cluster_size,
                         set_affinity = set_affinity,
                         use_mp_fork = use_mp_fork,
@@ -43,11 +44,13 @@ class HybridQuadrupedClusterClient(LRhcClusterClient):
                         verbose = verbose,
                         debug = debug,
                         base_dump_dir=base_dump_dir,
-                        codegen_override=codegen_override)
+                        codegen_override=codegen_override,
+                        custom_opt=custom_opt)
     
     def _xrdf_cmds(self):
-        cmds = get_xrdf_cmds_horizon(robot_pkg_name = self.robot_pkg_name,
-                            robot_pkg_pref_path=self.robot_pkg_pref_path)
+        parts = self._urdf_path.split('/')
+        urdf_descr_root_path = '/'.join(parts[:-2])
+        cmds = get_xrdf_cmds_horizon(urdf_descr_root_path=urdf_descr_root_path)
         return cmds
 
     def _process_codegen_dir(self,idx:int):
