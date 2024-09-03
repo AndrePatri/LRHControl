@@ -523,7 +523,7 @@ class LRhcEnvBase():
                         if failed is not None: # deactivate robot completely (basically, deactivate jnt imp controller)
                             self._deactivate(env_indxs=failed,
                                 robot_names=[robot_name])
-                        self._process_remote_reset_req(robot_name=robot_name)
+                        self._process_remote_reset_req(robot_name=robot_name) # wait for remote reset request (blocking)
                     else:
                         # automatically reset and reactivate failed controllers if not running remotely
                         if failed is not None:
@@ -654,11 +654,15 @@ class LRhcEnvBase():
     def _move_root_to_defconfig(self):
         pass
 
-    @abstractmethod
     def _deactivate(self,
-        env_indxs = torch.Tensor,
-        robot_names = List[str]) -> None:
-        pass
+            env_indxs: torch.Tensor = None,
+            robot_names: List[str] =None):
+        
+        # deactivate jnt imp controllers for given robots and envs (makes the robot fall)
+        rob_names = robot_names if (robot_names is not None) else self._robot_names
+        for i in range(len(rob_names)):
+            robot_name = rob_names[i]
+            self._jnt_imp_controllers[robot_name].deactivate(robot_indxs = env_indxs)
     
     def _n_contacts(self, robot_name: str) -> List[int]:
         return self._num_contacts[robot_name]
