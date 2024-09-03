@@ -1,5 +1,7 @@
 import yaml
 import re
+from SharsorIPCpp.PySharsorIPC import LogType
+from SharsorIPCpp.PySharsorIPC import Journal
 
 class JntImpConfigParser:
     def __init__(self, 
@@ -23,7 +25,11 @@ class JntImpConfigParser:
         self.device = device
         
         if self.backend == "numpy" and self.device != "cpu":
-            raise Exception("When using numpy backend, only cpu device is supported!")
+            Journal.log(self.__class__.__name__,
+                "__init__",
+                "When using numpy backend, only cpu device is supported!",
+                LogType.EXCEP,
+                throw_when_excep = True)
         
         # Attempt to load the configuration file
         self.load_config()
@@ -39,7 +45,10 @@ class JntImpConfigParser:
                     self.config_data = yaml.safe_load(file)
             except (FileNotFoundError, yaml.YAMLError) as e:
                 # If the file cannot be loaded, print a warning and use default gains
-                print(f"Warning: Could not load configuration file {self.config_file}. Using default gains. Error: {e}")
+                Journal.log(self.__class__.__name__,
+                    "__init__",
+                    "Could not load configuration file {self.config_file}. Using default gains. Error: {e}",
+                    LogType.WARN)
 
     def create_gain_matrix(self):
         num_joints = len(self.joint_names)
