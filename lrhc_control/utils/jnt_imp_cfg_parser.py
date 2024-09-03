@@ -8,7 +8,11 @@ class JntImpConfigParser:
             default_p_gain=0, 
             default_v_gain=0, 
             backend="numpy", 
-            device="cpu"):
+            device="cpu",
+            search_for="motor_pd"):
+        
+        self._pd_gains_parentname=search_for
+
         self.config_file = config_file
         self.joint_names = joint_names
         self.default_p_gain = default_p_gain
@@ -51,14 +55,14 @@ class JntImpConfigParser:
             raise Exception("Backend not supported")
         
         # If configuration data is not loaded, use default gains for all joints
-        if self.config_data is None or 'motor_pd' not in self.config_data:
+        if self.config_data is None or self._pd_gains_parentname not in self.config_data:
             for jnt_index in range(num_joints):
                 self.gain_matrix[jnt_index, 0] = self.default_p_gain  # kp
                 self.gain_matrix[jnt_index, 1] = self.default_v_gain  # kd
             return
         
         # Pattern matching setup from the loaded configuration
-        pattern_dict = {k: v for k, v in self.config_data.get('motor_pd', {}).items()}
+        pattern_dict = {k: v for k, v in self.config_data.get(self._pd_gains_parentname, {}).items()}
         
         for jnt_index, joint_name in enumerate(self.joint_names):
             matched = False
@@ -105,6 +109,24 @@ motor_pd:
   neck_yaw: [10, 1]
   torso_yaw: [1000, 30]
   j_wheel_*: [0, 30]
+
+startup_motor_pd:
+  j_arm*_1: [200, 5]
+  j_arm*_2: [200, 5]
+  j_arm*_3: [200, 5]
+  j_arm*_4: [200, 5]
+  j_arm*_5: [200, 5]
+  j_arm*_6: [50, 5]
+  j_arm*_7: [50, 5]
+  hip_yaw_*: [1000, 10]
+  hip_pitch_*: [1000, 10]
+  knee_pitch_*: [1000, 10]
+  ankle_pitch_*: [500, 10]
+  ankle_yaw_*: [150, 5]
+  neck_pitch: [10, 1]
+  neck_yaw: [10, 1]
+  torso_yaw: [500, 10]
+  j_wheel_*: [0, 30]
     """
     
     # Create a temporary file to store the YAML content
@@ -119,14 +141,24 @@ motor_pd:
     ]
     
     # Create an instance of JntImpConfigParser with the temporary YAML file
+    backend="torch"
     parser = JntImpConfigParser(
         config_file=temp_file_path,
         joint_names=joint_names,
         default_p_gain=50,  # Example default proportional gain
         default_v_gain=5,   # Example default derivative gain,
-        backend="torch"
+        backend=backend,
+        search_for="motor_pd"
     )
-    
+    parser_startup = JntImpConfigParser(
+        config_file=temp_file_path,
+        joint_names=joint_names,
+        default_p_gain=50,  # Example default proportional gain
+        default_v_gain=5,   # Example default derivative gain,
+        backend=backend,
+        search_for="startup_motor_pd"
+    )
+
     # Print the resulting gain matrix with specified formatting
     if parser.backend=="numpy":
         import numpy as np
@@ -137,5 +169,8 @@ motor_pd:
     print("Gain Matrix:")
     print(joint_names)
     print(parser.get_pd_gains())
-    
+    print("Startup gain Matrix:")
+    print(joint_names)
+    print(parser_startup.get_pd_gains())
+
     os.remove(temp_file_path)

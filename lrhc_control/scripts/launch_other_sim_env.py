@@ -7,7 +7,7 @@ import torch
 from lrhc_control.envs.lrhc_sim_env import LRhcGzXBotSimEnv
 from lrhc_control.tasks.lrhc_task import LRHcGzXBotTask
 
-from control_cluster_bridge.utilities.shared_data.sim_data import SharedSimInfo
+from control_cluster_bridge.utilities.shared_data.sim_data import SharedEnvInfo
 from omni_robo_gym.utils.rt_factor import RtFactor
 from SharsorIPCpp.PySharsorIPC import VLevel
 
@@ -82,7 +82,7 @@ if __name__ == '__main__':
 
     shared_sim_infos = []
     for i in range(len(robot_names)):
-        shared_sim_infos.append(SharedSimInfo(
+        shared_sim_infos.append(SharedEnvInfo(
                                 namespace=robot_names[i],
                                 is_server=True, 
                                 sim_params_dict=sim_params,

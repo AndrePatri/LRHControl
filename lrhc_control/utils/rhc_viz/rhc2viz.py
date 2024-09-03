@@ -7,7 +7,7 @@ from lrhc_control.controllers.rhc.horizon_based.utils.math_utils import hor2w_fr
 from control_cluster_bridge.utilities.shared_data.rhc_data import RobotState
 from control_cluster_bridge.utilities.shared_data.rhc_data import RhcRefs
 from control_cluster_bridge.utilities.shared_data.rhc_data import RhcInternal
-from control_cluster_bridge.utilities.shared_data.sim_data import SharedSimInfo
+from control_cluster_bridge.utilities.shared_data.sim_data import SharedEnvInfo
 
 from lrhc_control.utils.shared_data.agent_refs import AgentRefs
 
@@ -178,7 +178,7 @@ class RhcToVizBridge:
         update_dt: float = 0.01):
         
         # sim data
-        self._sim_data = SharedSimInfo(namespace=self.namespace,
+        self._sim_data = SharedEnvInfo(namespace=self.namespace,
                                 is_server=False,
                                 safe=False,
                                 verbose=True,

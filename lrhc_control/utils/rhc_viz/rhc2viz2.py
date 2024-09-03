@@ -8,7 +8,7 @@ from control_cluster_bridge.utilities.shared_data.rhc_data import RobotState
 from control_cluster_bridge.utilities.shared_data.rhc_data import RhcRefs
 from control_cluster_bridge.utilities.shared_data.rhc_data import RhcCmds
 from control_cluster_bridge.utilities.shared_data.rhc_data import RhcInternal
-from control_cluster_bridge.utilities.shared_data.sim_data import SharedSimInfo
+from control_cluster_bridge.utilities.shared_data.sim_data import SharedEnvInfo
 
 from lrhc_control.utils.shared_data.agent_refs import AgentRefs
 from control_cluster_bridge.utilities.homing import RobotHomer
@@ -237,7 +237,7 @@ class RhcToViz2Bridge:
                                             qos_profile=self._qos_settings)
 
         # sim data
-        self._sim_data = SharedSimInfo(namespace=self.namespace,
+        self._sim_data = SharedEnvInfo(namespace=self.namespace,
                                 is_server=False,
                                 safe=False,
                                 verbose=self.verbose,

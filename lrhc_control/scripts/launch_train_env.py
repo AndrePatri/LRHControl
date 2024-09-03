@@ -2,7 +2,7 @@ from lrhc_control.training_algs.ppo.ppo import PPO
 from lrhc_control.training_algs.sac.sac import SAC
 from lrhc_control.training_algs.dummy.dummy import Dummy
 
-from control_cluster_bridge.utilities.shared_data.sim_data import SharedSimInfo
+from control_cluster_bridge.utilities.shared_data.sim_data import SharedEnvInfo
 
 from SharsorIPCpp.PySharsorIPC import VLevel, Journal, LogType
 from SharsorIPCpp.PySharsorIPC import StringTensorServer
@@ -100,7 +100,7 @@ if __name__ == "__main__":
 
     # getting some sim info for debugging
     sim_data = {}
-    sim_info_shared = SharedSimInfo(namespace=args.ns,
+    sim_info_shared = SharedEnvInfo(namespace=args.ns,
                 is_server=False,
                 safe=False)
     sim_info_shared.run()

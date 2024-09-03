@@ -5,7 +5,7 @@ from lrhc_control.utils.shared_data.training_env import Actions
 from lrhc_control.utils.shared_data.training_env import Terminations, SubTerminations
 from lrhc_control.utils.shared_data.training_env import Truncations, SubTruncations
 from lrhc_control.utils.shared_data.training_env import EpisodesCounter, TaskRandCounter, SafetyRandResetsCounter
-from control_cluster_bridge.utilities.shared_data.sim_data import SharedSimInfo
+from control_cluster_bridge.utilities.shared_data.sim_data import SharedEnvInfo
 
 import time 
 from perf_sleep.pyperfsleep import PerfSleep
@@ -93,7 +93,7 @@ if __name__ == "__main__":
     
     sim_data = None
     if args.with_sinfo:
-        sim_data = SharedSimInfo(namespace=namespace,
+        sim_data = SharedEnvInfo(namespace=namespace,
                     is_server=False,
                     safe=False,
                     verbose=True,

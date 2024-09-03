@@ -5,7 +5,7 @@ import numpy as np
 import torch
 
 from lrhc_control.envs.lrhc_sim_env import LRhcIsaacSimEnv
-from control_cluster_bridge.utilities.shared_data.sim_data import SharedSimInfo
+from control_cluster_bridge.utilities.shared_data.sim_data import SharedEnvInfo
 from omni_robo_gym.utils.rt_factor import RtFactor
 from SharsorIPCpp.PySharsorIPC import VLevel
 
@@ -46,7 +46,7 @@ if __name__ == '__main__':
     parser.add_argument('--start_damp', type=float, default=50.0, help='damping for low level jnt imp controller after controller is activated')
     parser.add_argument('--wheel_damp', type=float, default=10.0, help='damping coeff for low level vel control of wheels (if present)')
     parser.add_argument('--wheel_radius', type=float, default=0.124, help='wheel radius (used for contact sensing)')
-    parser.add_argument('--spawning_height', type=float, default=0.6, help='initial height at which robots will be spawned')
+    parser.add_argument('--spawning_height', type=float, default=1.6, help='initial height at which robots will be spawned')
     parser.add_argument('--physics_dt', type=float, default=5e-4, help='')
     parser.add_argument('--use_custom_jnt_imp', action=argparse.BooleanOptionalAction, default=True, 
         help='Whether to override the default PD controller with a custom one')
@@ -203,7 +203,7 @@ if __name__ == '__main__':
     sim_params["debug_enabled"] = args.enable_debug
     shared_sim_infos = []
     for i in range(len(robot_names)):
-        shared_sim_infos.append(SharedSimInfo(
+        shared_sim_infos.append(SharedEnvInfo(
                                 namespace=robot_names[i],
                                 is_server=True, 
                                 sim_params_dict=sim_params,

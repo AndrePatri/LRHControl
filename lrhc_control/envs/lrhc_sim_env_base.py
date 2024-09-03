@@ -41,7 +41,7 @@ class LRhcEnvBase():
                 vlevel: VLevel = VLevel.V1,
                 n_init_step: int = 0,
                 timeout_ms: int = 60000,
-                custom_opts: Dict = None,
+                env_opts: Dict = None,
                 use_gpu: bool = True,
                 dtype: torch.dtype = torch.float32,
                 dump_basepath: str = "/tmp",
@@ -160,8 +160,8 @@ class LRhcEnvBase():
         self._device = "cuda" if self._use_gpu else "cpu"
         self._dtype=dtype
         self._robot_names=robot_names
-        self._custom_opts={}
-        self._custom_opts.update(custom_opts)
+        self._env_opts={}
+        self._env_opts.update(env_opts)
 
         self.step_counter = 0 # global step counter
         self._init_steps_done = False
@@ -214,16 +214,14 @@ class LRhcEnvBase():
         self._is_first_trigger = {}
 
         self._closed = False
-        # handle ctrl+c event
-        signal.signal(signal.SIGINT, self.signal_handler)        
-
+             
         self._descr_dump_path=dump_basepath+"/"+f"{self.__class__.__name__}"
         self._urdf_dump_paths = {}
         self._srdf_dump_paths = {}
         self.xrdf_cmd_vals = [] # by default empty, needs to be overriden by
         # child class
 
-        self._override_low_lev_controller = override_low_lev_controller
+        self._override_low_lev_controller=override_low_lev_controller
 
         self._root_p = {}
         self._root_q = {}
@@ -247,12 +245,22 @@ class LRhcEnvBase():
         self._root_pos_offsets = {} 
         self._root_q_offsets = {} 
 
+        self._parse_env_opts()
+
+        self._pre_setup() # child's method
+
         self._init_world() # after this point all info from sim or robot is 
         # available
-
+        
         self._setup()
-            
+
+        signal.signal(signal.SIGINT, self.signal_handler)   
+
     def signal_handler(self, sig, frame):
+        Journal.log(self.__class__.__name__,
+            "signal_handler",
+            "received SIGINT -> cleaning up",
+            LogType.WARN)
         self.close()
     
     def __del__(self):
@@ -559,6 +567,14 @@ class LRhcEnvBase():
                 control_cluster.trigger_solution() # trigger only active controllers
 
     @abstractmethod
+    def _parse_env_opts(self):
+        pass
+    
+    @abstractmethod
+    def _pre_setup(self):
+        pass
+
+    @abstractmethod
     def _generate_jnt_imp_control(self) -> JntImpCntrlChild:
         pass
 
@@ -645,7 +661,10 @@ class LRhcEnvBase():
     
     def _n_contacts(self, robot_name: str) -> List[int]:
         return self._num_contacts[robot_name]
-
+    
+    def _contacts(self, robot_name: str) -> List[str]:
+        return None
+    
     @abstractmethod
     def physics_dt(self) -> float:
         pass
