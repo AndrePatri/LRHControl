@@ -327,7 +327,7 @@ class LRhcEnvBase():
                                                             verbose=self._verbose,
                                                             vlevel=self._vlevel)
                 self._remote_reset_requests[robot_name] = RemoteResetRequest(namespace=robot_name,
-                                                                    n_env=self.num_envs,
+                                                                    n_env=self._num_envs,
                                                                     is_server=True,
                                                                     verbose=self._verbose,
                                                                     vlevel=self._vlevel, 
