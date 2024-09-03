@@ -24,12 +24,12 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description="Sim. env launcher")
     parser.add_argument('--robot_name', type=str, help='Alias to be used for the robot and also shared memory')
-    parser.add_argument('--robot_urdf_path', type=str, help='path to the URDF file description for each robot')
-    parser.add_argument('--robot_srdf_path', type=str, help='path to the SRDF file description for each robot (used for homing)')
+    parser.add_argument('--urdf_path', type=str, help='path to the URDF file description for each robot')
+    parser.add_argument('--srdf_path', type=str, help='path to the SRDF file description for each robot (used for homing)')
     parser.add_argument('--jnt_imp_config_path', type=str, help='path to a valid YAML file containing information on jnt impedance gains')
     parser.add_argument('--num_envs', type=int, default=1)
     parser.add_argument('--n_contacts', type=int, default=4)
-    parser.add_argument('--cluster_dt', default=None, type=float, help='dt at which the control cluster runs')
+    parser.add_argument('--cluster_dt', type=float, default=0.03, help='dt at which the control cluster runs')
     parser.add_argument('--dmpdir', type=str, help='directory where data is dumped', default="/root/aux_data")
     parser.add_argument('--remote_stepping', action='store_true', 
                 help='Whether to use remote stepping for cluster triggering (to be set during training)')
@@ -64,8 +64,8 @@ if __name__ == '__main__':
     custom_opt = generate_custom_arg_dict(args=args)
 
     robot_names = [args.robot_name]
-    robot_urdf_paths = [args.robot_urdf_path]
-    robot_srdf_paths = [args.robot_srdf_path]
+    robot_urdf_paths = [args.urdf_path]
+    robot_srdf_paths = [args.srdf_path]
     control_clust_dts = [float(args.cluster_dt)]
     use_remote_stepping = [args.remote_stepping]
     n_contacts = [args.n_contacts]
