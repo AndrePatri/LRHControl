@@ -106,8 +106,6 @@ class ActorCriticAlgoBase():
         from datetime import datetime
         self._time_id = datetime.now().strftime('d%Y_%m_%d_h%H_m%M_s%S')
         self._unique_id = self._time_id + "-" + self._run_name
-
-        self._hyperparameters["unique_run_id"]=self._unique_id
         
         self._init_algo_shared_data(static_params=self._hyperparameters) # can only handle dicts with
         # numeric values
@@ -117,6 +115,7 @@ class ActorCriticAlgoBase():
         data_names["action_names"]=self._env.action_names()
         data_names["sub_reward_names"]=self._env.sub_rew_names()
 
+        self._hyperparameters["unique_run_id"]=self._unique_id
         self._hyperparameters.update(custom_args)
         self._hyperparameters.update(data_names)
         
@@ -622,7 +621,7 @@ class ActorCriticAlgoBase():
                 f"Average episodic return across all environments: {self._episodic_rewards_env_avrg[self._log_it_counter, :, :].item()}\n" + \
                 f"Average episodic returns across all environments {self._reward_names_str}: {self._episodic_sub_rewards_env_avrg[self._log_it_counter, :]}\n" + \
                 f"Current rollout sps: {self._env_step_fps[self._log_it_counter].item()}, time for rollout {self._rollout_dt[self._log_it_counter].item()} s\n" + \
-                f"Current rollout (sub-steping) rt factor: {self._env_step_rt_factor[self._log_it_counter].item()}\n" + \
+                f"Current rollout (sub-stepping) rt factor: {self._env_step_rt_factor[self._log_it_counter].item()}\n" + \
                 f"Time to compute bootstrap {self._gae_dt[self._log_it_counter].item()} s\n" + \
                 f"Current policy update fps: {self._policy_update_fps[self._log_it_counter].item()}, time for policy updates {self._policy_update_dt[self._log_it_counter].item()} s\n" + \
                 f"Experience-to-policy grad ratio: {exp_to_pol_grad_ratio}\n"
@@ -823,7 +822,7 @@ class ActorCriticAlgoBase():
         self._clip_vloss = False
         self._clip_coef_vf = 0.2 # IMPORTANT: this clipping depends on the reward scaling (only used if clip_vloss)
         self._clip_coef = 0.2
-        self._entropy_coeff = 1e-3
+        self._entropy_coeff = 5e-3
         self._val_f_coeff = 0.5
         self._max_grad_norm_actor = 0.5
         self._max_grad_norm_critic = 0.5
