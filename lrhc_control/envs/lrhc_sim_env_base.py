@@ -5,6 +5,7 @@ from lrhc_control.utils.shared_data.remote_stepping import RemoteResetRequest
 from lrhc_control.utils.jnt_imp_control_base import JntImpCntrlBase
 from lrhc_control.utils.hybrid_quad_xrdf_gen import get_xrdf_cmds
 from lrhc_control.utils.xrdf_gen import generate_srdf, generate_urdf
+from lrhc_control.utils.math_utils import quaternion_difference
 
 from control_cluster_bridge.utilities.homing import RobotHomer
 from control_cluster_bridge.utilities.shared_data.jnt_imp_control import JntImpCntrlData
@@ -435,7 +436,7 @@ class LRhcEnvBase():
         control_cluster = self.cluster_servers[robot_name]
         # floating base
         rhc_state = control_cluster.get_state()
-        rhc_state.root_state.set(data=self.root_p(robot_name=robot_name, env_idxs=env_indxs), 
+        rhc_state.root_state.set(data=self.root_p_rel(robot_name=robot_name, env_idxs=env_indxs), 
                 data_type="p", robot_idxs = env_indxs, gpu=self._use_gpu)
         rhc_state.root_state.set(data=self.root_q(robot_name=robot_name, env_idxs=env_indxs), 
                 data_type="q", robot_idxs = env_indxs, gpu=self._use_gpu)
@@ -704,6 +705,15 @@ class LRhcEnvBase():
         else:
             return self._root_p[robot_name][env_idxs, :]
 
+    def root_p_rel(self,
+            robot_name: str,
+            env_idxs: torch.Tensor = None):
+
+        rel_pos = torch.sub(self.root_p(robot_name=robot_name,
+                                            env_idxs=env_idxs), 
+                self._root_pos_offsets[robot_name][env_idxs, :])
+        return rel_pos
+    
     def root_q(self,
             robot_name: str,
             env_idxs: torch.Tensor = None):
@@ -713,6 +723,15 @@ class LRhcEnvBase():
         else:
             return self._root_q[robot_name][env_idxs, :]
 
+    def root_q_rel(self,
+            robot_name: str,
+            env_idxs: torch.Tensor = None):
+
+        rel_q = quaternion_difference(self._root_q_offsets[robot_name][env_idxs, :], 
+                            self.root_q(robot_name=robot_name,
+                                            env_idxs=env_idxs))
+        return rel_q
+    
     def root_v(self,
             robot_name: str,
             env_idxs: torch.Tensor = None):
