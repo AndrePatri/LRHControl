@@ -558,6 +558,8 @@ class LRhcEnvBase():
                 if just_activated is not None: # transition of some controllers from not active -> active
                     self._update_root_offsets(robot_name,
                                     env_indxs=just_activated) # we use relative state wrt to this state for the controllers
+                    self._set_startup_jnt_imp_gains(robot_name=robot_name, 
+                                    env_indxs = just_activated)
                     # self._reset_jnt_imp_control_gains(robot_name=robot_name, 
                     #                 env_indxs = just_activated) # setting runtime state for jnt imp controller
                 if just_deactivated is not None:
@@ -879,6 +881,16 @@ class LRhcEnvBase():
                 # write copies to shared memory
                 imp_data.synch_all(read=False, retry=False)
 
+    def _set_startup_jnt_imp_gains(self,
+            robot_name:str, 
+            env_indxs: torch.Tensor):
+        
+        startup_p_gains=self._jnt_imp_controllers[robot_name].startup_p_gains()
+        startup_d_gains=self._jnt_imp_controllers[robot_name].startup_d_gains()
+        self._jnt_imp_controllers[robot_name].set_gains(robot_indxs=env_indxs,
+            pos_gains=startup_p_gains[env_indxs, :], 
+            vel_gains=startup_d_gains[env_indxs, :])
+    
     def _update_jnt_imp_cntrl_actions(self,
         robot_name: str, 
         actions = None,

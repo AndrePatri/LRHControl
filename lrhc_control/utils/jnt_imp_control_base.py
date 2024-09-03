@@ -232,8 +232,21 @@ class JntImpCntrlBase:
             default_p_gain=default_pgain,
             default_v_gain=default_vgain,
             backend=self._backend,
-            device=self._torch_device)
+            device=self._torch_device,
+            search_for="motor_pd")
+        startup_config_parser=JntImpConfigParser(config_file=self.config_path,
+            joint_names=self.jnts_names,
+            default_p_gain=default_pgain,
+            default_v_gain=default_vgain,
+            backend=self._backend,
+            device=self._torch_device,
+            search_for="startup_motor_pd")
         self._default_pd_gains=config_parser.get_pd_gains()
+        self._default_p_gains=(self._default_pd_gains[:, 0:1].reshape(1,-1)).expand(self.num_envs, -1)
+        self._default_d_gains=(self._default_pd_gains[:, 1:2].reshape(1,-1)).expand(self.num_envs, -1)
+        self._startup_pd_gains=startup_config_parser.get_pd_gains()
+        self._startup_p_gains=(self._startup_pd_gains[:, 0:1].reshape(1,-1)).expand(self.num_envs, -1)
+        self._startup_d_gains=(self._startup_pd_gains[:, 1:2].reshape(1,-1)).expand(self.num_envs, -1)
 
         self._null_aux_tensor = torch.full((self.num_envs, self.n_jnts), 
             0.0, 
@@ -283,6 +296,18 @@ class JntImpCntrlBase:
                             
         self.reset() # initialize data
 
+    def default_p_gains(self):
+        return self._default_p_gains
+    
+    def default_d_gains(self):
+        return self._default_d_gains
+    
+    def startup_p_gains(self):
+        return self._startup_p_gains
+    
+    def startup_d_gains(self):
+        return self._startup_d_gains
+    
     def update_state(self, 
         pos: torch.Tensor = None, 
         vel: torch.Tensor = None, 
@@ -568,8 +593,8 @@ class JntImpCntrlBase:
                                         self._default_vgain,
                                         device = self._torch_device, 
                                         dtype=self._torch_dtype)
-            self._pos_gains[:, :] = (self._default_pd_gains[:, 0:1].reshape(1,-1)).expand(self.num_envs, -1)
-            self._vel_gains[:, :] = (self._default_pd_gains[:, 1:2].reshape(1,-1)).expand(self.num_envs, -1)
+            self._pos_gains[:, :] = self._default_p_gains
+            self._vel_gains[:, :] = self._default_d_gains
 
             self._eff_ref = torch.zeros((self.num_envs, self.n_jnts), device = self._torch_device, 
                                         dtype=self._torch_dtype)
