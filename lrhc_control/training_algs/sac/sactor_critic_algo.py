@@ -148,8 +148,6 @@ class SActorCriticAlgoBase():
         self._time_id = datetime.now().strftime('d%Y_%m_%d_h%H_m%M_s%S')
         self._unique_id = self._time_id + "-" + self._run_name
 
-        self._hyperparameters["unique_run_id"]=self._unique_id
-
         self._use_combined_exp_replay=False
         try:
             self._use_combined_exp_replay=self._hyperparameters["use_combined_exp_replay"]
@@ -164,6 +162,7 @@ class SActorCriticAlgoBase():
         data_names["action_names"]=self._env.action_names()
         data_names["sub_reward_names"]=self._env.sub_rew_names()
 
+        self._hyperparameters["unique_run_id"]=self._unique_id
         self._hyperparameters.update(custom_args)
         self._hyperparameters.update(data_names)
 
