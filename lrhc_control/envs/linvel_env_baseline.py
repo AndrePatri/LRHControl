@@ -26,7 +26,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         action_repeat = 1 # frame skipping (different agent action every action_repeat
         # env substeps)
 
-        self._single_task_ref_per_episode=False # if True, the task ref is constant over the episode (ie
+        self._single_task_ref_per_episode=True # if True, the task ref is constant over the episode (ie
         # episodes are truncated when task is changed)
         self._use_horizontal_frame_for_refs = False # (vel refs for agent are in horizontal frame)
         # usually impractical for task rand to set this to True 
@@ -85,10 +85,10 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             obs_dim+=3*actions_dim # previous agent actions statistics (mean, std + last action)
 
         # obs_dim = 4+6+n_jnts+2+2+actions_dim
-        episode_timeout_lb = 640 # episode timeouts (including env substepping when action_repeat>1)
-        episode_timeout_ub = 640
-        n_steps_task_rand_lb = 320 # agent refs randomization freq
-        n_steps_task_rand_ub = 320 # lb not eq. to ub to remove correlations between episodes
+        episode_timeout_lb = 800 # episode timeouts (including env substepping when action_repeat>1)
+        episode_timeout_ub = 800
+        n_steps_task_rand_lb = 400 # agent refs randomization freq
+        n_steps_task_rand_ub = 400 # lb not eq. to ub to remove correlations between episodes
         # across diff envs
         random_reset_freq = 10 # a random reset once every n-episodes (per env)
         n_preinit_steps = 1 # one steps of the controllers to properly initialize everything
