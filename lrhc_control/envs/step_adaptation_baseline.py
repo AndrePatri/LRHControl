@@ -147,8 +147,8 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         self._twist_ref_ub = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.8)
         # lin vel
-        self.max_ref_lin=1.5
-        self.max_ref_omega=1.0
+        self.max_ref_lin=0.8
+        self.max_ref_omega=0.8
         self._twist_ref_lb[0, 0] = -self.max_ref_lin
         self._twist_ref_lb[0, 1] = -self.max_ref_lin
         self._twist_ref_lb[0, 2] = 0.0
