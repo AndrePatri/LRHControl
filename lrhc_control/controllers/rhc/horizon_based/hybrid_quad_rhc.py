@@ -216,6 +216,8 @@ class HybridQuadRhc(RHController):
         if not close_all: # use internal MPC for the base
             p[0:3,:]=self._get_q_from_sol()[0:3, 1:2] # base pos is open loop
         v_root = self.robot_state.root_state.get(data_type="v", robot_idxs=self.controller_index).reshape(-1, 1)
+        if not close_all: # use internal MPC for the base vel
+            v_root[0:3,:]=self._get_v_from_sol()[0:3, 1:2] # base vel is open loop
         omega = self.robot_state.root_state.get(data_type="omega", robot_idxs=self.controller_index).reshape(-1, 1)
         
         # we need twist in local base frame, but measured one is global
