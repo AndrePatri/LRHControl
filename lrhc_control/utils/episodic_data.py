@@ -408,7 +408,7 @@ class EpisodicData():
         self._steps_counter[ep_finished.flatten(), :] =0 # reset step counters
 
         # automatic reset for envs when self._ep_vec_freq episodes have been played
-        self._fresh_metrics_avail[:, :]=self._n_played_eps>=self._ep_vec_freq
+        self._fresh_metrics_avail[:, :]=(self._n_played_eps>=self._ep_vec_freq)
         selector=self._fresh_metrics_avail.flatten()
         self._n_played_eps_last[selector, :]=\
                 self._n_played_eps[selector, :]
@@ -440,8 +440,6 @@ class EpisodicData():
     def get_n_played_tsteps(self):
         return torch.sum(self.step_counters()).item()
     
-    def new_metrics_avail(self):
-        return self._new_metrics_are_available
 
 if __name__ == "__main__":  
 
