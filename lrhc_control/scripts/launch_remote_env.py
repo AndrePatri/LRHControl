@@ -126,7 +126,8 @@ if __name__ == '__main__':
         n_init_step=args.init_timesteps,
         timeout_ms=args.timeout_ms,
         env_opts=remote_env_params,
-        use_gpu=args.use_gpu) # create environment
+        use_gpu=args.use_gpu,
+        override_low_lev_controller=args.use_custom_jnt_imp) # create environment
     env.reset(reset_sim=True)
 
     rt_factor = RtFactor(dt_nom=remote_env_params["physics_dt"],
