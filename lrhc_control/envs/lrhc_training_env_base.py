@@ -326,7 +326,7 @@ class LRhcTrainingEnvBase():
         # grads prop
         
         if self._act_mem_buffer is not None:
-            self._act_mem_buffer.update(new_data=self.get_actions(clone=True))
+            self._act_mem_buffer.update(new_data=actions)
 
         self._apply_actions_to_rhc() # apply agent actions to rhc controller
 
