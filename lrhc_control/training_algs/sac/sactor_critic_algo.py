@@ -162,7 +162,11 @@ class SActorCriticAlgoBase():
         data_names["action_names"]=self._env.action_names()
         data_names["sub_reward_names"]=self._env.sub_rew_names()
 
+        # create dump directory + copy important files for debug
+        self._init_drop_dir(drop_dir_name)
+        
         self._hyperparameters["unique_run_id"]=self._unique_id
+        self._hyperparameters["drop_dir"]=self._drop_dir
         self._hyperparameters.update(custom_args)
         self._hyperparameters.update(data_names)
 
@@ -208,9 +212,6 @@ class SActorCriticAlgoBase():
                     run_name=self._run_name)
                 
             self._load_model(self._model_path)
-
-        # create dump directory + copy important files for debug
-        self._init_drop_dir(drop_dir_name)
             
         # seeding + deterministic behavior for reproducibility
         self._set_all_deterministic()
