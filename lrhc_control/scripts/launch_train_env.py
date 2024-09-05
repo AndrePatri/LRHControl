@@ -26,7 +26,7 @@ if __name__ == "__main__":
     # Parse command line arguments for CPU affinity
     parser = argparse.ArgumentParser(description="Set CPU affinity for the script.")
     parser.add_argument('--cores', nargs='+', type=int, help='List of CPU cores to set affinity to')
-    parser.add_argument('--run_name', type=str, default=None,help='Name of training run', default="LRHCTraining")
+    parser.add_argument('--run_name', type=str, default=None,help='Name of training run')
     parser.add_argument('--ns', type=str, help='Namespace to be used for shared memory')
     parser.add_argument('--drop_dir', type=str, help='Directory root where all run data will be dumped')
     parser.add_argument('--dump_checkpoints', action=argparse.BooleanOptionalAction, default=True, help='Whether to dump model checkpoints during training')
