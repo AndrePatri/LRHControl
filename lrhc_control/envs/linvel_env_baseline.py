@@ -23,7 +23,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             override_agent_refs: bool = False,
             timeout_ms: int = 60000):
         
-        action_repeat = 1 # frame skipping (different agent action every action_repeat
+        action_repeat = 3 # frame skipping (different agent action every action_repeat
         # env substeps)
 
         self._single_task_ref_per_episode=True # if True, the task ref is constant over the episode (ie
@@ -108,7 +108,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                             fill_value=0.0) 
         self._task_err_weights[0, 0] = 1.0
         self._task_err_weights[0, 1] = 1.0
-        self._task_err_weights[0, 2] = 0.1
+        self._task_err_weights[0, 2] = 1e-6
         self._task_err_weights[0, 3] = 1e-6
         self._task_err_weights[0, 4] = 1e-6
         self._task_err_weights[0, 5] = 1e-6
@@ -148,7 +148,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._twist_ref_ub = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.8)
         # lin vel
-        self.max_ref=0.8
+        self.max_ref=1.0
         self._twist_ref_lb[0, 0] = -self.max_ref
         self._twist_ref_lb[0, 1] = -self.max_ref
         self._twist_ref_lb[0, 2] = 0.0
@@ -193,7 +193,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     srew_drescaling=True,
                     srew_tsrescaling=False,
                     use_act_mem_bf=self._add_prev_actions_stats_to_obs,
-                    act_membf_size=10)
+                    act_membf_size=30)
 
         # action regularization
         self._actions_diff_rew_offset = 0.0
@@ -238,8 +238,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._obs_threshold_lb = -1e3 # used for clipping observations
         self._obs_threshold_ub = 1e3
 
-        v_cmd_max = self.max_ref
-        omega_cmd_max = self.max_ref
+        v_cmd_max = 2*self.max_ref
+        omega_cmd_max = 2*self.max_ref
         self._actions_lb[:, 0:3] = -v_cmd_max 
         self._actions_ub[:, 0:3] = v_cmd_max  
         self._actions_lb[:, 3:6] = -omega_cmd_max # twist cmds
@@ -426,7 +426,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
     
     def _task_perc_err_wms(self, task_ref, task_meas):
         ref_norm = task_ref.norm(dim=1,keepdim=True)
-        epsi=1.0
+        epsi=1e-3
         self._task_err_scaling[:, :] = ref_norm+epsi
         task_perc_err=self._task_err_wms(task_ref=task_ref, task_meas=task_meas, scaling=self._task_err_scaling)
         perc_err_thresh=2.0 # no more than perc_err_thresh*100 % error on each dim
