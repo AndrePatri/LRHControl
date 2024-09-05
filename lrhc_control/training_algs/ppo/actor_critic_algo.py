@@ -257,7 +257,8 @@ class ActorCriticAlgoBase():
         self._improve_policy()
         self._policy_update_t = time.perf_counter()
 
-        self._post_step()
+        with torch.no_grad():
+            self._post_step()
 
         return True
 

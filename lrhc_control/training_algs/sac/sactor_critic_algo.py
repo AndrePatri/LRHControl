@@ -94,7 +94,8 @@ class SActorCriticAlgoBase():
 
         self._policy_update_t = time.perf_counter()
 
-        self._post_step()
+        with torch.no_grad():
+            self._post_step()
 
         return True
 
@@ -859,23 +860,28 @@ class SActorCriticAlgoBase():
         self._obs = torch.full(size=(self._replay_buffer_size_vec, self._num_envs, self._obs_dim),
                         fill_value=torch.nan,
                         dtype=self._dtype,
-                        device=self._torch_device) 
+                        device=self._torch_device,
+                        requires_grad=False) 
         self._actions = torch.full(size=(self._replay_buffer_size_vec, self._num_envs, self._actions_dim),
                         fill_value=torch.nan,
                         dtype=self._dtype,
-                        device=self._torch_device)
+                        device=self._torch_device,
+                        requires_grad=False)
         self._rewards = torch.full(size=(self._replay_buffer_size_vec, self._num_envs, 1),
                         fill_value=torch.nan,
                         dtype=self._dtype,
-                        device=self._torch_device)
+                        device=self._torch_device,
+                        requires_grad=False)
         self._next_obs = torch.full(size=(self._replay_buffer_size_vec, self._num_envs, self._obs_dim),
                         fill_value=torch.nan,
                         dtype=self._dtype,
-                        device=self._torch_device) 
+                        device=self._torch_device,
+                        requires_grad=False) 
         self._next_terminal = torch.full(size=(self._replay_buffer_size_vec, self._num_envs, 1),
                         fill_value=False,
                         dtype=self._dtype,
-                        device=self._torch_device)
+                        device=self._torch_device,
+                        requires_grad=False)
 
     def _add_experience(self, 
             obs: torch.Tensor, actions: torch.Tensor, rewards: torch.Tensor, 
