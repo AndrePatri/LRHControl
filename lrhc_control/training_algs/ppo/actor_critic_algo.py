@@ -448,7 +448,7 @@ class ActorCriticAlgoBase():
         torch.backends.cudnn.deterministic = self._torch_deterministic
         # torch.use_deterministic_algorithms(mode=True) # will throw excep. when trying to use non-det. algos
         import numpy as np
-        np.random.seed(0)
+        np.random.seed(self._seed)
 
     def drop_dir(self):
         return self._drop_dir
