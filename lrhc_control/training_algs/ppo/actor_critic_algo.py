@@ -442,10 +442,13 @@ class ActorCriticAlgoBase():
         self._switch_training_mode(False)
 
     def _set_all_deterministic(self):
-
+        import random
+        random.seed(self._seed)
         random.seed(self._seed) # python seed
         torch.manual_seed(self._seed)
         torch.backends.cudnn.deterministic = self._torch_deterministic
+        # torch.backends.cudnn.benchmark = not self._torch_deterministic
+        torch.use_deterministic_algorithms(True)
         # torch.use_deterministic_algorithms(mode=True) # will throw excep. when trying to use non-det. algos
         import numpy as np
         np.random.seed(self._seed)
