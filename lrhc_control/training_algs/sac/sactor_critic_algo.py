@@ -185,7 +185,7 @@ class SActorCriticAlgoBase():
                     is_eval=self._eval,
                     debug=self._debug,
                     layer_size_actor=layer_size_actor,
-                    layer_size_critic=layer_size_actor)
+                    layer_size_critic=layer_size_critic)
 
         # load model if necessary 
         if self._eval: # load pretrained model
