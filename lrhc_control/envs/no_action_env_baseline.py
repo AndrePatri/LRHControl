@@ -335,7 +335,7 @@ class NoActionEnvBaseline(LRhcTrainingEnvBase):
                                             gpu=self._use_gpu) 
         
         # agent sets contact flags
-        rhc_latest_contact_ref[:, :] = agent_action[:, 0:4] > self._gait_scheduler_walk.threshold() # keep contact if agent action > 0
+        rhc_latest_contact_ref[:, :] = agent_action[:, 0:4] > 0
 
         if self._use_gpu:
             self._rhc_refs.rob_refs.root_state.synch_mirror(from_gpu=self._use_gpu) # write from gpu to cpu mirror
