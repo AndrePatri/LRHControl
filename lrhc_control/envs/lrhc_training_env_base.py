@@ -180,7 +180,6 @@ class LRhcTrainingEnvBase():
         self.close()
 
     def _get_this_file_path(self):
-
         return self._this_path
     
     def episode_timeout_bounds(self):
@@ -193,8 +192,14 @@ class LRhcTrainingEnvBase():
         return self._action_repeat
     
     def get_file_paths(self):
-        empty_list = []
-        return empty_list
+        from lrhc_control.utils.sys_utils import PathsGetter
+        path_getter = PathsGetter()
+        base_paths = []
+        base_paths.append(self._get_this_file_path())
+        base_paths.append(path_getter.REMOTENVPATH)
+        for script_path in path_getter.SCRIPTSPATHS:
+            base_paths.append(script_path)
+        return base_paths
 
     def get_aux_dir(self):
         empty_list = []

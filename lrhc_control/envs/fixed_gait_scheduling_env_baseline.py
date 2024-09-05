@@ -304,14 +304,8 @@ class FixedGaitSchedEnvBaseline(LRhcTrainingEnvBase):
 
         
     def get_file_paths(self):
-
-        paths = []
-        path_getter = PathsGetter()
-        paths.append(self._this_child_path)
-        paths.append(super()._get_this_file_path())
-        paths.append(path_getter.SIMENVPATH)
-        for script_path in path_getter.SCRIPTSPATHS:
-            paths.append(script_path)
+        paths=super().get_file_paths()
+        paths.append(self._this_child_path)        
         return paths
 
     def get_aux_dir(self):
