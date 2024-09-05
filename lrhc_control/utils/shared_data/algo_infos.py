@@ -55,7 +55,8 @@ class DynamicRLAlgorithmNames:
                 "time_for_exp_collection",
                 "policy_update_fps",
                 "time_for_pol_updates",
-                "is_done"
+                "is_done",
+                "n_played_episodes"
                 ]
         self.idx_dict = dict.fromkeys(self._keys, None)
 

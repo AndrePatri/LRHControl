@@ -590,7 +590,8 @@ class ActorCriticAlgoBase():
                     self._rollout_dt[self._log_it_counter].item(),
                     self._policy_update_fps[self._log_it_counter].item(),
                     self._policy_update_dt[self._log_it_counter].item(),
-                    is_done
+                    is_done,
+                    self._n_of_played_episodes[self._log_it_counter].item()
                     ]
                 self._shared_algo_data.write(dyn_info_name=info_names,
                                         val=info_data)
