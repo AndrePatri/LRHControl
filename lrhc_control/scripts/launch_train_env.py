@@ -26,7 +26,7 @@ if __name__ == "__main__":
     # Parse command line arguments for CPU affinity
     parser = argparse.ArgumentParser(description="Set CPU affinity for the script.")
     parser.add_argument('--cores', nargs='+', type=int, help='List of CPU cores to set affinity to')
-    parser.add_argument('--run_name', type=str, help='Name of training run', default="LRHCTraining")
+    parser.add_argument('--run_name', type=str, default=None,help='Name of training run', default="LRHCTraining")
     parser.add_argument('--ns', type=str, help='Namespace to be used for shared memory')
     parser.add_argument('--drop_dir', type=str, help='Directory root where all run data will be dumped')
     parser.add_argument('--dump_checkpoints', action=argparse.BooleanOptionalAction, default=True, help='Whether to dump model checkpoints during training')
@@ -132,7 +132,8 @@ if __name__ == "__main__":
     custom_args.update(args_dict)
     custom_args.update(sim_data)
 
-    algo.setup(run_name=args.run_name, 
+    run_name=env_classname if args.run_name is None else args.run_name
+    algo.setup(run_name=run_name, 
         ns=args.ns,
         verbose=True,
         drop_dir_name=args.drop_dir,
