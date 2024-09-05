@@ -115,11 +115,7 @@ class ActorCriticAlgoBase():
         data_names["action_names"]=self._env.action_names()
         data_names["sub_reward_names"]=self._env.sub_rew_names()
 
-        # create dump directory + copy important files for debug
-        self._init_drop_dir(drop_dir_name)
-
         self._hyperparameters["unique_run_id"]=self._unique_id
-        self._hyperparameters["drop_dir"]=self._drop_dir
         self._hyperparameters.update(custom_args)
         self._hyperparameters.update(data_names)
         
@@ -168,10 +164,29 @@ class ActorCriticAlgoBase():
                     run_name=self._run_name)
                 
             self._load_model(self._model_path)
-            
+        
+        # create dump directory + copy important files for debug
+        self._init_drop_dir(drop_dir_name)
+        self._hyperparameters["drop_dir"]=self._drop_dir
+
         # seeding + deterministic behavior for reproducibility
         self._set_all_deterministic()
         torch.autograd.set_detect_anomaly(self._anomaly_detect)
+
+        if not self._eval:
+            self._optimizer = optim.Adam(self._agent.parameters(), 
+                                    lr=self._base_lr_actor, 
+                                    eps=1e-5 # small constant added to the optimization
+                                    )
+            # self._optimizer = optim.Adam([
+            #     {'params': self._agent.actor_mean.parameters(), 'lr': self._base_lr_actor},
+            #     {'params': self._agent.critic.parameters(), 'lr': self._base_lr_critic}, ],
+            #     lr=self._base_lr_actor, # default to actor lr (e.g. lfor ogstd parameter)
+            #     eps=1e-5 # small constant added to the optimization
+            #     )
+            self._init_buffers() # only needed if training
+        
+        # self._env.reset()
 
         if (self._debug):
             if self._remote_db:
@@ -197,22 +212,7 @@ class ActorCriticAlgoBase():
                 wandb.watch(self._agent, log="all")
                 # wandb.watch(self._agent.actor_mean, log="all")
                 # wandb.watch(self.actor_logstd, log="all")
-
-        if not self._eval:
-            self._optimizer = optim.Adam(self._agent.parameters(), 
-                                    lr=self._base_lr_actor, 
-                                    eps=1e-5 # small constant added to the optimization
-                                    )
-            # self._optimizer = optim.Adam([
-            #     {'params': self._agent.actor_mean.parameters(), 'lr': self._base_lr_actor},
-            #     {'params': self._agent.critic.parameters(), 'lr': self._base_lr_critic}, ],
-            #     lr=self._base_lr_actor, # default to actor lr (e.g. lfor ogstd parameter)
-            #     eps=1e-5 # small constant added to the optimization
-            #     )
-            self._init_buffers() # only needed if training
-        
-        # self._env.reset()
-
+                
         self._setup_done = True
 
         self._is_done = False

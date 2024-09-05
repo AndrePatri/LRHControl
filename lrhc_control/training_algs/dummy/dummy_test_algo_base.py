@@ -126,12 +126,8 @@ class DummyTestAlgoBase():
         data_names["obs_names"]=self._env.obs_names()
         data_names["action_names"]=self._env.action_names()
         data_names["sub_reward_names"]=self._env.sub_rew_names()
-
-        # create dump directory + copy important files for debug
-        self._init_drop_dir(drop_dir_name)
         
         self._hyperparameters["unique_run_id"]=self._unique_id
-        self._hyperparameters["drop_dir"]=self._drop_dir
         self._hyperparameters.update(custom_args)
         self._hyperparameters.update(data_names)
 
@@ -144,7 +140,11 @@ class DummyTestAlgoBase():
                     device=self._torch_device,
                     dtype=self._dtype,
                     debug=self._debug)
-            
+        
+        # create dump directory + copy important files for debug
+        self._init_drop_dir(drop_dir_name)
+        self._hyperparameters["drop_dir"]=self._drop_dir
+
         # seeding + deterministic behavior for reproducibility
         self._set_all_deterministic()
         torch.autograd.set_detect_anomaly(self._anomaly_detect)
