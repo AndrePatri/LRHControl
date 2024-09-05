@@ -86,10 +86,17 @@ class HybridQuadRhc(RHController):
                         debug=debug,
                         timeout_ms=timeout_ms)
 
+        self._rhc_fpaths.append(self.config_path)
+
         self.rhc_costs={}
         self.rhc_constr={}
 
         self._fail_idx_scale=1e-2
+    
+    def get_file_paths(self):
+        # can be overriden by child
+        paths = super().get_file_paths()
+        return paths
     
     def _get_quat_remap(self):
         # overrides parent

@@ -199,6 +199,26 @@ class LRhcTrainingEnvBase():
         base_paths.append(path_getter.REMOTENVPATH)
         for script_path in path_getter.SCRIPTSPATHS:
             base_paths.append(script_path)
+
+        from SharsorIPCpp.PySharsorIPC import StringTensorClient
+        from perf_sleep.pyperfsleep import PerfSleep
+        shared_rhc_sahred_files = StringTensorClient(
+            basename="SharedRhcFilesDropDir", 
+            name_space=self._namespace,
+            verbose=self._verbose, 
+            vlevel=VLevel.V2)
+        shared_rhc_sahred_files.run()
+        shared_rhc_files_vals=[""]*shared_rhc_sahred_files.length()
+        while not shared_rhc_sahred_files.read_vec(shared_rhc_files_vals, 0):
+            nsecs =  1000000000 # 1 sec
+            PerfSleep.thread_sleep(nsecs) # we just keep it alive
+        rhc_list=[]
+        for rhc_files in shared_rhc_files_vals:
+            file_list = rhc_files.split(", ")
+            rhc_list.extend(file_list)
+        rhc_list = list(set(rhc_list)) # removing duplicates
+        base_paths.extend(rhc_list)
+        
         return base_paths
 
     def get_aux_dir(self):
