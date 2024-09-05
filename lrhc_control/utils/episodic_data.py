@@ -137,7 +137,6 @@ class MemBuffer():
         self._mem_buff[:,:,self._membf_pos]=new_data
         self._running_mean[:, :]=torch.mean(self._mem_buff,dim=2)
         self._running_std[:, :]=torch.std(self._mem_buff,dim=2)
-
         self._membf_pos+=1
         if self._membf_pos==self.horizon():
             self._membf_pos=0         
