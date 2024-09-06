@@ -240,9 +240,6 @@ class FixedGaitSchedEnvBaseline(LRhcTrainingEnvBase):
         self._obs_threshold_lb = -1e3 # used for clipping observations
         self._obs_threshold_ub = 1e3
 
-        v_cmd_max = self.max_ref_lin
-        omega_cmd_max = self.max_ref_omega
-
         self._actions_lb[:, 0:4] = -1.0 # contact flags
         self._actions_ub[:, 0:4] = 1.0 
 
