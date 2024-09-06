@@ -57,7 +57,7 @@ class SActorCriticAlgoBase():
         
         self._episodic_reward_metrics = self._env.ep_rewards_metrics()
         
-        tot_tsteps=50e6
+        tot_tsteps=100e6
         self._init_params(tot_tsteps=tot_tsteps)
         
         self._init_dbdata()

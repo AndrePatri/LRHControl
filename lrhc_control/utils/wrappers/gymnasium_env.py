@@ -17,6 +17,8 @@ import numpy  as np
 import gymnasium as gym
 from lrhc_control.utils.wrappers.env_transform_utils import DtypeObservation
 
+import os
+
 class Gymnasium2LRHCEnv():
 
     def __init__(self,
@@ -31,6 +33,8 @@ class Gymnasium2LRHCEnv():
             gym_env_dtype: str = np.float32,
             handle_final_obs: bool = True):
         
+        self._this_path = os.path.abspath(__file__)
+
         # dtype mapping dictionary
         self._dtype_mapping = {
             'float32': torch.float32,
@@ -318,8 +322,9 @@ class Gymnasium2LRHCEnv():
         return self._use_gpu
     
     def get_file_paths(self):
-        empty_list = []
-        return empty_list
+        paths = []
+        paths.append(self._this_path)
+        return paths
     
     def get_aux_dir(self):
         empty_list = []
