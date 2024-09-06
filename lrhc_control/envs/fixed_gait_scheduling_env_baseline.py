@@ -152,13 +152,12 @@ class FixedGaitSchedEnvBaseline(LRhcTrainingEnvBase):
         self._twist_ref_ub = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.8)
         # lin vel
-        self.max_ref_lin=0.8
-        self.max_ref_omega=0.8
-        self._twist_ref_lb[0, 0] = -self.max_ref_lin
-        self._twist_ref_lb[0, 1] = -self.max_ref_lin
+        self.max_ref=1.0
+        self._twist_ref_lb[0, 0] = -self.max_ref
+        self._twist_ref_lb[0, 1] = -self.max_ref
         self._twist_ref_lb[0, 2] = 0.0
-        self._twist_ref_ub[0, 0] = self.max_ref_lin
-        self._twist_ref_ub[0, 1] = self.max_ref_lin
+        self._twist_ref_ub[0, 0] = self.max_ref
+        self._twist_ref_ub[0, 1] = self.max_ref
         self._twist_ref_ub[0, 2] = 0.0
         # angular vel
         self._twist_ref_lb[0, 3] = 0.0
@@ -472,7 +471,7 @@ class FixedGaitSchedEnvBaseline(LRhcTrainingEnvBase):
     
     def _task_perc_err_wms(self, task_ref, task_meas):
         ref_norm = task_ref.norm(dim=1,keepdim=True)
-        epsi=1.0
+        epsi=1e-3
         self._task_err_scaling[:, :] = ref_norm+epsi
         task_perc_err=self._task_err_wms(task_ref=task_ref, task_meas=task_meas, scaling=self._task_err_scaling)
         perc_err_thresh=2.0 # no more than perc_err_thresh*100 % error on each dim

@@ -23,7 +23,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             override_agent_refs: bool = False,
             timeout_ms: int = 60000):
         
-        action_repeat = 3 # frame skipping (different agent action every action_repeat
+        action_repeat = 1 # frame skipping (different agent action every action_repeat
         # env substeps)
 
         self._single_task_ref_per_episode=True # if True, the task ref is constant over the episode (ie
