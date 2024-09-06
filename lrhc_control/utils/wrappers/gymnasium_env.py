@@ -43,21 +43,35 @@ class Gymnasium2LRHCEnv():
         }
 
         self._render = render
-        self._render_mode = "human" if self._render else None
+        self._render_mode = "rgb_array" if self._render else None
+
+        import os 
+        if self._render:
+            os.environ["MUJOCO_GL"]="egl"
 
         self._handle_final_obs = handle_final_obs
 
         self._env_type = env_type
-        self._env = gym.vector.make(env_type, 
-                    num_envs=args.num_envs,
-                    asynchronous=True,
-                    render_mode=self._render_mode)
-                    # shared_memory=True,
-                    # context="fork",
-                    # daemon=True) # gym.make_vec is broken (pipes issue)
+        if self._render: # can only use 1 env when rendering
+            self._env = gym.make(env_type, 
+                        render_mode=self._render_mode)
+                        # shared_memory=True,
+                        # context="fork",
+                        # daemon=True) # gym.make_vec is broken (pipes issue)
+        else:
+            self._env = gym.vector.make(env_type, 
+                        num_envs=args.num_envs,
+                        asynchronous=True,
+                        render_mode=self._render_mode)
+                        # shared_memory=True,
+                        # context="fork",
+                        # daemon=True) # gym.make_vec is broken (pipes issue)
         # self._env = DtypeObservation(self._env, dtype=gym_env_dtype) # converting to dtype
 
-        self._action_repeat = self._env.get_attr(name="frame_skip")[0]
+        try:
+            self._action_repeat = self._env.get_attr(name="frame_skip")[0]
+        except:
+            self._action_repeat = 1
 
         self._seed = seed
 
@@ -68,19 +82,26 @@ class Gymnasium2LRHCEnv():
         
         self._closed = False
 
-        self._obs_dim = torch.tensor(self._env.single_observation_space.shape).prod().item()
-        self._actions_dim = torch.tensor(self._env.single_action_space.shape).prod().item()
+        if self._render:
+            self._obs_dim = torch.tensor(self._env.observation_space.shape).prod().item()
+            self._actions_dim = torch.tensor(self._env.action_space.shape).prod().item()
+            self._torch_dtype = self._dtype_mapping[str(self._env.observation_space.dtype)]
+        else:
+            self._obs_dim = torch.tensor(self._env.single_observation_space.shape).prod().item()
+            self._actions_dim = torch.tensor(self._env.single_action_space.shape).prod().item()
+            self._torch_dtype = self._dtype_mapping[str(self._env.single_observation_space.dtype)]
+            
         self._env_dt = 0.0
         self._use_gpu = use_gpu
         self._torch_device = "cuda" if self._use_gpu else "cpu"
 
-        self._torch_dtype = self._dtype_mapping[str(self._env.single_observation_space.dtype)]
+       
         
         self._verbose = verbose
         self._vlevel = vlevel
         self._is_debug = debug
         
-        self._n_envs = self._env.num_envs
+        self._n_envs = self._env.num_envs if not self._render else 1
 
         # action scalings to be applied to agent's output
         self._actions_ub = torch.full((1, self._actions_dim), dtype=self._torch_dtype, device=self._torch_device,
@@ -88,8 +109,12 @@ class Gymnasium2LRHCEnv():
         self._actions_lb = torch.full((1, self._actions_dim), dtype=self._torch_dtype, device=self._torch_device,
                                         fill_value=-1.0)
         # read bounds from actions space
-        self._actions_ub[:, :] = torch.from_numpy(self._env.single_action_space.high)
-        self._actions_lb[:, :] = torch.from_numpy(self._env.single_action_space.low)
+        if self._render:
+            self._actions_ub[:, :] = torch.from_numpy(self._env.action_space.high)
+            self._actions_lb[:, :] = torch.from_numpy(self._env.action_space.low)
+        else:
+            self._actions_ub[:, :] = torch.from_numpy(self._env.single_action_space.high)
+            self._actions_lb[:, :] = torch.from_numpy(self._env.single_action_space.low)
 
         reward_thresh_default = 1.0
         self._reward_thresh_lb = torch.full((1, 1), dtype=self._torch_dtype, fill_value=-reward_thresh_default, device=self._torch_device) # used for clipping rewards
@@ -351,7 +376,14 @@ class Gymnasium2LRHCEnv():
 
         # step gymnasium env using the given action
         gym_env_action = actions.cpu().numpy()
-        observations, rewards, terminations, truncations, infos = self._env.step(gym_env_action)
+        if self._render:
+            observations, rewards, terminations, truncations, infos = self._env.step(gym_env_action.flatten())
+            terminations=np.array([terminations], dtype=bool).reshape(-1, 1)
+            truncations=np.array([truncations], dtype=bool).reshape(-1, 1)
+            observations=observations.reshape(1,-1)
+            rewards=np.array([rewards], dtype=np.float32).reshape(-1, 1)
+        else:
+            observations, rewards, terminations, truncations, infos = self._env.step(gym_env_action)
 
         if self._render:
             self._env.render()
@@ -459,7 +491,6 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     args_dict = vars(args)
-    render_mode = "human" if args.render else None
     env_type = args.env_type
 
     if (not args.mpath is None) and (not args.mname is None):
