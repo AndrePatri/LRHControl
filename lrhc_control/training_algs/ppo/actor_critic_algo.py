@@ -257,7 +257,8 @@ class ActorCriticAlgoBase():
         self._improve_policy()
         self._policy_update_t = time.perf_counter()
 
-        self._post_step()
+        with torch.no_grad():
+            self._post_step()
 
         return True
 
@@ -442,13 +443,16 @@ class ActorCriticAlgoBase():
         self._switch_training_mode(False)
 
     def _set_all_deterministic(self):
-
+        import random
+        random.seed(self._seed)
         random.seed(self._seed) # python seed
         torch.manual_seed(self._seed)
         torch.backends.cudnn.deterministic = self._torch_deterministic
+        # torch.backends.cudnn.benchmark = not self._torch_deterministic
+        # torch.use_deterministic_algorithms(True)
         # torch.use_deterministic_algorithms(mode=True) # will throw excep. when trying to use non-det. algos
         import numpy as np
-        np.random.seed(0)
+        np.random.seed(self._seed)
 
     def drop_dir(self):
         return self._drop_dir
@@ -620,7 +624,7 @@ class ActorCriticAlgoBase():
                 f"Elapsed time: {elapsed_h} h\n" + \
                 f"Estimated remaining training time: " + \
                 f"{est_remaining_time} h\n" + \
-                f"N. of episodes played since last debug: {self._n_of_played_episodes[self._log_it_counter].item()}\n" + \
+                f"N. of episodes on which rew stats were computed: {self._n_of_played_episodes[self._log_it_counter].item()}\n" + \
                 f"Average episodic return across all environments: {self._episodic_rewards_env_avrg[self._log_it_counter, :, :].item()}\n" + \
                 f"Average episodic returns across all environments {self._reward_names_str}: {self._episodic_sub_rewards_env_avrg[self._log_it_counter, :]}\n" + \
                 f"Current rollout sps: {self._env_step_fps[self._log_it_counter].item()}, time for rollout {self._rollout_dt[self._log_it_counter].item()} s\n" + \

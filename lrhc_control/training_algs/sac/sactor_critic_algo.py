@@ -57,7 +57,7 @@ class SActorCriticAlgoBase():
         
         self._episodic_reward_metrics = self._env.ep_rewards_metrics()
         
-        tot_tsteps=50e6
+        tot_tsteps=200e6
         self._init_params(tot_tsteps=tot_tsteps)
         
         self._init_dbdata()
@@ -94,7 +94,8 @@ class SActorCriticAlgoBase():
 
         self._policy_update_t = time.perf_counter()
 
-        self._post_step()
+        with torch.no_grad():
+            self._post_step()
 
         return True
 
@@ -185,7 +186,7 @@ class SActorCriticAlgoBase():
                     is_eval=self._eval,
                     debug=self._debug,
                     layer_size_actor=layer_size_actor,
-                    layer_size_critic=layer_size_actor)
+                    layer_size_critic=layer_size_critic)
 
         # load model if necessary 
         if self._eval: # load pretrained model
@@ -400,13 +401,16 @@ class SActorCriticAlgoBase():
         self._switch_training_mode(False)
 
     def _set_all_deterministic(self):
-
+        import random
+        random.seed(self._seed)
         random.seed(self._seed) # python seed
         torch.manual_seed(self._seed)
         torch.backends.cudnn.deterministic = self._torch_deterministic
+        # torch.backends.cudnn.benchmark = not self._torch_deterministic
+        # torch.use_deterministic_algorithms(True)
         # torch.use_deterministic_algorithms(mode=True) # will throw excep. when trying to use non-det. algos
         import numpy as np
-        np.random.seed(0)
+        np.random.seed(self._seed)
 
     def drop_dir(self):
         return self._drop_dir
@@ -507,9 +511,10 @@ class SActorCriticAlgoBase():
             (self._vec_transition_counter % self._m_checkpoint_freq == 0):
             self._save_model(is_checkpoint=True)
 
-        self._vec_transition_counter+=1
         if self._vec_transition_counter == self._total_timesteps_vec:
-            self.done()            
+            self.done()           
+
+        self._vec_transition_counter+=1
             
     def _should_have_called_setup(self):
 
@@ -603,7 +608,7 @@ class SActorCriticAlgoBase():
                 f"Elapsed time: {self._elapsed_min[self._log_it_counter].item()/60.0} h\n" + \
                 f"Estimated remaining training time: " + \
                 f"{est_remaining_time_h} h\n" + \
-                f"N. of episodes played since last debug: {self._n_of_played_episodes[self._log_it_counter].item()}\n" + \
+                f"N. of episodes on which rew stats were computed: {self._n_of_played_episodes[self._log_it_counter].item()}\n" + \
                 f"Average episodic return across all environments: {self._episodic_rewards_env_avrg[self._log_it_counter, :, :].item()}\n" + \
                 f"Average episodic returns across all environments {self._reward_names_str}: {self._episodic_sub_rewards_env_avrg[self._log_it_counter, :]}\n" + \
                 f"Current env. step sps: {self._env_step_fps[self._log_it_counter].item()}, time for experience collection {self._collection_dt[self._log_it_counter].item()} s\n" + \
@@ -740,7 +745,7 @@ class SActorCriticAlgoBase():
         self._warmstart_vectimesteps = self._warmstart_timesteps//self._num_envs
         self._warmstart_timesteps = self._num_envs*self._warmstart_vectimesteps # actual
 
-        self._replay_buffer_size_nominal = int(10e6) # 32768
+        self._replay_buffer_size_nominal = int(1e6) # 32768
         self._replay_buffer_size_vec = self._replay_buffer_size_nominal//self._num_envs # 32768
         self._replay_buffer_size = self._replay_buffer_size_vec*self._num_envs
         self._batch_size = 16384
@@ -748,7 +753,7 @@ class SActorCriticAlgoBase():
         self._total_timesteps = self._total_timesteps//self._env_n_action_reps # correct with n of action reps
         self._total_timesteps_vec = self._total_timesteps // self._num_envs
         self._total_timesteps = self._total_timesteps_vec*self._num_envs # actual n transitions
-
+  
         self._lr_policy = 5e-4
         self._lr_q = 1e-3
 
@@ -856,23 +861,28 @@ class SActorCriticAlgoBase():
         self._obs = torch.full(size=(self._replay_buffer_size_vec, self._num_envs, self._obs_dim),
                         fill_value=torch.nan,
                         dtype=self._dtype,
-                        device=self._torch_device) 
+                        device=self._torch_device,
+                        requires_grad=False) 
         self._actions = torch.full(size=(self._replay_buffer_size_vec, self._num_envs, self._actions_dim),
                         fill_value=torch.nan,
                         dtype=self._dtype,
-                        device=self._torch_device)
+                        device=self._torch_device,
+                        requires_grad=False)
         self._rewards = torch.full(size=(self._replay_buffer_size_vec, self._num_envs, 1),
                         fill_value=torch.nan,
                         dtype=self._dtype,
-                        device=self._torch_device)
+                        device=self._torch_device,
+                        requires_grad=False)
         self._next_obs = torch.full(size=(self._replay_buffer_size_vec, self._num_envs, self._obs_dim),
                         fill_value=torch.nan,
                         dtype=self._dtype,
-                        device=self._torch_device) 
+                        device=self._torch_device,
+                        requires_grad=False) 
         self._next_terminal = torch.full(size=(self._replay_buffer_size_vec, self._num_envs, 1),
                         fill_value=False,
                         dtype=self._dtype,
-                        device=self._torch_device)
+                        device=self._torch_device,
+                        requires_grad=False)
 
     def _add_experience(self, 
             obs: torch.Tensor, actions: torch.Tensor, rewards: torch.Tensor, 
