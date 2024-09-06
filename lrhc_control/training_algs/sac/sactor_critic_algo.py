@@ -57,7 +57,7 @@ class SActorCriticAlgoBase():
         
         self._episodic_reward_metrics = self._env.ep_rewards_metrics()
         
-        tot_tsteps=100e6
+        tot_tsteps=200e6
         self._init_params(tot_tsteps=tot_tsteps)
         
         self._init_dbdata()
@@ -511,9 +511,10 @@ class SActorCriticAlgoBase():
             (self._vec_transition_counter % self._m_checkpoint_freq == 0):
             self._save_model(is_checkpoint=True)
 
-        self._vec_transition_counter+=1
         if self._vec_transition_counter == self._total_timesteps_vec:
-            self.done()            
+            self.done()           
+
+        self._vec_transition_counter+=1
             
     def _should_have_called_setup(self):
 
@@ -752,7 +753,7 @@ class SActorCriticAlgoBase():
         self._total_timesteps = self._total_timesteps//self._env_n_action_reps # correct with n of action reps
         self._total_timesteps_vec = self._total_timesteps // self._num_envs
         self._total_timesteps = self._total_timesteps_vec*self._num_envs # actual n transitions
-
+  
         self._lr_policy = 5e-4
         self._lr_q = 1e-3
 
