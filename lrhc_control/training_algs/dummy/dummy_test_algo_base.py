@@ -420,7 +420,7 @@ class DummyTestAlgoBase():
                 f"Elapsed time: {self._elapsed_min[self._log_it_counter].item()/60.0} h\n" + \
                 f"Estimated remaining time: " + \
                 f"{est_remaining_time_h} h\n" + \
-                f"N. of episodes played since last debug: {self._n_of_played_episodes[self._log_it_counter].item()}\n" + \
+                f"N. of episodes on which rew stats were computed: {self._n_of_played_episodes[self._log_it_counter].item()}\n" + \
                 f"Average episodic return across all environments: {self._episodic_rewards_env_avrg[self._log_it_counter, :, :].item()}\n" + \
                 f"Average episodic returns across all environments {self._reward_names_str}: {self._episodic_sub_rewards_env_avrg[self._log_it_counter, :]}\n" + \
                 f"Current env. step sps: {self._env_step_fps[self._log_it_counter].item()}, time for experience collection {self._collection_dt[self._log_it_counter].item()} s\n" + \
