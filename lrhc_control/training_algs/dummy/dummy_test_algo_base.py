@@ -270,7 +270,7 @@ class DummyTestAlgoBase():
         torch.manual_seed(self._seed)
         torch.backends.cudnn.deterministic = self._torch_deterministic
         # torch.backends.cudnn.benchmark = not self._torch_deterministic
-        torch.use_deterministic_algorithms(True)
+        # torch.use_deterministic_algorithms(True)
         # torch.use_deterministic_algorithms(mode=True) # will throw excep. when trying to use non-det. algos
         import numpy as np
         np.random.seed(self._seed)

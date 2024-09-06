@@ -407,7 +407,7 @@ class SActorCriticAlgoBase():
         torch.manual_seed(self._seed)
         torch.backends.cudnn.deterministic = self._torch_deterministic
         # torch.backends.cudnn.benchmark = not self._torch_deterministic
-        torch.use_deterministic_algorithms(True)
+        # torch.use_deterministic_algorithms(True)
         # torch.use_deterministic_algorithms(mode=True) # will throw excep. when trying to use non-det. algos
         import numpy as np
         np.random.seed(self._seed)
@@ -744,7 +744,7 @@ class SActorCriticAlgoBase():
         self._warmstart_vectimesteps = self._warmstart_timesteps//self._num_envs
         self._warmstart_timesteps = self._num_envs*self._warmstart_vectimesteps # actual
 
-        self._replay_buffer_size_nominal = int(10e6) # 32768
+        self._replay_buffer_size_nominal = int(1e6) # 32768
         self._replay_buffer_size_vec = self._replay_buffer_size_nominal//self._num_envs # 32768
         self._replay_buffer_size = self._replay_buffer_size_vec*self._num_envs
         self._batch_size = 16384
