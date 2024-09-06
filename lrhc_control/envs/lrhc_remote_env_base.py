@@ -345,7 +345,7 @@ class LRhcEnvBase():
                             jnt_names=self._robot_jnt_names(robot_name=robot_name),
                             filter=True)
             robot_homing=torch.from_numpy(self._homers[robot_name].get_homing().reshape(1,-1))
-            if self._use_gpu:
+            if "cuda" in self._device:
                 robot_homing=robot_homing.cuda()
             self._homing=robot_homing.repeat(self._num_envs, 1)
 
