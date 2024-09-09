@@ -119,7 +119,7 @@ if __name__ == "__main__":
     cluster_info_keys = cluste_info_shared.param_keys
     cluster_info_data = cluste_info_shared.get().flatten()
     for i in range(len(cluster_info_keys)):
-        cluster_data[sim_info_keys[i]] = cluster_info_data[i]
+        cluster_data[cluster_info_keys[i]] = cluster_info_data[i]
 
     custom_args={}
     username = os.getlogin() # add machine info to db data
