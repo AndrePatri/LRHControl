@@ -20,6 +20,19 @@ def import_env_module(env_path):
     spec.loader.exec_module(env_module)
     return env_module
 
+def set_seed(args):
+        import random
+        random.seed(args.seed)
+        random.seed(args.seed) # python seed
+        import torch
+        torch.manual_seed(args.seed)
+        torch.backends.cudnn.deterministic = True
+        # torch.backends.cudnn.benchmark = not self._torch_deterministic
+        # torch.use_deterministic_algorithms(True)
+        # torch.use_deterministic_algorithms(mode=True) # will throw excep. when trying to use non-det. algos
+        import numpy as np
+        np.random.seed(args.seed)
+
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description="Sim. env launcher")
@@ -46,7 +59,8 @@ if __name__ == '__main__':
         help='Whether to obtain velocities by differentiation or not')
     parser.add_argument('--init_timesteps', type=int, help='initialization timesteps', 
             default=1000)
-    
+    parser.add_argument('--seed', type=int, help='seed', default=0)
+
     parser.add_argument('--custom_args_names', nargs='+', default=None,
                             help='list of custom arguments names  to cluster client')
     parser.add_argument('--custom_args_vals', nargs='+', default=None,
@@ -59,6 +73,8 @@ if __name__ == '__main__':
         help="env file import pattern (without extension)")
     
     args = parser.parse_args()
+    
+    set_seed(args=args) # deterministic run setting
 
     # Ensure custom_args_names, custom_args_vals, and custom_args_dtype have the same length
     custom_opt = generate_custom_arg_dict(args=args)
@@ -82,6 +98,7 @@ if __name__ == '__main__':
     remote_env_params["control_clust_dt"] = control_clust_dts
     remote_env_params["headless"] = headless
     remote_env_params["debug_enabled"] = args.enable_debug
+    remote_env_params["seed"] = args.seed
     remote_env_params.update(custom_opt)
     # sim info to be broadcasted on shared memory
     # adding some data to dict for debugging
