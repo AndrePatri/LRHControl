@@ -26,10 +26,8 @@ class LRhcClusterClient(ControlClusterClient):
             codegen_base_dirname: str = "CodeGen",
             base_dump_dir: str = "/tmp",
             codegen_override: str = None,
-            custom_opt: Dict = {}):
-
-        self._custom_opt = custom_opt
-        
+            custom_opts: Dict = {}):
+               
         self._base_dump_dir = base_dump_dir
     
         self._temp_path = base_dump_dir + "/" + f"{self.__class__.__name__}" + f"_{namespace}"
@@ -60,7 +58,8 @@ class LRhcClusterClient(ControlClusterClient):
                         use_mp_fork = use_mp_fork,
                         core_ids_override_list = core_ids_override_list,
                         verbose = verbose,
-                        debug = debug)
+                        debug = debug,
+                        custom_opts=custom_opts)
     
     def codegen_dir(self):
 

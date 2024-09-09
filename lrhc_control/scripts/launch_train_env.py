@@ -3,6 +3,7 @@ from lrhc_control.training_algs.sac.sac import SAC
 from lrhc_control.training_algs.dummy.dummy import Dummy
 
 from control_cluster_bridge.utilities.shared_data.sim_data import SharedEnvInfo
+from control_cluster_bridge.utilities.shared_data.cluster_data import SharedClusterInfo
 
 from SharsorIPCpp.PySharsorIPC import VLevel, Journal, LogType
 from SharsorIPCpp.PySharsorIPC import StringTensorServer
@@ -109,6 +110,17 @@ if __name__ == "__main__":
     for i in range(len(sim_info_keys)):
         sim_data[sim_info_keys[i]] = sim_info_data[i]
     
+    # getting come cluster info for debugging
+    cluster_data={}
+    cluste_info_shared = SharedClusterInfo(namespace=args.ns,
+                is_server=False,
+                safe=False)
+    cluste_info_shared.run()
+    cluster_info_keys = cluste_info_shared.param_keys
+    cluster_info_data = cluste_info_shared.get().flatten()
+    for i in range(len(cluster_info_keys)):
+        cluster_data[sim_info_keys[i]] = cluster_info_data[i]
+
     custom_args={}
     username = os.getlogin() # add machine info to db data
     hostname = os.uname().nodename
@@ -134,6 +146,7 @@ if __name__ == "__main__":
                 seed=args.seed)
 
     custom_args.update(args_dict)
+    custom_args.update(cluster_data)
     custom_args.update(sim_data)
 
     run_name=env_classname if args.run_name is None else args.run_name

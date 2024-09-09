@@ -1,5 +1,3 @@
-from lrhc_control.controllers.rhc.hybrid_quad_client import HybridQuadrupedClusterClient
-
 import os
 import argparse
 import multiprocessing as mp
@@ -46,7 +44,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     # Ensure custom_args_names and custom_args_vals have the same length
-    custom_opt={}
+    custom_opts={"cloop": args.cloop, 
+        "codegen_override_dir": args.codegen_override_dir}
     if args.custom_args_names and args.custom_args_vals:
         if len(args.custom_args_names) != len(args.custom_args_vals):
             Journal.log("launch_control_cluster.py",
@@ -56,7 +55,7 @@ if __name__ == "__main__":
                 throw_when_excep = False)
             exit()
         # Build custom_opt dictionary
-        custom_opt.update({name: val for name, val in zip(args.custom_args_names, args.custom_args_vals)})
+        custom_opts.update({name: val for name, val in zip(args.custom_args_names, args.custom_args_vals)})
         
     if args.mp_fork: # this needs to be in the main
         mp.set_start_method('forkserver')
@@ -81,7 +80,7 @@ if __name__ == "__main__":
             debug=args.enable_debug,
             base_dump_dir=args.dmpdir,
             timeout_ms=args.timeout_ms,
-            custom_opt=custom_opt,
+            custom_opts=custom_opts,
             codegen_override=args.codegen_override_dir)
         cluster_client.run()
         

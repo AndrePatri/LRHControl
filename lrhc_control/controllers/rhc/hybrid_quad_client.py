@@ -23,7 +23,7 @@ class HybridQuadrupedClusterClient(LRhcClusterClient):
             base_dump_dir: str = "/tmp",
             timeout_ms: int = 60000,
             codegen_override: str = None,
-            custom_opt: Dict = {}):
+            custom_opts: Dict = {}):
         
         self._open_loop = open_loop
 
@@ -45,7 +45,7 @@ class HybridQuadrupedClusterClient(LRhcClusterClient):
                         debug = debug,
                         base_dump_dir=base_dump_dir,
                         codegen_override=codegen_override,
-                        custom_opt=custom_opt)
+                        custom_opts=custom_opts)
     
     def _xrdf_cmds(self):
         parts = self._urdf_path.split('/')
