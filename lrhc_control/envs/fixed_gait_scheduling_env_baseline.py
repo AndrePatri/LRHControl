@@ -264,7 +264,7 @@ class FixedGaitSchedEnvBaseline(LRhcTrainingEnvBase):
         if self._add_prev_actions_stats_to_obs:
             self._defaut_bf_action[:, :] = (self._actions_ub+self._actions_lb)/2.0
 
-        phase_period=1.0
+        phase_period=2.0
         update_dt = 0.03
         self._pattern_gen = QuadrupedGaitPatternGenerator(phase_period=phase_period)
         gait_params_walk = self._pattern_gen.get_params("walk")
