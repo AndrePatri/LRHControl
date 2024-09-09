@@ -63,7 +63,7 @@ class HybridQuadRhcRefs(RhcRefs):
         self.base_lin_velxy = self.gait_manager.task_interface.getTask('base_lin_velxy')
         self.base_lin_velz = self.gait_manager.task_interface.getTask('base_lin_velz')
         self.base_omega = self.gait_manager.task_interface.getTask('base_omega')
-        # self.base_height = self.gait_manager.task_interface.getTask('base_height')
+        self.base_height = self.gait_manager.task_interface.getTask('base_height')
 
         self._f_reg_ref=[None]*len(self._timeline_names)
         self._n_forces_per_contact=[1]*len(self._timeline_names)
