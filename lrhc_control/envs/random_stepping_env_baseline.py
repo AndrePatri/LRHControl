@@ -475,9 +475,9 @@ class RandomSteppingEnvBaseline(LRhcTrainingEnvBase):
         task_error_fun = self._task_perc_err_lin
 
         task_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu) # high level agent refs (hybrid twist)
-   
-        base2world_frame(t_b=next_obs[:, 4:10],q_b=next_obs[:, 0:4],t_out=self._robot_twist_meas_w)
-        task_error_pseudolin = task_error_fun(task_meas=self._robot_twist_meas_w, 
+        step_avrg_root_twist_w=self._get_avrg_step_root_twist()
+        
+        task_error = task_error_fun(task_meas=step_avrg_root_twist_w, 
                                             task_ref=task_ref)
         
         # mech power
@@ -490,7 +490,7 @@ class RandomSteppingEnvBaseline(LRhcTrainingEnvBase):
         weighted_jnt_vel = self._jnt_vel_penalty(task_ref=task_ref,jnts_vel=jnts_vel)
 
         sub_rewards = self._sub_rewards.get_torch_mirror(gpu=self._use_gpu)
-        sub_rewards[:, 0:1] = self._task_offset-self._task_scale*task_error_pseudolin
+        sub_rewards[:, 0:1] = self._task_offset-self._task_scale*task_error
         sub_rewards[:, 1:2] = self._power_offset - self._power_scale * weighted_mech_power
         sub_rewards[:, 2:3] = self._jnt_vel_offset - self._jnt_vel_scale * weighted_jnt_vel
         sub_rewards[:, 3:4] = self._rhc_fail_idx_offset - self._rhc_fail_idx_rew_scale* self._rhc_fail_idx(gpu=self._use_gpu)

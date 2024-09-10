@@ -38,6 +38,7 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         self._add_rhc_fz_to_obs=True # add estimate vertical contact f to obs
         self._add_internal_rhc_q_to_obs=True # add base orientation internal to the rhc controller (useful when running controller
         # in open loop)
+        self._add_internal_rhc_root_v_to_obs=True
         self._add_fail_idx_to_obs=True # add a failure index which is directly correlated to env failure due to rhc controller explosion
 
         # temporarily creating robot state client to get some data
@@ -69,10 +70,12 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         actions_dim = 4  
 
         obs_dim=4 # base orientation quaternion 
-        obs_dim+=6 # meas twist
+        obs_dim+=3 # meas omega
         obs_dim+=2*n_jnts # joint pos + vel
         if self._add_internal_rhc_q_to_obs:
             obs_dim+=4 # internal rhc base orientation
+        if self._add_internal_rhc_root_v_to_obs:
+            obs_dim+=3 
         if self._add_contact_idx_to_obs:
             obs_dim+=n_contacts # contact index var
         if self._add_rhc_fz_to_obs:
@@ -344,39 +347,48 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
     def _fill_obs(self,
             obs: torch.Tensor):
 
+        # measured stuff
         robot_q_meas = self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
         robot_jnt_q_meas = self._robot_state.jnts_state.get(data_type="q",gpu=self._use_gpu)
         robot_twist_meas = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu)
         robot_jnt_v_meas = self._robot_state.jnts_state.get(data_type="v",gpu=self._use_gpu)
+
+        # from MPC
         rhc_q_internal =self._rhc_cmds.root_state.get(data_type="q",gpu=self._use_gpu)
+        rhc_root_v_internal =self._rhc_cmds.root_state.get(data_type="v",gpu=self._use_gpu)
+
+        # refs
         agent_twist_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu)
 
         next_idx=0
         obs[:, next_idx:(next_idx+4)] = robot_q_meas # [w, i, j, k] (IsaacSim convention)
         next_idx+=4
+        # measured angular velocity
         if not self._twist_meas_is_base_local: # measurement read on shared mem is in
             # world (simulator) world frame -> we want it base-local
             world2base_frame(t_w=robot_twist_meas,q_b=robot_q_meas,t_out=self._robot_twist_meas_b)
-            obs[:, next_idx:(next_idx+6)] = self._robot_twist_meas_b
+            obs[:, next_idx:(next_idx+3)] = self._robot_twist_meas_b[:,3:6]
         else:  # measurement read on shared mem is already in local base frame
-            obs[:, next_idx:(next_idx+6)] = robot_twist_meas
-        next_idx+=6
+            obs[:, next_idx:(next_idx+3)] = robot_twist_meas[:,3:6]
+        next_idx+=3
         obs[:, next_idx:(next_idx+self._n_jnts)] = robot_jnt_q_meas
         next_idx+=self._n_jnts
         obs[:, next_idx:(next_idx+self._n_jnts)] = robot_jnt_v_meas
         next_idx+=self._n_jnts
-        obs[:, next_idx:(next_idx+4)] = rhc_q_internal
-        next_idx+=4
+        if self._add_internal_rhc_q_to_obs:
+            obs[:, next_idx:(next_idx+4)] = rhc_q_internal
+            next_idx+=4
+        if self._add_internal_rhc_root_v_to_obs:
+            obs[:, next_idx:(next_idx+3)] = rhc_root_v_internal # usually in world frame
+            next_idx+=3
         if self._add_contact_idx_to_obs:
             obs[:, next_idx:(next_idx+len(self.contact_names))] = self._rhc_step_var(gpu=self._use_gpu)
             next_idx+=len(self.contact_names)
         if self._add_rhc_fz_to_obs:
             obs[:, next_idx:(next_idx+len(self.contact_names))] = self._rhc_fz(gpu=self._use_gpu, node_idx=0)
             next_idx+=len(self.contact_names)
-        obs[:, next_idx:(next_idx+2)] = agent_twist_ref[:, 0:2] # lin vel 2D agent refs
+        obs[:, next_idx:(next_idx+2)] = agent_twist_ref[:, 0:2] # high lev agent refs
         next_idx+=2
-        # obs[:, next_idx:(next_idx+1)] = agent_twist_ref[:, 5:6] # twist yaw
-        # next_idx+=1
         if self._add_fail_idx_to_obs:
             obs[:, next_idx:(next_idx+1)] = self._rhc_fail_idx(gpu=self._use_gpu)
             next_idx+=1
@@ -487,11 +499,11 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         
         # task_error_fun = self._task_err_lin
         task_error_fun = self._task_perc_err_lin
-
+        
         task_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu) # high level agent refs (hybrid twist)
-   
-        base2world_frame(t_b=next_obs[:, 4:10],q_b=next_obs[:, 0:4],t_out=self._robot_twist_meas_w)
-        task_error_pseudolin = task_error_fun(task_meas=self._robot_twist_meas_w, 
+        step_avrg_root_twist_w=self._get_avrg_step_root_twist()
+        
+        task_error = task_error_fun(task_meas=step_avrg_root_twist_w, 
                                             task_ref=task_ref)
         
         # mech power
@@ -504,7 +516,7 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         weighted_jnt_vel = self._jnt_vel_penalty(task_ref=task_ref,jnts_vel=jnts_vel)
 
         sub_rewards = self._sub_rewards.get_torch_mirror(gpu=self._use_gpu)
-        sub_rewards[:, 0:1] = self._task_offset-self._task_scale*task_error_pseudolin
+        sub_rewards[:, 0:1] = self._task_offset-self._task_scale*task_error
         sub_rewards[:, 1:2] = self._power_offset - self._power_scale * weighted_mech_power
         sub_rewards[:, 2:3] = self._jnt_vel_offset - self._jnt_vel_scale * weighted_jnt_vel
         sub_rewards[:, 3:4] = self._rhc_fail_idx_offset - self._rhc_fail_idx_rew_scale* self._rhc_fail_idx(gpu=self._use_gpu)
@@ -544,13 +556,10 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         obs_names[1] = "q_i"
         obs_names[2] = "q_j"
         obs_names[3] = "q_k"
-        obs_names[4] = "lin_vel_x" 
-        obs_names[5] = "lin_vel_y"
-        obs_names[6] = "lin_vel_z"
-        obs_names[7] = "omega_x"
-        obs_names[8] = "omega_y"
-        obs_names[9] = "omega_z"
-        next_idx+=10
+        obs_names[4] = "omega_x"
+        obs_names[5] = "omega_y"
+        obs_names[6] = "omega_z"
+        next_idx+=7
         jnt_names = self._robot_state.jnt_names()
         for i in range(self._n_jnts): # jnt obs (pos):
             obs_names[next_idx+i] = f"q_{jnt_names[i]}"
@@ -564,6 +573,12 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
             obs_names[next_idx+2] = "q_j_rhc"
             obs_names[next_idx+3] = "q_k_rhc"
             next_idx+=4
+        if self._add_internal_rhc_root_v_to_obs:
+            obs_names[next_idx] = "lin_vel_x_rhc" 
+            obs_names[next_idx+1] = "lin_vel_y_rhc"
+            obs_names[next_idx+2] = "lin_vel_z_rhc"
+            next_idx+=3
+    
         if self._add_contact_idx_to_obs:
             i = 0
             for contact in self.contact_names:
@@ -579,8 +594,6 @@ class StepAdaptationBaseline(LRhcTrainingEnvBase):
         obs_names[next_idx] = "lin_vel_x_ref" # specified in the "horizontal frame"
         obs_names[next_idx+1] = "lin_vel_y_ref"
         next_idx+=2
-        # obs_names[next_idx] = "twist_yaw_ref"
-        # next_idx+=1
         if self._add_fail_idx_to_obs:
             obs_names[next_idx] = "rhc_fail_idx"
             next_idx+=1
