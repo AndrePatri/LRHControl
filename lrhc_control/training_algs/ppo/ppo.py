@@ -38,7 +38,7 @@ class PPO(ActorCriticAlgoBase):
             obs = self._env.get_obs(clone=True) # we need a copy
 
             # sample actions from latest policy (actor) and state value from latest value function (critic)
-            action, logprob, _ = self._agent.get_action(obs, only_mean=self._eval) # when evaluating, use only mean
+            action, logprob, _ = self._agent.get_action(obs, only_mean=(self._eval and self._det_eval)) # when evaluating, use only mean
             action = action.detach() # do not record gradients
             logprob = logprob.detach()
 

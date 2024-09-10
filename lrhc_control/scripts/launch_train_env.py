@@ -34,14 +34,16 @@ if __name__ == "__main__":
    
     parser.add_argument('--obs_norm', action=argparse.BooleanOptionalAction, default=True, help='Whether to enable the use of running normalizer in agent')
 
-    parser.add_argument('--use_cer', action=argparse.BooleanOptionalAction, default=False, help='')
-    parser.add_argument('--sac', action=argparse.BooleanOptionalAction, default=True, help='')
+    parser.add_argument('--use_cer', action=argparse.BooleanOptionalAction, default=False, help='whether to use combined experience replay (not tested)')
+    parser.add_argument('--sac', action=argparse.BooleanOptionalAction, default=True, help='Use SAC, otherwise PPO, unless dummy is set')
     parser.add_argument('--dummy', action=argparse.BooleanOptionalAction, default=False, help='')
 
     parser.add_argument('--eval', action=argparse.BooleanOptionalAction, default=False, help='Whether to perform an evaluation run')
     parser.add_argument('--n_eval_timesteps', type=int, help='Toal n. of timesteps to be evaluated', default=1e6)
     parser.add_argument('--mpath', type=str, help='Model path to be used for policy evaluation',default=None)
     parser.add_argument('--mname', type=str, help='Model name',default=None)
+    parser.add_argument('--det_eval', action=argparse.BooleanOptionalAction, default=True, 
+        help='Whether to perform a deterministic eval (only action mean is used). Only valid if --eval.')
 
     parser.add_argument('--comment', type=str, help='Any useful comment associated with this run',default="")
     parser.add_argument('--seed', type=int, help='seed', default=1)
@@ -67,7 +69,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     args_dict = vars(args)
-    
+
     if (not args.mpath is None) and (not args.mname is None):
         mpath_full = os.path.join(args.mpath, args.mname)
     else:

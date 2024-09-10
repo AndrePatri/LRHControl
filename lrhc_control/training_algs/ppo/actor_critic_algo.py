@@ -101,6 +101,10 @@ class ActorCriticAlgoBase():
         self._dump_checkpoints = dump_checkpoints
         
         self._eval = eval
+        try:
+            self._det_eval=custom_args["det_eval"]
+        except:
+            pass
 
         self._run_name = run_name
         from datetime import datetime
