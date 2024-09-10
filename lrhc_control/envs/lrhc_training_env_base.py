@@ -349,7 +349,7 @@ class LRhcTrainingEnvBase():
         if self._act_mem_buffer is not None:
             self._act_mem_buffer.update(new_data=actions)
 
-        # self._apply_actions_to_rhc() # apply agent actions to rhc controller
+        self._apply_actions_to_rhc() # apply agent actions to rhc controller
 
         stepping_ok = True
         tot_rewards = self._tot_rewards.get_torch_mirror(gpu=self._use_gpu)
