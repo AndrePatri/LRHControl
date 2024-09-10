@@ -95,13 +95,14 @@ if __name__ == '__main__':
     remote_env_params["physics_dt"] = args.physics_dt # physics_dt?
     remote_env_params["n_envs"] = num_envs 
     remote_env_params["use_gpu"] =  args.use_gpu 
-    remote_env_params["control_clust_dt"] = control_clust_dts
+    remote_env_params["substepping_dt"] = control_clust_dts[0]
     remote_env_params["headless"] = headless
     remote_env_params["debug_enabled"] = args.enable_debug
     remote_env_params["seed"] = args.seed
     remote_env_params.update(custom_opt)
     # sim info to be broadcasted on shared memory
     # adding some data to dict for debugging
+
     shared_sim_infos = []
     for i in range(len(robot_names)):
         shared_sim_infos.append(SharedEnvInfo(
