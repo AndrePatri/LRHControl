@@ -1,10 +1,13 @@
 import torch
 import math
+from lrhc_control.utils.math_utils import quaternion_to_angular_velocity, quaternion_difference
 
 from control_cluster_bridge.utilities.shared_data.rhc_data import RobotState
 from control_cluster_bridge.utilities.shared_data.rhc_data import RhcCmds
 from control_cluster_bridge.utilities.shared_data.rhc_data import RhcRefs
 from control_cluster_bridge.utilities.shared_data.rhc_data import RhcStatus
+from control_cluster_bridge.utilities.shared_data.sim_data import SharedEnvInfo
+from control_cluster_bridge.utilities.shared_data.cluster_data import SharedClusterInfo
 
 from lrhc_control.utils.shared_data.remote_stepping import RemoteStepperSrvr
 from lrhc_control.utils.shared_data.remote_stepping import RemoteResetSrvr
@@ -86,7 +89,25 @@ class LRhcTrainingEnvBase():
         self._action_repeat = action_repeat
         if self._action_repeat <=0: 
             self._action_repeat = 1
-        
+        self._substep_dt=1.0 # dt [s] between each substep
+        try:
+            self._substep_dt=self._env_opts["substep_dt"]
+        except:
+            pass
+        sim_data = {}
+        sim_info_shared = SharedEnvInfo(namespace=namespace,
+                    is_server=False,
+                    safe=False,
+                    verbose=verbose,
+                    vlevel=vlevel)
+        sim_info_shared.run()
+        sim_info_keys = sim_info_shared.param_keys
+        sim_info_data = sim_info_shared.get().flatten()
+        for i in range(len(sim_info_keys)):
+            sim_data[sim_info_keys[i]] = sim_info_data[i]
+        if "substepping_dt" in sim_info_keys:
+            self._substep_dt=sim_data["substepping_dt"]
+
         self._use_act_mem_bf = use_act_mem_bf
         self._act_membf_size = round(act_membf_size/self._action_repeat) 
         
@@ -328,7 +349,7 @@ class LRhcTrainingEnvBase():
         if self._act_mem_buffer is not None:
             self._act_mem_buffer.update(new_data=actions)
 
-        self._apply_actions_to_rhc() # apply agent actions to rhc controller
+        # self._apply_actions_to_rhc() # apply agent actions to rhc controller
 
         stepping_ok = True
         tot_rewards = self._tot_rewards.get_torch_mirror(gpu=self._use_gpu)
@@ -346,6 +367,8 @@ class LRhcTrainingEnvBase():
             self._clamp_obs(next_obs) # good practice
             self._compute_sub_rewards(obs,next_obs)
             self._assemble_rewards() # includes rewards clipping
+            self._custom_post_substepping() # custom substepping logic
+
             obs[:, :] = next_obs # start from next observation, unless reset (handled in post_step())
 
             if not i==(self._action_repeat-1): # just sends reset signal to complete remote step sequence,
@@ -401,6 +424,8 @@ class LRhcTrainingEnvBase():
         
         self._custom_post_step(episode_finished=episode_finished) # any additional logic from child env  
         # here after reset, so that is can access all states post reset if necessary      
+        self._prev_root_p[:, :]=self._robot_state.root_state.get(data_type="p",gpu=self._use_gpu)
+        self._prev_root_q[:, :]=self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
 
         # synchronize and reset counters for finished episodes
         self._ep_timeout_counter.reset(to_be_reset=episode_finished_cpu)
@@ -1019,6 +1044,9 @@ class LRhcTrainingEnvBase():
                 verbose=self._verbose,
                 vlevel=self._vlevel)
         self._training_sim_info.run()
+
+        self._prev_root_p=self._robot_state.root_state.get(data_type="p",gpu=self._use_gpu).clone()
+        self._prev_root_q=self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu).clone()
         
     def _activate_rhc_controllers(self):
         self._rhc_status.activation_state.get_torch_mirror()[:, :] = True
@@ -1217,6 +1245,10 @@ class LRhcTrainingEnvBase():
     @abstractmethod
     def _custom_post_step(self,episode_finished):
         pass
+    
+    @abstractmethod
+    def _custom_post_substepping(self):
+        pass
 
     @abstractmethod
     def _apply_actions_to_rhc(self):
@@ -1240,3 +1272,19 @@ class LRhcTrainingEnvBase():
 
     def _custom_post_init(self):
         pass 
+
+    def _get_avrg_step_root_v(self):
+        robot_p_meas = self._robot_state.root_state.get(data_type="p",gpu=self._use_gpu)
+        avrg_step_root_v_w=(robot_p_meas-self._prev_root_p)/self._substep_dt
+        return avrg_step_root_v_w
+
+    def _get_avrg_step_root_omega(self):
+        robot_q_meas = self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
+        avrg_step_omega_w=quaternion_to_angular_velocity(q_diff=quaternion_difference(self._prev_root_q,robot_q_meas),\
+            dt=self._substep_dt)
+        return avrg_step_omega_w
+    
+    def _get_avrg_step_root_twist(self):
+        return torch.cat((self._get_avrg_step_root_v(), 
+            self._get_avrg_step_root_omega()), 
+            dim=1)
