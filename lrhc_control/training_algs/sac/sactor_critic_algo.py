@@ -760,7 +760,7 @@ class SActorCriticAlgoBase():
         self._total_timesteps_vec = self._total_timesteps // self._num_envs
         self._total_timesteps = self._total_timesteps_vec*self._num_envs # actual n transitions
   
-        self._lr_policy = 5e-4
+        self._lr_policy = 1e-3
         self._lr_q = 1e-3
 
         self._discount_factor = 0.99
