@@ -1,5 +1,6 @@
 from lrhc_control.utils.sys_utils import PathsGetter
 from lrhc_control.envs.lrhc_training_env_base import LRhcTrainingEnvBase
+
 from control_cluster_bridge.utilities.shared_data.rhc_data import RobotState, RhcStatus
 from control_cluster_bridge.utilities.math_utils_torch import world2base_frame, base2world_frame, w2hor_frame
 
@@ -28,8 +29,6 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         self._single_task_ref_per_episode=True # if True, the task ref is constant over the episode (ie
         # episodes are truncated when task is changed)
-        self._use_horizontal_frame_for_refs = False # (vel refs for agent are in horizontal frame)
-        # usually impractical for task rand to set this to True 
         self._twist_meas_is_base_local = False # twist meas from remote sim env are already base-local
         # (usually, this has to be set to True when running on the real robot)
         # we assume the twist meas for the agent to be provided always in local base frame
@@ -39,6 +38,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._add_rhc_fz_to_obs=True # add estimate vertical contact f to obs
         self._add_internal_rhc_q_to_obs=True # add base orientation internal to the rhc controller (useful when running controller
         # in open loop)
+        self._add_internal_rhc_root_v_to_obs=True
         self._add_fail_idx_to_obs=True # add a failure index which is directly correlated to env failure due to rhc controller explosion
 
         # temporarily creating robot state client to get some data
@@ -70,10 +70,12 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         actions_dim = 6 + 4 # [twist_cmd, contact_flags]
 
         obs_dim=4 # base orientation quaternion 
-        obs_dim+=6 # meas twist
+        obs_dim+=3 # meas omega
         obs_dim+=2*n_jnts # joint pos + vel
         if self._add_internal_rhc_q_to_obs:
             obs_dim+=4 # internal rhc base orientation
+        if self._add_internal_rhc_root_v_to_obs:
+            obs_dim+=3 
         if self._add_contact_idx_to_obs:
             obs_dim+=n_contacts # contact index var
         if self._add_rhc_fz_to_obs:
@@ -224,7 +226,6 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         # other static db info 
         self.custom_db_info["add_last_action_to_obs"] = self._add_prev_actions_stats_to_obs
-        self.custom_db_info["use_horizontal_frame_for_refs"] = self._use_horizontal_frame_for_refs
         self.custom_db_info["twist_meas_is_base_local"] = self._twist_meas_is_base_local
         self.custom_db_info["use_pof0"] = self._use_pof0
         self.custom_db_info["pof0"] = self._pof0
@@ -302,13 +303,16 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         pass
 
     def _custom_post_step(self,episode_finished):
-        # executed after checking truncations and terminations
+        # executed after checking truncations and terminations and remote env reset
         if self._use_gpu:
             time_to_rand_or_ep_finished = torch.logical_or(self._task_rand_counter.time_limits_reached().cuda(),episode_finished)
             self.randomize_task_refs(env_indxs=time_to_rand_or_ep_finished.flatten())
         else:
             time_to_rand_or_ep_finished = torch.logical_or(self._task_rand_counter.time_limits_reached(),episode_finished)
             self.randomize_task_refs(env_indxs=time_to_rand_or_ep_finished.flatten())
+
+    def _custom_post_substepping(self):
+        pass
 
     def _apply_actions_to_rhc(self):
         
@@ -342,29 +346,40 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
     def _fill_obs(self,
             obs: torch.Tensor):
 
+        # measured stuff
         robot_q_meas = self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
         robot_jnt_q_meas = self._robot_state.jnts_state.get(data_type="q",gpu=self._use_gpu)
         robot_twist_meas = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu)
         robot_jnt_v_meas = self._robot_state.jnts_state.get(data_type="v",gpu=self._use_gpu)
+
+        # from MPC
         rhc_q_internal =self._rhc_cmds.root_state.get(data_type="q",gpu=self._use_gpu)
+        rhc_root_v_internal =self._rhc_cmds.root_state.get(data_type="v",gpu=self._use_gpu)
+
+        # refs
         agent_twist_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu)
 
         next_idx=0
         obs[:, next_idx:(next_idx+4)] = robot_q_meas # [w, i, j, k] (IsaacSim convention)
         next_idx+=4
+        # measured angular velocity
         if not self._twist_meas_is_base_local: # measurement read on shared mem is in
             # world (simulator) world frame -> we want it base-local
             world2base_frame(t_w=robot_twist_meas,q_b=robot_q_meas,t_out=self._robot_twist_meas_b)
-            obs[:, next_idx:(next_idx+6)] = self._robot_twist_meas_b
+            obs[:, next_idx:(next_idx+3)] = self._robot_twist_meas_b[:,3:6]
         else:  # measurement read on shared mem is already in local base frame
-            obs[:, next_idx:(next_idx+6)] = robot_twist_meas
-        next_idx+=6
+            obs[:, next_idx:(next_idx+3)] = robot_twist_meas[:,3:6]
+        next_idx+=3
         obs[:, next_idx:(next_idx+self._n_jnts)] = robot_jnt_q_meas
         next_idx+=self._n_jnts
         obs[:, next_idx:(next_idx+self._n_jnts)] = robot_jnt_v_meas
         next_idx+=self._n_jnts
-        obs[:, next_idx:(next_idx+4)] = rhc_q_internal
-        next_idx+=4
+        if self._add_internal_rhc_q_to_obs:
+            obs[:, next_idx:(next_idx+4)] = rhc_q_internal
+            next_idx+=4
+        if self._add_internal_rhc_root_v_to_obs:
+            obs[:, next_idx:(next_idx+3)] = rhc_root_v_internal # usually in world frame
+            next_idx+=3
         if self._add_contact_idx_to_obs:
             obs[:, next_idx:(next_idx+len(self.contact_names))] = self._rhc_step_var(gpu=self._use_gpu)
             next_idx+=len(self.contact_names)
@@ -373,11 +388,6 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             next_idx+=len(self.contact_names)
         obs[:, next_idx:(next_idx+2)] = agent_twist_ref[:, 0:2] # high lev agent refs
         next_idx+=2
-        # obs[:, next_idx:(next_idx+1)] = self._rhc_const_viol(gpu=self._use_gpu)
-        # next_idx+=1
-        # obs[:, next_idx:(next_idx+1)] = self._rhc_cost(gpu=self._use_gpu)
-        # next_idx+=1
-        # adding last action to obs at the back of the obs tensor
         if self._add_fail_idx_to_obs:
             obs[:, next_idx:(next_idx+1)] = self._rhc_fail_idx(gpu=self._use_gpu)
             next_idx+=1
@@ -490,16 +500,10 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         task_error_fun = self._task_perc_err_lin
         
         task_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu) # high level agent refs (hybrid twist)
-
-        if self._use_horizontal_frame_for_refs:
-           base2world_frame(t_b=next_obs[:, 4:10],q_b=next_obs[:, 0:4],t_out=self._robot_twist_meas_w)
-           w2hor_frame(t_w=self._robot_twist_meas_w,q_b=next_obs[:, 0:4],t_out=self._robot_twist_meas_h)
-           task_error_pseudolin = task_error_fun(task_meas=self._robot_twist_meas_h, 
-                                                task_ref=task_ref)
-        else:
-            base2world_frame(t_b=next_obs[:, 4:10],q_b=next_obs[:, 0:4],t_out=self._robot_twist_meas_w)
-            task_error_pseudolin = task_error_fun(task_meas=self._robot_twist_meas_w, 
-                                                task_ref=task_ref)
+        step_avrg_root_twist_w=self._get_avrg_step_root_twist()
+        
+        task_error_pseudolin = task_error_fun(task_meas=step_avrg_root_twist_w, 
+                                            task_ref=task_ref)
         
         # mech power
         jnts_vel = self._robot_state.jnts_state.get(data_type="v",gpu=self._use_gpu)
@@ -551,13 +555,10 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         obs_names[1] = "q_i"
         obs_names[2] = "q_j"
         obs_names[3] = "q_k"
-        obs_names[4] = "lin_vel_x" 
-        obs_names[5] = "lin_vel_y"
-        obs_names[6] = "lin_vel_z"
-        obs_names[7] = "omega_x"
-        obs_names[8] = "omega_y"
-        obs_names[9] = "omega_z"
-        next_idx+=10
+        obs_names[4] = "omega_x"
+        obs_names[5] = "omega_y"
+        obs_names[6] = "omega_z"
+        next_idx+=7
         jnt_names = self._robot_state.jnt_names()
         for i in range(self._n_jnts): # jnt obs (pos):
             obs_names[next_idx+i] = f"q_{jnt_names[i]}"
@@ -571,6 +572,12 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             obs_names[next_idx+2] = "q_j_rhc"
             obs_names[next_idx+3] = "q_k_rhc"
             next_idx+=4
+        if self._add_internal_rhc_root_v_to_obs:
+            obs_names[next_idx] = "lin_vel_x_rhc" 
+            obs_names[next_idx+1] = "lin_vel_y_rhc"
+            obs_names[next_idx+2] = "lin_vel_z_rhc"
+            next_idx+=3
+    
         if self._add_contact_idx_to_obs:
             i = 0
             for contact in self.contact_names:
