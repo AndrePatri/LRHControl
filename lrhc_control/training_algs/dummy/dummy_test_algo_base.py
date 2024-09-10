@@ -317,8 +317,8 @@ class DummyTestAlgoBase():
             # only log data every n timesteps 
         
             self._env_step_fps[self._log_it_counter] = (self._db_vecstep_frequency*self._num_envs)/ self._collection_dt[self._log_it_counter]
-            if "control_clust_dt" in self._hyperparameters:
-                self._env_step_rt_factor[self._log_it_counter] = self._env_step_fps[self._log_it_counter]*self._env_n_action_reps*self._hyperparameters["control_clust_dt"]
+            if "substepping_dt" in self._hyperparameters:
+                self._env_step_rt_factor[self._log_it_counter] = self._env_step_fps[self._log_it_counter]*self._env_n_action_reps*self._hyperparameters["substepping_dt"]
 
             self._n_of_played_episodes[self._log_it_counter] = self._episodic_reward_metrics.get_n_played_episodes()
             self._n_timesteps_done[self._log_it_counter]=(self._vec_transition_counter+1)*self._num_envs

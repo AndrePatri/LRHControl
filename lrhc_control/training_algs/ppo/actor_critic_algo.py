@@ -518,8 +518,8 @@ class ActorCriticAlgoBase():
             self._learning_rates[self._log_it_counter, 0] = self._lr_now_critic
 
             self._env_step_fps[self._log_it_counter] = self._db_vecstep_freq_it * self._batch_size / self._rollout_dt[self._log_it_counter]
-            if "control_clust_dt" in self._hyperparameters:
-                self._env_step_rt_factor[self._log_it_counter] = self._env_step_fps[self._log_it_counter]*self._env_n_action_reps*self._hyperparameters["control_clust_dt"] 
+            if "substepping_dt" in self._hyperparameters:
+                self._env_step_rt_factor[self._log_it_counter] = self._env_step_fps[self._log_it_counter]*self._env_n_action_reps*self._hyperparameters["substepping_dt"] 
             self._policy_update_fps[self._log_it_counter] = self._db_vecstep_freq_it * self._update_epochs*self._num_minibatches/self._policy_update_dt[self._log_it_counter]
 
             # after rolling out policy, we get the episodic reward for the current policy
