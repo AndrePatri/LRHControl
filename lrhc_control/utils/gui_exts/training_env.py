@@ -10,7 +10,7 @@ from lrhc_control.utils.shared_data.training_env import SharedTrainingEnvInfo
 from lrhc_control.utils.shared_data.agent_refs import AgentRefs
 from lrhc_control.utils.shared_data.training_env import Observations
 from lrhc_control.utils.shared_data.training_env import Actions
-from lrhc_control.utils.shared_data.training_env import Rewards
+from lrhc_control.utils.shared_data.training_env import SubRewards
 from lrhc_control.utils.shared_data.training_env import TotRewards
 from lrhc_control.utils.shared_data.training_env import Terminations, SubTerminations
 from lrhc_control.utils.shared_data.training_env import Truncations, SubTruncations
@@ -77,7 +77,7 @@ class TrainingEnvData(SharedDataWindow):
                                             safe=False,
                                             with_gpu_mirror=False))
         
-        self.shared_data_clients.append(Rewards(namespace=self.namespace,
+        self.shared_data_clients.append(SubRewards(namespace=self.namespace,
                                             is_server=False,
                                             verbose=True,
                                             vlevel=VLevel.V2,

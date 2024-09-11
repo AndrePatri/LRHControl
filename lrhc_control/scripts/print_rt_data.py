@@ -1,6 +1,6 @@
 from lrhc_control.utils.shared_data.training_env import Observations, NextObservations
 from lrhc_control.utils.shared_data.training_env import TotRewards
-from lrhc_control.utils.shared_data.training_env import Rewards
+from lrhc_control.utils.shared_data.training_env import SubRewards
 from lrhc_control.utils.shared_data.training_env import Actions
 from lrhc_control.utils.shared_data.training_env import Terminations, SubTerminations
 from lrhc_control.utils.shared_data.training_env import Truncations, SubTruncations
@@ -66,7 +66,7 @@ if __name__ == "__main__":
                 with_gpu_mirror=False,dtype=dtype)
     sub_rew=None
     if args.with_sub_r:
-        sub_rew = Rewards(namespace=namespace,
+        sub_rew = SubRewards(namespace=namespace,
                         is_server=False,
                         verbose=True,
                         vlevel=VLevel.V2,

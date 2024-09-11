@@ -285,7 +285,7 @@ class SharedTrainingEnvInfo(SharedDataBase):
 
 # training info
 
-class Rewards(NamedSharedTWrapper):
+class SubRewards(NamedSharedTWrapper):
 
     def __init__(self,
             namespace: str,

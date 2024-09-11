@@ -18,7 +18,7 @@ from lrhc_control.utils.shared_data.training_env import SharedTrainingEnvInfo
 
 from lrhc_control.utils.shared_data.training_env import Observations, NextObservations
 from lrhc_control.utils.shared_data.training_env import TotRewards
-from lrhc_control.utils.shared_data.training_env import Rewards
+from lrhc_control.utils.shared_data.training_env import SubRewards
 from lrhc_control.utils.shared_data.training_env import Actions
 from lrhc_control.utils.shared_data.training_env import Terminations, SubTerminations
 from lrhc_control.utils.shared_data.training_env import Truncations, SubTruncations
@@ -765,7 +765,7 @@ class LRhcTrainingEnvBase():
         self._reward_thresh_lb = torch.full((1, n_sub_rewards), dtype=self._dtype, fill_value=-reward_thresh_default, device=device) # used for clipping rewards
         self._reward_thresh_ub = torch.full((1, n_sub_rewards), dtype=self._dtype, fill_value=reward_thresh_default, device=device) 
 
-        self._sub_rewards = Rewards(namespace=self._namespace,
+        self._sub_rewards = SubRewards(namespace=self._namespace,
                             n_envs=self._n_envs,
                             n_rewards=n_sub_rewards,
                             reward_names=self._get_rewards_names(),
