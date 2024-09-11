@@ -87,8 +87,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             obs_dim+=3*actions_dim # previous agent actions statistics (mean, std + last action)
 
         # obs_dim = 4+6+n_jnts+2+2+actions_dim
-        episode_timeout_lb = 800 # episode timeouts (including env substepping when action_repeat>1)
-        episode_timeout_ub = 800
+        episode_timeout_lb = 1024 # episode timeouts (including env substepping when action_repeat>1)
+        episode_timeout_ub = 1024
         n_steps_task_rand_lb = 400 # agent refs randomization freq
         n_steps_task_rand_ub = 400 # lb not eq. to ub to remove correlations between episodes
         # across diff envs
