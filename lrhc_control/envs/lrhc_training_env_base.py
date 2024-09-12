@@ -68,7 +68,7 @@ class LRhcTrainingEnvBase():
             use_act_mem_bf: bool = False,
             act_membf_size: int = 3,
             use_random_safety_reset: bool = True,
-            random_reset_freq: int = None,
+            random_reset_freq: int = None, # [n episodes]
             vec_ep_freq_metrics_db: int = 1):
         
         self._vec_ep_freq_metrics_db = vec_ep_freq_metrics_db # update single env metrics every
@@ -122,10 +122,9 @@ class LRhcTrainingEnvBase():
         self._n_steps_task_rand_ub = round(n_steps_task_rand_ub/self._action_repeat)
         
         self._random_rst_freq=random_reset_freq
-        if self._random_rst_freq is None:
-            self._random_rst_freq=self._episode_timeout_ub
-        else:
-            self._random_rst_freq=round(random_reset_freq/self._action_repeat)
+        if self._random_rst_freq is None or self._random_rst_freq <=0:
+            self._use_random_safety_reset=False
+            self._random_rst_freq=-1
 
         self._namespace = namespace
         self._with_gpu_mirror = True
