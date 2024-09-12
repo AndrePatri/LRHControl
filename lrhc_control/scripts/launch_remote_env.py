@@ -36,37 +36,46 @@ def set_seed(args):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description="Sim. env launcher")
+    # Add arguments
     parser.add_argument('--robot_name', type=str, help='Alias to be used for the robot and also shared memory')
-    parser.add_argument('--urdf_path', type=str, help='path to the URDF file description for each robot')
-    parser.add_argument('--srdf_path', type=str, help='path to the SRDF file description for each robot (used for homing)')
-    parser.add_argument('--jnt_imp_config_path', type=str, help='path to a valid YAML file containing information on jnt impedance gains')
+    parser.add_argument('--urdf_path', type=str, help='Path to the URDF file description for each robot')
+    parser.add_argument('--srdf_path', type=str, help='Path to the SRDF file description for each robot (used for homing)')
+    parser.add_argument('--jnt_imp_config_path', type=str, help='Path to a valid YAML file containing information on jnt impedance gains')
     parser.add_argument('--num_envs', type=int, default=1)
     parser.add_argument('--n_contacts', type=int, default=4)
     parser.add_argument('--cluster_dt', type=float, default=0.03, help='dt at which the control cluster runs')
-    parser.add_argument('--dmpdir', type=str, help='directory where data is dumped', default="/root/aux_data")
-    parser.add_argument('--remote_stepping', action='store_true', 
-                help='Whether to use remote stepping for cluster triggering (to be set during training)')
-    parser.add_argument('--use_gpu', action=argparse.BooleanOptionalAction, default=True, help='Whether to use gpu simulation')
-    parser.add_argument('--enable_debug', action=argparse.BooleanOptionalAction, default=False, help='Whether to enable debug mode (may introduce significant overhead)')
-    parser.add_argument('--headless', action=argparse.BooleanOptionalAction, default=True, help='Whether to run simulation in headless mode')
-    parser.add_argument('--verbose', action=argparse.BooleanOptionalAction, default=True, help='')
-    parser.add_argument('--comment', type=str, help='Any useful comment associated with this run',default="")
-    parser.add_argument('--timeout_ms', type=int, help='connection timeout after which the script self-terminates', default=60000)
-    parser.add_argument('--physics_dt', type=float, default=5e-4, help='')
-    parser.add_argument('--use_custom_jnt_imp', action=argparse.BooleanOptionalAction, default=True, 
-        help='Whether to override the default PD controller with a custom one')
-    parser.add_argument('--diff_vels', action=argparse.BooleanOptionalAction, default=False, 
-        help='Whether to obtain velocities by differentiation or not')
-    parser.add_argument('--init_timesteps', type=int, help='initialization timesteps', 
-            default=1000)
-    parser.add_argument('--seed', type=int, help='seed', default=0)
+    parser.add_argument('--dmpdir', type=str, help='Directory where data is dumped', default="/root/aux_data")
+    
+    # Replace BooleanOptionalAction with store_true/store_false for Python 3.8 compatibility
+    parser.add_argument('--remote_stepping', action='store_true', help='Use remote stepping for cluster triggering (to be set during training)')
+    parser.add_argument('--use_gpu', action='store_true', help='Use GPU simulation')
+    parser.add_argument('--no-use_gpu', action='store_false', dest='use_gpu', help='Do not use GPU simulation')
+    
+    parser.add_argument('--enable_debug', action='store_true', help='Enable debug mode (may introduce significant overhead)')
+    parser.add_argument('--no-enable_debug', action='store_false', dest='enable_debug', help='Disable debug mode')
+    
+    parser.add_argument('--headless', action='store_true', help='Run simulation in headless mode')
+    parser.add_argument('--no-headless', action='store_false', dest='headless', help='Run simulation with GUI')
+    
+    parser.add_argument('--verbose', action='store_true', help='Verbose output')
+    parser.add_argument('--no-verbose', action='store_false', dest='verbose', help='Non-verbose output')
+    
+    parser.add_argument('--comment', type=str, help='Any useful comment associated with this run', default="")
+    parser.add_argument('--timeout_ms', type=int, help='Connection timeout after which the script self-terminates', default=60000)
+    parser.add_argument('--physics_dt', type=float, default=5e-4, help='Physics time step')
 
-    parser.add_argument('--custom_args_names', nargs='+', default=None,
-                            help='list of custom arguments names  to cluster client')
-    parser.add_argument('--custom_args_vals', nargs='+', default=None,
-                            help='list of custom arguments values to cluster client')
-    parser.add_argument('--custom_args_dtype', nargs='+', default=None,
-                            help='list of custom arguments data types to cluster client')
+    parser.add_argument('--use_custom_jnt_imp', action='store_true', help='Override the default PD controller with a custom one')
+    parser.add_argument('--no-use_custom_jnt_imp', action='store_false', dest='use_custom_jnt_imp', help='Do not override the default PD controller')
+    
+    parser.add_argument('--diff_vels', action='store_true', help='Obtain velocities by differentiation')
+    parser.add_argument('--no-diff_vels', action='store_false', dest='diff_vels', help='Do not obtain velocities by differentiation')
+    
+    parser.add_argument('--init_timesteps', type=int, help='Initialization timesteps', default=1000)
+    parser.add_argument('--seed', type=int, help='Seed', default=0)
+
+    parser.add_argument('--custom_args_names', nargs='+', default=None, help='List of custom argument names to cluster client')
+    parser.add_argument('--custom_args_vals', nargs='+', default=None, help='List of custom argument values to cluster client')
+    parser.add_argument('--custom_args_dtype', nargs='+', default=None, help='List of custom argument data types to cluster client')
     
     parser.add_argument('--env_fname', type=str, 
         default="omni_robo_gym.envs.isaac_env",
