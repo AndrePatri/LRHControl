@@ -165,29 +165,29 @@ class HybridQuadRhc(RHController):
 
         return self._get_v_from_sol()[0:6, node_idx].reshape(1, 6)
 
-    def _get_cmd_jnt_q_from_sol(self):
+    def _get_jnt_q_from_sol(self, node_idx=1):
         
         # wrapping joint q commands between 2pi and -2pi
         # (to be done for the simulator)
-        return np.fmod(self._ti.solution['q'][7:, 1], 2*np.pi).reshape(1,  
+        return np.fmod(self._ti.solution['q'][7:, node_idx], 2*np.pi).reshape(1,  
                     self.n_dofs)
     
-    def _get_cmd_jnt_v_from_sol(self):
+    def _get_jnt_v_from_sol(self, node_idx=1):
 
-        return self._get_v_from_sol()[6:, 1].reshape(1,  
+        return self._get_v_from_sol()[6:, node_idx].reshape(1,  
                     self.n_dofs)
 
-    def _get_cmd_jnt_a_from_sol(self):
+    def _get_jnt_a_from_sol(self, node_idx=1):
 
-        return self._get_a_from_sol()[6:, 0].reshape(1,  
+        return self._get_a_from_sol()[6:, node_idx].reshape(1,
                     self.n_dofs)
 
-    def _get_cmd_jnt_eff_from_sol(self):
+    def _get_jnt_eff_from_sol(self, node_idx=1):
         
-        efforts_on_first_node = self._ti.eval_efforts_on_first_node()
-
-        return efforts_on_first_node[6:, 0].reshape(1,  
-                        self.n_dofs)
+        efforts_on_node = self._ti.eval_efforts_on_node(node_idx=node_idx)
+        
+        return efforts_on_node[6:, 0].reshape(1,  
+                self.n_dofs)
     
     def _get_rhc_cost(self):
 
