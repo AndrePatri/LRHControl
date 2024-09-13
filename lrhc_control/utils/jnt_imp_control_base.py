@@ -679,8 +679,8 @@ class JntImpCntrlBase:
         if not self._override_low_lev_controller:
             inactive_idxs=torch.nonzero(inactive)
             if inactive_idxs.numel()>0:
-                self.set_gains(pos_gains=self._null_aux_tensor[inactive_idxs, :],
-                        vel_gains=self._null_aux_tensor[inactive_idxs, :],
+                self.set_gains(pos_gains=self._null_aux_tensor[inactive_idxs.flatten(), :],
+                        vel_gains=self._null_aux_tensor[inactive_idxs.flatten(), :],
                         robot_indxs=inactive_idxs.flatten())
         self._eff_ref[inactive, :] = 0.0
         self._imp_eff[inactive, :] = 0.0

@@ -959,7 +959,7 @@ class LRhcTrainingEnvBase():
         self._rhc_refs.run()
         self._rhc_status.run()
         # we read rhc info now, since it's assumed to be static 
-        self._rhc_status.rhc_static_info.synch_all(read =True,retry = True)
+        self._rhc_status.rhc_static_info.synch_all(read=True,retry=True)
         if self._use_gpu:
             self._rhc_status.rhc_static_info.synch_mirror(from_gpu=False)
 
