@@ -3,7 +3,7 @@ import math
 from lrhc_control.utils.math_utils import quaternion_to_angular_velocity, quaternion_difference
 
 from control_cluster_bridge.utilities.shared_data.rhc_data import RobotState
-from control_cluster_bridge.utilities.shared_data.rhc_data import RhcCmds
+from control_cluster_bridge.utilities.shared_data.rhc_data import RhcCmds, RhcPred
 from control_cluster_bridge.utilities.shared_data.rhc_data import RhcRefs
 from control_cluster_bridge.utilities.shared_data.rhc_data import RhcStatus
 from control_cluster_bridge.utilities.shared_data.sim_data import SharedEnvInfo
@@ -146,6 +146,7 @@ class LRhcTrainingEnvBase():
 
         self._robot_state = None
         self._rhc_cmds = None
+        self._rhc_pred = None
         self._rhc_refs = None
         self._rhc_status = None
 
@@ -537,6 +538,7 @@ class LRhcTrainingEnvBase():
             # close all shared mem. clients
             self._robot_state.close()
             self._rhc_cmds.close()
+            self._rhc_pred.close()
             self._rhc_refs.close()
             self._rhc_status.close()
             
@@ -927,6 +929,14 @@ class LRhcTrainingEnvBase():
                                 vlevel=self._vlevel,
                                 with_gpu_mirror=self._use_gpu,
                                 with_torch_view=True)
+        
+        self._rhc_pred = RhcPred(namespace=self._namespace,
+                                is_server=False, 
+                                safe=self._safe_shared_mem,
+                                verbose=self._verbose,
+                                vlevel=self._vlevel,
+                                with_gpu_mirror=self._use_gpu,
+                                with_torch_view=True)
 
         self._rhc_refs = RhcRefs(namespace=self._namespace,
                             is_server=False,
@@ -1062,6 +1072,10 @@ class LRhcTrainingEnvBase():
         self._rhc_cmds.root_state.synch_all(read = True, retry = True)
         self._rhc_cmds.jnts_state.synch_all(read = True, retry = True)
         self._rhc_cmds.contact_wrenches.synch_all(read = True, retry = True)
+        # rhc pred
+        self._rhc_pred.root_state.synch_all(read = True, retry = True)
+        # self._rhc_pred.jnts_state.synch_all(read = True, retry = True)
+        # self._rhc_pred.contact_wrenches.synch_all(read = True, retry = True)
         # refs for root link and contacts
         self._rhc_refs.rob_refs.root_state.synch_all(read = True, retry = True)
         self._rhc_refs.contact_flags.synch_all(read = True, retry = True)
@@ -1083,6 +1097,9 @@ class LRhcTrainingEnvBase():
             self._rhc_cmds.root_state.synch_mirror(from_gpu=False)
             self._rhc_cmds.jnts_state.synch_mirror(from_gpu=False)
             self._rhc_cmds.contact_wrenches.synch_mirror(from_gpu=False)
+            self._rhc_pred.root_state.synch_mirror(from_gpu=False)
+            # self._rhc_pred.jnts_state.synch_mirror(from_gpu=False)
+            # self._rhc_pred.contact_wrenches.synch_mirror(from_gpu=False)
             self._rhc_refs.rob_refs.root_state.synch_mirror(from_gpu=False)
             self._rhc_refs.contact_flags.synch_mirror(from_gpu=False)
             self._rhc_status.rhc_cost.synch_mirror(from_gpu=False)
