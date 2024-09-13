@@ -54,8 +54,9 @@ def quaternion_to_angular_velocity(q_diff, dt):
     norm = axis.norm(dim=-1, keepdim=True)
     norm = torch.where(norm > 0, norm, torch.ones_like(norm))
     axis = axis / norm
-    angle = angle.unsqueeze(-1)  # Add an extra dimension for broadcasting
-    return (angle / dt) * axis
+    angle = angle.unsqueeze(-1)  # Add an extra dimension for broadcastingù
+    angular_velocity=(angle / dt) * axis
+    return angular_velocity
 
 def quat_to_omega(q0, q1, dt):
     """ Convert quaternion pairs to angular velocities """

@@ -355,7 +355,6 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # from MPC
         rhc_root_q =self._rhc_cmds.root_state.get(data_type="q",gpu=self._use_gpu)
         rhc_pred_avrg_twist = self._get_avrg_rhc_root_twist()
-
         # refs
         agent_twist_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu)
 
@@ -379,7 +378,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             next_idx+=4
         if self._add_internal_rhc_root_twist_to_obs:
             obs[:, next_idx:(next_idx+6)] = rhc_pred_avrg_twist # usually in world frame
-            next_idx+=3
+            next_idx+=6
         if self._add_contact_idx_to_obs:
             obs[:, next_idx:(next_idx+len(self.contact_names))] = self._rhc_step_var(gpu=self._use_gpu)
             next_idx+=len(self.contact_names)

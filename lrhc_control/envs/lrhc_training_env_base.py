@@ -955,6 +955,7 @@ class LRhcTrainingEnvBase():
         
         self._robot_state.run()
         self._rhc_cmds.run()
+        self._rhc_pred.run()
         self._rhc_refs.run()
         self._rhc_status.run()
         # we read rhc info now, since it's assumed to be static 
