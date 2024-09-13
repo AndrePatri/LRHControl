@@ -957,6 +957,10 @@ class LRhcTrainingEnvBase():
         self._rhc_cmds.run()
         self._rhc_refs.run()
         self._rhc_status.run()
+        # we read rhc info now, since it's assumed to be static 
+        self._rhc_status.rhc_static_info.synch_all(read =True,retry = True)
+        if self._use_gpu:
+            self._rhc_status.rhc_static_info.synch_mirror(from_gpu=False)
 
         self._n_envs = self._robot_state.n_robots()
         self._n_jnts = self._robot_state.n_jnts()
@@ -1304,3 +1308,19 @@ class LRhcTrainingEnvBase():
         return torch.cat((self._get_avrg_step_root_v(), 
             self._get_avrg_step_root_omega()), 
             dim=1)
+    
+    def _get_avrg_rhc_root_twist(self):
+
+        rhc_horizons=self._rhc_status.rhc_static_info.get("horizons",gpu=self._use_gpu)
+        rhc_root_p =self._rhc_cmds.root_state.get(data_type="p",gpu=self._use_gpu)
+        rhc_root_q =self._rhc_cmds.root_state.get(data_type="q",gpu=self._use_gpu)
+        rhc_root_p_pred =self._rhc_pred.root_state.get(data_type="p",gpu=self._use_gpu)
+        rhc_root_q_pred =self._rhc_pred.root_state.get(data_type="q",gpu=self._use_gpu)
+        rhc_root_v_avrg=(rhc_root_p_pred-rhc_root_p)/rhc_horizons
+        rhc_root_omega_avrg=quaternion_to_angular_velocity(q_diff=quaternion_difference(rhc_root_q,rhc_root_q_pred),\
+            dt=rhc_horizons)
+        rhc_pred_avrg_twist = torch.cat((rhc_root_v_avrg, 
+            rhc_root_omega_avrg), 
+            dim=1)
+
+        return rhc_pred_avrg_twist

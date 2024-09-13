@@ -38,7 +38,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._add_rhc_fz_to_obs=True # add estimate vertical contact f to obs
         self._add_internal_rhc_q_to_obs=True # add base orientation internal to the rhc controller (useful when running controller
         # in open loop)
-        self._add_internal_rhc_root_v_to_obs=True
+        self._add_internal_rhc_root_twist_to_obs=True
         self._add_fail_idx_to_obs=True # add a failure index which is directly correlated to env failure due to rhc controller explosion
 
         # temporarily creating robot state client to get some data
@@ -74,8 +74,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         obs_dim+=2*n_jnts # joint pos + vel
         if self._add_internal_rhc_q_to_obs:
             obs_dim+=4 # internal rhc base orientation
-        if self._add_internal_rhc_root_v_to_obs:
-            obs_dim+=3 
+        if self._add_internal_rhc_root_twist_to_obs:
+            obs_dim+=6
         if self._add_contact_idx_to_obs:
             obs_dim+=n_contacts # contact index var
         if self._add_rhc_fz_to_obs:
@@ -353,8 +353,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         robot_jnt_v_meas = self._robot_state.jnts_state.get(data_type="v",gpu=self._use_gpu)
 
         # from MPC
-        rhc_q_internal =self._rhc_cmds.root_state.get(data_type="q",gpu=self._use_gpu)
-        rhc_root_v_internal =self._rhc_cmds.root_state.get(data_type="v",gpu=self._use_gpu)
+        rhc_root_q =self._rhc_cmds.root_state.get(data_type="q",gpu=self._use_gpu)
+        rhc_pred_avrg_twist = self._get_avrg_rhc_root_twist()
 
         # refs
         agent_twist_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu)
@@ -375,10 +375,10 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         obs[:, next_idx:(next_idx+self._n_jnts)] = robot_jnt_v_meas
         next_idx+=self._n_jnts
         if self._add_internal_rhc_q_to_obs:
-            obs[:, next_idx:(next_idx+4)] = rhc_q_internal
+            obs[:, next_idx:(next_idx+4)] = rhc_root_q
             next_idx+=4
-        if self._add_internal_rhc_root_v_to_obs:
-            obs[:, next_idx:(next_idx+3)] = rhc_root_v_internal # usually in world frame
+        if self._add_internal_rhc_root_twist_to_obs:
+            obs[:, next_idx:(next_idx+6)] = rhc_pred_avrg_twist # usually in world frame
             next_idx+=3
         if self._add_contact_idx_to_obs:
             obs[:, next_idx:(next_idx+len(self.contact_names))] = self._rhc_step_var(gpu=self._use_gpu)
@@ -572,12 +572,14 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             obs_names[next_idx+2] = "q_j_rhc"
             obs_names[next_idx+3] = "q_k_rhc"
             next_idx+=4
-        if self._add_internal_rhc_root_v_to_obs:
-            obs_names[next_idx] = "lin_vel_x_rhc" 
-            obs_names[next_idx+1] = "lin_vel_y_rhc"
-            obs_names[next_idx+2] = "lin_vel_z_rhc"
-            next_idx+=3
-    
+        if self._add_internal_rhc_root_twist_to_obs:
+            obs_names[next_idx] = "avrg_lin_vel_x_rhc" 
+            obs_names[next_idx+1] = "avrg_lin_vel_y_rhc"
+            obs_names[next_idx+2] = "avrg_lin_vel_z_rhc"
+            obs_names[next_idx+3] = "avrg_omega_x_rhc" 
+            obs_names[next_idx+4] = "avrg_omega_y_rhc"
+            obs_names[next_idx+5] = "avrg_omega_z_rhc"
+            next_idx+=6
         if self._add_contact_idx_to_obs:
             i = 0
             for contact in self.contact_names:
