@@ -92,6 +92,7 @@ class HybridQuadRhc(RHController):
         self.rhc_constr={}
 
         self._fail_idx_scale=1e-2
+        self._pred_node_idx=self._n_nodes-1
     
     def get_file_paths(self):
         # can be overriden by child
