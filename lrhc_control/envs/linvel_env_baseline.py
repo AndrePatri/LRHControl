@@ -24,7 +24,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             override_agent_refs: bool = False,
             timeout_ms: int = 60000):
         
-        action_repeat = 5 # frame skipping (different agent action every action_repeat
+        action_repeat = 3 # frame skipping (different agent action every action_repeat
         # env substeps)
 
         self._single_task_ref_per_episode=True # if True, the task ref is constant over the episode (ie
@@ -38,7 +38,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._add_rhc_fz_to_obs=True # add estimate vertical contact f to obs
         self._add_internal_rhc_q_to_obs=True # add base orientation internal to the rhc controller (useful when running controller
         # in open loop)
-        self._add_rhc_avrg_root_twist_to_obs=False
+        self._add_rhc_avrg_root_twist_to_obs=True
         self._add_rhc_root_twist_to_obs=True
         self._add_fail_idx_to_obs=True # add a failure index which is directly correlated to env failure due to rhc controller explosion
 
