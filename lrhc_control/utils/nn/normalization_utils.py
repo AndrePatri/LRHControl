@@ -126,21 +126,46 @@ class RunningNormalizer(torch.nn.Module):
 if __name__ == "__main__":  
     
     device = "cuda"
-    obs_dim = 4
-    n_envs = 20
-    dummy_obs = torch.full(size=(n_envs, obs_dim),dtype=torch.float32,device=device,fill_value=0) 
-    
-    normalizer = RunningNormalizer((obs_dim,), epsilon=1e-8, device=device, dtype=torch.float32,freeze_stats=False)
+    obs_dim = 4  # Number of observation dimensions
+    n_envs = 20  # Number of environments
+    n_samples = 10000  # Number of iterations to update running stats
+
+    # Set a known mean and variance for the synthetic data
+    true_mean = torch.tensor([10.0, -5.0, 3.0, 7.0], dtype=torch.float32, device=device)
+    true_std = torch.tensor([2.0, 0.5, 1.0, 3.0], dtype=torch.float32, device=device)
+
+    # Create a dummy observation tensor where each observation has a known mean and std
+    dummy_obs = true_mean + true_std * torch.randn(size=(n_envs, obs_dim), dtype=torch.float32, device=device)
+
+    # Create a RunningNormalizer and set it to update running stats
+    normalizer = RunningNormalizer((obs_dim,), epsilon=1e-8, device=device, dtype=torch.float32, freeze_stats=False)
     normalizer.train(False)
 
-    n_samples = 100000
+    # Feed the controlled data into the normalizer for multiple samples
     for i in range(n_samples):
-        normalizer(torch.randn_like(dummy_obs))
-    
-    print("running mean")
-    print(normalizer._running_stats.mean)
-    print("running std")
-    print(torch.sqrt(normalizer._running_stats.var))
-    print("traning")
-    print(normalizer.training)
-    # we should expect std 1 and mean 0
+        # Generate new batch of data with the same known mean and std
+        dummy_obs = true_mean + true_std * torch.randn(size=(n_envs, obs_dim), dtype=torch.float32, device=device)
+        normalizer(dummy_obs)
+
+    # Switch to evaluation mode, meaning no more updates to running stats
+    normalizer.train(True)
+
+    # Print the computed running mean and std (they should match the true_mean and true_std)
+    print("Running mean after updates")
+    print(normalizer._running_stats.mean)  # Should be close to true_mean
+    print("Running std after updates")
+    print(torch.sqrt(normalizer._running_stats.var))  # Should be close to true_std
+
+    # Now, test the normalization output
+    test_obs = true_mean + true_std * torch.randn(size=(n_envs, obs_dim), dtype=torch.float32, device=device)
+    normalized_obs = normalizer(test_obs)
+
+    # Check if the normalized output has a mean of ~0 and std of ~1
+    output_mean = normalized_obs.mean(dim=0)
+    output_std = normalized_obs.std(dim=0)
+
+    print("Output mean (should be close to 0)")
+    print(output_mean)  # Should be approximately 0
+
+    print("Output std (should be close to 1)")
+    print(output_std)  # Should be approximately 1
