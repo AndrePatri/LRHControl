@@ -318,6 +318,11 @@ class LRhcTrainingEnvBase():
             # state right after stepping the sim env
             # (could be a bit more efficient, since in theory we only need to read the envs
             # corresponding to the reset_mask)
+            
+            # updating also prev pos and orientation in case some env was reset
+            self._prev_root_p[:, :]=self._robot_state.root_state.get(data_type="p",gpu=self._use_gpu)
+            self._prev_root_q[:, :]=self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
+
             obs = self._obs.get_torch_mirror(gpu=self._use_gpu)
             self._fill_obs(obs)
             self._clamp_obs(obs)
@@ -424,8 +429,6 @@ class LRhcTrainingEnvBase():
         
         self._custom_post_step(episode_finished=episode_finished) # any additional logic from child env  
         # here after reset, so that is can access all states post reset if necessary      
-        self._prev_root_p[:, :]=self._robot_state.root_state.get(data_type="p",gpu=self._use_gpu)
-        self._prev_root_q[:, :]=self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
 
         # synchronize and reset counters for finished episodes
         self._ep_timeout_counter.reset(to_be_reset=episode_finished_cpu)
@@ -1295,14 +1298,17 @@ class LRhcTrainingEnvBase():
         pass 
 
     def _get_avrg_step_root_v(self):
+        
         robot_p_meas = self._robot_state.root_state.get(data_type="p",gpu=self._use_gpu)
         avrg_step_root_v_w=(robot_p_meas-self._prev_root_p)/self._substep_dt
+        self._prev_root_p[:, :]=self._robot_state.root_state.get(data_type="p",gpu=self._use_gpu)        
         return avrg_step_root_v_w
 
     def _get_avrg_step_root_omega(self):
         robot_q_meas = self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
         avrg_step_omega_w=quaternion_to_angular_velocity(q_diff=quaternion_difference(self._prev_root_q,robot_q_meas),\
             dt=self._substep_dt)
+        self._prev_root_q[:, :]=self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
         return avrg_step_omega_w
     
     def _get_avrg_step_root_twist(self):
@@ -1311,6 +1317,7 @@ class LRhcTrainingEnvBase():
             dim=1)
     
     def _get_avrg_rhc_root_twist(self):
+        
 
         rhc_horizons=self._rhc_status.rhc_static_info.get("horizons",gpu=self._use_gpu)
         rhc_root_p =self._rhc_cmds.root_state.get(data_type="p",gpu=self._use_gpu)
@@ -1318,6 +1325,7 @@ class LRhcTrainingEnvBase():
         rhc_root_p_pred =self._rhc_pred.root_state.get(data_type="p",gpu=self._use_gpu)
         rhc_root_q_pred =self._rhc_pred.root_state.get(data_type="q",gpu=self._use_gpu)
         rhc_root_v_avrg=(rhc_root_p_pred-rhc_root_p)/rhc_horizons
+
         rhc_root_omega_avrg=quaternion_to_angular_velocity(q_diff=quaternion_difference(rhc_root_q,rhc_root_q_pred),\
             dt=rhc_horizons)
         rhc_pred_avrg_twist = torch.cat((rhc_root_v_avrg, 

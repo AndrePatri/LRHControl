@@ -24,7 +24,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             override_agent_refs: bool = False,
             timeout_ms: int = 60000):
         
-        action_repeat = 1 # frame skipping (different agent action every action_repeat
+        action_repeat = 5 # frame skipping (different agent action every action_repeat
         # env substeps)
 
         self._single_task_ref_per_episode=True # if True, the task ref is constant over the episode (ie
@@ -38,7 +38,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._add_rhc_fz_to_obs=True # add estimate vertical contact f to obs
         self._add_internal_rhc_q_to_obs=True # add base orientation internal to the rhc controller (useful when running controller
         # in open loop)
-        self._add_internal_rhc_root_twist_to_obs=True
+        self._add_rhc_avrg_root_twist_to_obs=False
+        self._add_rhc_root_twist_to_obs=True
         self._add_fail_idx_to_obs=True # add a failure index which is directly correlated to env failure due to rhc controller explosion
 
         # temporarily creating robot state client to get some data
@@ -74,7 +75,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         obs_dim+=2*n_jnts # joint pos + vel
         if self._add_internal_rhc_q_to_obs:
             obs_dim+=4 # internal rhc base orientation
-        if self._add_internal_rhc_root_twist_to_obs:
+        if self._add_rhc_root_twist_to_obs:
+            obs_dim+=6
+        if self._add_rhc_avrg_root_twist_to_obs:
             obs_dim+=6
         if self._add_contact_idx_to_obs:
             obs_dim+=n_contacts # contact index var
@@ -351,10 +354,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         robot_jnt_q_meas = self._robot_state.jnts_state.get(data_type="q",gpu=self._use_gpu)
         robot_twist_meas = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu)
         robot_jnt_v_meas = self._robot_state.jnts_state.get(data_type="v",gpu=self._use_gpu)
-
-        # from MPC
-        rhc_root_q =self._rhc_cmds.root_state.get(data_type="q",gpu=self._use_gpu)
-        rhc_pred_avrg_twist = self._get_avrg_rhc_root_twist()
+        
         # refs
         agent_twist_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu)
 
@@ -374,10 +374,13 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         obs[:, next_idx:(next_idx+self._n_jnts)] = robot_jnt_v_meas
         next_idx+=self._n_jnts
         if self._add_internal_rhc_q_to_obs:
-            obs[:, next_idx:(next_idx+4)] = rhc_root_q
+            obs[:, next_idx:(next_idx+4)] = self._rhc_cmds.root_state.get(data_type="q",gpu=self._use_gpu)
             next_idx+=4
-        if self._add_internal_rhc_root_twist_to_obs:
-            obs[:, next_idx:(next_idx+6)] = rhc_pred_avrg_twist # usually in world frame
+        if self._add_rhc_root_twist_to_obs:
+            obs[:, next_idx:(next_idx+6)] = self._rhc_cmds.root_state.get(data_type="twist",gpu=self._use_gpu)
+            next_idx+=6
+        if self._add_rhc_avrg_root_twist_to_obs:
+            obs[:, next_idx:(next_idx+6)] = self._get_avrg_rhc_root_twist() # usually in world frame
             next_idx+=6
         if self._add_contact_idx_to_obs:
             obs[:, next_idx:(next_idx+len(self.contact_names))] = self._rhc_step_var(gpu=self._use_gpu)
@@ -499,9 +502,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         task_error_fun = self._task_perc_err_lin
         
         task_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu) # high level agent refs (hybrid twist)
-        step_avrg_root_twist_w=self._get_avrg_step_root_twist()
+        substep_avrg_root_twist_w=self._get_avrg_step_root_twist()
         
-        task_error = task_error_fun(task_meas=step_avrg_root_twist_w, 
+        task_error = task_error_fun(task_meas=substep_avrg_root_twist_w, 
                                             task_ref=task_ref)
         
         # mech power
@@ -571,7 +574,16 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             obs_names[next_idx+2] = "q_j_rhc"
             obs_names[next_idx+3] = "q_k_rhc"
             next_idx+=4
-        if self._add_internal_rhc_root_twist_to_obs:
+        if self._add_rhc_root_twist_to_obs:
+            obs_names[next_idx] = "in_vel_x_rhc" 
+            obs_names[next_idx+1] = "lin_vel_y_rhc"
+            obs_names[next_idx+2] = "lin_vel_z_rhc"
+            obs_names[next_idx+3] = "omega_x_rhc" 
+            obs_names[next_idx+4] = "omega_y_rhc"
+            obs_names[next_idx+5] = "omega_z_rhc"
+            next_idx+=6
+
+        if self._add_rhc_avrg_root_twist_to_obs:
             obs_names[next_idx] = "avrg_lin_vel_x_rhc" 
             obs_names[next_idx+1] = "avrg_lin_vel_y_rhc"
             obs_names[next_idx+2] = "avrg_lin_vel_z_rhc"
