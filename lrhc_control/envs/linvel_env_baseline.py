@@ -16,6 +16,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
     def __init__(self,
             namespace: str,
+            actions_dim: int = 10,
             verbose: bool = False,
             vlevel: VLevel = VLevel.V1,
             use_gpu: bool = True,
@@ -67,9 +68,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         robot_state_tmp.close()
         rhc_status_tmp.close()
 
-        # defining actions and obs dimensions
-        actions_dim = 6 + 4 # [twist_cmd, contact_flags]
-
+        # defining obs dim
         obs_dim=4 # base orientation quaternion 
         obs_dim+=3 # meas omega
         obs_dim+=2*n_jnts # joint pos + vel
@@ -87,9 +86,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         if self._add_fail_idx_to_obs:
             obs_dim+=1 # rhc controller failure index
         if self._add_prev_actions_stats_to_obs:
-            obs_dim+=3*actions_dim # previous agent actions statistics (mean, std + last action)
+            obs_dim+=3*actions_dim# previous agent actions statistics (mean, std + last action)
 
-        # obs_dim = 4+6+n_jnts+2+2+actions_dim
         episode_timeout_lb = 1024 # episode timeouts (including env substepping when action_repeat>1)
         episode_timeout_ub = 1024
         n_steps_task_rand_lb = 400 # agent refs randomization freq
