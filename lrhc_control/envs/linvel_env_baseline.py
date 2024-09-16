@@ -526,7 +526,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # coincide with the robot's one)
         w2hor_frame(t_w=task_ref, q_b=robot_q_before_stepping, t_out=self._task_ref_h)
         task_pred_error = task_error_fun(task_meas=self._get_avrg_rhc_root_twist(), 
-            task_ref=self._task_ref_h)
+            task_ref=self._task_ref_h,
+            weights=self._task_pred_err_weights)
         
         # mech power
         jnts_vel = self._robot_state.jnts_state.get(data_type="v",gpu=self._use_gpu)
