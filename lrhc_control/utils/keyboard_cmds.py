@@ -98,7 +98,7 @@ class AgentRefsFromKeyboard:
                                                 read=False)
     
     def _update_navigation(self, 
-                    type: str = "frontal_lin",
+                    type: str = "",
                     increment = True,
                     reset: bool = False):
 
@@ -152,7 +152,10 @@ class AgentRefsFromKeyboard:
                 info,
                 LogType.INFO,
                 throw_when_excep = True)
-                
+        
+        if not self.enable_navigation:
+            self._update_navigation(reset = True)
+            
         if key.char == "6" and self.enable_navigation:
             self._update_navigation(type="lateral_lin", 
                             increment = True)

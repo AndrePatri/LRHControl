@@ -43,7 +43,7 @@ class FixedGaitSchedEnvBaseline(LinVelTrackBaseline):
 
         self._agent_twist_ref_h = self._robot_twist_meas_h.clone()
         
-        phase_period=2.0
+        phase_period=1.2
         update_dt = self._substep_dt*self._action_repeat
         self._pattern_gen = QuadrupedGaitPatternGenerator(phase_period=phase_period)
         gait_params_walk = self._pattern_gen.get_params("walk")
