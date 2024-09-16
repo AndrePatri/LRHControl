@@ -115,7 +115,18 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._task_err_weights[0, 3] = 1e-6
         self._task_err_weights[0, 4] = 1e-6
         self._task_err_weights[0, 5] = 1e-6
-        self._task_err_weights_sum = torch.sum(self._task_err_weights).item()
+
+        # task pred tracking
+        self._task_pred_offset = 10.0 # 10.0
+        self._task_pred_scale = 10.0 # perc-based
+        self._task_pred_err_weights = torch.full((1, 6), dtype=dtype, device=device,
+                            fill_value=0.0) 
+        self._task_pred_err_weights[0, 0] = 1.0
+        self._task_pred_err_weights[0, 1] = 1.0
+        self._task_pred_err_weights[0, 2] = 1e-6
+        self._task_pred_err_weights[0, 3] = 1e-6
+        self._task_pred_err_weights[0, 4] = 1e-6
+        self._task_pred_err_weights[0, 5] = 1e-6
 
         # fail idx
         self._rhc_fail_idx_offset = 0.0
@@ -253,7 +264,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._robot_twist_meas_h = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu).clone()
         self._robot_twist_meas_b = self._robot_twist_meas_h.clone()
         self._robot_twist_meas_w = self._robot_twist_meas_h.clone()
-
+        self._task_ref_h = self._robot_twist_meas_h.clone()
+        
         # task aux objs
         device = "cuda" if self._use_gpu else "cpu"
         self._task_err_scaling = torch.zeros((self._n_envs, 1),dtype=self._dtype,device=device)
@@ -434,27 +446,30 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         weighted_jnt_vel = torch.sum((jnts_vel_sqrd)*self._jnt_vel_penalty_weights, dim=1, keepdim=True)/self._jnt_vel_penalty_weights_sum
         return weighted_jnt_vel
     
-    def _task_perc_err_wms(self, task_ref, task_meas):
+    def _task_perc_err_wms(self, task_ref, task_meas, weights):
         ref_norm = task_ref.norm(dim=1,keepdim=True)
         epsi=1e-3
         self._task_err_scaling[:, :] = ref_norm+epsi
-        task_perc_err=self._task_err_wms(task_ref=task_ref, task_meas=task_meas, scaling=self._task_err_scaling)
+        task_perc_err=self._task_err_wms(task_ref=task_ref, task_meas=task_meas, 
+            scaling=self._task_err_scaling, weights=weights)
         perc_err_thresh=2.0 # no more than perc_err_thresh*100 % error on each dim
         task_perc_err.clamp_(0.0,perc_err_thresh**2) 
         return task_perc_err
     
-    def _task_err_wms(self, task_ref, task_meas, scaling):
+    def _task_err_wms(self, task_ref, task_meas, scaling, weights):
         task_error = (task_ref-task_meas)/scaling
-        task_wmse = torch.sum((task_error*task_error)*self._task_err_weights, dim=1, keepdim=True)/self._task_err_weights_sum
+        task_wmse = torch.sum((task_error*task_error)*weights, dim=1, keepdim=True)/torch.sum(weights).item()
         return task_wmse # weighted mean square error (along task dimension)
     
-    def _task_perc_err_lin(self, task_ref, task_meas):
-        task_wmse = self._task_perc_err_wms(task_ref=task_ref, task_meas=task_meas)
+    def _task_perc_err_lin(self, task_ref, task_meas, weights):
+        task_wmse = self._task_perc_err_wms(task_ref=task_ref, task_meas=task_meas,
+            weights=weights)
         return task_wmse.sqrt()
     
-    def _task_err_lin(self, task_ref, task_meas):
+    def _task_err_lin(self, task_ref, task_meas, weights):
         self._task_err_scaling[:, :] = 1
-        task_wmse = self._task_err_wms(task_ref=task_ref, task_meas=task_meas, scaling=self._task_err_scaling)
+        task_wmse = self._task_err_wms(task_ref=task_ref, task_meas=task_meas, 
+            scaling=self._task_err_scaling, weights=weights)
         return task_wmse.sqrt()
     
     def _rhc_fail_idx(self, gpu: bool):
@@ -503,7 +518,15 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         substep_avrg_root_twist_w=self._get_avrg_step_root_twist()
         
         task_error = task_error_fun(task_meas=substep_avrg_root_twist_w, 
-                                            task_ref=task_ref)
+            task_ref=task_ref,
+            weights=self._task_err_weights)
+        
+        robot_q_before_stepping=obs[:, 0:4] # we need the starting base orientation to 
+        # traslate the reference to the MPC's world frame (which in open loop does not 
+        # coincide with the robot's one)
+        w2hor_frame(t_w=task_ref, q_b=robot_q_before_stepping, t_out=self._task_ref_h)
+        task_pred_error = task_error_fun(task_meas=self._get_avrg_rhc_root_twist(), 
+            task_ref=self._task_ref_h)
         
         # mech power
         jnts_vel = self._robot_state.jnts_state.get(data_type="v",gpu=self._use_gpu)
@@ -516,11 +539,12 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         sub_rewards = self._sub_rewards.get_torch_mirror(gpu=self._use_gpu)
         sub_rewards[:, 0:1] = self._task_offset-self._task_scale*task_error
-        sub_rewards[:, 1:2] = self._power_offset - self._power_scale * weighted_mech_power
-        sub_rewards[:, 2:3] = self._jnt_vel_offset - self._jnt_vel_scale * weighted_jnt_vel
-        sub_rewards[:, 3:4] = self._rhc_fail_idx_offset - self._rhc_fail_idx_rew_scale* self._rhc_fail_idx(gpu=self._use_gpu)
-        sub_rewards[:, 4:5] = self._health_value # health reward
-        sub_rewards[:, 5:6] = self._actions_diff_rew_offset - \
+        sub_rewards[:, 1:2] = self._task_pred_offset-self._task_pred_scale*task_pred_error
+        sub_rewards[:, 2:3] = self._power_offset - self._power_scale * weighted_mech_power
+        sub_rewards[:, 3:4] = self._jnt_vel_offset - self._jnt_vel_scale * weighted_jnt_vel
+        sub_rewards[:, 4:5] = self._rhc_fail_idx_offset - self._rhc_fail_idx_rew_scale* self._rhc_fail_idx(gpu=self._use_gpu)
+        sub_rewards[:, 5:6] = self._health_value # health reward
+        sub_rewards[:, 6:7] = self._actions_diff_rew_offset - \
                                         self._actions_diff_scale*self._weighted_actions_diff(gpu=self._use_gpu,
                                                                         obs=obs,next_obs=next_obs) # action regularization reward
 
@@ -637,15 +661,16 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
     def _get_rewards_names(self):
 
-        n_rewards = 6
+        n_rewards = 7
         reward_names = [""] * n_rewards
 
         reward_names[0] = "task_error"
-        reward_names[1] = "mech_power"
-        reward_names[2] = "jnt_vel"
-        reward_names[3] = "rhc_fail_idx"
-        reward_names[4] = "health"
-        reward_names[5] = "action_reg"
+        reward_names[1] = "task_pred_error"
+        reward_names[2] = "mech_power"
+        reward_names[3] = "jnt_vel"
+        reward_names[4] = "rhc_fail_idx"
+        reward_names[5] = "health"
+        reward_names[6] = "action_reg"
 
         return reward_names
 
