@@ -663,6 +663,7 @@ class SActorCriticAlgoBase():
                 f"max: {self._sub_rew_max_over_envs[self._log_it_counter, :]}\n" + \
                 f"avg: {self._sub_rew_avrg_over_envs[self._log_it_counter, :]}\n" + \
                 f"min: {self._sub_rew_min_over_envs[self._log_it_counter, :]}\n" + \
+                f"N. of episodes on which episodic rew stats are computed: {self._n_of_played_episodes[self._log_it_counter].item()}\n" + \
                 f"Current env. step sps: {self._env_step_fps[self._log_it_counter].item()}, time for experience collection {self._collection_dt[self._log_it_counter].item()} s\n" + \
                 f"Current env (sub-steping) rt factor: {self._env_step_rt_factor[self._log_it_counter].item()}\n" + \
                 f"Current policy update fps: {self._policy_update_fps[self._log_it_counter].item()}, time for policy updates {self._policy_update_dt[self._log_it_counter].item()} s\n"
