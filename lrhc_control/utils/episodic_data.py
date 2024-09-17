@@ -279,6 +279,21 @@ class EpisodicData():
         self._average_over_eps_last = torch.full_like(self._average_over_eps,
                 fill_value=0.0,
                 requires_grad=False)
+        # min max info of sub data
+        self._max_over_eps = torch.full(size=(self._n_envs, self._data_size), 
+                fill_value=-torch.inf,
+                dtype=self._dtype, device="cpu",
+                requires_grad=False)
+        self._max_over_eps_last = torch.full_like(self._average_over_eps,
+                fill_value=-torch.inf,
+                requires_grad=False)
+        self._min_over_eps = torch.full(size=(self._n_envs, self._data_size), 
+                fill_value=torch.inf,
+                dtype=self._dtype, device="cpu",
+                requires_grad=False)
+        self._min_over_eps_last = torch.full_like(self._average_over_eps,
+                fill_value=torch.inf,
+                requires_grad=False)
         # current episode index
         self._n_played_eps = torch.full(size=(self._n_envs, 1), 
                 fill_value=0,
@@ -320,15 +335,20 @@ class EpisodicData():
                 if not keep_track:
                     self._current_ep_sum.zero_()
                     self._steps_counter.zero_()
+                    self._max_over_eps[:, :]=-torch.inf
+                    self._min_over_eps[:, :]=torch.inf
             else:
                 if not self._keep_track: # if not, we propagate ep sum and steps 
                     # from before this reset call 
                     self._current_ep_sum.zero_()
                     self._steps_counter.zero_()
+                    self._max_over_eps[:, :]=-torch.inf
+                    self._min_over_eps[:, :]=torch.inf
             
             self._current_ep_sum_scaled.zero_()
             self._tot_sum_up_to_now.zero_()
             self._average_over_eps.zero_()
+            
             self._n_played_eps.zero_()
 
             self._scale_now.fill_(1)
@@ -337,12 +357,16 @@ class EpisodicData():
                 if not keep_track:
                     self._current_ep_sum[to_be_reset, :]=0
                     self._steps_counter[to_be_reset, :]=0
+                    self._max_over_eps[to_be_reset, :]=-torch.inf
+                    self._min_over_eps[to_be_reset, :]=torch.inf
             else:
                 if not self._keep_track: # if not, we propagate ep sum and steps 
                     # from before this reset call 
                     self._current_ep_sum[to_be_reset, :]=0
                     self._steps_counter[to_be_reset, :]=0
-            
+                    self._max_over_eps[to_be_reset, :]=-torch.inf
+                    self._min_over_eps[to_be_reset, :]=torch.inf
+
             self._current_ep_sum_scaled[to_be_reset, :]=0
             self._tot_sum_up_to_now[to_be_reset, :]=0
             self._average_over_eps[to_be_reset, :]=0
@@ -402,6 +426,9 @@ class EpisodicData():
         
         self._current_ep_sum[ep_finished.flatten(), :] = 0 # if finished, reset current sum
 
+        # update min/max info
+        self._max_over_eps[:, :]=torch.max(self._max_over_eps, new_data)
+        self._min_over_eps[:, :]=torch.min(self._min_over_eps, new_data)
         # increment counters
         self._steps_counter[~ep_finished.flatten(), :] +=1 # step performed
         self._steps_counter[ep_finished.flatten(), :] =0 # reset step counters
@@ -410,10 +437,26 @@ class EpisodicData():
         self._fresh_metrics_avail[:, :]=(self._n_played_eps>=self._ep_vec_freq)
         selector=self._fresh_metrics_avail.flatten()
         self._n_played_eps_last[selector, :]=\
-                self._n_played_eps[selector, :]
+            self._n_played_eps[selector, :]
         self._average_over_eps_last[selector, :]=\
-                self._average_over_eps[selector, :]
+            self._average_over_eps[selector, :]
+        self._max_over_eps_last[selector, :]=\
+            self._max_over_eps[selector, :]
+        self._min_over_eps_last[selector, :]=\
+            self._min_over_eps[selector, :]
+        
+        self._custom_pre_reset(new_data=new_data,
+            ep_finished=ep_finished,
+            fresh_metrics_avail=selector)
+
         self.reset(to_be_reset=selector)        
+
+    def _custom_pre_reset(self,
+        new_data: torch.Tensor,
+        ep_finished: torch.Tensor,
+        fresh_metrics_avail: torch.Tensor):
+        # can implement custom logic
+        pass
 
     def data_names(self):
         return self._data_names
@@ -433,12 +476,23 @@ class EpisodicData():
     def get_tot_avrg(self):
         return torch.sum(self.get_avrg_over_eps(), dim=0, keepdim=True)/self._n_envs
 
+    def get_sub_max_over_eps(self):
+        return self._max_over_eps_last
+    
+    def get_sub_min_over_eps(self):
+        return self._min_over_eps_last
+
+    def get_sub_env_max_over_eps(self):
+        return torch.max(self.get_sub_max_over_eps(), dim=0, keepdim=True)
+
+    def get_sub_env_min_over_eps(self):
+        return torch.min(self.get_sub_min_over_eps(), dim=0, keepdim=True)
+    
     def get_n_played_episodes(self):
         return torch.sum(self._n_played_eps_last).item()
     
     def get_n_played_tsteps(self):
-        return torch.sum(self.step_counters()).item()
-    
+        return torch.sum(self.step_counters()).item()    
 
 if __name__ == "__main__":  
 

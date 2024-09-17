@@ -38,6 +38,82 @@ class EpisodicRewards(EpisodicData):
 
     def reward_names(self):
         return self._data_names
+    
+    def _init_data(self):
+        # override to add functionality
+        super()._init_data()
+        # adding max and min of tot reward
+        self._max_tot_rew_over_eps = torch.full(size=(self._n_envs, self._data_size), 
+                fill_value=-torch.inf,
+                dtype=self._dtype, device="cpu",
+                requires_grad=False)
+        self._max_tot_rew_over_eps_last = torch.full_like(self._average_over_eps,
+                fill_value=-torch.inf,
+                requires_grad=False)
+        self._min_tot_rew_over_eps = torch.full(size=(self._n_envs, self._data_size), 
+                fill_value=torch.inf,
+                dtype=self._dtype, device="cpu",
+                requires_grad=False)
+        self._min_tot_rew_over_eps_last = torch.full_like(self._average_over_eps,
+                fill_value=torch.inf,
+                requires_grad=False)
+    
+    def reset(self,
+        keep_track: bool = None,
+        to_be_reset: torch.Tensor = None):
+        
+        super().reset(keep_track=keep_track,
+            to_be_reset=to_be_reset)
+
+        if to_be_reset is None: # reset all
+            if keep_track is not None:
+                if not keep_track:
+                    self._max_tot_rew_over_eps[:, :]=-torch.inf
+                    self._min_tot_rew_over_eps[:, :]=torch.inf
+            else:
+                if not self._keep_track: # if not, we propagate ep sum and steps 
+                    # from before this reset call 
+                    self._max_tot_rew_over_eps[:, :]=-torch.inf
+                    self._min_tot_rew_over_eps[:, :]=torch.inf
+                    
+        else: # only reset some envs
+            if keep_track is not None:
+                if not keep_track:
+                    self._max_tot_rew_over_eps[to_be_reset, :]=-torch.inf
+                    self._min_tot_rew_over_eps[to_be_reset, :]=torch.inf
+            else:
+                if not self._keep_track: # if not, we propagate ep sum and steps 
+                    # from before this reset call 
+                    self._max_tot_rew_over_eps[to_be_reset, :]=-torch.inf
+                    self._min_tot_rew_over_eps[to_be_reset, :]=torch.inf
+
+    def _custom_pre_reset(self, 
+        new_data: torch.Tensor,
+        ep_finished: torch.Tensor,
+        fresh_metrics_avail: torch.Tensor):
+        
+        tot_reward_now=torch.sum(new_data, dim=1, keepdim=True)
+        self._max_tot_rew_over_eps[:, :]=torch.max(self._max_tot_rew_over_eps, 
+            tot_reward_now)
+        self._min_tot_rew_over_eps[:, :]=torch.min(self._min_tot_rew_over_eps, 
+            tot_reward_now)
+        
+        self._max_tot_rew_over_eps_last[fresh_metrics_avail, :]=\
+            self._max_tot_rew_over_eps[fresh_metrics_avail, :]
+        self._min_tot_rew_over_eps_last[fresh_metrics_avail, :]=\
+            self._min_tot_rew_over_eps[fresh_metrics_avail, :]
+
+    def get_max_tot_reward(self):
+        return self._max_tot_rew_over_eps_last
+
+    def get_min_tot_reward(self):
+        return self._min_tot_rew_over_eps_last
+    
+    def get_env_max_tot_reward(self):
+        return torch.max(self.get_max_tot_reward(), dim=0, keepdim=True)
+
+    def get_env_min_tot_reward(self):
+        return torch.max(self.get_min_tot_reward(), dim=0, keepdim=True)
 
 class EpisodicRewardsOld():
 

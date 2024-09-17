@@ -232,6 +232,15 @@ class DummyTestAlgoBase():
             hf.create_dataset('episodic_sub_rewards_env_avrg', data=self._episodic_sub_rewards_env_avrg.numpy())
             hf.create_dataset('episodic_rewards_env_avrg', data=self._episodic_rewards_env_avrg.numpy())
 
+            hf.create_dataset('max_tot_episodic_reward', data=self._max_episodic_reward.numpy())
+            hf.create_dataset('min_tot_episodic_reward', data=self._min_episodic_reward.numpy())
+            hf.create_dataset('max_env_episodic_reward', data=self._max_env_episodic_reward.numpy())
+            hf.create_dataset('min_env_episodic_reward', data=self._min_env_episodic_reward.numpy())
+            hf.create_dataset('episodic_max_sub_rewards', data=self._episodic_max_sub_rewards.numpy())
+            hf.create_dataset('episodic_max_sub_rewards_over_envs', data=self._episodic_env_max_sub_rewards.numpy())
+            hf.create_dataset('episodic_min_sub_rewards', data=self._episodic_min_sub_rewards.numpy())
+            hf.create_dataset('episodic_min_sub_rewards_over_envs', data=self._episodic_env_min_sub_rewards.numpy())
+
             # profiling data
             hf.create_dataset('env_step_fps', data=self._env_step_fps.numpy())
             hf.create_dataset('env_step_rt_factor', data=self._env_step_rt_factor.numpy())
@@ -313,7 +322,7 @@ class DummyTestAlgoBase():
         self._collection_dt[self._log_it_counter] += \
             (self._collection_t-self._start_time) 
     
-        if self._vec_transition_counter % self._db_vecstep_frequency== 0:
+        if (self._vec_transition_counter % self._db_vecstep_frequency==0) and self._debug:
             # only log data every n timesteps 
         
             self._env_step_fps[self._log_it_counter] = (self._db_vecstep_frequency*self._num_envs)/ self._collection_dt[self._log_it_counter]
@@ -328,16 +337,30 @@ class DummyTestAlgoBase():
             # we get some episodic reward metrics
             self._episodic_rewards[self._log_it_counter, :, :] = self._episodic_reward_metrics.get_avrg_over_eps() # total ep. rewards across envs
             self._episodic_rewards_env_avrg[self._log_it_counter, :, :] = self._episodic_reward_metrics.get_tot_avrg() # tot, avrg over envs
+            self._max_env_episodic_reward[self._log_it_counter, :, :] = self._episodic_reward_metrics.get_max_tot_reward()
+            self._max_episodic_reward[self._log_it_counter, :, :] = self._episodic_reward_metrics.get_env_max_tot_reward()
+            self._min_env_episodic_reward[self._log_it_counter, :, :] = self._episodic_reward_metrics.get_max_tot_reward()
+            self._min_episodic_reward[self._log_it_counter, :, :] = self._episodic_reward_metrics.get_env_max_tot_reward()
+
             self._episodic_sub_rewards[self._log_it_counter, :, :] = self._episodic_reward_metrics.get_sub_avrg_over_eps() # sub-episodic rewards across envs
             self._episodic_sub_rewards_env_avrg[self._log_it_counter, :, :] = self._episodic_reward_metrics.get_sub_env_avrg_over_eps() # avrg over envs
+            self._episodic_max_sub_rewards[self._log_it_counter, :, :] = self._episodic_reward_metrics.get_sub_max_over_eps()
+            self._episodic_min_sub_rewards[self._log_it_counter, :, :] = self._episodic_reward_metrics.get_sub_min_over_eps()
+            self._episodic_env_max_sub_rewards[self._log_it_counter, :, :] = self._episodic_reward_metrics.get_sub_env_max_over_eps()
+            self._episodic_env_min_sub_rewards[self._log_it_counter, :, :] = self._episodic_reward_metrics.get_sub_env_min_over_eps()
 
             # fill env custom db metrics
             db_data_names = list(self._env.custom_db_data.keys())
             for dbdatan in db_data_names:
-                self._custom_env_data[dbdatan]["rollout_stat"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_sub_avrg_over_eps()
-                self._custom_env_data[dbdatan]["rollout_stat_env_avrg"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_sub_env_avrg_over_eps()
-                self._custom_env_data[dbdatan]["rollout_stat_comp"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_avrg_over_eps()
-                self._custom_env_data[dbdatan]["rollout_stat_comp_env_avrg"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_tot_avrg()
+                self._custom_env_data[dbdatan]["episodic_stat"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_sub_avrg_over_eps()
+                self._custom_env_data[dbdatan]["episodic_stat_env_avrg"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_sub_env_avrg_over_eps()
+                self._custom_env_data[dbdatan]["episodic_stat_comp"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_avrg_over_eps()
+                self._custom_env_data[dbdatan]["episodic_stat_comp_env_avrg"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_tot_avrg()
+                
+                self._custom_env_data[dbdatan]["episodic_stat_max"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_sub_max_over_eps()
+                self._custom_env_data[dbdatan]["episodic_stat_min"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_sub_min_over_eps()
+                self._custom_env_data[dbdatan]["episodic_stat_max_between_envs"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_sub_env_max_over_eps()
+                self._custom_env_data[dbdatan]["episodic_stat_min_between_envs"][self._log_it_counter, :, :] = self._env.custom_db_data[dbdatan].get_sub_env_min_over_eps()
 
             self._log_info()
 
@@ -365,21 +388,23 @@ class DummyTestAlgoBase():
             is_done=self._vec_transition_counter==self._total_timesteps_vec
      
         if self._debug:
-            # add custom env db data (dumped LOCALLY at the end of training)
-            db_data_names = list(self._env.custom_db_data.keys())
-            for dbdatan in db_data_names: 
-                data = self._custom_env_data[dbdatan]
-                data_names = self._env.custom_db_data[dbdatan].data_names()
-                self._custom_env_data_db_dict.update({f"{dbdatan}" + "_rollout_stat_comp": 
-                        wandb.Histogram(data["rollout_stat_comp"][self._log_it_counter-1, :, :].numpy())})
-                self._custom_env_data_db_dict.update({f"{dbdatan}" + "_rollout_stat_comp_env_avrg": 
-                        data["rollout_stat_comp_env_avrg"][self._log_it_counter-1, :, :].item()})
-                self._custom_env_data_db_dict.update({f"sub_env_dbdata/{dbdatan}-{data_names[i]}" + "_rollout_stat_env_avrg": 
-                       data["rollout_stat_env_avrg"][self._log_it_counter-1, :, i:i+1] for i in range(len(data_names))})
-                self._custom_env_data_db_dict.update({f"sub_env_dbdata/{dbdatan}-{data_names[i]}" + "_rollout_stat": 
-                        wandb.Histogram(data["rollout_stat"].numpy()[self._log_it_counter-1, :, i:i+1]) for i in range(len(data_names))})
-
+            
             if self._remote_db: 
+                
+                # custom env db info
+                db_data_names = list(self._env.custom_db_data.keys())
+                for dbdatan in db_data_names: 
+                    data = self._custom_env_data[dbdatan]
+                    data_names = self._env.custom_db_data[dbdatan].data_names()
+                    self._custom_env_data_db_dict.update({f"{dbdatan}" + "_episodic_stat_comp": 
+                            wandb.Histogram(data["episodic_stat_comp"][self._log_it_counter-1, :, :].numpy())})
+                    self._custom_env_data_db_dict.update({f"{dbdatan}" + "_episodic_stat_comp_env_avrg": 
+                            data["episodic_stat_comp_env_avrg"][self._log_it_counter-1, :, :].item()})
+                    self._custom_env_data_db_dict.update({f"sub_env_dbdata/{dbdatan}-{data_names[i]}" + "_episodic_stat_env_avrg": 
+                        data["episodic_stat_env_avrg"][self._log_it_counter-1, :, i:i+1] for i in range(len(data_names))})
+                    self._custom_env_data_db_dict.update({f"sub_env_dbdata/{dbdatan}-{data_names[i]}" + "_episodic_stat": 
+                            wandb.Histogram(data["episodic_stat"].numpy()[self._log_it_counter-1, :, i:i+1]) for i in range(len(data_names))})
+                    
                 # write general algo debug info to shared memory    
                 info_names=self._shared_algo_data.dynamic_info.get()
                 info_data = [
@@ -402,12 +427,25 @@ class DummyTestAlgoBase():
                 # write debug info to remote wandb server
                 wandb_d = {'tot_episodic_reward': wandb.Histogram(self._episodic_rewards[self._log_it_counter-1, :, :].numpy()),
                     'tot_episodic_reward_env_avrg': self._episodic_rewards_env_avrg[self._log_it_counter-1, :, :].item(),
+                    'tot_episodic_reward_max': wandb.Histogram(self._max_env_episodic_reward[self._log_it_counter-1, :, :].numpy()),
+                    'tot_episodic_reward_env_max': self._max_episodic_reward[self._log_it_counter-1, :, :].item(),
+                    'tot_episodic_reward_min': wandb.Histogram(self._min_env_episodic_reward[self._log_it_counter-1, :, :].numpy()),
+                    'tot_episodic_reward_env_min': self._min_episodic_reward[self._log_it_counter-1, :, :].item(),
                     'log_iteration' : self._log_it_counter}
                 wandb_d.update(dict(zip(info_names, info_data)))
                 wandb_d.update({f"sub_reward/{self._reward_names[i]}_env_avrg":
                         self._episodic_sub_rewards_env_avrg[self._log_it_counter-1, :, i:i+1] for i in range(len(self._reward_names))})
+                wandb_d.update({f"sub_reward/{self._reward_names[i]}_env_max":
+                        self._episodic_env_max_sub_rewards[self._log_it_counter-1, :, i:i+1] for i in range(len(self._reward_names))})
+                wandb_d.update({f"sub_reward/{self._reward_names[i]}_env_min":
+                        self._episodic_env_min_sub_rewards[self._log_it_counter-1, :, i:i+1] for i in range(len(self._reward_names))})
+                
                 wandb_d.update({f"sub_reward/{self._reward_names[i]}":
                         wandb.Histogram(self._episodic_sub_rewards.numpy()[self._log_it_counter-1, :, i:i+1]) for i in range(len(self._reward_names))})
+                wandb_d.update({f"sub_reward/{self._reward_names[i]}_max":
+                        wandb.Histogram(self._episodic_max_sub_rewards.numpy()[self._log_it_counter-1, :, i:i+1]) for i in range(len(self._reward_names))})
+                wandb_d.update({f"sub_reward/{self._reward_names[i]}_min":
+                        wandb.Histogram(self._episodic_min_sub_rewards.numpy()[self._log_it_counter-1, :, i:i+1]) for i in range(len(self._reward_names))})
                 
                 wandb_d.update(self._policy_update_db_data_dict)
                 wandb_d.update(self._custom_env_data_db_dict)
@@ -420,9 +458,13 @@ class DummyTestAlgoBase():
                 f"Elapsed time: {self._elapsed_min[self._log_it_counter].item()/60.0} h\n" + \
                 f"Estimated remaining time: " + \
                 f"{est_remaining_time_h} h\n" + \
-                f"N. of episodes on which rew stats were computed: {self._n_of_played_episodes[self._log_it_counter].item()}\n" + \
-                f"Average episodic return across all environments: {self._episodic_rewards_env_avrg[self._log_it_counter, :, :].item()}\n" + \
-                f"Average episodic returns across all environments {self._reward_names_str}: {self._episodic_sub_rewards_env_avrg[self._log_it_counter, :]}\n" + \
+                f"N. of episodes on which episodic rew stats are computed: {self._n_of_played_episodes[self._log_it_counter].item()}\n" + \
+                f"Average episodic reward across all environments: {self._episodic_rewards_env_avrg[self._log_it_counter, :, :].item()}\n" + \
+                f"Maximum episodic reward across all environments: {self._max_episodic_reward[self._log_it_counter, :, :].item()}\n" + \
+                f"Minimum episodic reward across all environments: {self._min_episodic_reward[self._log_it_counter, :, :].item()}\n" + \
+                f"Average episodic sub-rewards across all environments {self._reward_names_str}: {self._episodic_sub_rewards_env_avrg[self._log_it_counter, :]}\n" + \
+                f"Maximum episodic sub-rewards across all environments {self._reward_names_str}: {self._episodic_env_max_sub_rewards[self._log_it_counter, :]}\n" + \
+                f"Minimum episodic sub-rewards across all environments {self._reward_names_str}: {self._episodic_env_min_sub_rewards[self._log_it_counter, :]}\n" + \
                 f"Current env. step sps: {self._env_step_fps[self._log_it_counter].item()}, time for experience collection {self._collection_dt[self._log_it_counter].item()} s\n" + \
                 f"Current env (sub-steping) rt factor: {self._env_step_rt_factor[self._log_it_counter].item()}\n"            
             
@@ -454,17 +496,34 @@ class DummyTestAlgoBase():
         # reward db data
         tot_ep_rew_shape = self._episodic_reward_metrics.get_avrg_over_eps().shape
         tot_ep_rew_shape_env_avrg_shape = self._episodic_reward_metrics.get_tot_avrg().shape
-        rollout_avrg_rew_shape = self._episodic_reward_metrics.get_sub_avrg_over_eps().shape
-        rollout_avrg_rew_env_avrg_shape = self._episodic_reward_metrics.get_sub_env_avrg_over_eps().shape
+        episodic_avrg_rew_shape = self._episodic_reward_metrics.get_sub_avrg_over_eps().shape
+        episodic_avrg_rew_env_avrg_shape = self._episodic_reward_metrics.get_sub_env_avrg_over_eps().shape
         self._reward_names = self._episodic_reward_metrics.reward_names()
         self._reward_names_str = "[" + ', '.join(self._reward_names) + "]"
         self._episodic_rewards = torch.full((self._db_data_size, tot_ep_rew_shape[0], tot_ep_rew_shape[1]), 
                                         dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._max_env_episodic_reward = torch.full((self._db_data_size, tot_ep_rew_shape[0], 1), 
+                                        dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._min_env_episodic_reward = torch.full((self._db_data_size, tot_ep_rew_shape[0], 1), 
+                                        dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._max_episodic_reward = torch.full((self._db_data_size, 1, 1), 
+                                        dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._min_episodic_reward = torch.full((self._db_data_size, 1, 1), 
+                                        dtype=torch.float32, fill_value=0.0, device="cpu")
+        
         self._episodic_rewards_env_avrg = torch.full((self._db_data_size, tot_ep_rew_shape_env_avrg_shape[0], tot_ep_rew_shape_env_avrg_shape[1]), 
                                         dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._episodic_sub_rewards = torch.full((self._db_data_size, rollout_avrg_rew_shape[0], rollout_avrg_rew_shape[1]), 
+        self._episodic_sub_rewards = torch.full((self._db_data_size, episodic_avrg_rew_shape[0], episodic_avrg_rew_shape[1]), 
                                         dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._episodic_sub_rewards_env_avrg = torch.full((self._db_data_size, rollout_avrg_rew_env_avrg_shape[0], rollout_avrg_rew_env_avrg_shape[1]), 
+        self._episodic_sub_rewards_env_avrg = torch.full((self._db_data_size, episodic_avrg_rew_env_avrg_shape[0], episodic_avrg_rew_env_avrg_shape[1]), 
+                                        dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._episodic_max_sub_rewards = torch.full((self._db_data_size, episodic_avrg_rew_shape[0], episodic_avrg_rew_shape[1]), 
+                                        dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._episodic_env_max_sub_rewards= torch.full((self._db_data_size, episodic_avrg_rew_env_avrg_shape[0], episodic_avrg_rew_env_avrg_shape[1]), 
+                                        dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._episodic_min_sub_rewards = torch.full((self._db_data_size, episodic_avrg_rew_shape[0], episodic_avrg_rew_shape[1]), 
+                                        dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._episodic_env_min_sub_rewards = torch.full((self._db_data_size, episodic_avrg_rew_env_avrg_shape[0], episodic_avrg_rew_env_avrg_shape[1]), 
                                         dtype=torch.float32, fill_value=0.0, device="cpu")
         
         # custom data from env
@@ -472,25 +531,41 @@ class DummyTestAlgoBase():
         db_data_names = list(self._env.custom_db_data.keys())
         for dbdatan in db_data_names:
             self._custom_env_data[dbdatan] = {}
-            rollout_stat=self._env.custom_db_data[dbdatan].get_sub_avrg_over_eps()
-            self._custom_env_data[dbdatan]["rollout_stat"] = torch.full((self._db_data_size, 
-                                                                rollout_stat.shape[0], 
-                                                                rollout_stat.shape[1]), 
+            episodic_stat=self._env.custom_db_data[dbdatan].get_sub_avrg_over_eps()
+            self._custom_env_data[dbdatan]["episodic_stat"] = torch.full((self._db_data_size, 
+                                                                episodic_stat.shape[0], 
+                                                                episodic_stat.shape[1]), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
-            rollout_stat_env_avrg=self._env.custom_db_data[dbdatan].get_sub_env_avrg_over_eps()
-            self._custom_env_data[dbdatan]["rollout_stat_env_avrg"] = torch.full((self._db_data_size, 
-                                                                        rollout_stat_env_avrg.shape[0], 
-                                                                        rollout_stat_env_avrg.shape[1]), 
+            episodic_stat_env_avrg=self._env.custom_db_data[dbdatan].get_sub_env_avrg_over_eps()
+            self._custom_env_data[dbdatan]["episodic_stat_env_avrg"] = torch.full((self._db_data_size, 
+                                                                        episodic_stat_env_avrg.shape[0], 
+                                                                        episodic_stat_env_avrg.shape[1]), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
-            rollout_stat_comp=self._env.custom_db_data[dbdatan].get_avrg_over_eps()
-            self._custom_env_data[dbdatan]["rollout_stat_comp"] = torch.full((self._db_data_size, 
-                                                                    rollout_stat_comp.shape[0], 
-                                                                    rollout_stat_comp.shape[1]), 
+            episodic_stat_comp=self._env.custom_db_data[dbdatan].get_avrg_over_eps()
+            self._custom_env_data[dbdatan]["episodic_stat_comp"] = torch.full((self._db_data_size, 
+                                                                    episodic_stat_comp.shape[0], 
+                                                                    episodic_stat_comp.shape[1]), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
-            rollout_stat_comp_env_avrg=self._env.custom_db_data[dbdatan].get_tot_avrg()
-            self._custom_env_data[dbdatan]["rollout_stat_comp_env_avrg"] = torch.full((self._db_data_size, rollout_stat_comp_env_avrg.shape[0], rollout_stat_comp_env_avrg.shape[1]), 
+            episodic_stat_comp_env_avrg=self._env.custom_db_data[dbdatan].get_tot_avrg()
+            self._custom_env_data[dbdatan]["episodic_stat_comp_env_avrg"] = torch.full((self._db_data_size, episodic_stat_comp_env_avrg.shape[0], episodic_stat_comp_env_avrg.shape[1]), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+            
+            episodic_stat_max=self._env.custom_db_data[dbdatan].get_sub_max_over_eps()
+            self._custom_env_data[dbdatan]["episodic_stat_max"] = torch.full((self._db_data_size, episodic_stat_max.shape[0], episodic_stat_max.shape[1]), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+            
+            episodic_stat_min=self._env.custom_db_data[dbdatan].get_sub_min_over_eps()
+            self._custom_env_data[dbdatan]["episodic_stat_min"] = torch.full((self._db_data_size, episodic_stat_min.shape[0], episodic_stat_min.shape[1]), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+            
+            episodic_stat_env_max=self._env.custom_db_data[dbdatan].get_sub_env_max_over_eps()
+            self._custom_env_data[dbdatan]["episodic_stat_env_max"] = torch.full((self._db_data_size, episodic_stat_env_max.shape[0], episodic_stat_env_max.shape[1]), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
 
+            episodic_stat_env_min=self._env.custom_db_data[dbdatan].get_sub_env_min_over_eps()
+            self._custom_env_data[dbdatan]["episodic_stat_env_min"] = torch.full((self._db_data_size, episodic_stat_env_min.shape[0], episodic_stat_env_min.shape[1]), 
+                    dtype=torch.float32, fill_value=0.0, device="cpu")
+            
         # other data
         self._running_mean_obs = torch.full((self._db_data_size, self._env.obs_dim()), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
