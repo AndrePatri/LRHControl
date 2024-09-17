@@ -195,7 +195,8 @@ class EpisodicData():
             dtype: torch.dtype = torch.float32,
             ep_vec_freq: int = 1):
 
-        self._keep_track=True
+        self._keep_track=True # we generally want to propagate 
+        # the current 
 
         self._ep_vec_freq=ep_vec_freq
 
@@ -335,18 +336,14 @@ class EpisodicData():
                 if not keep_track:
                     self._current_ep_sum.zero_()
                     self._steps_counter.zero_()
-                    self._max_over_eps[:, :]=-torch.inf
-                    self._min_over_eps[:, :]=torch.inf
-                    self._max_over_eps_last[:, :]=-torch.inf
-                    self._min_over_eps_last[:, :]=torch.inf
             else:
                 if not self._keep_track: # if not, we propagate ep sum and steps 
                     # from before this reset call 
                     self._current_ep_sum.zero_()
                     self._steps_counter.zero_()
-                    self._max_over_eps_last[:, :]=-torch.inf
-                    self._min_over_eps_last[:, :]=torch.inf
             
+            self._max_over_eps[:, :]=-torch.inf
+            self._min_over_eps[:, :]=torch.inf
             self._current_ep_sum_scaled.zero_()
             self._tot_sum_up_to_now.zero_()
             self._average_over_eps.zero_()
@@ -359,20 +356,14 @@ class EpisodicData():
                 if not keep_track:
                     self._current_ep_sum[to_be_reset, :]=0
                     self._steps_counter[to_be_reset, :]=0
-                    self._max_over_eps[to_be_reset, :]=-torch.inf
-                    self._min_over_eps[to_be_reset, :]=torch.inf
-                    self._max_over_eps_last[to_be_reset, :]=-torch.inf
-                    self._min_over_eps_last[to_be_reset, :]=torch.inf
             else:
                 if not self._keep_track: # if not, we propagate ep sum and steps 
                     # from before this reset call 
                     self._current_ep_sum[to_be_reset, :]=0
                     self._steps_counter[to_be_reset, :]=0
-                    self._max_over_eps[to_be_reset, :]=-torch.inf
-                    self._min_over_eps[to_be_reset, :]=torch.inf
-                    self._max_over_eps_last[to_be_reset, :]=-torch.inf
-                    self._min_over_eps_last[to_be_reset, :]=torch.inf
-
+            
+            self._max_over_eps[to_be_reset, :]=-torch.inf
+            self._min_over_eps[to_be_reset, :]=torch.inf
             self._current_ep_sum_scaled[to_be_reset, :]=0
             self._tot_sum_up_to_now[to_be_reset, :]=0
             self._average_over_eps[to_be_reset, :]=0
@@ -421,7 +412,7 @@ class EpisodicData():
             self._scale_now[:, :] = self._scaling # constant scaling
 
         self._current_ep_sum[:, :] = self._current_ep_sum + new_data # sum over the current episode
-        self._current_ep_sum_scaled[:, :] = self._current_ep_sum[:, :] / self._scale_now[:, :] # average bover the played timesteps
+        self._current_ep_sum_scaled[:, :] = self._current_ep_sum[:, :] / self._scale_now[:, :] # average using the scale
         
         self._tot_sum_up_to_now[ep_finished.flatten(), :] += self._current_ep_sum_scaled[ep_finished.flatten(), :]
 
