@@ -270,7 +270,12 @@ class SActorCriticAlgoBase():
         self._start_time_tot = time.perf_counter()
 
         self._start_time = time.perf_counter()
-    
+
+        self._action_scale = (self._env.get_actions_ub()-self._env.get_actions_lb())/2.0
+        self._action_bias = (self._env.get_actions_ub()+self._env.get_actions_lb())/2.0
+        self._random_uniform = torch.full_like(actions, fill_value=0.0) # used for sampling random actions (preallocated
+        # for efficiency)
+
     def is_done(self):
 
         return self._is_done 
@@ -828,7 +833,7 @@ class SActorCriticAlgoBase():
         self._replay_buffer_size_nominal = int(10e6) # 32768
         self._replay_buffer_size_vec = self._replay_buffer_size_nominal//self._num_envs # 32768
         self._replay_buffer_size = self._replay_buffer_size_vec*self._num_envs
-        self._batch_size = 32768
+        self._batch_size = 4096
         self._total_timesteps = int(tot_tsteps)
         self._total_timesteps = self._total_timesteps//self._env_n_action_reps # correct with n of action reps
         self._total_timesteps_vec = self._total_timesteps // self._num_envs
@@ -1037,14 +1042,9 @@ class SActorCriticAlgoBase():
     def _sample_random_actions(self):
         
         actions = self._env.get_actions()
-
-        action_scale = (self._env.get_actions_ub()-self._env.get_actions_lb())/2.0
-        action_bias = (self._env.get_actions_ub()+self._env.get_actions_lb())/2.0
+        torch.nn.init.uniform_(self._random_uniform, a=-1, b=1)
         
-        random_uniform = torch.full_like(actions, fill_value=0.0)
-        torch.nn.init.uniform_(random_uniform, a=-1, b=1)
-        
-        random_actions = random_uniform*action_scale+action_bias
+        random_actions = self._random_uniform*self._action_scale+self._action_bias
 
         return random_actions
     

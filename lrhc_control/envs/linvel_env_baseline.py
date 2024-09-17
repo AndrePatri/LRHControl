@@ -117,8 +117,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._task_err_weights[0, 5] = 1e-6
 
         # task pred tracking
-        self._task_pred_offset = 10.0 # 10.0
-        self._task_pred_scale = 10.0 # perc-based
+        self._task_pred_offset = 0.0 # 10.0
+        self._task_pred_scale = 0.0 # perc-based
         self._task_pred_err_weights = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.0) 
         self._task_pred_err_weights[0, 0] = 1.0
