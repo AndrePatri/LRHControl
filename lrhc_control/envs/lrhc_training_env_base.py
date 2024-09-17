@@ -417,7 +417,7 @@ class LRhcTrainingEnvBase():
         if self._is_debug:
             self._debug() # copies db data on shared memory
             self._update_custom_db_data(episode_finished=episode_finished_cpu)
-            self._episodic_rewards_metrics.update(rewards = self._sub_rewards.get_torch_mirror(gpu=False),
+            self._episodic_rewards_metrics.update(rewards=self._sub_rewards.get_torch_mirror(gpu=False),
                             ep_finished=episode_finished_cpu)
 
         # remotely reset envs

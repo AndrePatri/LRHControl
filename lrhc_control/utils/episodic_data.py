@@ -337,13 +337,15 @@ class EpisodicData():
                     self._steps_counter.zero_()
                     self._max_over_eps[:, :]=-torch.inf
                     self._min_over_eps[:, :]=torch.inf
+                    self._max_over_eps_last[:, :]=-torch.inf
+                    self._min_over_eps_last[:, :]=torch.inf
             else:
                 if not self._keep_track: # if not, we propagate ep sum and steps 
                     # from before this reset call 
                     self._current_ep_sum.zero_()
                     self._steps_counter.zero_()
-                    self._max_over_eps[:, :]=-torch.inf
-                    self._min_over_eps[:, :]=torch.inf
+                    self._max_over_eps_last[:, :]=-torch.inf
+                    self._min_over_eps_last[:, :]=torch.inf
             
             self._current_ep_sum_scaled.zero_()
             self._tot_sum_up_to_now.zero_()
@@ -359,6 +361,8 @@ class EpisodicData():
                     self._steps_counter[to_be_reset, :]=0
                     self._max_over_eps[to_be_reset, :]=-torch.inf
                     self._min_over_eps[to_be_reset, :]=torch.inf
+                    self._max_over_eps_last[to_be_reset, :]=-torch.inf
+                    self._min_over_eps_last[to_be_reset, :]=torch.inf
             else:
                 if not self._keep_track: # if not, we propagate ep sum and steps 
                     # from before this reset call 
@@ -366,6 +370,8 @@ class EpisodicData():
                     self._steps_counter[to_be_reset, :]=0
                     self._max_over_eps[to_be_reset, :]=-torch.inf
                     self._min_over_eps[to_be_reset, :]=torch.inf
+                    self._max_over_eps_last[to_be_reset, :]=-torch.inf
+                    self._min_over_eps_last[to_be_reset, :]=torch.inf
 
             self._current_ep_sum_scaled[to_be_reset, :]=0
             self._tot_sum_up_to_now[to_be_reset, :]=0
@@ -444,19 +450,8 @@ class EpisodicData():
             self._max_over_eps[selector, :]
         self._min_over_eps_last[selector, :]=\
             self._min_over_eps[selector, :]
-        
-        self._custom_pre_reset(new_data=new_data,
-            ep_finished=ep_finished,
-            fresh_metrics_avail=selector)
 
         self.reset(to_be_reset=selector)        
-
-    def _custom_pre_reset(self,
-        new_data: torch.Tensor,
-        ep_finished: torch.Tensor,
-        fresh_metrics_avail: torch.Tensor):
-        # can implement custom logic
-        pass
 
     def data_names(self):
         return self._data_names
@@ -464,29 +459,25 @@ class EpisodicData():
     def step_counters(self):
         return self._steps_counter
     
-    def get_sub_avrg_over_eps(self):
-        return self._average_over_eps_last
-
-    def get_sub_env_avrg_over_eps(self):
-        return torch.sum(self.get_sub_avrg_over_eps(), dim=0, keepdim=True)/self._n_envs
-    
-    def get_avrg_over_eps(self):
-        return torch.sum(self.get_sub_avrg_over_eps(), dim=1, keepdim=True)
-            
-    def get_tot_avrg(self):
-        return torch.sum(self.get_avrg_over_eps(), dim=0, keepdim=True)/self._n_envs
-
-    def get_sub_max_over_eps(self):
+    def get_max(self):
         return self._max_over_eps_last
     
-    def get_sub_min_over_eps(self):
+    def get_avrg(self):
+        return self._average_over_eps_last
+
+    def get_min(self):
         return self._min_over_eps_last
+    
+    def get_max_over_envs(self):
+        sub_env_max_over_eps, _ = torch.max(self.get_max(), dim=0, keepdim=True)
+        return sub_env_max_over_eps
+    
+    def get_avrg_over_envs(self):
+        return torch.sum(self.get_avrg(), dim=0, keepdim=True)/self._n_envs
 
-    def get_sub_env_max_over_eps(self):
-        return torch.max(self.get_sub_max_over_eps(), dim=0, keepdim=True)
-
-    def get_sub_env_min_over_eps(self):
-        return torch.min(self.get_sub_min_over_eps(), dim=0, keepdim=True)
+    def get_min_over_envs(self):
+        sub_env_min_over_eps, _ = torch.min(self.get_min(), dim=0, keepdim=True)
+        return sub_env_min_over_eps
     
     def get_n_played_episodes(self):
         return torch.sum(self._n_played_eps_last).item()
@@ -498,13 +489,17 @@ if __name__ == "__main__":
 
     def print_data(data,i):
         print(f"INFO{i}")
-        print("avrg over eps last:")
-        print(test_data.get_sub_avrg_over_eps())
+        print("max: ")
+        print(test_data.get_max())
+        print("avrg :")
+        print(test_data.get_avrg())
+        print("min: ")
+        print(test_data.get_min())
         print(f"played eps {data.get_n_played_episodes()}")
         print("#################################")
 
-    n_steps = 100
-    n_envs = 4
+    n_steps = 10
+    n_envs = 2
     data_dim = 1
     ep_finished = torch.full((n_envs, n_steps),fill_value=False,dtype=torch.bool,device="cpu",
                 requires_grad=False)
@@ -518,62 +513,27 @@ if __name__ == "__main__":
                 data_names=data_names,
                 debug=True,
                 ep_vec_freq=2)
-    
-    
+
     test_data.set_constant_data_scaling(enable=True,
                 scaling=data_scaling)
     test_data.reset()
     
-    ep_finished[0,  3] = True # term at tstep 9
-    ep_finished[0,  7] = True # term at tstep 9
-    ep_finished[0,  11] = True # term at tstep 9
-    ep_finished[0,  13] = True # term at tstep 9
-    ep_finished[0,  15] = True # term at tstep 9
-    ep_finished[0,  17] = True # term at tstep 9
+    ep_finished[0,  3] = True # term at tstep 
+    ep_finished[0,  6] = True 
 
-    ep_finished[1,  4] = True # term at tstep 15
-    ep_finished[1,  9] = True # term at tstep 15
-    ep_finished[1,  14] = True # term at tstep 15
-
-    ep_finished[2,  5] = True # term at tstep 15
-    ep_finished[2,  11] = True # term at tstep 15
-    ep_finished[2,  17] = True # term at tstep 15
-
-    ep_finished[3,  6] = True # term at tstep 15
-    ep_finished[3,  13] = True # term at tstep 15
-    ep_finished[3,  20] = True # term at tstep 15
 
     new_data[:, 0] = 1
 
-    print_freq=2
-    for i in range(40):# do some updates
+    print_freq=1
+    for i in range(n_steps):# do some updates
         
         print("new data")
         print(new_data)
         print(ep_finished[:, i:i+1])
         test_data.update(new_data=new_data,
                     ep_finished=ep_finished[:, i:i+1])
-        # if test_data.new_metrics_avail():
-        #     print_data(test_data,i)
         if (i+1)%print_freq==0:
             print_data(test_data,i)
-        # if i==39:
-        #     print_data(test_data,i)
-
-    # ep_finished[:, :] = False
-    # for i in range(5):
-    #     # if i == 4:
-    #         # ep_finished[:, :] = True
-    #     test_data.update(new_data=new_data,
-    #                 ep_finished=ep_finished)
-
-    # test_data.reset(keep_track=False)
-    
-    # for i in range(5):
-    #     if i == 4:
-    #         ep_finished[:, :] = True
-    #     test_data.update(new_data=new_data,
-    #                 ep_finished=ep_finished)
     
 
     #****************MEM BUFFER********************
