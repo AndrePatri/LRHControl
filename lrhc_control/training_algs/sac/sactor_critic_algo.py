@@ -472,16 +472,16 @@ class SActorCriticAlgoBase():
         
         self._vec_transition_counter+=1
 
-        if (self._vec_transition_counter > self._warmstart_vectimesteps and (not self._eval)):
-            if self._vec_transition_counter % self._policy_freq == 0:
+        if ((self._vec_transition_counter-1) > self._warmstart_vectimesteps and (not self._eval)):
+            if (self._vec_transition_counter-1) % self._policy_freq == 0:
                 self._n_policy_updates[self._log_it_counter]+=self._policy_freq # td3 delaye update
             # updating qfun at each vec timesteps
             self._n_qfun_updates[self._log_it_counter]+=1
             
-            if self._vec_transition_counter % self._trgt_net_freq == 0:
+            if (self._vec_transition_counter-1) % self._trgt_net_freq == 0:
                 self._n_tqfun_updates[self._log_it_counter]+=1
 
-        if (self._vec_transition_counter > self._warmstart_vectimesteps or self._eval) and \
+        if ((self._vec_transition_counter-1) > self._warmstart_vectimesteps or self._eval) and \
             self._vec_transition_counter % self._db_vecstep_frequency== 0:
             # only log data every n timesteps 
         
@@ -541,8 +541,6 @@ class SActorCriticAlgoBase():
 
         if self._vec_transition_counter == self._total_timesteps_vec:
             self.done()           
-
-        self._vec_transition_counter+=1
             
     def _should_have_called_setup(self):
 
