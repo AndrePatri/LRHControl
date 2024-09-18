@@ -11,6 +11,7 @@ from SharsorIPCpp.PySharsorIPC import LogType
 
 import os
 from lrhc_control.utils.episodic_data import EpisodicData
+from lrhc_control.utils.signal_smoother import ExponentialSignalSmoother
 
 class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
@@ -42,6 +43,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._add_rhc_avrg_root_twist_to_obs=True
         self._add_rhc_root_twist_to_obs=True
         self._add_fail_idx_to_obs=True # add a failure index which is directly correlated to env failure due to rhc controller explosion
+
+        self._use_vel_err_sig_smoother=True # whether to smooth vel error signal
+        self._vel_err_smoother=None
 
         # temporarily creating robot state client to get some data
         robot_state_tmp = RobotState(namespace=namespace,
@@ -261,10 +265,10 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._actions_ub[:, 6:10] = 1.0 
 
         # some aux data to avoid allocations at training runtime
-        self._robot_twist_meas_h = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu).clone()
-        self._robot_twist_meas_b = self._robot_twist_meas_h.clone()
-        self._robot_twist_meas_w = self._robot_twist_meas_h.clone()
-        self._task_ref_h = self._robot_twist_meas_h.clone()
+        self._robot_twist_meas_h = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu).detach().clone()
+        self._robot_twist_meas_b = self._robot_twist_meas_h.detach().clone()
+        self._robot_twist_meas_w = self._robot_twist_meas_h.detach().clone()
+        self._task_ref_h = self._robot_twist_meas_h.detach().clone()
         
         # task aux objs
         device = "cuda" if self._use_gpu else "cpu"
@@ -279,6 +283,22 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         if self._add_prev_actions_stats_to_obs:
             self._defaut_bf_action[:, :] = (self._actions_ub+self._actions_lb)/2.0
+
+        if self._use_vel_err_sig_smoother:
+            vel_err_proxy=self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu).detach().clone()
+            self._smoothing_horizon=1.0
+            self._target_smoothing=0.05
+            self._vel_err_smoother=ExponentialSignalSmoother(
+                name="VelErrorSmoother",
+                signal=vel_err_proxy, # same dimension of vel error
+                update_dt=self._substep_dt,
+                smoothing_horizon=self._smoothing_horizon,
+                target_smoothing=self._target_smoothing,
+                debug=self._is_debug,
+                dtype=self._dtype,
+                use_gpu=self._use_gpu)
+            self.custom_db_info["smoothing_horizon"]=self._smoothing_horizon
+            self.custom_db_info["target_smoothing"]=self._target_smoothing
 
     def get_file_paths(self):
         paths=super().get_file_paths()
@@ -323,6 +343,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         else:
             time_to_rand_or_ep_finished = torch.logical_or(self._task_rand_counter.time_limits_reached(),episode_finished)
             self.randomize_task_refs(env_indxs=time_to_rand_or_ep_finished.flatten())
+                
+        if self._vel_err_smoother is not None: # reset smoother
+            self._vel_err_smoother.reset(to_be_reset=episode_finished.flatten())
 
     def _custom_post_substepping(self):
         pass
@@ -458,7 +481,13 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
     
     def _task_err_wms(self, task_ref, task_meas, scaling, weights):
         task_error = (task_ref-task_meas)/scaling
-        task_wmse = torch.sum((task_error*task_error)*weights, dim=1, keepdim=True)/torch.sum(weights).item()
+        weighted_error=task_error*weights
+        if self._vel_err_smoother is not None:
+            self._vel_err_smoother.update(new_signal=weighted_error,
+                ep_finished=None # reset done externally
+                )
+            weighted_error=self._vel_err_smoother.get()
+        task_wmse = torch.sum(weighted_error*weighted_error, dim=1, keepdim=True)/torch.sum(weights).item()
         return task_wmse # weighted mean square error (along task dimension)
     
     def _task_perc_err_lin(self, task_ref, task_meas, weights):

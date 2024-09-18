@@ -117,7 +117,7 @@ class ExponentialSignalSmoother():
 
     def update(self, 
         new_signal: torch.Tensor,
-        ep_finished: torch.Tensor):
+        ep_finished: torch.Tensor = None):
         
         if self._debug:
             self._check_new_data(new_data=new_signal)
@@ -129,10 +129,10 @@ class ExponentialSignalSmoother():
 
         self._smoothed_sig[:, :] = (1-self._alpha)*new_signal+self._alpha*self._smoothed_sig[:, :]
 
-        self._steps_counter[~ep_finished.flatten(), :] +=1 # step performed
-
-        self.reset(to_be_reset=ep_finished.flatten())
-
+        self._steps_counter+=1
+        if ep_finished is not None:
+            self._steps_counter[ep_finished.flatten(), :] = 0
+            
     def update_alpha(self,
         update_dt: float = None, 
         smoothing_horizon: float = None,
@@ -184,7 +184,7 @@ if __name__ == "__main__":
     signal_dim = 1
     update_dt = 0.03  # [s]
     smoothing_horizon = 1.0  # [s]
-    target_smoothing = 0.2  # 20%
+    target_smoothing = 0.05  # 20%
     frequency = round(100/update_dt)  # Frequency of the sinusoidal signal in Hz
     total_time = 10.0  # Total time for simulation [s]
     
