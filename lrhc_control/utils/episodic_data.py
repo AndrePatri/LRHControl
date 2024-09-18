@@ -305,7 +305,7 @@ class EpisodicData():
                 dtype=torch.int32, device="cpu",
                 requires_grad=False)
 
-        # current ste counter (within this episode)
+        # current step counter (within this episode)
         self._steps_counter = torch.full(size=(self._n_envs, 1), 
                 fill_value=0,
                 dtype=torch.int32, device="cpu",

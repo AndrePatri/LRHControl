@@ -2,6 +2,7 @@ from SharsorIPCpp.PySharsorIPC import Journal
 from SharsorIPCpp.PySharsorIPC import LogType
 
 import torch
+import math
 
 from typing import List
 
@@ -39,10 +40,46 @@ class ExponentialSignalSmoother():
         self._update_dt=update_dt
         self._T=smoothing_horizon
         self._pt=target_smoothing
-        self._alpha=0.0# no smoothing by default
+
+        self._epsi=1e-6
+        if self._pt<=0:
+            self._pt=self._epsi
+
+        self._alpha=self._compute_alpha(update_dt=self._update_dt,
+            smoothing_horizon=self._T,
+            target_smoothing=self._pt)# no smoothing by default
+
+        self._init_data()
+
+    def _compute_alpha(self,
+        update_dt: float = None, 
+        smoothing_horizon: float = None,
+        target_smoothing: float = None):
+        
+        # default to current vals is not provided
+        if update_dt is None:
+            update_dt=self._update_dt
+        if smoothing_horizon is None:
+            smoothing_horizon=self._T
+        if target_smoothing is None:
+            target_smoothing=self._pt
+
+        return math.exp((update_dt/smoothing_horizon) * math.log(target_smoothing))
 
     def _init_data(self):
-        a=1
+        # current step counter (within this episode)
+        device="cuda" if self._use_gpu else "cpu"
+        self._steps_counter = torch.full(size=(self._n_envs, 1), 
+            fill_value=0,
+            dtype=torch.int32, 
+            device=device,
+            requires_grad=False)
+        
+        self._smoothed_sig=torch.full(size=(self._n_envs, self._signal_dim), 
+            fill_value=0.0,
+            dtype=self._dtype, 
+            device=device,
+            requires_grad=False)
     
     def _check_new_data(self,new_data):
         self._check_sizes(new_data=new_data)
@@ -54,7 +91,7 @@ class ExponentialSignalSmoother():
             exception = f"Provided signal tensor shape {new_data.shape[0]}, {new_data.shape[1]}" + \
                 f" does not match {self._n_envs}, {self._signal_dim}!!"
             Journal.log(self.__class__.__name__ + f"[{self._name}]",
-                "__init__",
+                "_check_sizes",
                 exception,
                 LogType.EXCEP,
                 throw_when_excep=True)
@@ -64,21 +101,56 @@ class ExponentialSignalSmoother():
             print(new_data)
             exception = f"Found non finite elements in provided data!!"
             Journal.log(self.__class__.__name__ + f"[{self._name}]",
-                "__init__",
+                "_check_finite",
                 exception,
                 LogType.EXCEP,
                 throw_when_excep=True)
 
     def reset_all(self):
+        self._steps_counter.zero_()
+        self._smoothed_sig.zero_()
 
     def reset(self,
         to_be_reset: torch.Tensor):
+        self._steps_counter[to_be_reset, :]=0
+        self._smoothed_sig[to_be_reset, :]=0.0
 
-        a=1
-    
     def update(self, 
-        new_signal: torch.Tensor):
-        a=1
+        new_signal: torch.Tensor,
+        ep_finished: torch.Tensor):
+        
+        # initialize smoothed signal with current sample if just started episode
+        is_first_step=(self._steps_counter.eq(0))
+        if is_first_step.any():
+            self._smoothed_sig[is_first_step.flatten(), :]=new_signal
+
+        self._smoothed_sig[:, :] = (1-self._alpha)*new_signal+self._alpha*self._smoothed_sig[:, :]
+
+        self._steps_counter[~ep_finished.flatten(), :] +=1 # step performed
+
+        self.reset(to_be_reset=ep_finished.flatten())
+
+    def update_alpha(self,
+        update_dt: float = None, 
+        smoothing_horizon: float = None,
+        target_smoothing: float = None):
+
+        if not torch.all(self._steps_counter.eq(0)):
+            Journal.log(self.__class__.__name__ + f"[{self._name}]",
+                "update_alpha",
+                "Some environments have unfinished episodes. Have you called the reset_all() method??",
+                LogType.WARN,
+                throw_when_excep=False)
+        self._alpha=self._compute_alpha(update_dt=update_dt,
+            smoothing_horizon=smoothing_horizon,
+            target_smoothing=target_smoothing)
+
+    def get(self,
+        clone: bool=False):
+        if clone:
+            return self._smoothed_sig.detach().clone()
+        else:
+            return self._smoothed_sig
     
     def horizon(self):
         return self._T
@@ -86,4 +158,60 @@ class ExponentialSignalSmoother():
     def dt(self):
         return self._update_dt
     
-    def 
+    def alpha(self):
+        return self._alpha
+    
+if __name__ == "__main__":
+    # Set up test parameters
+    n_envs = 2
+    signal_dim = 3
+    update_dt = 0.03  # [s]
+    smoothing_horizon = 1.0  # [s]
+    target_smoothing = 0.2  # 20%
+    
+    episode_length=round(smoothing_horizon/update_dt)+1
+    # Create a random signal tensor
+    signal = torch.randn(n_envs, signal_dim)
+    
+    # Initialize the ExponentialSignalSmoother
+    smoother = ExponentialSignalSmoother(
+        signal=signal,
+        update_dt=update_dt,
+        smoothing_horizon=smoothing_horizon,
+        target_smoothing=target_smoothing,
+        name="TestSmoother",
+        debug=True,
+        dtype=torch.float32,
+        use_gpu=False
+    )
+    
+    # Print initial values
+    print("Initial smoothed signal:")
+    print(smoother.get(clone=True))
+
+    new_signal=None
+    ep_finished = torch.tensor([False, False])  # Assume episodes are not finished
+    # Simulate some updates
+    for i in range(episode_length):
+        new_signal = torch.randn(n_envs, signal_dim)
+        new_signal[:, :]=new_signal[:, :]
+        smoother.update(new_signal, ep_finished)
+    
+    last_smoothed=smoother.get(clone=True)
+    print("Last signal:")
+    print(new_signal)
+    print("Last smoothed signal:")
+    print(last_smoothed)
+
+    new_signal/last_smoothed
+    # Test resetting
+    smoother.reset_all()
+    print("\nAfter reset_all:")
+    print(smoother.get(clone=True))
+
+    # Update alpha and test
+    smoother.update_alpha(update_dt=0.02, smoothing_horizon=1.0, target_smoothing=0.5)
+    print("\nAfter updating alpha:")
+    print(f"New alpha: {smoother.alpha()}")
+    print("Smoothed signal:")
+    print(smoother.get(clone=True))
