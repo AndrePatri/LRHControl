@@ -161,21 +161,33 @@ class ExponentialSignalSmoother():
     def alpha(self):
         return self._alpha
     
+def sinusoidal_signal(t: torch.Tensor, frequency: float) -> torch.Tensor:
+    """
+    Generate a sinusoidal signal with unit amplitude and given frequency.
+    """
+    return torch.sin(2 * torch.pi * frequency * t)
+
 if __name__ == "__main__":
+    import matplotlib.pyplot as plt
     # Set up test parameters
     n_envs = 2
-    signal_dim = 3
+    signal_dim = 1
     update_dt = 0.03  # [s]
     smoothing_horizon = 1.0  # [s]
     target_smoothing = 0.2  # 20%
+    frequency = round(100/update_dt)  # Frequency of the sinusoidal signal in Hz
+    total_time = 10.0  # Total time for simulation [s]
     
-    episode_length=round(smoothing_horizon/update_dt)+1
-    # Create a random signal tensor
-    signal = torch.randn(n_envs, signal_dim)
-    
-    # Initialize the ExponentialSignalSmoother
+    # Calculate the number of steps
+    episode_length = int(round(total_time / update_dt)) + 1
+    t = torch.linspace(0, total_time, episode_length)
+
+    # Generate sinusoidal signal
+    nominal_signal = sinusoidal_signal(t, frequency)
+
+    # Initialize ExponentialSignalSmoother
     smoother = ExponentialSignalSmoother(
-        signal=signal,
+        signal=torch.zeros(n_envs, signal_dim, dtype=torch.float32),
         update_dt=update_dt,
         smoothing_horizon=smoothing_horizon,
         target_smoothing=target_smoothing,
@@ -185,25 +197,34 @@ if __name__ == "__main__":
         use_gpu=False
     )
     
-    # Print initial values
-    print("Initial smoothed signal:")
-    print(smoother.get(clone=True))
-
-    new_signal=None
-    ep_finished = torch.tensor([False, False])  # Assume episodes are not finished
-    # Simulate some updates
+    smoothed_signals = torch.zeros(episode_length, n_envs, signal_dim, dtype=torch.float32)
     for i in range(episode_length):
-        new_signal = torch.randn(n_envs, signal_dim)
-        new_signal[:, :]=new_signal[:, :]
+        new_signal = nominal_signal[i].repeat(n_envs, signal_dim)  # Shape: (n_envs, signal_dim)
+        ep_finished = torch.tensor([False] * n_envs, dtype=torch.bool)
         smoother.update(new_signal, ep_finished)
-    
-    last_smoothed=smoother.get(clone=True)
-    print("Last signal:")
-    print(new_signal)
-    print("Last smoothed signal:")
-    print(last_smoothed)
+        
+        smoothed_signals[i] = smoother.get(clone=True)
 
-    new_signal/last_smoothed
+    # Flatten the tensor for plotting
+    smoothed_signals = smoothed_signals.squeeze().numpy()
+
+    # Plot the results
+    plt.figure(figsize=(14, 7))
+    plt.plot(t.numpy(), nominal_signal.numpy(), label='Nominal Signal', color='blue', linestyle='--')
+    plt.plot(t.numpy(), smoothed_signals[:, 0], label='Smoothed Signal', color='red')
+    plt.xlabel('Time [s]')
+    plt.ylabel('Signal Value')
+    plt.title('Nominal VS Smoothed Signals')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+    
+    # Print last signal and smoothed signal
+    print("Last nominal signal:")
+    print(nominal_signal[-1].item())
+    print("Last smoothed signal:")
+    print(smoothed_signals[-1, 0])
+    
     # Test resetting
     smoother.reset_all()
     print("\nAfter reset_all:")
@@ -213,5 +234,5 @@ if __name__ == "__main__":
     smoother.update_alpha(update_dt=0.02, smoothing_horizon=1.0, target_smoothing=0.5)
     print("\nAfter updating alpha:")
     print(f"New alpha: {smoother.alpha()}")
-    print("Smoothed signal:")
+    print("Smoothed signal after alpha update:")
     print(smoother.get(clone=True))
