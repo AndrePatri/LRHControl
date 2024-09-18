@@ -125,7 +125,7 @@ class ExponentialSignalSmoother():
         # initialize smoothed signal with current sample if just started episode
         is_first_step=(self._steps_counter.eq(0))
         if is_first_step.any():
-            self._smoothed_sig[is_first_step.flatten(), :]=new_signal
+            self._smoothed_sig[is_first_step.flatten(), :]=new_signal[is_first_step.flatten(),:]
 
         self._smoothed_sig[:, :] = (1-self._alpha)*new_signal+self._alpha*self._smoothed_sig[:, :]
 
