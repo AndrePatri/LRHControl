@@ -119,6 +119,9 @@ class ExponentialSignalSmoother():
         new_signal: torch.Tensor,
         ep_finished: torch.Tensor):
         
+        if self._debug:
+            self._check_new_data(new_data=new_signal)
+
         # initialize smoothed signal with current sample if just started episode
         is_first_step=(self._steps_counter.eq(0))
         if is_first_step.any():
@@ -151,6 +154,13 @@ class ExponentialSignalSmoother():
             return self._smoothed_sig.detach().clone()
         else:
             return self._smoothed_sig
+    
+    def counter(self,
+        clone: bool=False):
+        if clone:
+            return self._steps_counter.detach().clone()
+        else:
+            return self._steps_counter
     
     def horizon(self):
         return self._T
@@ -228,7 +238,10 @@ if __name__ == "__main__":
     # Test resetting
     smoother.reset_all()
     print("\nAfter reset_all:")
+    print("smoothed")
     print(smoother.get(clone=True))
+    print("counter")
+    print(smoother.counter(clone=True))
 
     # Update alpha and test
     smoother.update_alpha(update_dt=0.02, smoothing_horizon=1.0, target_smoothing=0.5)
