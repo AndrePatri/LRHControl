@@ -255,8 +255,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._obs_threshold_lb = -1e3 # used for clipping observations
         self._obs_threshold_ub = 1e3
 
-        v_cmd_max = 2*self.max_ref
-        omega_cmd_max = 2*self.max_ref
+        v_cmd_max = self.max_ref
+        omega_cmd_max = self.max_ref
         self._actions_lb[:, 0:3] = -v_cmd_max 
         self._actions_ub[:, 0:3] = v_cmd_max  
         self._actions_lb[:, 3:6] = -omega_cmd_max # twist cmds
