@@ -183,9 +183,9 @@ if __name__ == "__main__":
     n_envs = 2
     signal_dim = 1
     update_dt = 0.03  # [s]
-    smoothing_horizon = 1.0  # [s]
+    smoothing_horizon = 1.0 # [s]
     target_smoothing = 0.05  # 20%
-    frequency = round(100/update_dt)  # Frequency of the sinusoidal signal in Hz
+    frequency = round(10000/update_dt)  # Frequency of the sinusoidal signal in Hz
     total_time = 10.0  # Total time for simulation [s]
     
     # Calculate the number of steps
@@ -194,6 +194,7 @@ if __name__ == "__main__":
 
     # Generate sinusoidal signal
     nominal_signal = sinusoidal_signal(t, frequency)
+
 
     # Initialize ExponentialSignalSmoother
     smoother = ExponentialSignalSmoother(
@@ -206,7 +207,8 @@ if __name__ == "__main__":
         dtype=torch.float32,
         use_gpu=False
     )
-    
+    print(f"alpha: {smoother.alpha()}")
+
     smoothed_signals = torch.zeros(episode_length, n_envs, signal_dim, dtype=torch.float32)
     for i in range(episode_length):
         new_signal = nominal_signal[i].repeat(n_envs, signal_dim)  # Shape: (n_envs, signal_dim)
