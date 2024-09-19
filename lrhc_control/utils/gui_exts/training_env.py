@@ -310,7 +310,7 @@ class TrainingEnvData(SharedDataWindow):
 
         for i in range(2, len(self.rt_plotters)):
             # only switching plots which have n_cluster dim
-            self.rt_plotters[i].rt_plot_widget.switch_to_data(data_idx = self.current_cluster_index)
+            self.rt_plotters[i].rt_plot_widget.switch_to_data(idx = self.current_cluster_index)
 
     def update(self,
             index: int):
