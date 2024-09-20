@@ -28,6 +28,7 @@ from lrhc_control.utils.episodic_rewards import EpisodicRewards
 from lrhc_control.utils.episodic_data import EpisodicData
 from lrhc_control.utils.episodic_data import MemBuffer
 from lrhc_control.utils.math_utils import check_capsize
+from control_cluster_bridge.utilities.math_utils_torch import world2base_frame, base2world_frame, w2hor_frame
 
 from SharsorIPCpp.PySharsorIPC import VLevel
 from SharsorIPCpp.PySharsorIPC import LogType
@@ -410,14 +411,14 @@ class LRhcTrainingEnvBase():
 
         if self._act_mem_buffer is not None:
             self._act_mem_buffer.reset(to_be_reset=episode_finished.flatten(),
-                            init_data=self._defaut_bf_action)
+                            init_data=self._defaut_act_buffer_action)
 
         # debug step if required (IMPORTANT: must be before remote reset so that we always db
         # actual data from the step and not after reset)
         if self._is_debug:
             self._debug() # copies db data on shared memory
             self._update_custom_db_data(episode_finished=episode_finished_cpu)
-            self._episodic_rewards_metrics.update(rewards=self._sub_rewards.get_torch_mirror(gpu=False),
+            self._episodic_rewards_metrics.update(rewards = self._sub_rewards.get_torch_mirror(gpu=False),
                             ep_finished=episode_finished_cpu)
 
         # remotely reset envs
@@ -759,7 +760,7 @@ class LRhcTrainingEnvBase():
                 horizon=self._act_membf_size,
                 dtype=self._dtype,
                 use_gpu=self._use_gpu)
-            self._defaut_bf_action = torch.full_like(input=self.get_actions(),fill_value=0.0)
+            self._defaut_act_buffer_action = torch.full_like(input=self.get_actions(),fill_value=0.0)
 
     def _init_rewards(self):
         
@@ -1298,25 +1299,34 @@ class LRhcTrainingEnvBase():
         pass 
 
     def _get_avrg_step_root_v(self):
-        
+        # world frame
         robot_p_meas = self._robot_state.root_state.get(data_type="p",gpu=self._use_gpu)
         avrg_step_root_v_w=(robot_p_meas-self._prev_root_p)/self._substep_dt
         self._prev_root_p[:, :]=self._robot_state.root_state.get(data_type="p",gpu=self._use_gpu)        
         return avrg_step_root_v_w
 
     def _get_avrg_step_root_omega(self):
+        # world frame
         robot_q_meas = self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
         avrg_step_omega_w=quaternion_to_angular_velocity(q_diff=quaternion_difference(self._prev_root_q,robot_q_meas),\
             dt=self._substep_dt)
         self._prev_root_q[:, :]=self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
         return avrg_step_omega_w
     
-    def _get_avrg_step_root_twist(self):
-        return torch.cat((self._get_avrg_step_root_v(), 
+    def _get_avrg_step_root_twist(self, 
+            base_loc: bool = True):
+        twist_w=torch.cat((self._get_avrg_step_root_v(), 
             self._get_avrg_step_root_omega()), 
             dim=1)
+        if not base_loc:
+            return twist_w
+        twist_b=twist_w.detach().clone()
+        robot_q = self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
+        world2base_frame(t_w=twist_w, q_b=robot_q, t_out=twist_b)
+        return twist_b
     
-    def _get_avrg_rhc_root_twist(self):
+    def _get_avrg_rhc_root_twist(self,
+            base_loc: bool = True):
         
 
         rhc_horizons=self._rhc_status.rhc_static_info.get("horizons",gpu=self._use_gpu)
@@ -1324,12 +1334,20 @@ class LRhcTrainingEnvBase():
         rhc_root_q =self._rhc_cmds.root_state.get(data_type="q",gpu=self._use_gpu)
         rhc_root_p_pred =self._rhc_pred.root_state.get(data_type="p",gpu=self._use_gpu)
         rhc_root_q_pred =self._rhc_pred.root_state.get(data_type="q",gpu=self._use_gpu)
-        rhc_root_v_avrg=(rhc_root_p_pred-rhc_root_p)/rhc_horizons
 
-        rhc_root_omega_avrg=quaternion_to_angular_velocity(q_diff=quaternion_difference(rhc_root_q,rhc_root_q_pred),\
+        rhc_root_v_avrg_rhc_w=(rhc_root_p_pred-rhc_root_p)/rhc_horizons
+        rhc_root_omega_avrg_rhc_w=quaternion_to_angular_velocity(q_diff=quaternion_difference(rhc_root_q,rhc_root_q_pred),\
             dt=rhc_horizons)
-        rhc_pred_avrg_twist = torch.cat((rhc_root_v_avrg, 
-            rhc_root_omega_avrg), 
+    
+        rhc_pred_avrg_twist_rhc_w = torch.cat((rhc_root_v_avrg_rhc_w, 
+            rhc_root_omega_avrg_rhc_w), 
             dim=1)
 
-        return rhc_pred_avrg_twist
+        if not base_loc:
+            return rhc_pred_avrg_twist_rhc_w
+
+        rhc_pred_avrg_twist_rhc_base=rhc_pred_avrg_twist_rhc_w.detach().clone()
+        # to rhc base frame (using first node as reference)
+        world2base_frame(t_w=rhc_pred_avrg_twist_rhc_w, q_b=rhc_root_q, t_out=rhc_pred_avrg_twist_rhc_base)
+
+        return rhc_pred_avrg_twist_rhc_base
