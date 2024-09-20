@@ -44,6 +44,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._add_prev_actions_stats_to_obs = True # add actions std, mean + last action over a horizon to obs
         self._add_contact_f_to_obs=True # add estimate vertical contact f to obs
         self._add_fail_idx_to_obs=True
+        self._add_gn_rhc_loc=True
         self._use_vel_err_sig_smoother=False # whether to smooth vel error signal
         self._vel_err_smoother=None
 
@@ -78,6 +79,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         obs_dim+=6 # twist reference in base frame frame
         if self._add_fail_idx_to_obs:
             obs_dim+=1 # rhc controller failure index
+        if self._add_gn_rhc_loc:
+            obs_dim+=3
         if self._add_prev_actions_stats_to_obs:
             obs_dim+=3*actions_dim# previous agent actions statistics (mean, std + last action)
 
@@ -367,6 +370,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         if self._add_fail_idx_to_obs:
             obs[:, next_idx:(next_idx+1)] = self._rhc_fail_idx(gpu=self._use_gpu)
             next_idx+=1
+        if self._add_gn_rhc_loc:
+            obs[:, next_idx:(next_idx+3)] = self._rhc_cmds.root_state.get(data_type="gn",gpu=self._use_gpu)
+            next_idx+=3
         if self._add_prev_actions_stats_to_obs:
             self._prev_act_idx=next_idx
             obs[:, next_idx:(next_idx+self.actions_dim())]=self._act_mem_buffer.get(idx=0) # last obs
@@ -557,7 +563,11 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         if self._add_fail_idx_to_obs:
             obs_names[next_idx] = "rhc_fail_idx"
             next_idx+=1
-
+        if self._add_gn_rhc_loc:
+            obs_names[next_idx] = "gn_x_rhc_base_loc"
+            obs_names[next_idx+1] = "gn_y_rhc_base_loc"
+            obs_names[next_idx+2] = "gn_z_rhc_base_loc"
+            next_idx+=3
         # previous actions info
         if self._add_prev_actions_stats_to_obs:
             action_names = self._get_action_names()
