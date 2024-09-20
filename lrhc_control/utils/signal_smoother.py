@@ -177,16 +177,24 @@ def sinusoidal_signal(t: torch.Tensor, frequency: float) -> torch.Tensor:
     """
     return torch.sin(2 * torch.pi * frequency * t)
 
+def add_white_noise(signal: torch.Tensor, noise_level: float) -> torch.Tensor:
+    """
+    Superpose white noise to the given signal.
+    """
+    noise = torch.randn_like(signal) * noise_level
+    return signal + noise
+
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     # Set up test parameters
     n_envs = 2
     signal_dim = 1
     update_dt = 0.03  # [s]
-    smoothing_horizon = 1.0 # [s]
-    target_smoothing = 0.05  # 20%
-    frequency = round(10000/update_dt)  # Frequency of the sinusoidal signal in Hz
+    smoothing_horizon = 0.1  # [s]
+    target_smoothing = 0.01  # 20%
+    frequency = round(100 / update_dt)  # Frequency of the sinusoidal signal in Hz
     total_time = 10.0  # Total time for simulation [s]
+    noise_level = 0.5  # Define the level of white noise to superpose
     
     # Calculate the number of steps
     episode_length = int(round(total_time / update_dt)) + 1
@@ -194,7 +202,9 @@ if __name__ == "__main__":
 
     # Generate sinusoidal signal
     nominal_signal = sinusoidal_signal(t, frequency)
-
+    
+    # Add white noise to the sinusoidal signal
+    noisy_signal = add_white_noise(nominal_signal, noise_level)
 
     # Initialize ExponentialSignalSmoother
     smoother = ExponentialSignalSmoother(
@@ -211,7 +221,7 @@ if __name__ == "__main__":
 
     smoothed_signals = torch.zeros(episode_length, n_envs, signal_dim, dtype=torch.float32)
     for i in range(episode_length):
-        new_signal = nominal_signal[i].repeat(n_envs, signal_dim)  # Shape: (n_envs, signal_dim)
+        new_signal = noisy_signal[i].repeat(n_envs, signal_dim)  # Shape: (n_envs, signal_dim)
         ep_finished = torch.tensor([False] * n_envs, dtype=torch.bool)
         smoother.update(new_signal, ep_finished)
         
@@ -223,17 +233,20 @@ if __name__ == "__main__":
     # Plot the results
     plt.figure(figsize=(14, 7))
     plt.plot(t.numpy(), nominal_signal.numpy(), label='Nominal Signal', color='blue', linestyle='--')
+    plt.plot(t.numpy(), noisy_signal.numpy(), label='Noisy Signal', color='green', linestyle=':')
     plt.plot(t.numpy(), smoothed_signals[:, 0], label='Smoothed Signal', color='red')
     plt.xlabel('Time [s]')
     plt.ylabel('Signal Value')
-    plt.title('Nominal VS Smoothed Signals')
+    plt.title('Nominal, Noisy, and Smoothed Signals')
     plt.legend()
     plt.grid(True)
     plt.show()
-    
+
     # Print last signal and smoothed signal
     print("Last nominal signal:")
     print(nominal_signal[-1].item())
+    print("Last noisy signal:")
+    print(noisy_signal[-1].item())
     print("Last smoothed signal:")
     print(smoothed_signals[-1, 0])
     
