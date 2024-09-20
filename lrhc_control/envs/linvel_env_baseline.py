@@ -44,7 +44,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._add_prev_actions_stats_to_obs = True # add actions std, mean + last action over a horizon to obs
         self._add_contact_f_to_obs=True # add estimate vertical contact f to obs
         self._add_fail_idx_to_obs=True
-        self._use_vel_err_sig_smoother=True # whether to smooth vel error signal
+        self._use_vel_err_sig_smoother=False # whether to smooth vel error signal
         self._vel_err_smoother=None
 
         # temporarily creating robot state client to get some data
@@ -239,8 +239,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         if self._use_vel_err_sig_smoother:
             vel_err_proxy=self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu).detach().clone()
-            self._smoothing_horizon=1.0
-            self._target_smoothing=0.05
+            self._smoothing_horizon=0.1
+            self._target_smoothing=0.01
             self._vel_err_smoother=ExponentialSignalSmoother(
                 name="VelErrorSmoother",
                 signal=vel_err_proxy, # same dimension of vel error
@@ -420,14 +420,15 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         return task_perc_err
     
     def _task_err_wms(self, task_ref, task_meas, scaling, weights):
-        task_error = (task_ref-task_meas)/scaling
+        task_error = (task_meas-task_ref)
         weighted_error=task_error*weights
+        scaled_w_error=weighted_error/scaling
         if self._vel_err_smoother is not None:
-            self._vel_err_smoother.update(new_signal=weighted_error,
+            self._vel_err_smoother.update(new_signal=scaled_w_error,
                 ep_finished=None # reset done externally
                 )
-            weighted_error=self._vel_err_smoother.get()
-        task_wmse = torch.sum(weighted_error*weighted_error, dim=1, keepdim=True)/torch.sum(weights).item()
+            scaled_w_error=self._vel_err_smoother.get()
+        task_wmse = torch.sum(scaled_w_error*scaled_w_error, dim=1, keepdim=True)/torch.sum(weights).item()
         return task_wmse # weighted mean square error (along task dimension)
     
     def _task_perc_err_lin(self, task_ref, task_meas, weights):
@@ -537,7 +538,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         obs_names[next_idx] = "linvel_x_ref_base_loc"
         obs_names[next_idx+1] = "linvel_y_ref_base_loc"
         obs_names[next_idx+2] = "linvel_z_ref_base_loc"
-        obs_names[next_idx+3] = "omgea_x_ref_base_loc"
+        obs_names[next_idx+3] = "omega_x_ref_base_loc"
         obs_names[next_idx+4] = "omega_y_ref_base_loc"
         obs_names[next_idx+5] = "omega_z_ref_base_loc"
         next_idx+=6
