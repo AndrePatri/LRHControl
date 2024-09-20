@@ -2,7 +2,7 @@ from rhcviz.utils.handshake import RHCVizHandshake
 from rhcviz.utils.namings import NamingConventions
 from rhcviz.utils.string_list_encoding import StringArray
 
-from lrhc_control.controllers.rhc.horizon_based.utils.math_utils import hor2w_frame
+from lrhc_control.controllers.rhc.horizon_based.utils.math_utils import hor2w_frame,base2world_frame
 
 from control_cluster_bridge.utilities.shared_data.rhc_data import RobotState
 from control_cluster_bridge.utilities.shared_data.rhc_data import RhcRefs
@@ -12,7 +12,6 @@ from control_cluster_bridge.utilities.shared_data.sim_data import SharedEnvInfo
 
 from lrhc_control.utils.shared_data.agent_refs import AgentRefs
 from control_cluster_bridge.utilities.homing import RobotHomer
-
 import numpy as np
 
 from SharsorIPCpp.PySharsorIPC import dtype
@@ -558,10 +557,18 @@ class RhcToViz2Bridge:
                         robot_idxs=self._current_index).reshape(-1, 1), 
                         t_out=agent_ref_twist_h)
                 hl_refs = np.concatenate((hl_ref_pose, agent_ref_twist_h.flatten()), axis=0)
-            else:
+            else: # in base frame
+                
                 hl_ref_pose = self.agent_refs.rob_refs.root_state.get(data_type="q_full",robot_idxs=self._current_index).numpy()
-                hl_ref_twist= self.agent_refs.rob_refs.root_state.get(data_type="twist",robot_idxs=self._current_index).numpy()
-                hl_refs = np.concatenate((hl_ref_pose, hl_ref_twist), axis=0)
+                hl_ref_twist_base_loc= self.agent_refs.rob_refs.root_state.get(data_type="twist",robot_idxs=self._current_index).numpy()
+
+                agent_ref_twist_w = hl_ref_twist_base_loc.copy().reshape(-1, 1)
+                
+                base2world_frame(t_b=hl_ref_twist_base_loc.reshape(-1, 1), 
+                    q_b=self.robot_state.root_state.get(data_type="q",
+                        robot_idxs=self._current_index).reshape(-1, 1), 
+                    t_out=agent_ref_twist_w)
+                hl_refs = np.concatenate((hl_ref_pose, agent_ref_twist_w.flatten()), axis=0)
 
         if not self._contains_nan(rhc_q):
             self.rhc_q_pub.publish(Float64MultiArray(data=rhc_q))

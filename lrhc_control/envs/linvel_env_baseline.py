@@ -74,7 +74,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         obs_dim+=6 # meas twist in base frame
         obs_dim+=2*n_jnts # joint pos + vel
         if self._add_contact_f_to_obs:
-            obs_dim+=self._n_contacts
+            obs_dim+=3*self._n_contacts
         obs_dim+=6 # twist reference in base frame frame
         if self._add_fail_idx_to_obs:
             obs_dim+=1 # rhc controller failure index
@@ -164,7 +164,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._this_child_path = os.path.abspath(__file__)
 
         super().__init__(namespace=namespace,
-                    obs_dim=len(self._get_obs_names()),
+                    obs_dim=obs_dim,
                     actions_dim=actions_dim,
                     episode_timeout_lb=episode_timeout_lb,
                     episode_timeout_ub=episode_timeout_ub,
@@ -362,7 +362,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         next_idx+=6
         if self._add_contact_f_to_obs:
             n_forces=3*len(self._contact_names)
-            obs[:, next_idx:(next_idx+n_forces)] = self._rhc_fn(gpu=self._use_gpu, node_idx=0)
+            obs[:, next_idx:(next_idx+n_forces)] = self._rhc_cmds.contact_wrenches.get(data_type="f",gpu=self._use_gpu)
             next_idx+=n_forces
         if self._add_fail_idx_to_obs:
             obs[:, next_idx:(next_idx+1)] = self._rhc_fail_idx(gpu=self._use_gpu)
@@ -445,15 +445,6 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         rhc_fail_idx = self._rhc_status.rhc_fail_idx.get_torch_mirror(gpu=gpu)
         return self._rhc_fail_idx_scale*rhc_fail_idx
     
-    def _rhc_fn(self, gpu: bool, n_nodes: int, node_idx:int=0):
-        contact_f_normalized = self._rhc_status.rhc_fcn.get_torch_mirror(gpu=gpu)
-        to_be_cat = []
-        for i in range(len(self._contact_names)):
-            start_idx=i*n_nodes+node_idx
-            contact_fn_on_node=contact_f_normalized[:, start_idx:start_idx+3]
-            to_be_cat.append(contact_fn_on_node)
-        return torch.cat(to_be_cat, dim=1)
-    
     def _compute_sub_rewards(self,
                     obs: torch.Tensor,
                     next_obs: torch.Tensor):
@@ -488,9 +479,6 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         sub_rewards[:, 3:4] = self._jnt_vel_offset - self._jnt_vel_scale * weighted_jnt_vel
         sub_rewards[:, 4:5] = self._rhc_fail_idx_offset - self._rhc_fail_idx_rew_scale* self._rhc_fail_idx(gpu=self._use_gpu)
         sub_rewards[:, 5:6] = self._health_value # health reward
-        sub_rewards[:, 6:7] = self._actions_diff_rew_offset - \
-                                        self._actions_diff_scale*self._weighted_actions_diff(gpu=self._use_gpu,
-                                                                        obs=obs,next_obs=next_obs) # action regularization reward
 
     def _randomize_task_refs(self,
         env_indxs: torch.Tensor = None):
@@ -506,7 +494,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             random_uniform=torch.full_like(self._agent_twist_ref_current_w, fill_value=0.0)
             torch.nn.init.uniform_(random_uniform, a=-1, b=1)
             self._agent_twist_ref_current_w[:, :] = random_uniform*self._twist_ref_scale + self._twist_ref_offset
-            self._agent_twist_ref_current_w[:, :] = agent_twist_ref_current*self._bernoulli_coeffs
+            self._agent_twist_ref_current_w[:, :] = self._agent_twist_ref_current_w*self._bernoulli_coeffs
         else:
             random_uniform=torch.full_like(self._agent_twist_ref_current_w[env_indxs, :], fill_value=0.0)
             torch.nn.init.uniform_(random_uniform, a=-1, b=1)
@@ -600,7 +588,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
     def _get_rewards_names(self):
 
-        n_rewards = 7
+        n_rewards = 6
         reward_names = [""] * n_rewards
 
         reward_names[0] = "task_error"
@@ -609,7 +597,6 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         reward_names[3] = "jnt_vel"
         reward_names[4] = "rhc_fail_idx"
         reward_names[5] = "health"
-        reward_names[6] = "action_reg"
 
         return reward_names
 

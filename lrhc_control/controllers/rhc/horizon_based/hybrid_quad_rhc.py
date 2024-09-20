@@ -454,8 +454,7 @@ class HybridQuadRhc(RHController):
             return np.concatenate(data, axis=0)
         except:
             return None
-        return None
-    
+            
     def _get_f_dot_from_sol(self):
         # to be overridden by child class
         return None
