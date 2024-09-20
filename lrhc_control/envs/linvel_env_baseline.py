@@ -362,7 +362,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         next_idx+=6
         if self._add_contact_f_to_obs:
             n_forces=3*len(self._contact_names)
-            obs[:, next_idx:(next_idx+n_forces)] = self._rhc_fc(gpu=self._use_gpu, node_idx=0)
+            obs[:, next_idx:(next_idx+n_forces)] = self._rhc_fn(gpu=self._use_gpu, node_idx=0)
             next_idx+=n_forces
         if self._add_fail_idx_to_obs:
             obs[:, next_idx:(next_idx+1)] = self._rhc_fail_idx(gpu=self._use_gpu)
@@ -445,27 +445,14 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         rhc_fail_idx = self._rhc_status.rhc_fail_idx.get_torch_mirror(gpu=gpu)
         return self._rhc_fail_idx_scale*rhc_fail_idx
     
-    def _rhc_step_var(self, gpu: bool, n_nodes: int):
-        step_var = self._rhc_status.rhc_step_var.get_torch_mirror(gpu=gpu)
-        to_be_cat = []
-        for i in range(len(self._contact_names)):
-            start_idx=i*n_nodes
-            end_idx=i*n_nodes+n_nodes
-            to_be_cat.append(torch.sum(step_var[:, start_idx:end_idx], dim=1, keepdim=True)/n_nodes)
-        return torch.cat(to_be_cat, dim=1) 
-    
-    def _rhc_fz(self, gpu: bool, n_nodes: int, node_idx:int=0):
-        step_var = self._rhc_status.rhc_step_var.get_torch_mirror(gpu=gpu)
+    def _rhc_fn(self, gpu: bool, n_nodes: int, node_idx:int=0):
+        contact_f_normalized = self._rhc_status.rhc_fcn.get_torch_mirror(gpu=gpu)
         to_be_cat = []
         for i in range(len(self._contact_names)):
             start_idx=i*n_nodes+node_idx
-            contact_fz=step_var[:, start_idx:start_idx+1]
-            to_be_cat.append(contact_fz)
+            contact_fn_on_node=contact_f_normalized[:, start_idx:start_idx+3]
+            to_be_cat.append(contact_fn_on_node)
         return torch.cat(to_be_cat, dim=1)
-
-    def _rhc_fc(self, gpu: bool, node_idx:int=0):
-        # returns rhc contact force [nenvs, f[x, y, z]]
-        return None
     
     def _compute_sub_rewards(self,
                     obs: torch.Tensor,

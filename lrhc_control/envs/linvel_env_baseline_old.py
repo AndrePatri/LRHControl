@@ -67,7 +67,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # n_contacts = robot_state_tmp.n_contacts()
         self.contact_names = robot_state_tmp.contact_names()
         n_contacts = len(self.contact_names)
-        self.step_var_dim = rhc_status_tmp.rhc_step_var.tot_dim()
+        self.step_var_dim = rhc_status_tmp.rhc_fcn.tot_dim()
         self.n_nodes = rhc_status_tmp.n_nodes
         robot_state_tmp.close()
         rhc_status_tmp.close()
@@ -184,7 +184,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._twist_ref_offset = (self._twist_ref_ub + self._twist_ref_lb)/2.0
         self._twist_ref_scale = (self._twist_ref_ub - self._twist_ref_lb)/2.0
 
-        self._rhc_step_var_scale = 1
+        self._rhc_fcn_scale = 1
 
         self._this_child_path = os.path.abspath(__file__)
 
@@ -228,7 +228,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._action_diff_w_sum = torch.sum(self._action_diff_weights).item()
 
         # custom db info 
-        step_idx_data = EpisodicData("ContactIndex", self._rhc_step_var(gpu=False), self.contact_names,
+        step_idx_data = EpisodicData("ContactIndex", self._rhc_fcn(gpu=False), self.contact_names,
             ep_vec_freq=self._vec_ep_freq_metrics_db)
         self._add_custom_db_info(db_data=step_idx_data)
         agent_twist_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=False)
@@ -416,7 +416,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             obs[:, next_idx:(next_idx+6)] = self._get_avrg_rhc_root_twist() # usually in world frame
             next_idx+=6
         if self._add_contact_idx_to_obs:
-            obs[:, next_idx:(next_idx+len(self.contact_names))] = self._rhc_step_var(gpu=self._use_gpu)
+            obs[:, next_idx:(next_idx+len(self.contact_names))] = self._rhc_fcn(gpu=self._use_gpu)
             next_idx+=len(self.contact_names)
         if self._add_rhc_fz_to_obs:
             obs[:, next_idx:(next_idx+len(self.contact_names))] = self._rhc_fz(gpu=self._use_gpu, node_idx=0)
@@ -437,7 +437,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
     def _get_custom_db_data(self, 
             episode_finished):
         episode_finished = episode_finished.cpu()
-        self.custom_db_data["ContactIndex"].update(new_data=self._rhc_step_var(gpu=False), 
+        self.custom_db_data["ContactIndex"].update(new_data=self._rhc_fcn(gpu=False), 
                                     ep_finished=episode_finished)
         self.custom_db_data["AgentTwistRefs"].update(new_data=self._agent_refs.rob_refs.root_state.get(data_type="twist",
                                                                                             gpu=False), 
@@ -505,23 +505,23 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         rhc_fail_idx = self._rhc_status.rhc_fail_idx.get_torch_mirror(gpu=gpu)
         return self._rhc_fail_idx_scale*rhc_fail_idx
     
-    def _rhc_step_var(self, gpu: bool):
-        step_var = self._rhc_status.rhc_step_var.get_torch_mirror(gpu=gpu)
+    def _rhc_fcn(self, gpu: bool):
+        step_var = self._rhc_status.rhc_fcn.get_torch_mirror(gpu=gpu)
         to_be_cat = []
         for i in range(len(self.contact_names)):
             start_idx=i*self.n_nodes
             end_idx=i*self.n_nodes+self.n_nodes
             to_be_cat.append(torch.sum(step_var[:, start_idx:end_idx], dim=1, keepdim=True)/self.n_nodes)
-        return self._rhc_step_var_scale * torch.cat(to_be_cat, dim=1) 
+        return self._rhc_fcn_scale * torch.cat(to_be_cat, dim=1) 
     
     def _rhc_fz(self, gpu: bool, node_idx:int=0):
-        step_var = self._rhc_status.rhc_step_var.get_torch_mirror(gpu=gpu)
+        step_var = self._rhc_status.rhc_fcn.get_torch_mirror(gpu=gpu)
         to_be_cat = []
         for i in range(len(self.contact_names)):
             start_idx=i*self.n_nodes+node_idx
             contact_fz=step_var[:, start_idx:start_idx+1]
             to_be_cat.append(contact_fz)
-        return self._rhc_step_var_scale * torch.cat(to_be_cat, dim=1)
+        return self._rhc_fcn_scale * torch.cat(to_be_cat, dim=1)
     
     def _weighted_actions_diff(self, gpu: bool, obs, next_obs):
 

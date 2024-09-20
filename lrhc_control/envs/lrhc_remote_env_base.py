@@ -234,9 +234,14 @@ class LRhcEnvBase():
         self._root_q_default = {}
         self._jnts_q_default = {}
         
+        self._gravity_normalized = {}
+        self._gravity_normalized_base_loc = {}
+
         self._root_v = {}
+        self._root_v_base_loc = {}
         self._root_v_default = {}
         self._root_omega = {}
+        self._root_omega_base_loc = {}
         self._root_omega_default = {}
         self._jnts_v = {}
         self._jnts_v_default = {}
@@ -283,8 +288,15 @@ class LRhcEnvBase():
     
     def _setup(self) -> None:
         
+
         for i in range(len(self._robot_names)):
             robot_name = self._robot_names[i]
+
+            # normalized gravity vector
+            self._gravity_normalized[robot_name]=torch.full_like(self._root_v[robot_name], fill_value=0.0)
+            self._gravity_normalized[robot_name][:, 2]=-1.0
+            self._gravity_normalized_base_loc[robot_name]=self._gravity_normalized[robot_name].detach().clone()
+
             self.cluster_step_counters[robot_name]=0
             self._is_first_trigger[robot_name] = True
             if not isinstance(self._cluster_dt[robot_name], (float)):
@@ -426,7 +438,8 @@ class LRhcEnvBase():
 
     def _write_state_to_cluster(self, 
         robot_name: str, 
-        env_indxs: torch.Tensor = None):
+        env_indxs: torch.Tensor = None,
+        base_loc: bool = True):
         
         if self._debug:
             if not isinstance(env_indxs, Union[torch.Tensor, None]):
@@ -440,10 +453,15 @@ class LRhcEnvBase():
                 data_type="p", robot_idxs = env_indxs, gpu=self._use_gpu)
         rhc_state.root_state.set(data=self.root_q(robot_name=robot_name, env_idxs=env_indxs), 
                 data_type="q", robot_idxs = env_indxs, gpu=self._use_gpu)
-        rhc_state.root_state.set(data=self.root_v(robot_name=robot_name, env_idxs=env_indxs), 
+        
+        rhc_state.root_state.set(data=self.root_v(robot_name=robot_name, env_idxs=env_indxs,base_loc=base_loc), 
                 data_type="v", robot_idxs = env_indxs, gpu=self._use_gpu)
-        rhc_state.root_state.set(data=self.root_omega(robot_name=robot_name, env_idxs=env_indxs), 
+        rhc_state.root_state.set(data=self.root_omega(robot_name=robot_name, env_idxs=env_indxs,base_loc=base_loc), 
                 data_type="omega", robot_idxs = env_indxs, gpu=self._use_gpu)
+        
+        rhc_state.root_state.set(data=self.gravity(robot_name=robot_name, env_idxs=env_indxs,base_loc=base_loc), 
+                data_type="gn", robot_idxs = env_indxs, gpu=self._use_gpu)
+        
         # joints
         rhc_state.jnts_state.set(data=self.jnts_q(robot_name=robot_name, env_idxs=env_indxs), 
             data_type="q", robot_idxs = env_indxs, gpu=self._use_gpu)
@@ -740,22 +758,43 @@ class LRhcEnvBase():
     
     def root_v(self,
             robot_name: str,
-            env_idxs: torch.Tensor = None):
+            env_idxs: torch.Tensor = None,
+            base_loc: bool = True):
 
+        root_v=self._root_v[robot_name]
+        if base_loc:
+            root_v=self._root_v_base_loc[robot_name]
         if env_idxs is None:
-            return self._root_v[robot_name]
+            return root_v
         else:
-            return self._root_v[robot_name][env_idxs, :]
+            return root_v[env_idxs, :]
     
     def root_omega(self,
             robot_name: str,
-            env_idxs: torch.Tensor = None):
+            env_idxs: torch.Tensor = None,
+            base_loc: bool = True):
 
+        root_omega=self._root_omega[robot_name]
+        if base_loc:
+            root_omega=self._root_omega_base_loc[robot_name]
         if env_idxs is None:
-            return self._root_omega[robot_name]
+            return root_omega
         else:
-            return self._root_omega[robot_name][env_idxs, :]
+            return root_omega[env_idxs, :]
+    
+    def gravity(self,
+            robot_name: str,
+            env_idxs: torch.Tensor = None,
+            base_loc: bool = True):
 
+        gravity_loc=self._gravity_normalized[robot_name]
+        if base_loc:
+            gravity_loc=self._gravity_normalized_base_loc[robot_name]
+        if env_idxs is None:
+            return gravity_loc
+        else:
+            return gravity_loc[env_idxs, :]
+    
     def jnts_q(self,
             robot_name: str,
             env_idxs: torch.Tensor = None):

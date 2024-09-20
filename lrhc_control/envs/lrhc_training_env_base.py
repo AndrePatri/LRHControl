@@ -966,7 +966,10 @@ class LRhcTrainingEnvBase():
         self._rhc_status.rhc_static_info.synch_all(read=True,retry=True)
         if self._use_gpu:
             self._rhc_status.rhc_static_info.synch_mirror(from_gpu=False)
-
+        rhc_horizons=self._rhc_status.rhc_static_info.get("horizons",gpu=self._use_gpu)
+        rhc_dts=self._rhc_status.rhc_static_info.get("dts",gpu=self._use_gpu)
+        self._n_nodes_rhc=torch.round(rhc_horizons/rhc_dts)+1 # we assume nodes are static during an env lifetime
+        
         self._n_envs = self._robot_state.n_robots()
         self._n_jnts = self._robot_state.n_jnts()
         self._n_contacts = self._robot_state.n_contacts()
@@ -1097,7 +1100,7 @@ class LRhcTrainingEnvBase():
         # tot cost and cnstr viol on nodes + step variable
         self._rhc_status.rhc_nodes_cost.synch_all(read = True, retry = True)
         self._rhc_status.rhc_nodes_constr_viol.synch_all(read = True, retry = True)
-        self._rhc_status.rhc_step_var.synch_all(read = True, retry = True)
+        self._rhc_status.rhc_fcn.synch_all(read = True, retry = True)
         self._rhc_status.rhc_fail_idx.synch_all(read = True, retry = True)
         if gpu:
             # copies data to "mirror" on GPU
@@ -1116,7 +1119,7 @@ class LRhcTrainingEnvBase():
             self._rhc_status.fails.synch_mirror(from_gpu=False)
             self._rhc_status.rhc_nodes_cost.synch_mirror(from_gpu=False)
             self._rhc_status.rhc_nodes_constr_viol.synch_mirror(from_gpu=False)
-            self._rhc_status.rhc_step_var.synch_mirror(from_gpu=False)
+            self._rhc_status.rhc_fcn.synch_mirror(from_gpu=False)
             self._rhc_status.rhc_fail_idx.synch_mirror(from_gpu=False)
             #torch.cuda.synchronize() # ensuring that all the streams on the GPU are completed \
             # before the CPU continues execution
@@ -1328,7 +1331,6 @@ class LRhcTrainingEnvBase():
     def _get_avrg_rhc_root_twist(self,
             base_loc: bool = True):
         
-
         rhc_horizons=self._rhc_status.rhc_static_info.get("horizons",gpu=self._use_gpu)
         rhc_root_p =self._rhc_cmds.root_state.get(data_type="p",gpu=self._use_gpu)
         rhc_root_q =self._rhc_cmds.root_state.get(data_type="q",gpu=self._use_gpu)

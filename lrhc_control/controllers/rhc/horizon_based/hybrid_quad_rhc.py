@@ -162,15 +162,14 @@ class HybridQuadRhc(RHController):
 
         return self._ti.solution['q'][0:7, node_idx].reshape(1, 7)
     
-    def _get_root_twist_from_sol(self, node_idx=1, 
-            world_aligned: bool=False):
+    def _get_root_twist_from_sol(self, node_idx=1):
         # provided in world frame
         twist_base_local=self._get_v_from_sol()[0:6, node_idx].reshape(1, 6)
-        if world_aligned:
-            q_root_rhc = self._get_root_full_q_from_sol(node_idx=node_idx)[:, 0:4]
-            r_base_rhc=Rotation.from_quat(q_root_rhc.flatten()).as_matrix()
-            twist_base_local[:, 0:3] = r_base_rhc @ twist_base_local[0, 0:3]
-            twist_base_local[:, 3:6] = r_base_rhc @ twist_base_local[0, 3:6]
+        # if world_aligned:
+        #     q_root_rhc = self._get_root_full_q_from_sol(node_idx=node_idx)[:, 0:4]
+        #     r_base_rhc=Rotation.from_quat(q_root_rhc.flatten()).as_matrix()
+        #     twist_base_local[:, 0:3] = r_base_rhc @ twist_base_local[0, 0:3]
+        #     twist_base_local[:, 3:6] = r_base_rhc @ twist_base_local[0, 3:6]
         return twist_base_local
 
     def _get_jnt_q_from_sol(self, node_idx=1):
@@ -233,7 +232,7 @@ class HybridQuadRhc(RHController):
 
         r_base = Rotation.from_quat(q_root.flatten()).as_matrix() # from base to world (.T the opposite)
 
-        # meas twist is assumed to be provided in world link
+        # meas twist is assumed to be provided in BASE link
         v_root = self.robot_state.root_state.get(data_type="v", robot_idxs=self.controller_index).reshape(-1, 1)
         if not close_all: # use internal MPC for the base vel
             v_root[0:3,:]=self._get_root_twist_from_sol()[0:3, :]
@@ -253,7 +252,7 @@ class HybridQuadRhc(RHController):
                 q_root[:] = -q_root
 
 
-        return np.concatenate((p, q_root, q_jnts, r_base.T @ v_root, r_base.T @ omega, v_jnts),
+        return np.concatenate((p, q_root, q_jnts, v_root, omega, v_jnts),
                 axis=0)
     
     def _set_ig(self):
