@@ -36,7 +36,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # across diff envs
         random_reset_freq = 10 # a random reset once every n-episodes (per env)
         n_preinit_steps = 1 # one steps of the controllers to properly initialize everything
-        action_repeat = 3 # frame skipping (different agent action every action_repeat
+        action_repeat = 1 # frame skipping (different agent action every action_repeat
         # env substeps)
 
         self._single_task_ref_per_episode=True # if True, the task ref is constant over the episode (ie
@@ -95,9 +95,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._task_err_weights[0, 0] = 1.0
         self._task_err_weights[0, 1] = 1.0
         self._task_err_weights[0, 2] = 1.0
-        self._task_err_weights[0, 3] = 1e-6
-        self._task_err_weights[0, 4] = 1e-6
-        self._task_err_weights[0, 5] = 1e-6
+        self._task_err_weights[0, 3] = 1e-1
+        self._task_err_weights[0, 4] = 1e-1
+        self._task_err_weights[0, 5] = 1e-1
 
         # task pred tracking
         self._task_pred_offset = 0.0 # 10.0
@@ -107,9 +107,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._task_pred_err_weights[0, 0] = 1.0
         self._task_pred_err_weights[0, 1] = 1.0
         self._task_pred_err_weights[0, 2] = 1.0
-        self._task_pred_err_weights[0, 3] = 1e-6
-        self._task_pred_err_weights[0, 4] = 1e-6
-        self._task_pred_err_weights[0, 5] = 1e-6
+        self._task_pred_err_weights[0, 3] = 1e-1
+        self._task_pred_err_weights[0, 4] = 1e-1
+        self._task_pred_err_weights[0, 5] = 1e-1
 
         # fail idx
         self._rhc_fail_idx_offset = 0.0
@@ -461,31 +461,33 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         
         agent_task_ref_base_loc = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu) # high level agent refs (hybrid twist)
         substep_avrg_root_twist_base_loc=self._get_avrg_step_root_twist(base_loc=True)
-        
-        task_error = task_error_fun(task_meas=agent_task_ref_base_loc, 
-            task_ref=substep_avrg_root_twist_base_loc,
+        robot_twist_meas_base_loc = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu)
+
+        substep_avrg_root_twist_base_loc[:,3:6]=robot_twist_meas_base_loc[:, 3:6]# tmp fix for avrg angular vel
+        task_error = task_error_fun(task_meas=robot_twist_meas_base_loc, 
+            task_ref=agent_task_ref_base_loc,
             weights=self._task_err_weights)
         
-        task_pred_error = task_error_fun(task_meas=self._get_avrg_rhc_root_twist(base_loc=True), 
-            task_ref=agent_task_ref_base_loc,
-            weights=self._task_pred_err_weights)
+        # task_pred_error = task_error_fun(task_meas=self._get_avrg_rhc_root_twist(base_loc=True), 
+        #     task_ref=agent_task_ref_base_loc,
+        #     weights=self._task_pred_err_weights)
         
         # mech power
-        jnts_vel = self._robot_state.jnts_state.get(data_type="v",gpu=self._use_gpu)
-        jnts_effort = self._robot_state.jnts_state.get(data_type="eff",gpu=self._use_gpu)
-        # weighted_mech_power = self._tot_mech_pow(jnts_vel=jnts_vel, 
+        # jnts_vel = self._robot_state.jnts_state.get(data_type="v",gpu=self._use_gpu)
+        # jnts_effort = self._robot_state.jnts_state.get(data_type="eff",gpu=self._use_gpu)
+        # # weighted_mech_power = self._tot_mech_pow(jnts_vel=jnts_vel, 
+        # #                                     jnts_effort=jnts_effort)
+        # weighted_mech_power = self._drained_mech_pow(jnts_vel=jnts_vel, 
         #                                     jnts_effort=jnts_effort)
-        weighted_mech_power = self._drained_mech_pow(jnts_vel=jnts_vel, 
-                                            jnts_effort=jnts_effort)
-        weighted_jnt_vel = self._jnt_vel_penalty(jnts_vel=jnts_vel)
+        # weighted_jnt_vel = self._jnt_vel_penalty(jnts_vel=jnts_vel)
 
         sub_rewards = self._sub_rewards.get_torch_mirror(gpu=self._use_gpu)
         sub_rewards[:, 0:1] = self._task_offset-self._task_scale*task_error
-        sub_rewards[:, 1:2] = self._task_pred_offset-self._task_pred_scale*task_pred_error
-        sub_rewards[:, 2:3] = self._power_offset - self._power_scale * weighted_mech_power
-        sub_rewards[:, 3:4] = self._jnt_vel_offset - self._jnt_vel_scale * weighted_jnt_vel
-        sub_rewards[:, 4:5] = self._rhc_fail_idx_offset - self._rhc_fail_idx_rew_scale* self._rhc_fail_idx(gpu=self._use_gpu)
-        sub_rewards[:, 5:6] = self._health_value # health reward
+        # sub_rewards[:, 1:2] = self._task_pred_offset-self._task_pred_scale*task_pred_error
+        # sub_rewards[:, 2:3] = self._power_offset - self._power_scale * weighted_mech_power
+        # sub_rewards[:, 3:4] = self._jnt_vel_offset - self._jnt_vel_scale * weighted_jnt_vel
+        # sub_rewards[:, 4:5] = self._rhc_fail_idx_offset - self._rhc_fail_idx_rew_scale* self._rhc_fail_idx(gpu=self._use_gpu)
+        # sub_rewards[:, 5:6] = self._health_value # health reward
 
     def _randomize_task_refs(self,
         env_indxs: torch.Tensor = None):
@@ -599,15 +601,15 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
     def _get_rewards_names(self):
 
-        n_rewards = 6
+        n_rewards = 1
         reward_names = [""] * n_rewards
 
         reward_names[0] = "task_error"
-        reward_names[1] = "task_pred_error"
-        reward_names[2] = "mech_power"
-        reward_names[3] = "jnt_vel"
-        reward_names[4] = "rhc_fail_idx"
-        reward_names[5] = "health"
+        # reward_names[1] = "task_pred_error"
+        # reward_names[2] = "mech_power"
+        # reward_names[3] = "jnt_vel"
+        # reward_names[4] = "rhc_fail_idx"
+        # reward_names[5] = "health"
 
         return reward_names
 
