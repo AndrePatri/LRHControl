@@ -1299,36 +1299,31 @@ class LRhcTrainingEnvBase():
         pass
 
     def _custom_post_init(self):
-        pass 
-
-    def _get_avrg_step_root_v(self):
-        # world frame
-        robot_p_meas = self._robot_state.root_state.get(data_type="p",gpu=self._use_gpu)
-        avrg_step_root_v_w=(robot_p_meas-self._prev_root_p)/self._substep_dt
-        self._prev_root_p[:, :]=robot_p_meas       
-        return avrg_step_root_v_w
-
-    def _get_avrg_step_root_omega(self):
-        # world frame
-        robot_q_meas = self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
-        avrg_step_omega_w=quaternion_to_angular_velocity(q_diff=quaternion_difference(self._prev_root_q,robot_q_meas),\
-            dt=self._substep_dt)
-        self._prev_root_q[:, :]=robot_q_meas
-        return avrg_step_omega_w
+        pass
     
     def _get_avrg_step_root_twist(self, 
+            out: torch.Tensor,
             base_loc: bool = True):
-        twist_w=torch.cat((self._get_avrg_step_root_v(), 
-            self._get_avrg_step_root_omega()), 
+        
+        robot_p_meas = self._robot_state.root_state.get(data_type="p",gpu=self._use_gpu)
+        robot_q_meas = self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
+
+        root_v_avrg_w=(robot_p_meas-self._prev_root_p)/self._substep_dt
+        root_omega_avrg_w=quaternion_to_angular_velocity(q_diff=quaternion_difference(self._prev_root_q,robot_q_meas),\
+            dt=self._substep_dt)
+        twist_w=torch.cat((root_v_avrg_w, 
+            root_omega_avrg_w), 
             dim=1)
         if not base_loc:
-            return twist_w
-        twist_b=twist_w.detach().clone()
-        robot_q = self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
-        world2base_frame(t_w=twist_w, q_b=robot_q, t_out=twist_b)
-        return twist_b
-    
+            self._prev_root_p[:, :]=robot_p_meas
+            self._prev_root_q[:, :]=robot_q_meas
+            out[:, :]=twist_w
+        world2base_frame(t_w=twist_w, q_b=self._prev_root_q, t_out=out)
+        self._prev_root_p[:, :]=robot_p_meas
+        self._prev_root_q[:, :]=robot_q_meas
+
     def _get_avrg_rhc_root_twist(self,
+            out: torch.Tensor,
             base_loc: bool = True):
         
         rhc_horizons=self._rhc_status.rhc_static_info.get("horizons",gpu=self._use_gpu)
@@ -1344,12 +1339,7 @@ class LRhcTrainingEnvBase():
         rhc_pred_avrg_twist_rhc_w = torch.cat((rhc_root_v_avrg_rhc_w, 
             rhc_root_omega_avrg_rhc_w), 
             dim=1)
-
         if not base_loc:
-            return rhc_pred_avrg_twist_rhc_w
-
-        rhc_pred_avrg_twist_rhc_base=rhc_pred_avrg_twist_rhc_w.detach().clone()
+            out[:, :]=rhc_pred_avrg_twist_rhc_w
         # to rhc base frame (using first node as reference)
-        world2base_frame(t_w=rhc_pred_avrg_twist_rhc_w, q_b=rhc_root_q, t_out=rhc_pred_avrg_twist_rhc_base)
-
-        return rhc_pred_avrg_twist_rhc_base
+        world2base_frame(t_w=rhc_pred_avrg_twist_rhc_w, q_b=rhc_root_q, t_out=out)

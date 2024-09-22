@@ -36,7 +36,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # across diff envs
         random_reset_freq = 10 # a random reset once every n-episodes (per env)
         n_preinit_steps = 1 # one steps of the controllers to properly initialize everything
-        action_repeat = 1 # frame skipping (different agent action every action_repeat
+        action_repeat = 3 # frame skipping (different agent action every action_repeat
         # env substeps)
 
         self._single_task_ref_per_episode=True # if True, the task ref is constant over the episode (ie
@@ -229,6 +229,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._rhc_twist_cmd_rhc_h=self._rhc_twist_cmd_rhc_world.detach().clone()
         self._agent_twist_ref_current_w=self._rhc_twist_cmd_rhc_world.detach().clone()
         self._agent_twist_ref_current_base_loc=self._rhc_twist_cmd_rhc_world.detach().clone()
+        self._substep_avrg_root_twist_base_loc=self._rhc_twist_cmd_rhc_world.detach().clone()
+
         # task aux data
         device = "cuda" if self._use_gpu else "cpu"
         self._task_err_scaling = torch.zeros((self._n_envs, 1),dtype=self._dtype,device=device)
@@ -460,11 +462,11 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         task_error_fun = self._task_perc_err_lin
         
         agent_task_ref_base_loc = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu) # high level agent refs (hybrid twist)
-        substep_avrg_root_twist_base_loc=self._get_avrg_step_root_twist(base_loc=True)
+        self._get_avrg_step_root_twist(out=self._substep_avrg_root_twist_base_loc, base_loc=True)
         robot_twist_meas_base_loc = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu)
 
-        substep_avrg_root_twist_base_loc[:,3:6]=robot_twist_meas_base_loc[:, 3:6]# tmp fix for avrg angular vel
-        task_error = task_error_fun(task_meas=substep_avrg_root_twist_base_loc, 
+        # substep_avrg_root_twist_base_loc[:,3:6]=robot_twist_meas_base_loc[:, 3:6]# tmp fix for avrg angular vel
+        task_error = task_error_fun(task_meas=self._substep_avrg_root_twist_base_loc, 
             task_ref=agent_task_ref_base_loc,
             weights=self._task_err_weights)
         
