@@ -464,7 +464,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         robot_twist_meas_base_loc = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu)
 
         substep_avrg_root_twist_base_loc[:,3:6]=robot_twist_meas_base_loc[:, 3:6]# tmp fix for avrg angular vel
-        task_error = task_error_fun(task_meas=robot_twist_meas_base_loc, 
+        task_error = task_error_fun(task_meas=substep_avrg_root_twist_base_loc, 
             task_ref=agent_task_ref_base_loc,
             weights=self._task_err_weights)
         
