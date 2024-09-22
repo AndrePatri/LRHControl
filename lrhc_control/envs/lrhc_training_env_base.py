@@ -1305,7 +1305,7 @@ class LRhcTrainingEnvBase():
         # world frame
         robot_p_meas = self._robot_state.root_state.get(data_type="p",gpu=self._use_gpu)
         avrg_step_root_v_w=(robot_p_meas-self._prev_root_p)/self._substep_dt
-        self._prev_root_p[:, :]=self._robot_state.root_state.get(data_type="p",gpu=self._use_gpu)        
+        self._prev_root_p[:, :]=robot_p_meas       
         return avrg_step_root_v_w
 
     def _get_avrg_step_root_omega(self):
@@ -1313,7 +1313,7 @@ class LRhcTrainingEnvBase():
         robot_q_meas = self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
         avrg_step_omega_w=quaternion_to_angular_velocity(q_diff=quaternion_difference(self._prev_root_q,robot_q_meas),\
             dt=self._substep_dt)
-        self._prev_root_q[:, :]=self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
+        self._prev_root_q[:, :]=robot_q_meas
         return avrg_step_omega_w
     
     def _get_avrg_step_root_twist(self, 
