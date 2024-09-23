@@ -1,4 +1,4 @@
-from omni_robo_gym.tasks.isaac_task import IsaacTask
+from lrhcontrolenvs.tasks.isaac_task import IsaacTask
 
 from control_cluster_bridge.utilities.shared_data.rhc_data import RhcCmds
 from control_cluster_bridge.utilities.shared_data.jnt_imp_control import JntImpCntrlData

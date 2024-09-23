@@ -70,7 +70,7 @@ if __name__ == '__main__':
                             help='list of custom arguments data types to cluster client')
     
     parser.add_argument('--env_fname', type=str, 
-        default="omni_robo_gym.envs.isaac_env",
+        default="lrhcontrolenvs.envs.isaac_env",
         help="env file import pattern (without extension)")
     
     args = parser.parse_args()
