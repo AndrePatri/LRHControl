@@ -31,12 +31,12 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         episode_timeout_lb = 1024 # episode timeouts (including env substepping when action_repeat>1)
         episode_timeout_ub = 1024
-        n_steps_task_rand_lb = 400 # agent refs randomization freq
-        n_steps_task_rand_ub = 400 # lb not eq. to ub to remove correlations between episodes
+        n_steps_task_rand_lb = 600 # agent refs randomization freq
+        n_steps_task_rand_ub = 600 # lb not eq. to ub to remove correlations between episodes
         # across diff envs
         random_reset_freq = 10 # a random reset once every n-episodes (per env)
         n_preinit_steps = 1 # one steps of the controllers to properly initialize everything
-        action_repeat = 1 # frame skipping (different agent action every action_repeat
+        action_repeat = 5 # frame skipping (different agent action every action_repeat
         # env substeps)
 
         self._single_task_ref_per_episode=True # if True, the task ref is constant over the episode (ie
@@ -45,6 +45,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._add_contact_f_to_obs=True # add estimate vertical contact f to obs
         self._add_fail_idx_to_obs=True
         self._add_gn_rhc_loc=True
+        self._use_linvel_from_rhc=True
         self._use_vel_err_sig_smoother=False # whether to smooth vel error signal
         self._vel_err_smoother=None
 
@@ -345,6 +346,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # measured stuff
         robot_gravity_norm_base_loc = self._robot_state.root_state.get(data_type="gn",gpu=self._use_gpu)
         robot_twist_meas_base_loc = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu)
+        robot_twist_rhc_base_loc = self._rhc_cmds.root_state.get(data_type="twist",gpu=self._use_gpu)
         robot_jnt_q_meas = self._robot_state.jnts_state.get(data_type="q",gpu=self._use_gpu)
         robot_jnt_v_meas = self._robot_state.jnts_state.get(data_type="v",gpu=self._use_gpu)
         
@@ -354,7 +356,10 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         next_idx=0
         obs[:, next_idx:(next_idx+3)] = robot_gravity_norm_base_loc # norm. gravity vector in base frame
         next_idx+=3
-        obs[:, next_idx:(next_idx+3)] = robot_twist_meas_base_loc[:, 0:3]
+        if self._use_linvel_from_rhc:
+            obs[:, next_idx:(next_idx+3)] = robot_twist_rhc_base_loc[:, 0:3]
+        else:
+            obs[:, next_idx:(next_idx+3)] = robot_twist_meas_base_loc[:, 0:3]
         next_idx+=3
         obs[:, next_idx:(next_idx+3)] = robot_twist_meas_base_loc[:, 3:6]
         next_idx+=3
