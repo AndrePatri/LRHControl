@@ -36,7 +36,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # across diff envs
         random_reset_freq = 10 # a random reset once every n-episodes (per env)
         n_preinit_steps = 1 # one steps of the controllers to properly initialize everything
-        action_repeat = 3 # frame skipping (different agent action every action_repeat
+        action_repeat = 1 # frame skipping (different agent action every action_repeat
         # env substeps)
 
         self._single_task_ref_per_episode=True # if True, the task ref is constant over the episode (ie
@@ -185,9 +185,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     debug=debug,
                     override_agent_refs=override_agent_refs,
                     timeout_ms=timeout_ms,
-                    rescale_rewards=True,
                     srew_drescaling=True,
-                    srew_tsrescaling=False,
                     use_act_mem_bf=self._add_prev_actions_stats_to_obs,
                     act_membf_size=30)
 
@@ -230,6 +228,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._agent_twist_ref_current_w=self._rhc_twist_cmd_rhc_world.detach().clone()
         self._agent_twist_ref_current_base_loc=self._rhc_twist_cmd_rhc_world.detach().clone()
         self._substep_avrg_root_twist_base_loc=self._rhc_twist_cmd_rhc_world.detach().clone()
+        self._step_avrg_root_twist_base_loc=self._rhc_twist_cmd_rhc_world.detach().clone()
 
         # task aux data
         device = "cuda" if self._use_gpu else "cpu"
@@ -305,7 +304,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         if self._vel_err_smoother is not None: # reset smoother
             self._vel_err_smoother.reset(to_be_reset=episode_finished.flatten())
 
-    def _custom_post_substepping(self):
+    def _custom_substep_post_substepping(self):
         pass
 
     def _apply_actions_to_rhc(self):
@@ -454,20 +453,30 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         rhc_fail_idx = self._rhc_status.rhc_fail_idx.get_torch_mirror(gpu=gpu)
         return self._rhc_fail_idx_scale*rhc_fail_idx
     
-    def _compute_sub_rewards(self,
-                    obs: torch.Tensor,
-                    next_obs: torch.Tensor):
-        
-        # task_error_fun = self._task_err_lin
+    def _compute_step_rewards(self):
         task_error_fun = self._task_perc_err_lin
-        
-        agent_task_ref_base_loc = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu) # high level agent refs (hybrid twist)
-        self._get_avrg_step_root_twist(out=self._substep_avrg_root_twist_base_loc, base_loc=True)
-        # robot_twist_meas_base_loc = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu)
 
-        task_error = task_error_fun(task_meas=self._substep_avrg_root_twist_base_loc, 
+        agent_task_ref_base_loc = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu) # high level agent refs (hybrid twist)
+        self._get_avrg_step_root_twist(out=self._step_avrg_root_twist_base_loc, base_loc=True)
+        task_error = task_error_fun(task_meas=self._step_avrg_root_twist_base_loc, 
             task_ref=agent_task_ref_base_loc,
             weights=self._task_err_weights)
+        
+        sub_rewards = self._sub_rewards.get_torch_mirror(gpu=self._use_gpu)
+        sub_rewards[:, 0:1] = self._task_offset-self._task_scale*task_error
+
+    def _compute_substep_rewards(self):
+        
+        # task_error_fun = self._task_err_lin
+        # task_error_fun = self._task_perc_err_lin
+        
+        # agent_task_ref_base_loc = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu) # high level agent refs (hybrid twist)
+        # self._get_avrg_substep_root_twist(out=self._substep_avrg_root_twist_base_loc, base_loc=True)
+        # robot_twist_meas_base_loc = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu)
+
+        # task_error = task_error_fun(task_meas=self._substep_avrg_root_twist_base_loc, 
+        #     task_ref=agent_task_ref_base_loc,
+        #     weights=self._task_err_weights)
         
         # task_pred_error = task_error_fun(task_meas=self._get_avrg_rhc_root_twist(base_loc=True), 
         #     task_ref=agent_task_ref_base_loc,
@@ -482,13 +491,13 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         #                                     jnts_effort=jnts_effort)
         # weighted_jnt_vel = self._jnt_vel_penalty(jnts_vel=jnts_vel)
 
-        sub_rewards = self._sub_rewards.get_torch_mirror(gpu=self._use_gpu)
-        sub_rewards[:, 0:1] = self._task_offset-self._task_scale*task_error
+        # self._substep_rewards[:, 0:1] = self._task_offset-self._task_scale*task_error
         # sub_rewards[:, 1:2] = self._task_pred_offset-self._task_pred_scale*task_pred_error
         # sub_rewards[:, 2:3] = self._power_offset - self._power_scale * weighted_mech_power
         # sub_rewards[:, 3:4] = self._jnt_vel_offset - self._jnt_vel_scale * weighted_jnt_vel
         # sub_rewards[:, 4:5] = self._rhc_fail_idx_offset - self._rhc_fail_idx_rew_scale* self._rhc_fail_idx(gpu=self._use_gpu)
         # sub_rewards[:, 5:6] = self._health_value # health reward
+        pass
 
     def _randomize_task_refs(self,
         env_indxs: torch.Tensor = None):

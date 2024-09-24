@@ -63,9 +63,7 @@ class LRhcTrainingEnvBase():
             dtype: torch.dtype = torch.float32,
             override_agent_refs: bool = False,
             timeout_ms: int = 60000,
-            rescale_rewards: bool= True,
             srew_drescaling: bool = True,
-            srew_tsrescaling: bool = False,
             use_act_mem_bf: bool = False,
             act_membf_size: int = 3,
             use_random_safety_reset: bool = True,
@@ -83,9 +81,7 @@ class LRhcTrainingEnvBase():
         
         self.custom_db_info = {}
         
-        self._rescale_rewards=rescale_rewards
         self._srew_drescaling = srew_drescaling
-        self._srew_tsrescaling = srew_tsrescaling
         
         self._action_repeat = action_repeat
         if self._action_repeat <=0: 
@@ -321,8 +317,8 @@ class LRhcTrainingEnvBase():
             # corresponding to the reset_mask)
             
             # updating also prev pos and orientation in case some env was reset
-            self._prev_root_p[:, :]=self._robot_state.root_state.get(data_type="p",gpu=self._use_gpu)
-            self._prev_root_q[:, :]=self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
+            self._prev_root_p_substep[:, :]=self._robot_state.root_state.get(data_type="p",gpu=self._use_gpu)
+            self._prev_root_q_substep[:, :]=self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
 
             obs = self._obs.get_torch_mirror(gpu=self._use_gpu)
             self._fill_obs(obs)
@@ -355,11 +351,15 @@ class LRhcTrainingEnvBase():
         if self._act_mem_buffer is not None:
             self._act_mem_buffer.update(new_data=actions)
 
-        self._apply_actions_to_rhc() # apply agent actions to rhc controller
+        # self._apply_actions_to_rhc() # apply agent actions to rhc controller
 
         stepping_ok = True
         tot_rewards = self._tot_rewards.get_torch_mirror(gpu=self._use_gpu)
-        tot_rewards[:, :] = 0 # reset total rewards before each action repeat loop
+        sub_rewards = self._sub_rewards.get_torch_mirror(gpu=self._use_gpu)
+        tot_rewards.zero_()
+        sub_rewards.zero_()
+        self._substep_rewards.zero_()
+
         for i in range(0, self._action_repeat): # remove env substepping
             stepping_ok = stepping_ok and self._check_controllers_registered(retry=False) # does not make sense to run training
             # if we lost some controllers
@@ -367,19 +367,35 @@ class LRhcTrainingEnvBase():
             # no sim substepping is allowed to fail
             self._synch_obs(gpu=self._use_gpu) # read obs from shared mem (done in substeps also, 
             # since substeps rewards will need updated substep obs)
-            next_obs = self._next_obs.get_torch_mirror(gpu=self._use_gpu)
-            obs = self._obs.get_torch_mirror(gpu=self._use_gpu)
-            self._fill_obs(next_obs) # update next obs
-            self._clamp_obs(next_obs) # good practice
-            self._compute_sub_rewards(obs,next_obs)
-            self._assemble_rewards() # includes rewards clipping
-            self._custom_post_substepping() # custom substepping logic
+            
+            self._compute_substep_rewards()
+            self._assemble_substep_rewards() # includes rewards clipping
 
-            obs[:, :] = next_obs # start from next observation, unless reset (handled in post_step())
-
-            if not i==(self._action_repeat-1): # just sends reset signal to complete remote step sequence,
+            if not i==(self._action_repeat-1):
+                # just sends reset signal to complete remote step sequence,
                 # but does not reset any remote env
                 stepping_ok = stepping_ok and self._remote_reset(reset_mask=None) 
+            else:
+                next_obs = self._next_obs.get_torch_mirror(gpu=self._use_gpu)
+                self._fill_obs(next_obs) # update next obs
+                self._clamp_obs(next_obs) # good practice
+                obs = self._obs.get_torch_mirror(gpu=self._use_gpu)
+                obs[:, :] = next_obs # start from next observation, unless reset (handled in post_step())
+
+                self._compute_step_rewards() # implemented by child
+
+                tot_rewards = self._tot_rewards.get_torch_mirror(gpu=self._use_gpu)
+                sub_rewards = self._sub_rewards.get_torch_mirror(gpu=self._use_gpu)
+                self._clamp_rewards(sub_rewards) # clamp all sub rewards
+                tot_rewards[:, :] =  torch.sum(sub_rewards, dim=1, keepdim=True)
+
+                scale=self._action_repeat # scale tot rew by the number of action repeats
+                if self._srew_drescaling: # scale rewards depending on the n of subrewards
+                    scale*=sub_rewards.shape[1] # n. dims rescaling
+                tot_rewards.mul_(1/scale)
+
+            self._custom_substep_post_substepping() # custom substepping logic
+
             if not stepping_ok:
                 return False
             
@@ -428,6 +444,10 @@ class LRhcTrainingEnvBase():
             to_be_reset[:, :] = torch.logical_or(to_be_reset,to_be_reset_custom)
         rm_reset_ok = self._remote_reset(reset_mask=to_be_reset)
         
+        # updating prev step quantities
+        self._prev_root_p_step[:, :]=self._robot_state.root_state.get(data_type="p",gpu=self._use_gpu)
+        self._prev_root_q_step[:, :]=self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
+
         self._custom_post_step(episode_finished=episode_finished) # any additional logic from child env  
         # here after reset, so that is can access all states post reset if necessary      
 
@@ -477,22 +497,14 @@ class LRhcTrainingEnvBase():
         for custom_db_data in self.custom_db_data.values():
             custom_db_data.reset(keep_track=keep_track)
 
-    def _assemble_rewards(self):
-        
-        tot_rewards = self._tot_rewards.get_torch_mirror(gpu=self._use_gpu)
+    def _assemble_substep_rewards(self):
+        # by default assemble  substep rewards by averaging
         sub_rewards = self._sub_rewards.get_torch_mirror(gpu=self._use_gpu)
-        self._clamp_rewards(sub_rewards) # clipping rewards in a user-defined range
         
-        scale=self._action_repeat
-        if self._rescale_rewards and self._srew_drescaling: # scale rewards depending on the n of subrewards
-            scale*=sub_rewards.shape[1] # n. dims rescaling
-        if self._rescale_rewards and self._srew_tsrescaling: # scale rewards depending on the n of subrewards
-            scale*=self._n_steps_task_rand_ub # scale using task rand ub (not using episode timeout since the scale
-            # can then be excessively aggressive)
-
         # average over substeps depending on scale
-        tot_rewards[:, :] = tot_rewards + torch.sum(sub_rewards, dim=1, keepdim=True)/scale
-
+        sub_rewards[:, self._is_substep_rew] = sub_rewards[:, self._is_substep_rew] + \
+            self._substep_rewards[:, self._is_substep_rew]
+            
     def randomize_task_refs(self,
                 env_indxs: torch.Tensor = None):
                     
@@ -534,6 +546,11 @@ class LRhcTrainingEnvBase():
 
         self.reset_custom_db_data(keep_track=False)
         self._episodic_rewards_metrics.reset(keep_track=False)
+
+        self._prev_root_p_step[:, :]=self._robot_state.root_state.get(data_type="p",gpu=self._use_gpu)
+        self._prev_root_q_step[:, :]=self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
+        self._prev_root_p_substep[:, :]=self._robot_state.root_state.get(data_type="p",gpu=self._use_gpu)
+        self._prev_root_q_substep[:, :]=self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
 
     def close(self):
         
@@ -798,6 +815,10 @@ class LRhcTrainingEnvBase():
         self._sub_rewards.run()
         self._tot_rewards.run()
 
+        self._substep_rewards = self._sub_rewards.get_torch_mirror(gpu=self._use_gpu).detach().clone() 
+        # used to hold substep rewards (not super mem. efficient)
+        self._is_substep_rew = torch.zeros((self._substep_rewards.shape[1],),dtype=torch.bool,device=device)
+        self._is_substep_rew.fill_(True) # default to all substep rewards
         self._episodic_rewards_metrics = EpisodicRewards(reward_tensor=self._sub_rewards.get_torch_mirror(),
                                         reward_names=self._get_rewards_names(),
                                         max_episode_length=self._episode_timeout_ub,
@@ -1066,8 +1087,10 @@ class LRhcTrainingEnvBase():
                 vlevel=self._vlevel)
         self._training_sim_info.run()
 
-        self._prev_root_p=self._robot_state.root_state.get(data_type="p",gpu=self._use_gpu).clone()
-        self._prev_root_q=self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu).clone()
+        self._prev_root_p_substep=self._robot_state.root_state.get(data_type="p",gpu=self._use_gpu).clone()
+        self._prev_root_q_substep=self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu).clone()
+        self._prev_root_p_step=self._robot_state.root_state.get(data_type="p",gpu=self._use_gpu).clone()
+        self._prev_root_q_step=self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu).clone()
         
     def _activate_rhc_controllers(self):
         self._rhc_status.activation_state.get_torch_mirror()[:, :] = True
@@ -1275,7 +1298,7 @@ class LRhcTrainingEnvBase():
         pass
     
     @abstractmethod
-    def _custom_post_substepping(self):
+    def _custom_substep_post_substepping(self):
         pass
 
     @abstractmethod
@@ -1283,9 +1306,11 @@ class LRhcTrainingEnvBase():
         pass
 
     @abstractmethod
-    def _compute_sub_rewards(self,
-            obs: torch.Tensor,
-            next_obs: torch.Tensor):
+    def _compute_substep_rewards(self):
+        pass
+
+    @abstractmethod
+    def _compute_step_rewards(self):
         pass
 
     @abstractmethod
@@ -1301,26 +1326,44 @@ class LRhcTrainingEnvBase():
     def _custom_post_init(self):
         pass
     
-    def _get_avrg_step_root_twist(self, 
+    def _get_avrg_substep_root_twist(self, 
             out: torch.Tensor,
             base_loc: bool = True):
-        
+        # to be called at each substep
         robot_p_meas = self._robot_state.root_state.get(data_type="p",gpu=self._use_gpu)
         robot_q_meas = self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
 
-        root_v_avrg_w=(robot_p_meas-self._prev_root_p)/self._substep_dt
-        root_omega_avrg_w=quaternion_to_angular_velocity(q_diff=quaternion_difference(self._prev_root_q,robot_q_meas),\
+        root_v_avrg_w=(robot_p_meas-self._prev_root_p_substep)/self._substep_dt
+        root_omega_avrg_w=quaternion_to_angular_velocity(q_diff=quaternion_difference(self._prev_root_q_substep,robot_q_meas),\
             dt=self._substep_dt)
         twist_w=torch.cat((root_v_avrg_w, 
             root_omega_avrg_w), 
             dim=1)
         if not base_loc:
-            self._prev_root_p[:, :]=robot_p_meas
-            self._prev_root_q[:, :]=robot_q_meas
+            self._prev_root_p_substep[:, :]=robot_p_meas
+            self._prev_root_q_substep[:, :]=robot_q_meas
             out[:, :]=twist_w
-        world2base_frame(t_w=twist_w, q_b=self._prev_root_q, t_out=out)
-        self._prev_root_p[:, :]=robot_p_meas
-        self._prev_root_q[:, :]=robot_q_meas
+        world2base_frame(t_w=twist_w, q_b=self._prev_root_q_substep, t_out=out)
+        self._prev_root_p_substep[:, :]=robot_p_meas
+        self._prev_root_q_substep[:, :]=robot_q_meas
+
+    def _get_avrg_step_root_twist(self, 
+            out: torch.Tensor,
+            base_loc: bool = True):
+        # to be called after substeps of actions repeats
+        robot_p_meas = self._robot_state.root_state.get(data_type="p",gpu=self._use_gpu)
+        robot_q_meas = self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
+
+        dt=self._substep_dt*self._action_repeat # accounting for frame skipping
+        root_v_avrg_w=(robot_p_meas-self._prev_root_p_step)/(dt)
+        root_omega_avrg_w=quaternion_to_angular_velocity(q_diff=quaternion_difference(self._prev_root_q_step,robot_q_meas),\
+            dt=dt)
+        twist_w=torch.cat((root_v_avrg_w, 
+            root_omega_avrg_w), 
+            dim=1)
+        if not base_loc:
+            out[:, :]=twist_w
+        world2base_frame(t_w=twist_w, q_b=self._prev_root_q_step, t_out=out)
 
     def _get_avrg_rhc_root_twist(self,
             out: torch.Tensor,

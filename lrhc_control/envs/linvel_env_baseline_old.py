@@ -347,7 +347,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         if self._vel_err_smoother is not None: # reset smoother
             self._vel_err_smoother.reset(to_be_reset=episode_finished.flatten())
 
-    def _custom_post_substepping(self):
+    def _custom_substep_post_substepping(self):
         pass
 
     def _apply_actions_to_rhc(self):
@@ -536,7 +536,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             else:
                 return self._zero_t_aux_cpu
 
-    def _compute_sub_rewards(self,
+    def _compute_substep_rewards(self,
                     obs: torch.Tensor,
                     next_obs: torch.Tensor):
         
@@ -544,7 +544,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         task_error_fun = self._task_perc_err_lin
         
         task_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu) # high level agent refs (hybrid twist)
-        substep_avrg_root_twist_w=self._get_avrg_step_root_twist()
+        substep_avrg_root_twist_w=self._get_avrg_substep_root_twist()
         
         task_error = task_error_fun(task_meas=substep_avrg_root_twist_w, 
             task_ref=task_ref,
