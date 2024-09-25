@@ -999,6 +999,15 @@ class LRhcTrainingEnvBase():
         self._rhc_dts=rhc_dts
         self._n_contacts_rhc=rhc_ncontacts
         self._rhc_robot_masses=robot_mass
+        if (self._rhc_robot_masses == 0).any():
+            zero_indices = torch.nonzero(self._rhc_robot_masses == 0, as_tuple=True)
+            print(zero_indices)  # This will print the indices of zero elements
+            Journal.log(self.__class__.__name__,
+                "_attach_to_shared_mem",
+                "Found at least one robot with 0 mass from RHC static info!!",
+                LogType.EXCEP,
+                throw_when_excep = False)
+
         self._rhc_robot_weight=robot_mass*9.81
         self._pred_node_idxs_rhc=pred_node_idxs_rhc
         self._pred_horizon_rhc=self._pred_node_idxs_rhc*self._rhc_dts
