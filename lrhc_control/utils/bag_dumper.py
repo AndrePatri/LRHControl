@@ -131,6 +131,11 @@ class RosBagDumper():
         
         import os
 
+        Journal.log(self.__class__.__name__,
+            "launch_rosbag",
+            f"launch_rosbag PID is {os.getpid()}",
+            LogType.INFO)
+
         # using a shared drop dir if enabled
         from SharsorIPCpp.PySharsorIPC import StringTensorClient
         from perf_sleep.pyperfsleep import PerfSleep
