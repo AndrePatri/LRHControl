@@ -375,7 +375,7 @@ class LRhcTrainingEnvBase():
                 # just sends reset signal to complete remote step sequence,
                 # but does not reset any remote env
                 stepping_ok = stepping_ok and self._remote_reset(reset_mask=None) 
-            else:
+            else: # last substep
                 next_obs = self._next_obs.get_torch_mirror(gpu=self._use_gpu)
                 self._fill_obs(next_obs) # update next obs
                 self._clamp_obs(next_obs) # good practice
@@ -389,7 +389,7 @@ class LRhcTrainingEnvBase():
                 self._clamp_rewards(sub_rewards) # clamp all sub rewards
                 tot_rewards[:, :] =  torch.sum(sub_rewards, dim=1, keepdim=True)
 
-                scale=self._action_repeat # scale tot rew by the number of action repeats
+                scale=1 # scale tot rew by the number of action repeats
                 if self._srew_drescaling: # scale rewards depending on the n of subrewards
                     scale*=sub_rewards.shape[1] # n. dims rescaling
                 tot_rewards.mul_(1/scale)
@@ -503,8 +503,8 @@ class LRhcTrainingEnvBase():
         
         # average over substeps depending on scale
         sub_rewards[:, self._is_substep_rew] = sub_rewards[:, self._is_substep_rew] + \
-            self._substep_rewards[:, self._is_substep_rew]
-            
+            self._substep_rewards[:, self._is_substep_rew]/self._action_repeat
+                    
     def randomize_task_refs(self,
                 env_indxs: torch.Tensor = None):
                     
@@ -983,17 +983,29 @@ class LRhcTrainingEnvBase():
         self._rhc_pred.run()
         self._rhc_refs.run()
         self._rhc_status.run()
-        # we read rhc info now, since it's assumed to be static 
+        # we read rhc info now and just this time, since it's assumed to be static 
         self._rhc_status.rhc_static_info.synch_all(read=True,retry=True)
         if self._use_gpu:
             self._rhc_status.rhc_static_info.synch_mirror(from_gpu=False)
         rhc_horizons=self._rhc_status.rhc_static_info.get("horizons",gpu=self._use_gpu)
+        rhc_nnodes=self._rhc_status.rhc_static_info.get("nnodes",gpu=self._use_gpu)
         rhc_dts=self._rhc_status.rhc_static_info.get("dts",gpu=self._use_gpu)
-        self._n_nodes_rhc=torch.round(rhc_horizons/rhc_dts)+1 # we assume nodes are static during an env lifetime
-        
+        rhc_ncontacts=self._rhc_status.rhc_static_info.get("ncontacts",gpu=self._use_gpu)
+        robot_mass=self._rhc_status.rhc_static_info.get("robot_mass",gpu=self._use_gpu)
+        pred_node_idxs_rhc=self._rhc_status.rhc_static_info.get("pred_node_idx",gpu=self._use_gpu)
+
+        self._n_nodes_rhc=torch.round(rhc_nnodes) # we assume nodes are static during an env lifetime
+        self._rhc_horizons=rhc_horizons
+        self._rhc_dts=rhc_dts
+        self._n_contacts_rhc=rhc_ncontacts
+        self._rhc_robot_masses=robot_mass
+        self._rhc_robot_weight=robot_mass*9.81
+        self._pred_node_idxs_rhc=pred_node_idxs_rhc
+        self._pred_horizon_rhc=self._pred_node_idxs_rhc*self._rhc_dts
+
         self._n_envs = self._robot_state.n_robots()
         self._n_jnts = self._robot_state.n_jnts()
-        self._n_contacts = self._robot_state.n_contacts()
+        self._n_contacts = self._robot_state.n_contacts() # we assume same n contacts for all rhcs for now
 
         # run server for agent commands
         self._agent_refs = AgentRefs(namespace=self._namespace,
@@ -1369,15 +1381,14 @@ class LRhcTrainingEnvBase():
             out: torch.Tensor,
             base_loc: bool = True):
         
-        rhc_horizons=self._rhc_status.rhc_static_info.get("horizons",gpu=self._use_gpu)
         rhc_root_p =self._rhc_cmds.root_state.get(data_type="p",gpu=self._use_gpu)
         rhc_root_q =self._rhc_cmds.root_state.get(data_type="q",gpu=self._use_gpu)
         rhc_root_p_pred =self._rhc_pred.root_state.get(data_type="p",gpu=self._use_gpu)
         rhc_root_q_pred =self._rhc_pred.root_state.get(data_type="q",gpu=self._use_gpu)
 
-        rhc_root_v_avrg_rhc_w=(rhc_root_p_pred-rhc_root_p)/rhc_horizons
+        rhc_root_v_avrg_rhc_w=(rhc_root_p_pred-rhc_root_p)/self._pred_horizon_rhc
         rhc_root_omega_avrg_rhc_w=quaternion_to_angular_velocity(q_diff=quaternion_difference(rhc_root_q,rhc_root_q_pred),\
-            dt=rhc_horizons)
+            dt=self._pred_horizon_rhc)
     
         rhc_pred_avrg_twist_rhc_w = torch.cat((rhc_root_v_avrg_rhc_w, 
             rhc_root_omega_avrg_rhc_w), 
