@@ -210,7 +210,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
     def _custom_post_init(self):
         # overriding parent's defaults 
         self._reward_thresh_lb[:, :]=0 # neg rewards can be nasty depending on the algorithm
-        self._reward_thresh_ub[:, :]=torch.inf
+        self._reward_thresh_ub[:, :]=1e6
 
         self._obs_threshold_lb = -1e3 # used for clipping observations
         self._obs_threshold_ub = 1e3
