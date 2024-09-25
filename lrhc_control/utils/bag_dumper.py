@@ -148,6 +148,7 @@ class RosBagDumper():
                 continue
             dump_path=shared_drop_dir_val[0] # overwrite
 
+        shared_drop_dir.close()
         retry_kill=20
         additional_secs=5.0
         from control_cluster_bridge.utilities.remote_triggering import RemoteTriggererClnt
@@ -172,19 +173,19 @@ class RosBagDumper():
         # Set the process group ID to the subprocess PID
         # os.setpgid(proc.pid, proc.pid)
 
-        Journal.log("launch_rhc2ros_bridge.py",
+        Journal.log(self.__class__.__name__,
                 "launch_rosbag",
                 f"launching rosbag recording with PID {proc.pid}",
                 LogType.INFO)
 
         timeout_ms = int(timeout_sec*1e3)
         if not term_trigger.wait(timeout_ms):
-            Journal.log("launch_rhc2ros_bridge.py",
+            Journal.log(self.__class__.__name__,
                 "launch_rosbag",
                 "Didn't receive any termination req within timeout! Will terminate anyway",
                 LogType.WARN)
         
-        Journal.log("launch_rhc2ros_bridge.py",
+        Journal.log(self.__class__.__name__,
                 "launch_rosbag",
                 f"terminating rosbag recording. Dump base-path is: {dump_path}",
                 LogType.INFO)
@@ -200,7 +201,7 @@ class RosBagDumper():
         except:
             proc.kill()
 
-        Journal.log("launch_rhc2ros_bridge.py",
+        Journal.log(self.__class__.__name__,
                 "launch_rosbag",
                 f"successfully terminated rosbag recording process",
                 LogType.INFO)
@@ -208,8 +209,15 @@ class RosBagDumper():
     def close(self):
         if not self._closed:
             if self._bag_proc is not None:
-                self._term_trigger.trigger()
-                self._bag_proc.join()
+                self._term_trigger.trigger() # triggering process termination and joining
+                ret=self._bag_proc.join(5) # waits some time 
+                if ret is not None:
+                    if self._bag_proc.exitcode is None: # process not terminated yet
+                        Journal.log(self.__class__.__name__,
+                            "close",
+                            f"forcibly terminating bag process",
+                            LogType.WARN)
+                        self._bag_proc.terminate()
             if self._term_trigger is not None:
                 self._term_trigger.close()
             
