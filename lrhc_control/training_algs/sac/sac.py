@@ -113,7 +113,6 @@ class SAC(SActorCriticAlgoBase):
             self._qf2_vals[self._log_it_counter, 0] = qf2_a_values.mean().item()
             self._qf1_loss[self._log_it_counter, 0] = qf1_loss.mean().item()
             self._qf2_loss[self._log_it_counter, 0] = qf2_loss.mean().item()
-            self._qf_loss[self._log_it_counter, 0] = qf_loss.mean().item()
             if self._vec_transition_counter % self._policy_freq == 0:
                 self._actor_loss[self._log_it_counter, 0] = actor_loss.mean().item()
                 self._alphas[self._log_it_counter, 0] = self._alpha
@@ -124,7 +123,6 @@ class SAC(SActorCriticAlgoBase):
                                             "sac_info/_qf2_vals": self._qf2_vals[self._log_it_counter, 0],
                                             "sac_info/_qf1_loss": self._qf1_loss[self._log_it_counter, 0],
                                             "sac_info/_qf2_loss": self._qf2_loss[self._log_it_counter, 0],
-                                            "sac_info/_qf_loss": self._qf_loss[self._log_it_counter, 0],
                                             "sac_info/_actor_loss": self._actor_loss[self._log_it_counter, 0],
                                             "sac_info/_alpha": self._alphas[self._log_it_counter, 0],
                                             "sac_info/_alpha_loss": self._alpha_loss[self._log_it_counter, 0]}) 

@@ -104,8 +104,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._task_err_weights[0, 5] = 1e-1
 
         # task pred tracking
-        self._task_pred_offset = 10.0 # 10.0
-        self._task_pred_scale = 10.0 # perc-based
+        self._task_pred_offset = 0.0 # 10.0
+        self._task_pred_scale = 0.0 # perc-based
         self._task_pred_err_weights = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.0) 
         self._task_pred_err_weights[0, 0] = 1.0
@@ -620,12 +620,12 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
     def _get_rewards_names(self):
 
-        n_rewards = 2
+        n_rewards = 1
         reward_names = [""] * n_rewards
 
         reward_names[0] = "task_error"
         # reward_names[1] = "CoT"
-        reward_names[1] = "task_pred_error"
+        # reward_names[1] = "task_pred_error"
         # reward_names[2] = "mech_power"
         # reward_names[3] = "jnt_vel"
         # reward_names[4] = "rhc_fail_idx"

@@ -831,7 +831,7 @@ class SActorCriticAlgoBase():
         self._warmstart_vectimesteps = self._warmstart_timesteps//self._num_envs
         self._warmstart_timesteps = self._num_envs*self._warmstart_vectimesteps # actual
 
-        self._replay_buffer_size_nominal = int(1e6) # 32768
+        self._replay_buffer_size_nominal = int(10e6) # 32768
         self._replay_buffer_size_vec = self._replay_buffer_size_nominal//self._num_envs # 32768
         self._replay_buffer_size = self._replay_buffer_size_vec*self._num_envs
         self._batch_size = 4096
@@ -857,8 +857,9 @@ class SActorCriticAlgoBase():
         
         # debug
         self._m_checkpoint_freq = 5120 # n timesteps after which a checkpoint model is dumped
-        self._db_vecstep_frequency = 128 # log db data every n (vectorized) timesteps
-        
+        self._db_vecstep_frequency = 128 # log db data every n (vectorized) SUB timesteps
+        self._db_vecstep_frequency=round(self._db_vecstep_frequency/self._env_n_action_reps) # correcting with actions reps 
+
         self._n_policy_updates_to_be_done=((self._total_timesteps_vec-self._warmstart_vectimesteps)//self._policy_freq)*self._policy_freq #TD3 delayed update
         self._n_qf_updates_to_be_done=(self._total_timesteps_vec-self._warmstart_vectimesteps)//1 # qf updated at each vec timesteps
         self._n_tqf_updates_to_be_done=(self._total_timesteps_vec-self._warmstart_vectimesteps)//self._trgt_net_freq 
