@@ -142,7 +142,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._jnt_vel_penalty_weights_sum = torch.sum(self._jnt_vel_penalty_weights).item()
         
         # task rand
-        self._use_pof0 = True
+        self._use_pof0 = False
         self._pof0 = 0.1
         self._twist_ref_lb = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=-0.8) 
