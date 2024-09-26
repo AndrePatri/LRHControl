@@ -46,7 +46,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._add_fail_idx_to_obs=True
         self._add_gn_rhc_loc=True
         self._use_linvel_from_rhc=True
-        self._use_rhc_avrg_vel_pred=True
+        self._use_rhc_avrg_vel_pred=False
         self._use_vel_err_sig_smoother=False # whether to smooth vel error signal
         self._vel_err_smoother=None
 
@@ -485,15 +485,16 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # ref_norm=torch.norm(agent_task_ref_base_loc, dim=1, keepdim=True)
         # CoT=self._cost_of_transport(jnts_vel=jnts_vel,jnts_effort=jnts_effort,v_ref_norm=ref_norm)
 
-        agent_task_ref_base_loc = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu) # high level agent refs (hybrid twist)
-        self._get_avrg_rhc_root_twist(out=self._root_twist_avrg_rhc_base_loc_next,base_loc=True) # get estimated avrg vel 
-        # from MPC after stepping
-        task_pred_error=task_error_fun(task_meas=self._root_twist_avrg_rhc_base_loc_next, 
-            task_ref=agent_task_ref_base_loc,
-            weights=self._task_pred_err_weights)
+        if self._use_rhc_avrg_vel_pred:
+            agent_task_ref_base_loc = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu) # high level agent refs (hybrid twist)
+            self._get_avrg_rhc_root_twist(out=self._root_twist_avrg_rhc_base_loc_next,base_loc=True) # get estimated avrg vel 
+            # from MPC after stepping
+            task_pred_error=task_error_fun(task_meas=self._root_twist_avrg_rhc_base_loc_next, 
+                task_ref=agent_task_ref_base_loc,
+                weights=self._task_pred_err_weights)
+            self._substep_rewards[:, 1:2] = self._task_pred_offset-self._task_pred_scale*task_pred_error
 
         # self._substep_rewards[:, 1:2] =self._power_offset-self._power_scale*CoT
-        self._substep_rewards[:, 1:2] = self._task_pred_offset-self._task_pred_scale*task_pred_error
         # self._substep_rewards[:, 2:3] = self._power_offset - self._power_scale * weighted_mech_power
         # self._substep_rewards[:, 3:4] = self._jnt_vel_offset - self._jnt_vel_scale * weighted_jnt_vel
         # self._substep_rewards[:, 4:5] = self._rhc_fail_idx_offset - self._rhc_fail_idx_rew_scale* self._rhc_fail_idx(gpu=self._use_gpu)
