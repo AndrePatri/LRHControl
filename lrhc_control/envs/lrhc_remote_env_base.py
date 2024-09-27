@@ -287,8 +287,7 @@ class LRhcEnvBase():
             self._closed=True
     
     def _setup(self) -> None:
-        
-
+    
         for i in range(len(self._robot_names)):
             robot_name = self._robot_names[i]
 
@@ -501,14 +500,6 @@ class LRhcEnvBase():
         rhc_cmds.jnts_state.set(data=self._homing, data_type="q", gpu=self._use_gpu)
         rhc_cmds.jnts_state.set(data=null_action, data_type="v", gpu=self._use_gpu)
         rhc_cmds.jnts_state.set(data=null_action, data_type="eff", gpu=self._use_gpu)
-
-    @abstractmethod
-    def _close(self) -> None:
-        pass
-
-    @abstractmethod
-    def _step_sim(self) -> None:
-        pass
     
     def _pre_step(self) -> None:
 
@@ -587,18 +578,6 @@ class LRhcEnvBase():
                                     env_indxs=active) # always update cluster state every cluster dt
                 control_cluster.trigger_solution() # trigger only active controllers
 
-    @abstractmethod
-    def _parse_env_opts(self):
-        pass
-    
-    @abstractmethod
-    def _pre_setup(self):
-        pass
-
-    @abstractmethod
-    def _generate_jnt_imp_control(self) -> JntImpCntrlChild:
-        pass
-
     def _post_sim_step(self) -> bool:
         self.step_counter +=1
         if self.step_counter>=self._n_init_steps and \
@@ -611,10 +590,6 @@ class LRhcEnvBase():
                 self.debug_data["sim_time"][robot_name]=self.cluster_step_counters[robot_name]*self.physics_dt()
                 self.debug_data["cluster_sol_time"][robot_name] = \
                     self.cluster_servers[robot_name].solution_time()
-
-    @abstractmethod
-    def _render_sim(self, mode:str="human") -> None:
-        pass
 
     def _reset(self,
             env_indxs: torch.Tensor = None,
@@ -651,29 +626,6 @@ class LRhcEnvBase():
                                 torch.zeros_like(cos_half), 
                                 torch.sin(yaw_angles / 2)), dim=1).reshape(num_indices, 4)
 
-    @abstractmethod
-    def _reset_state(self,
-            env_indxs: torch.Tensor = None,
-            robot_names: List[str] =None,
-            randomize: bool = False):
-        pass
-    
-    @abstractmethod
-    def _init_world(self):
-        pass
-
-    @abstractmethod
-    def _reset_sim(self) -> None:
-        pass
-    
-    @abstractmethod
-    def _move_jnts_to_homing(self):
-        pass
-
-    @abstractmethod
-    def _move_root_to_defconfig(self):
-        pass
-
     def _deactivate(self,
             env_indxs: torch.Tensor = None,
             robot_names: List[str] =None):
@@ -687,39 +639,6 @@ class LRhcEnvBase():
     def _n_contacts(self, robot_name: str) -> List[int]:
         return self._num_contacts[robot_name]
     
-    def _contacts(self, robot_name: str) -> List[str]:
-        return None
-    
-    @abstractmethod
-    def physics_dt(self) -> float:
-        pass
-    
-    @abstractmethod
-    def rendering_dt(self) -> float:
-        pass
-    
-    @abstractmethod
-    def set_physics_dt(self, physics_dt:float):
-        pass
-
-    @abstractmethod
-    def set_rendering_dt(self, rendering_dt:float):
-        pass
-
-    @abstractmethod
-    def _robot_jnt_names(self, robot_name: str) -> List[str]:
-        pass
-    
-    @abstractmethod
-    def _update_state_from_sim(self,
-        env_indxs: torch.Tensor = None,
-        robot_names: List[str] = None):
-        pass
-    
-    @abstractmethod
-    def _init_robots_state(self):
-        pass
-
     def root_p(self,
             robot_name: str,
             env_idxs: torch.Tensor = None):
@@ -821,20 +740,6 @@ class LRhcEnvBase():
             return self._jnts_eff[robot_name]
         else:
             return self._jnts_eff[robot_name][env_idxs, :]
-    
-    @abstractmethod
-    def current_tstep(self) -> int:
-        pass
-    
-    @abstractmethod
-    def current_time(self) -> float:
-        pass
-
-    def _get_contact_f(self, 
-        robot_name: str, 
-        contact_link: str,
-        env_indxs: torch.Tensor) -> torch.Tensor:
-        return None
 
     def _wait_for_remote_step_req(self,
             robot_name: str):
@@ -1137,11 +1042,6 @@ class LRhcEnvBase():
             self._root_p_default[robot_name][env_indxs, :] = self._root_p[robot_name][env_indxs, :]
             self._root_q_default[robot_name][env_indxs, :] = self._root_q[robot_name][env_indxs, :]
 
-    def _reset_jnt_imp_control_gains(self,
-        robot_name: str, 
-        env_indxs: torch.Tensor = None):
-        pass
-
     def _generate_rob_descriptions(self, 
                     robot_name: str, 
                     urdf_path: str,
@@ -1175,3 +1075,102 @@ class LRhcEnvBase():
         urdf_descr_root_path = '/'.join(parts[:-2])
         cmds = get_xrdf_cmds(urdf_descr_root_path=urdf_descr_root_path) 
         return cmds
+    
+    def _reset_jnt_imp_control_gains(self,
+        robot_name: str, 
+        env_indxs: torch.Tensor = None):
+        pass
+
+    @abstractmethod
+    def current_tstep(self) -> int:
+        pass
+    
+    @abstractmethod
+    def current_time(self) -> float:
+        pass
+
+    def _get_contact_f(self, 
+        robot_name: str, 
+        contact_link: str,
+        env_indxs: torch.Tensor) -> torch.Tensor:
+        return None
+    
+    def _contacts(self, robot_name: str) -> List[str]:
+        return None
+    
+    @abstractmethod
+    def physics_dt(self) -> float:
+        pass
+    
+    @abstractmethod
+    def rendering_dt(self) -> float:
+        pass
+    
+    @abstractmethod
+    def set_physics_dt(self, physics_dt:float):
+        pass
+
+    @abstractmethod
+    def set_rendering_dt(self, rendering_dt:float):
+        pass
+
+    @abstractmethod
+    def _robot_jnt_names(self, robot_name: str) -> List[str]:
+        pass
+    
+    @abstractmethod
+    def _update_state_from_sim(self,
+        env_indxs: torch.Tensor = None,
+        robot_names: List[str] = None):
+        pass
+    
+    @abstractmethod
+    def _init_robots_state(self):
+        pass
+
+    @abstractmethod
+    def _reset_state(self,
+            env_indxs: torch.Tensor = None,
+            robot_names: List[str] =None,
+            randomize: bool = False):
+        pass
+    
+    @abstractmethod
+    def _init_world(self):
+        pass
+
+    @abstractmethod
+    def _reset_sim(self) -> None:
+        pass
+    
+    @abstractmethod
+    def _move_jnts_to_homing(self):
+        pass
+
+    @abstractmethod
+    def _move_root_to_defconfig(self):
+        pass
+
+    @abstractmethod
+    def _parse_env_opts(self):
+        pass
+    
+    @abstractmethod
+    def _pre_setup(self):
+        pass
+
+    @abstractmethod
+    def _generate_jnt_imp_control(self) -> JntImpCntrlChild:
+        pass
+
+    @abstractmethod
+    def _render_sim(self, mode:str="human") -> None:
+        pass
+
+    @abstractmethod
+    def _close(self) -> None:
+        pass
+
+    @abstractmethod
+    def _step_sim(self) -> None:
+        pass
