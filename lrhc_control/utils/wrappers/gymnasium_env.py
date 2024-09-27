@@ -419,12 +419,13 @@ class Gymnasium2LRHCEnv():
     def _debug(self):
 
         if self._use_gpu:
-            self._obs.synch_mirror(from_gpu=True) # copy data from gpu to cpu view
-            self._next_obs.synch_mirror(from_gpu=True)
-            self._actions.synch_mirror(from_gpu=True)
-            self._tot_rewards.synch_mirror(from_gpu=True)
-            self._truncations.synch_mirror(from_gpu=True) 
-            self._terminations.synch_mirror(from_gpu=True) 
+            self._obs.synch_mirror(from_gpu=True,non_blocking=True) # copy data from gpu to cpu view
+            self._next_obs.synch_mirror(from_gpu=True,non_blocking=True)
+            self._actions.synch_mirror(from_gpu=True,non_blocking=True)
+            self._tot_rewards.synch_mirror(from_gpu=True,non_blocking=True)
+            self._truncations.synch_mirror(from_gpu=True,non_blocking=True)
+            self._terminations.synch_mirror(from_gpu=True,non_blocking=True)
+            torch.cuda.synchronize()
 
         self._obs.synch_all(read=False, retry=True) # copies data on CPU shared mem
         self._next_obs.synch_all(read=False, retry=True)

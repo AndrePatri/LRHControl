@@ -373,9 +373,11 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # contact flags
         rhc_latest_contact_ref[:, :] = agent_action[:, 6:10] > 0 # keep contact if agent action > 0
 
+        # actually apply actions to controller
         if self._use_gpu:
-            self._rhc_refs.rob_refs.root_state.synch_mirror(from_gpu=self._use_gpu) # write from gpu to cpu mirror
-            self._rhc_refs.contact_flags.synch_mirror(from_gpu=self._use_gpu)
+            # GPU->CPU --> we cannot use asynchronous data transfer since it's unsafe
+            self._rhc_refs.rob_refs.root_state.synch_mirror(from_gpu=True,non_blocking=False) # write from gpu to cpu mirror
+            self._rhc_refs.contact_flags.synch_mirror(from_gpu=True,non_blocking=False)
         self._rhc_refs.rob_refs.root_state.synch_all(read=False, retry=True) # write mirror to shared mem
         self._rhc_refs.contact_flags.synch_all(read=False, retry=True)
 

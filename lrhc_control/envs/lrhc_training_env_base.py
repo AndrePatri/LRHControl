@@ -264,24 +264,28 @@ class LRhcTrainingEnvBase():
     def _debug(self):
 
         if self._use_gpu:
-            self._obs.synch_mirror(from_gpu=True) # copy data from gpu to cpu view
-            self._next_obs.synch_mirror(from_gpu=True)
-            self._actions.synch_mirror(from_gpu=True)
-            self._tot_rewards.synch_mirror(from_gpu=True)
-            self._sub_rewards.synch_mirror(from_gpu=True)
-            self._truncations.synch_mirror(from_gpu=True) 
-            self._sub_truncations.synch_mirror(from_gpu=True)
-            self._terminations.synch_mirror(from_gpu=True)
-            self._sub_terminations.synch_mirror(from_gpu=True)
+            # using non_blocking which is not safe when GPU->CPU
+            self._obs.synch_mirror(from_gpu=True,non_blocking=True) # copy data from gpu to cpu view
+            self._next_obs.synch_mirror(from_gpu=True,non_blocking=True)
+            self._actions.synch_mirror(from_gpu=True,non_blocking=True)
+            self._truncations.synch_mirror(from_gpu=True,non_blocking=True) 
+            self._sub_truncations.synch_mirror(from_gpu=True,non_blocking=True)
+            self._terminations.synch_mirror(from_gpu=True,non_blocking=True)
+            self._sub_terminations.synch_mirror(from_gpu=True,non_blocking=True)
+            self._tot_rewards.synch_mirror(from_gpu=True,non_blocking=True)
+            self._sub_rewards.synch_mirror(from_gpu=True,non_blocking=True)
+            # if we want reliable db data then we should synchronize data streams
+            torch.cuda.synchronize()
 
-        self._obs.synch_all(read=False, retry=True) # copies data on CPU shared mem
+        # copy CPU view on shared memory
+        self._obs.synch_all(read=False, retry=True) 
         self._next_obs.synch_all(read=False, retry=True)
         self._actions.synch_all(read=False, retry=True) 
         self._tot_rewards.synch_all(read=False, retry=True)
         self._sub_rewards.synch_all(read=False, retry=True)
-        self._truncations.synch_all(read=False, retry = True) # writes on shared mem
+        self._truncations.synch_all(read=False, retry = True) 
         self._sub_truncations.synch_all(read=False, retry = True)
-        self._terminations.synch_all(read=False, retry = True) # writes on shared mem
+        self._terminations.synch_all(read=False, retry = True) 
         self._sub_terminations.synch_all(read=False, retry = True)
 
     def _remote_sim_step(self):
@@ -986,7 +990,7 @@ class LRhcTrainingEnvBase():
         # we read rhc info now and just this time, since it's assumed to be static 
         self._rhc_status.rhc_static_info.synch_all(read=True,retry=True)
         if self._use_gpu:
-            self._rhc_status.rhc_static_info.synch_mirror(from_gpu=False)
+            self._rhc_status.rhc_static_info.synch_mirror(from_gpu=False,non_blocking=False)
         rhc_horizons=self._rhc_status.rhc_static_info.get("horizons",gpu=self._use_gpu)
         rhc_nnodes=self._rhc_status.rhc_static_info.get("nnodes",gpu=self._use_gpu)
         rhc_dts=self._rhc_status.rhc_static_info.get("dts",gpu=self._use_gpu)
@@ -1147,24 +1151,25 @@ class LRhcTrainingEnvBase():
         self._rhc_status.rhc_fcn.synch_all(read = True, retry = True)
         self._rhc_status.rhc_fail_idx.synch_all(read = True, retry = True)
         if gpu:
-            # copies data to "mirror" on GPU
-            self._robot_state.root_state.synch_mirror(from_gpu=False) # copies shared data on GPU
-            self._robot_state.jnts_state.synch_mirror(from_gpu=False)
-            self._rhc_cmds.root_state.synch_mirror(from_gpu=False)
-            self._rhc_cmds.jnts_state.synch_mirror(from_gpu=False)
-            self._rhc_cmds.contact_wrenches.synch_mirror(from_gpu=False)
-            self._rhc_pred.root_state.synch_mirror(from_gpu=False)
-            # self._rhc_pred.jnts_state.synch_mirror(from_gpu=False)
-            # self._rhc_pred.contact_wrenches.synch_mirror(from_gpu=False)
-            self._rhc_refs.rob_refs.root_state.synch_mirror(from_gpu=False)
-            self._rhc_refs.contact_flags.synch_mirror(from_gpu=False)
-            self._rhc_status.rhc_cost.synch_mirror(from_gpu=False)
-            self._rhc_status.rhc_constr_viol.synch_mirror(from_gpu=False)
-            self._rhc_status.fails.synch_mirror(from_gpu=False)
-            self._rhc_status.rhc_nodes_cost.synch_mirror(from_gpu=False)
-            self._rhc_status.rhc_nodes_constr_viol.synch_mirror(from_gpu=False)
-            self._rhc_status.rhc_fcn.synch_mirror(from_gpu=False)
-            self._rhc_status.rhc_fail_idx.synch_mirror(from_gpu=False)
+            # copies data to "mirror" on GPU --> we can do it non-blocking since
+            # in this direction it should be safe
+            self._robot_state.root_state.synch_mirror(from_gpu=False,non_blocking=True) # copies shared data on GPU
+            self._robot_state.jnts_state.synch_mirror(from_gpu=False,non_blocking=True)
+            self._rhc_cmds.root_state.synch_mirror(from_gpu=False,non_blocking=True)
+            self._rhc_cmds.jnts_state.synch_mirror(from_gpu=False,non_blocking=True)
+            self._rhc_cmds.contact_wrenches.synch_mirror(from_gpu=False,non_blocking=True)
+            self._rhc_pred.root_state.synch_mirror(from_gpu=False,non_blocking=True)
+            # self._rhc_pred.jnts_state.synch_mirror(from_gpu=False,non_blocking=True)
+            # self._rhc_pred.contact_wrenches.synch_mirror(from_gpu=False,non_blocking=True)
+            self._rhc_refs.rob_refs.root_state.synch_mirror(from_gpu=False,non_blocking=True)
+            self._rhc_refs.contact_flags.synch_mirror(from_gpu=False,non_blocking=True)
+            self._rhc_status.rhc_cost.synch_mirror(from_gpu=False,non_blocking=True)
+            self._rhc_status.rhc_constr_viol.synch_mirror(from_gpu=False,non_blocking=True)
+            self._rhc_status.fails.synch_mirror(from_gpu=False,non_blocking=True)
+            self._rhc_status.rhc_nodes_cost.synch_mirror(from_gpu=False,non_blocking=True)
+            self._rhc_status.rhc_nodes_constr_viol.synch_mirror(from_gpu=False,non_blocking=True)
+            self._rhc_status.rhc_fcn.synch_mirror(from_gpu=False,non_blocking=True)
+            self._rhc_status.rhc_fail_idx.synch_mirror(from_gpu=False,non_blocking=True)
             #torch.cuda.synchronize() # ensuring that all the streams on the GPU are completed \
             # before the CPU continues execution
 
@@ -1173,7 +1178,9 @@ class LRhcTrainingEnvBase():
 
         if gpu:
             # copies latest refs from GPU to CPU shared mem for debugging
-            self._agent_refs.rob_refs.root_state.synch_mirror(from_gpu=True) 
+            # non_blocking = True is not safe from GPU to CPU, but since we are only using it 
+            # for db, we don't care
+            self._agent_refs.rob_refs.root_state.synch_mirror(from_gpu=True,non_blocking=True) 
         self._agent_refs.rob_refs.root_state.synch_all(read=False, retry = True) # write on shared mem
     
     def _override_refs(self,
@@ -1183,7 +1190,7 @@ class LRhcTrainingEnvBase():
         self._agent_refs.rob_refs.root_state.synch_all(read=True, retry = True) # first read from mem
         if gpu:
             # copies latest refs to GPU 
-            self._agent_refs.rob_refs.root_state.synch_mirror(from_gpu=False) 
+            self._agent_refs.rob_refs.root_state.synch_mirror(from_gpu=False,non_blocking=False) 
 
     def _clamp_obs(self, 
             obs: torch.Tensor):

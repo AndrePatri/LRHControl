@@ -668,7 +668,7 @@ class SimpleCounters(SharedDataBase):
 
         if self._using_gpu:
             # copy from gpu to cpu
-            self._step_counter.synch_mirror(from_gpu=True)
+            self._step_counter.synch_mirror(from_gpu=True,non_blocking=False)
         # copy from cpu to shared memory
         self._step_counter.synch_all(read=False, retry=True)
 

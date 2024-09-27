@@ -782,8 +782,7 @@ class LRhcEnvBase():
         if self._debug:
             for i in range(0, len(self._robot_names)):
                 robot_name = self._robot_names[i]
-                # updating all the jnt impedance data - > this may introduce a significant overhead,
-                # on CPU and, if using GPU, also there 
+                # updating all the jnt impedance data - > this may introduce some overhead
                 imp_data = self._jnt_imp_cntrl_shared_data[robot_name].imp_data_view
                 # set data
                 imp_data.set(data_type="pos_err",
@@ -821,7 +820,9 @@ class LRhcEnvBase():
                         gpu=self._use_gpu)
                 # copy from GPU to CPU if using gpu
                 if self._use_gpu:
-                    imp_data.synch_mirror(from_gpu=True)
+                    imp_data.synch_mirror(from_gpu=True,non_blocking=True)
+                    # even if it's from GPU->CPu we can use non-blocking since it's just for db 
+                    # purposes
                 # write copies to shared memory
                 imp_data.synch_all(read=False, retry=False)
 
