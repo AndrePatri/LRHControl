@@ -36,7 +36,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # across diff envs
         random_reset_freq = 10 # a random reset once every n-episodes (per env)
         n_preinit_steps = 1 # one steps of the controllers to properly initialize everything
-        action_repeat = 2 # frame skipping (different agent action every action_repeat
+        action_repeat = 1 # frame skipping (different agent action every action_repeat
         # env substeps)
 
         self._single_task_ref_per_episode=True # if True, the task ref is constant over the episode (ie
@@ -89,11 +89,11 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             obs_dim+=3*actions_dim# previous agent actions statistics (mean, std + last action)
 
         # health reward 
-        self._health_value = 0.0
+        self._health_value = 10.0
 
         # task tracking
-        self._task_offset = 1.0 # 10.0
-        self._task_scale = 1.0 # perc-based
+        self._task_offset = 10.0 # 10.0
+        self._task_scale = 10.0 # perc-based
         self._task_err_weights = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.0) 
         self._task_err_weights[0, 0] = 1.0
@@ -121,8 +121,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._rhc_fail_idx_scale=1.0
 
         # power penalty
-        self._power_offset = 1.0 # 10.0
-        self._power_scale = 10.0 # 0.1
+        self._power_offset = 0.0 # 1.0
+        self._power_scale = 0.0 # 10.0
         self._power_penalty_weights = torch.full((1, n_jnts), dtype=dtype, device=device,
                             fill_value=1.0)
         n_jnts_per_limb = round(n_jnts/self._n_contacts) # assuming same topology along limbs
@@ -142,7 +142,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._jnt_vel_penalty_weights_sum = torch.sum(self._jnt_vel_penalty_weights).item()
         
         # task rand
-        self._use_pof0 = False
+        self._use_pof0 = True
         self._pof0 = 0.1
         self._twist_ref_lb = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=-0.8) 
@@ -194,6 +194,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     act_membf_size=30)
 
         self._is_substep_rew[0]=False
+        self._is_substep_rew[1]=True
+
         # custom db info 
         agent_twist_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=False)
         agent_twist_ref_data = EpisodicData("AgentTwistRefs", agent_twist_ref, 
@@ -212,7 +214,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
     def _custom_post_init(self):
         # overriding parent's defaults 
-        self._reward_thresh_lb[:, :]=0 # neg rewards can be nasty depending on the algorithm
+        self._reward_thresh_lb[:, :]=-10 # (neg rewards can be nasty, especially if they all become negative)
         self._reward_thresh_ub[:, :]=1e6
 
         self._obs_threshold_lb = -1e3 # used for clipping observations
@@ -494,13 +496,13 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             task_pred_error=task_error_fun(task_meas=self._root_twist_avrg_rhc_base_loc_next, 
                 task_ref=agent_task_ref_base_loc,
                 weights=self._task_pred_err_weights)
-            self._substep_rewards[:, 1:2] = self._task_pred_offset-self._task_pred_scale*task_pred_error
+            self._substep_rewards[:, 2:3] = self._task_pred_offset-self._task_pred_scale*task_pred_error
 
         # self._substep_rewards[:, 1:2] =self._power_offset-self._power_scale*CoT
         # self._substep_rewards[:, 2:3] = self._power_offset - self._power_scale * weighted_mech_power
         # self._substep_rewards[:, 3:4] = self._jnt_vel_offset - self._jnt_vel_scale * weighted_jnt_vel
         # self._substep_rewards[:, 4:5] = self._rhc_fail_idx_offset - self._rhc_fail_idx_rew_scale* self._rhc_fail_idx(gpu=self._use_gpu)
-        # self._substep_rewards[:, 5:6] = self._health_value # health reward
+        self._substep_rewards[:, 1:2] = self._health_value # health reward
         
     def _randomize_task_refs(self,
         env_indxs: torch.Tensor = None):
@@ -622,7 +624,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
     def _get_rewards_names(self):
 
-        n_rewards = 1
+        n_rewards = 2
         reward_names = [""] * n_rewards
 
         reward_names[0] = "task_error"
@@ -631,7 +633,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # reward_names[2] = "mech_power"
         # reward_names[3] = "jnt_vel"
         # reward_names[4] = "rhc_fail_idx"
-        # reward_names[5] = "health"
+        reward_names[1] = "health"
 
         return reward_names
 
