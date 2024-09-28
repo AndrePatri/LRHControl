@@ -36,7 +36,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # across diff envs
         random_reset_freq = 10 # a random reset once every n-episodes (per env)
         n_preinit_steps = 1 # one steps of the controllers to properly initialize everything
-        action_repeat = 3 # frame skipping (different agent action every action_repeat
+        action_repeat = 2 # frame skipping (different agent action every action_repeat
         # env substeps)
 
         self._single_task_ref_per_episode=True # if True, the task ref is constant over the episode (ie

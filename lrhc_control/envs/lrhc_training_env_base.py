@@ -1170,7 +1170,7 @@ class LRhcTrainingEnvBase():
             self._rhc_status.rhc_nodes_constr_viol.synch_mirror(from_gpu=False,non_blocking=True)
             self._rhc_status.rhc_fcn.synch_mirror(from_gpu=False,non_blocking=True)
             self._rhc_status.rhc_fail_idx.synch_mirror(from_gpu=False,non_blocking=True)
-            #torch.cuda.synchronize() # ensuring that all the streams on the GPU are completed \
+            torch.cuda.synchronize() # ensuring that all the streams on the GPU are completed \
             # before the CPU continues execution
 
     def _synch_refs(self,
@@ -1180,7 +1180,7 @@ class LRhcTrainingEnvBase():
             # copies latest refs from GPU to CPU shared mem for debugging
             # non_blocking = True is not safe from GPU to CPU, but since we are only using it 
             # for db, we don't care
-            self._agent_refs.rob_refs.root_state.synch_mirror(from_gpu=True,non_blocking=True) 
+            self._agent_refs.rob_refs.root_state.synch_mirror(from_gpu=True,non_blocking=False) 
         self._agent_refs.rob_refs.root_state.synch_all(read=False, retry = True) # write on shared mem
     
     def _override_refs(self,
