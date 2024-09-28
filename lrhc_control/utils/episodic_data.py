@@ -256,6 +256,7 @@ class EpisodicData():
     
     def _init_data(self):
         
+        self._big_val=1e6
         # undiscounted sum of each env, during a single episode
         self._current_ep_sum = torch.full(size=(self._n_envs, self._data_size), 
                 fill_value=0.0,
@@ -282,18 +283,18 @@ class EpisodicData():
                 requires_grad=False)
         # min max info of sub data
         self._max_over_eps = torch.full(size=(self._n_envs, self._data_size), 
-                fill_value=-torch.inf,
+                fill_value=-self._big_val,
                 dtype=self._dtype, device="cpu",
                 requires_grad=False)
         self._max_over_eps_last = torch.full_like(self._average_over_eps,
-                fill_value=-torch.inf,
+                fill_value=-self._big_val,
                 requires_grad=False)
         self._min_over_eps = torch.full(size=(self._n_envs, self._data_size), 
-                fill_value=torch.inf,
+                fill_value=self._big_val,
                 dtype=self._dtype, device="cpu",
                 requires_grad=False)
         self._min_over_eps_last = torch.full_like(self._average_over_eps,
-                fill_value=torch.inf,
+                fill_value=self._big_val,
                 requires_grad=False)
         # current episode index
         self._n_played_eps = torch.full(size=(self._n_envs, 1), 
@@ -342,8 +343,8 @@ class EpisodicData():
                     self._current_ep_sum.zero_()
                     self._steps_counter.zero_()
             
-            self._max_over_eps[:, :]=-torch.inf
-            self._min_over_eps[:, :]=torch.inf
+            self._max_over_eps[:, :]=-self._big_val
+            self._min_over_eps[:, :]=self._big_val
             self._current_ep_sum_scaled.zero_()
             self._tot_sum_up_to_now.zero_()
             self._average_over_eps.zero_()
@@ -362,8 +363,8 @@ class EpisodicData():
                     self._current_ep_sum[to_be_reset, :]=0
                     self._steps_counter[to_be_reset, :]=0
             
-            self._max_over_eps[to_be_reset, :]=-torch.inf
-            self._min_over_eps[to_be_reset, :]=torch.inf
+            self._max_over_eps[to_be_reset, :]=-self._big_val
+            self._min_over_eps[to_be_reset, :]=self._big_val
             self._current_ep_sum_scaled[to_be_reset, :]=0
             self._tot_sum_up_to_now[to_be_reset, :]=0
             self._average_over_eps[to_be_reset, :]=0

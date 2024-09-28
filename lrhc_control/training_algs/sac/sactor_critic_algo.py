@@ -610,7 +610,7 @@ class SActorCriticAlgoBase():
                             wandb.Histogram(data["avrg"][self._log_it_counter-1, :, :].numpy())})
                     self._custom_env_data_db_dict.update({f"env_dbdata/{dbdatan}" + "_min": 
                             wandb.Histogram(data["min"][self._log_it_counter-1, :, :].numpy())})
-                    
+            
                     self._custom_env_data_db_dict.update({f"env_dbdata/{dbdatan}-{data_names[i]}" + "_max_over_envs": 
                         data["max_over_envs"][self._log_it_counter-1, :, i:i+1] for i in range(len(data_names))})
                     self._custom_env_data_db_dict.update({f"env_dbdata/{dbdatan}-{data_names[i]}" + "_avrg_over_envs": 
