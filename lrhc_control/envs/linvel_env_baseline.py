@@ -36,7 +36,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # across diff envs
         random_reset_freq = 10 # a random reset once every n-episodes (per env)
         n_preinit_steps = 1 # one steps of the controllers to properly initialize everything
-        action_repeat = 1 # frame skipping (different agent action every action_repeat
+        action_repeat = 2 # frame skipping (different agent action every action_repeat
         # env substeps)
 
         self._single_task_ref_per_episode=True # if True, the task ref is constant over the episode (ie
@@ -142,7 +142,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._jnt_vel_penalty_weights_sum = torch.sum(self._jnt_vel_penalty_weights).item()
         
         # task rand
-        self._use_pof0 = True
+        self._use_pof0 = False
         self._pof0 = 0.1
         self._twist_ref_lb = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=-0.8) 
@@ -226,7 +226,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._actions_ub[:, 0:3] = v_cmd_max  
         self._actions_lb[:, 3:6] = -omega_cmd_max # twist cmds
         self._actions_ub[:, 3:6] = omega_cmd_max  
-        self._actions_lb[:, 6:10] = -1.0 # contact flags
+        self._actions_lb[:, 6:10] = 0.0 # contact flags
         self._actions_ub[:, 6:10] = 1.0 
 
         # some aux data to avoid allocations at training runtime
@@ -238,7 +238,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._step_avrg_root_twist_base_loc=self._rhc_twist_cmd_rhc_world.detach().clone()
         self._root_twist_avrg_rhc_base_loc=self._rhc_twist_cmd_rhc_world.detach().clone()
         self._root_twist_avrg_rhc_base_loc_next=self._rhc_twist_cmd_rhc_world.detach().clone()
-
+        
+        device = "cuda" if self._use_gpu else "cpu"
+        self._random_thresh_contacts=torch.rand((self._n_envs,self._n_contacts), device=device)
         # task aux data
         device = "cuda" if self._use_gpu else "cpu"
         self._task_err_scaling = torch.zeros((self._n_envs, 1),dtype=self._dtype,device=device)
@@ -340,7 +342,10 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             gpu=self._use_gpu) 
         
         # contact flags
-        rhc_latest_contact_ref[:, :] = agent_action[:, 6:10] > 0 # keep contact if agent action > 0
+        self._random_thresh_contact.uniform_() # random values in-place between 0 and 1
+
+        rhc_latest_contact_ref[:, :] = self.random_values < agent_action[:, 6:10] # keep contact with 
+        # probability agent_action[:, 6:10]
 
         # actually apply actions to controller
         if self._use_gpu:
