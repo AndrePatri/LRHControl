@@ -342,9 +342,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             gpu=self._use_gpu) 
         
         # contact flags
-        self._random_thresh_contact.uniform_() # random values in-place between 0 and 1
+        self._random_thresh_contacts.uniform_() # random values in-place between 0 and 1
 
-        rhc_latest_contact_ref[:, :] = self.random_values < agent_action[:, 6:10] # keep contact with 
+        rhc_latest_contact_ref[:, :] = self._random_thresh_contacts < agent_action[:, 6:10] # keep contact with 
         # probability agent_action[:, 6:10]
 
         # actually apply actions to controller
