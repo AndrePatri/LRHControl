@@ -911,7 +911,9 @@ class ActorCriticAlgoBase():
 
         self._exp_to_policy_grad_ratio=float(self._total_timesteps)/float(self._n_policy_updates_to_be_done)
         #debug
-        self._m_checkpoint_freq = 5120 # n (vectorized) timesteps after which a checkpoint model is dumped 
+        self._m_checkpoint_freq_nom = 1e6 # n totoal timesteps after which a checkpoint model is dumped
+        self._m_checkpoint_freq= self._m_checkpoint_freq_nom//self._num_envs
+        
         self._db_vecstep_frequency_nom = 128 # log db data every n (vectorized) timesteps
         self._db_vecstep_frequency = 128 
         if self._db_vecstep_frequency_nom<self._rollout_timesteps:

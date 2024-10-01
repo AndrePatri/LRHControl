@@ -866,7 +866,9 @@ class SActorCriticAlgoBase():
         self._a_optimizer = None
         
         # debug
-        self._m_checkpoint_freq = 5120 # n timesteps after which a checkpoint model is dumped
+        self._m_checkpoint_freq_nom = 1e6 # n totoal timesteps after which a checkpoint model is dumped
+        self._m_checkpoint_freq= self._m_checkpoint_freq_nom//self._num_envs
+
         self._db_vecstep_frequency = 128 # log db data every n (vectorized) SUB timesteps
         self._db_vecstep_frequency=round(self._db_vecstep_frequency/self._env_n_action_reps) # correcting with actions reps 
 
