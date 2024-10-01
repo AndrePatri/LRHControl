@@ -36,7 +36,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # across diff envs
         random_reset_freq = 10 # a random reset once every n-episodes (per env)
         n_preinit_steps = 1 # one steps of the controllers to properly initialize everything
-        action_repeat = 2 # frame skipping (different agent action every action_repeat
+        action_repeat = 4 # frame skipping (different agent action every action_repeat
         # env substeps)
 
         self._single_task_ref_per_episode=True # if True, the task ref is constant over the episode (ie
@@ -49,7 +49,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._use_rhc_avrg_vel_pred=False
         self._use_vel_err_sig_smoother=False # whether to smooth vel error signal
         self._vel_err_smoother=None
-
+        self._use_prob_based_stepping=False
         # temporarily creating robot state client to get some data
         robot_state_tmp = RobotState(namespace=namespace,
                                 is_server=False, 
@@ -342,11 +342,14 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             gpu=self._use_gpu) 
         
         # contact flags
-        self._random_thresh_contacts.uniform_() # random values in-place between 0 and 1
 
-        rhc_latest_contact_ref[:, :] = self._random_thresh_contacts < agent_action[:, 6:10] # keep contact with 
-        # probability agent_action[:, 6:10]
-
+        if self._use_prob_based_stepping:
+            # encode actions as probs
+            self._random_thresh_contacts.uniform_() # random values in-place between 0 and 1
+            rhc_latest_contact_ref[:, :] = agent_action[:, 6:10] >= self._random_thresh_contacts  # keep contact with 
+            # probability agent_action[:, 6:10]
+        else: # just use a threshold
+            rhc_latest_contact_ref[:, :] = agent_action[:, 6:10] > 0
         # actually apply actions to controller
         if self._use_gpu:
             # GPU->CPU --> we cannot use asynchronous data transfer since it's unsafe
