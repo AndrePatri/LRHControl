@@ -131,6 +131,10 @@ class LRhcTrainingEnvBase():
         self._actions_dim = actions_dim
 
         self._use_gpu = use_gpu
+        if self._use_gpu:
+            self._device="cuda"
+        else:
+            self._device="cpu"
 
         self._dtype = dtype
 
@@ -354,20 +358,20 @@ class LRhcTrainingEnvBase():
 
         if self._add_action_noise:
             # handle first continuous actions
-            random_envs=self._random_env_idxs(env_perc=0.01)
-            if self._is_continuous_action.any():
+            random_envs=self._random_env_idxs(n=self._n_noisy_envs)
+            if self._is_continuous_actions.any():
                 self._perturb_actions(actions,
-                    action_idxs=self._is_continuous_action, 
+                    action_idxs=self._is_continuous_actions, 
                     env_idxs=random_envs,
                     normal=True,
-                    scaling=1.0)
+                    scaling=0.1)
             # then discrete
-            if self._is_discrete_action.any():
+            if (~self._is_continuous_actions).any():
                 self._perturb_actions(actions,
-                    action_idxs=self._is_dicrete_action, 
+                    action_idxs=~self._is_continuous_actions, 
                     env_idxs=random_envs,
                     normal=False,
-                    scaling=0.5)
+                    scaling=1.0)
 
         if self._act_mem_buffer is not None:
             self._act_mem_buffer.update(new_data=actions)
@@ -802,9 +806,9 @@ class LRhcTrainingEnvBase():
                 use_gpu=self._use_gpu)
             self._defaut_act_buffer_action = torch.full_like(input=self.get_actions(),fill_value=0.0)
 
-        self._random_uniform = torch.full_like(self._actions, fill_value=0.0) # used for sampling random actions (preallocated
+        self._random_uniform = torch.full_like(self._actions.get_torch_mirror(gpu=self._use_gpu), fill_value=0.0) # used for sampling random actions (preallocated
         # for efficiency)
-        self._random_normal = torch.full_like(self._actions, fill_value=0.0) # used for sampling random actions from a gaussian distr (preallocated
+        self._random_normal = torch.full_like(self._actions.get_torch_mirror(gpu=self._use_gpu), fill_value=0.0) # used for sampling random actions from a gaussian distr (preallocated
         # for efficiency)
         self._random_env_selector = torch.full(size=(self._n_envs,1),fill_value=0.0,
             dtype=self._dtype,device=device)
@@ -813,31 +817,29 @@ class LRhcTrainingEnvBase():
         self._is_continuous_actions=torch.full((1, actions_dim), 
             dtype=torch.bool, device=device,
             fill_value=True) 
-        self._is_discrete_action=(~self._is_continuous_action).detach().clone()
 
         self._add_action_noise=False
+        self._n_noisy_envs=0
 
     def _perturb_actions(self, actions: torch.Tensor,
         action_idxs: torch.Tensor, 
-        env_idxs: torch.Tensor = None,
+        env_idxs: torch.Tensor,
         normal: bool = True,
         scaling: float = 1.0):
         if normal: # gaussian
-            self._random_normal._normal(mean=0, std=1)
+            self._random_normal.normal_(mean=0, std=1)
             noise=self._random_normal
         else: # uniform
-            self._random_uniform._uniform(from=0,to=1)
+            self._random_uniform.uniform_(-1,1)
             noise=self._random_uniform
         
-        if env_idxs is None:
-            actions[:, action_idxs.flatten()]=actions[:, action_idxs.flatten()]+noise[:, action_idxs.flatten()]*self._actions_scale*scaling
-        else:
-            actions[env_idxs.flatten(), action_idxs.flatten()]=\
-                actions[env_idxs.flatten(), action_idxs.flatten()]+noise[env_idxs.flatten(), action_idxs.flatten()]*self._actions_scale*scaling
+        actions[env_idxs.flatten(), action_idxs.flatten()]=\
+            actions[env_idxs.flatten(), action_idxs.flatten()]+noise[env_idxs.flatten(), action_idxs.flatten()]*self._actions_scale[0, action_idxs.flatten()]*scaling
     
-    def _random_env_idxs(self, env_perc: float = 0.01)
-        self._random_env_selector._uniform(from=0,to=1)
-        return self._random_env_selector > (1.0-env_perc)
+    def _random_env_idxs(self, n: int):
+        random_indices = torch.randperm(self._n_envs,
+            dtype=torch.int, device=self._device)[:n]
+        return random_indices
 
     def _init_rewards(self):
         

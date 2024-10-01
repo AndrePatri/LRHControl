@@ -12,6 +12,7 @@ from SharsorIPCpp.PySharsorIPC import LogType
 import os
 from lrhc_control.utils.episodic_data import EpisodicData
 from lrhc_control.utils.signal_smoother import ExponentialSignalSmoother
+import math
 
 class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
@@ -213,6 +214,11 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self.custom_db_info["action_repeat"] = self._action_repeat
 
     def _custom_post_init(self):
+
+        self._add_action_noise=False
+        self._n_noisy_envs=math.ceil(self._n_envs*1/100)
+        self._is_continuous_actions[:,6:10]=False
+
         # overriding parent's defaults 
         self._reward_thresh_lb[:, :]=0 # (neg rewards can be nasty, especially if they all become negative)
         self._reward_thresh_ub[:, :]=1e6
@@ -226,9 +232,12 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._actions_ub[:, 0:3] = v_cmd_max  
         self._actions_lb[:, 3:6] = -omega_cmd_max # twist cmds
         self._actions_ub[:, 3:6] = omega_cmd_max  
-        self._actions_lb[:, 6:10] = 0.0 # contact flags
-        self._actions_ub[:, 6:10] = 1.0 
-
+        if not self._use_prob_based_stepping:
+            self._actions_lb[:, 6:10] = 0.0 # contact flags
+            self._actions_ub[:, 6:10] = 1.0 
+        else:
+            self._actions_lb[:, 6:10] = -1.0 
+            self._actions_ub[:, 6:10] = 1.0 
         # some aux data to avoid allocations at training runtime
         self._rhc_twist_cmd_rhc_world=self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu).detach().clone()
         self._rhc_twist_cmd_rhc_h=self._rhc_twist_cmd_rhc_world.detach().clone()
@@ -351,6 +360,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         else: # just use a threshold
             rhc_latest_contact_ref[:, :] = agent_action[:, 6:10] > 0
         # actually apply actions to controller
+
         if self._use_gpu:
             # GPU->CPU --> we cannot use asynchronous data transfer since it's unsafe
             self._rhc_refs.rob_refs.root_state.synch_mirror(from_gpu=True,non_blocking=False) # write from gpu to cpu mirror
@@ -477,7 +487,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         return self._rhc_fail_idx_scale*rhc_fail_idx
     
     def _compute_step_rewards(self):
-        task_error_fun = self._task_perc_err_lin
+        # task_error_fun = self._task_perc_err_lin
+        task_error_fun= self._task_perc_err_wms
         # task_error_fun = self._task_err_lin
 
         agent_task_ref_base_loc = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu) # high level agent refs (hybrid twist)
@@ -487,7 +498,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             weights=self._task_err_weights)
         
         sub_rewards = self._sub_rewards.get_torch_mirror(gpu=self._use_gpu)
-        sub_rewards[:, 0:1] = self._task_offset-self._task_scale*task_error
+        sub_rewards[:, 0:1] = 10*torch.exp(-self._task_scale*task_error)
+        
+        self._task_offset-self._task_scale*task_error
 
     def _compute_substep_rewards(self):
         task_error_fun = self._task_perc_err_lin
