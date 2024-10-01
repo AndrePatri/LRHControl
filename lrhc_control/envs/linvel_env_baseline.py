@@ -49,7 +49,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._use_rhc_avrg_vel_pred=False
         self._use_vel_err_sig_smoother=False # whether to smooth vel error signal
         self._vel_err_smoother=None
-        self._use_prob_based_stepping=False
+        self._use_prob_based_stepping=True
         # temporarily creating robot state client to get some data
         robot_state_tmp = RobotState(namespace=namespace,
                                 is_server=False, 
@@ -194,7 +194,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     act_membf_size=30)
 
         self._is_substep_rew[0]=False
-        self._is_substep_rew[1]=True
+        # self._is_substep_rew[1]=True
 
         # custom db info 
         agent_twist_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=False)
@@ -214,7 +214,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
     def _custom_post_init(self):
         # overriding parent's defaults 
-        self._reward_thresh_lb[:, :]=-10 # (neg rewards can be nasty, especially if they all become negative)
+        self._reward_thresh_lb[:, :]=0 # (neg rewards can be nasty, especially if they all become negative)
         self._reward_thresh_ub[:, :]=1e6
 
         self._obs_threshold_lb = -1e3 # used for clipping observations
@@ -510,7 +510,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # self._substep_rewards[:, 2:3] = self._power_offset - self._power_scale * weighted_mech_power
         # self._substep_rewards[:, 3:4] = self._jnt_vel_offset - self._jnt_vel_scale * weighted_jnt_vel
         # self._substep_rewards[:, 4:5] = self._rhc_fail_idx_offset - self._rhc_fail_idx_rew_scale* self._rhc_fail_idx(gpu=self._use_gpu)
-        self._substep_rewards[:, 1:2] = self._health_value # health reward
+        # self._substep_rewards[:, 1:2] = self._health_value # health reward
         
     def _randomize_task_refs(self,
         env_indxs: torch.Tensor = None):
@@ -632,7 +632,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
     def _get_rewards_names(self):
 
-        n_rewards = 2
+        n_rewards = 1
         reward_names = [""] * n_rewards
 
         reward_names[0] = "task_error"
@@ -641,7 +641,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # reward_names[2] = "mech_power"
         # reward_names[3] = "jnt_vel"
         # reward_names[4] = "rhc_fail_idx"
-        reward_names[1] = "health"
+        # reward_names[1] = "health"
 
         return reward_names
 
