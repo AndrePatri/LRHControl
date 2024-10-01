@@ -272,11 +272,11 @@ class SActorCriticAlgoBase():
         self._start_time = time.perf_counter()
 
         actions = self._env.get_actions()
-        self._action_scale = (self._env.get_actions_ub()-self._env.get_actions_lb())/2.0
-        self._action_bias = (self._env.get_actions_ub()+self._env.get_actions_lb())/2.0
+        self._action_scale = self._env.get_actions_scale()
+        self._action_offset = self._env.get_actions_offset()
         self._random_uniform = torch.full_like(actions, fill_value=0.0) # used for sampling random actions (preallocated
         # for efficiency)
-        self._random_normal = torch.full_like(self._random_uniform)
+        self._random_normal = torch.full_like(self._random_uniform,fill_value=0.0)
         # for efficiency)
 
     def is_done(self):
@@ -1055,7 +1055,7 @@ class SActorCriticAlgoBase():
     def _sample_random_actions(self):
         
         self._random_uniform.uniform_(-1,1)
-        random_actions = self._random_uniform*self._action_scale+self._action_bias
+        random_actions = self._random_uniform*self._action_scale+self._action_offset
 
         return random_actions
     
@@ -1091,7 +1091,7 @@ class SActorCriticAlgoBase():
             noise=self._random_uniform
         
         actions[env_idxs.flatten(), action_idxs.flatten()]=\
-            actions[env_idxs.flatten(), action_idxs.flatten()]+noise[env_idxs.flatten(), action_idxs.flatten()]*self._actions_scale[0, action_idxs.flatten()]*scaling
+            actions[env_idxs.flatten(), action_idxs.flatten()]+noise[env_idxs.flatten(), action_idxs.flatten()]*self._action_scale[0, action_idxs.flatten()]*scaling
     
     def _random_env_idxs(self, n: int):
         random_indices = torch.randperm(self._num_envs,

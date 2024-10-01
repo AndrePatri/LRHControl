@@ -356,10 +356,6 @@ class LRhcTrainingEnvBase():
         
         self._pre_step()
 
-        if self._add_action_noise:
-            # handle first continuous actions
-            
-
         if self._act_mem_buffer is not None:
             self._act_mem_buffer.update(new_data=actions)
 
@@ -1236,6 +1232,12 @@ class LRhcTrainingEnvBase():
 
     def get_actions_ub(self):
         return self._actions_ub
+    
+    def get_actions_scale(self):
+        return self._actions_scale
+    
+    def get_actions_offset(self):
+        return self._actions_offset
     
     def _check_finite(self, 
                 tensor: torch.Tensor,
