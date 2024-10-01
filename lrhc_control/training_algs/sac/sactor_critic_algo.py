@@ -6,7 +6,7 @@ import torch.optim as optim
 import torch.nn as nn
 
 import random
-
+import math
 from typing import Dict
 
 import os
@@ -276,7 +276,9 @@ class SActorCriticAlgoBase():
         self._action_bias = (self._env.get_actions_ub()+self._env.get_actions_lb())/2.0
         self._random_uniform = torch.full_like(actions, fill_value=0.0) # used for sampling random actions (preallocated
         # for efficiency)
-    
+        self._random_normal = torch.full_like(self._random_uniform)
+        # for efficiency)
+
     def is_done(self):
 
         return self._is_done 
@@ -853,6 +855,14 @@ class SActorCriticAlgoBase():
         self._target_entropy = None
         self._log_alpha = None
         self._alpha = 0.2
+
+        self._noise_perc_nom = 0.01
+        self._n_envs_noise = math.ceil(self._num_envs*self._noise_perc_nom)
+        self._noise_perc=self._n_envs_noise/self._num_envs
+        self._is_continuous_actions=self._env.is_action_continuous()
+        self._continuous_act_expl_noise_std=0.3
+        self._discrete_act_expl_noise_std=1.0
+
         self._a_optimizer = None
         
         # debug
@@ -930,7 +940,8 @@ class SActorCriticAlgoBase():
             f"total trgt q fun updates to be performed: {self._n_tqf_updates_to_be_done}\n" + \
             f"experience to policy grad ratio: {self._exp_to_policy_grad_ratio}\n" + \
             f"experience to q fun grad ratio: {self._exp_to_qf_grad_ratio}\n" + \
-            f"experience to trgt q fun grad ratio: {self._exp_to_qft_grad_ratio}\n"
+            f"experience to trgt q fun grad ratio: {self._exp_to_qft_grad_ratio}\n" + \
+            f"amount of noisy transitions over each vec. step: {self._noise_perc} -> {self._n_envs_noise}/vec. step\n"
 
         Journal.log(self.__class__.__name__,
             "_init_params",
@@ -1047,7 +1058,46 @@ class SActorCriticAlgoBase():
         random_actions = self._random_uniform*self._action_scale+self._action_bias
 
         return random_actions
+    
+    def _perturb_some_actions(self,
+            actions: torch.Tensor):
+
+        # get random env indexes
+        random_envs=self._random_env_idxs(n=self._n_envs_noise)
+
+        if self._is_continuous_actions.any(): # if there are any continuous actions
+            self._perturb_actions(actions,
+                action_idxs=self._is_continuous_actions, 
+                env_idxs=random_envs,
+                normal=True, # use normal for continuous
+                scaling=self._continuous_act_expl_noise_std)
+        if (~self._is_continuous_actions).any(): # actions to be treated as discrete
+            self._perturb_actions(actions,
+                action_idxs=~self._is_continuous_actions, 
+                env_idxs=random_envs,
+                normal=False, # use uniform distr for discrete
+                scaling=self._discrete_act_expl_noise_std)
+    
+    def _perturb_actions(self, actions: torch.Tensor,
+        action_idxs: torch.Tensor, 
+        env_idxs: torch.Tensor,
+        normal: bool = True,
+        scaling: float = 1.0):
+        if normal: # gaussian
+            self._random_normal.normal_(mean=0, std=1)
+            noise=self._random_normal
+        else: # uniform
+            self._random_uniform.uniform_(-1,1)
+            noise=self._random_uniform
         
+        actions[env_idxs.flatten(), action_idxs.flatten()]=\
+            actions[env_idxs.flatten(), action_idxs.flatten()]+noise[env_idxs.flatten(), action_idxs.flatten()]*self._actions_scale[0, action_idxs.flatten()]*scaling
+    
+    def _random_env_idxs(self, n: int):
+        random_indices = torch.randperm(self._num_envs,
+            dtype=torch.int, device=self._torch_device)[:n]
+        return random_indices
+
     def _switch_training_mode(self, 
                     train: bool = True):
 

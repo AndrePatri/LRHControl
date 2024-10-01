@@ -358,20 +358,7 @@ class LRhcTrainingEnvBase():
 
         if self._add_action_noise:
             # handle first continuous actions
-            random_envs=self._random_env_idxs(n=self._n_noisy_envs)
-            if self._is_continuous_actions.any():
-                self._perturb_actions(actions,
-                    action_idxs=self._is_continuous_actions, 
-                    env_idxs=random_envs,
-                    normal=True,
-                    scaling=0.1)
-            # then discrete
-            if (~self._is_continuous_actions).any():
-                self._perturb_actions(actions,
-                    action_idxs=~self._is_continuous_actions, 
-                    env_idxs=random_envs,
-                    normal=False,
-                    scaling=1.0)
+            
 
         if self._act_mem_buffer is not None:
             self._act_mem_buffer.update(new_data=actions)
@@ -810,36 +797,11 @@ class LRhcTrainingEnvBase():
         # for efficiency)
         self._random_normal = torch.full_like(self._actions.get_torch_mirror(gpu=self._use_gpu), fill_value=0.0) # used for sampling random actions from a gaussian distr (preallocated
         # for efficiency)
-        self._random_env_selector = torch.full(size=(self._n_envs,1),fill_value=0.0,
-            dtype=self._dtype,device=device)
 
         # default to all continuous actions (changes the way noise is added)
         self._is_continuous_actions=torch.full((1, actions_dim), 
             dtype=torch.bool, device=device,
             fill_value=True) 
-
-        self._add_action_noise=False
-        self._n_noisy_envs=0
-
-    def _perturb_actions(self, actions: torch.Tensor,
-        action_idxs: torch.Tensor, 
-        env_idxs: torch.Tensor,
-        normal: bool = True,
-        scaling: float = 1.0):
-        if normal: # gaussian
-            self._random_normal.normal_(mean=0, std=1)
-            noise=self._random_normal
-        else: # uniform
-            self._random_uniform.uniform_(-1,1)
-            noise=self._random_uniform
-        
-        actions[env_idxs.flatten(), action_idxs.flatten()]=\
-            actions[env_idxs.flatten(), action_idxs.flatten()]+noise[env_idxs.flatten(), action_idxs.flatten()]*self._actions_scale[0, action_idxs.flatten()]*scaling
-    
-    def _random_env_idxs(self, n: int):
-        random_indices = torch.randperm(self._n_envs,
-            dtype=torch.int, device=self._device)[:n]
-        return random_indices
 
     def _init_rewards(self):
         
@@ -1375,6 +1337,9 @@ class LRhcTrainingEnvBase():
         sub_terminations[:, 1:2] = self._is_capsized
         sub_terminations[:, 2:3] = self._is_rhc_capsized
 
+    def is_action_continuous(self):
+        return self._is_continuous_actions
+    
     @abstractmethod
     def _pre_step(self):
         pass

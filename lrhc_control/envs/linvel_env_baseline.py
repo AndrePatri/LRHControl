@@ -215,9 +215,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
     def _custom_post_init(self):
 
-        self._add_action_noise=False
         self._n_noisy_envs=math.ceil(self._n_envs*1/100)
-        self._is_continuous_actions[:,6:10]=False
+        if not self._use_prob_based_stepping:
+            self._is_continuous_actions[:,6:10]=False
 
         # overriding parent's defaults 
         self._reward_thresh_lb[:, :]=0 # (neg rewards can be nasty, especially if they all become negative)
@@ -232,7 +232,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._actions_ub[:, 0:3] = v_cmd_max  
         self._actions_lb[:, 3:6] = -omega_cmd_max # twist cmds
         self._actions_ub[:, 3:6] = omega_cmd_max  
-        if not self._use_prob_based_stepping:
+        if self._use_prob_based_stepping:
             self._actions_lb[:, 6:10] = 0.0 # contact flags
             self._actions_ub[:, 6:10] = 1.0 
         else:
