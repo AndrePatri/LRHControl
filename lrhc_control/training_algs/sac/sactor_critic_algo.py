@@ -1093,16 +1093,11 @@ class SActorCriticAlgoBase():
             self._random_uniform.uniform_(-1,1)
             noise=self._random_uniform
         
-        env_indices = torch.where(env_idxs)[0]  # Get indices of True environments
-        action_indices = torch.where(action_idxs)[0]  # Get indices of True actions
-
-        print(self._action_scale[:, action_idxs.flatten()].shape)
-        print(env_idxs.shape)
-        print(action_idxs.shape)
-        print(noise[env_indices, action_indices])
-        print(noise[env_idxs, action_idxs]*self._action_scale[:, action_idxs]*scaling)
-        actions[env_idxs, action_idxs]=\
-            actions[env_idxs, action_idxs]+noise[env_idxs, action_idxs]*self._action_scale[:, action_idxs.flatten()]*scaling
+        env_indices = torch.where(env_idxs)[0].reshape(-1,1)  # Get indices of True environments
+        action_indices = torch.where(action_idxs)[0].reshape(1,-1) # Get indices of True actions
+        
+        actions[env_indices, action_indices]=\
+            actions[env_indices, action_indices]+noise[env_indices, action_indices]*self._action_scale[0:1,action_indices.flatten()]*scaling
     
     def _randomize_env_idxs(self, n: int):
         
