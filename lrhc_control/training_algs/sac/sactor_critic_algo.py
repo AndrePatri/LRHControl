@@ -278,6 +278,7 @@ class SActorCriticAlgoBase():
         # for efficiency)
         self._random_normal = torch.full_like(self._random_uniform,fill_value=0.0)
         # for efficiency)
+        self._random_env_idxs = torch.zeros((self._num_envs,1), dtype=torch.bool, device=self._torch_device)
 
     def is_done(self):
 
@@ -1064,19 +1065,19 @@ class SActorCriticAlgoBase():
     def _perturb_some_actions(self,
             actions: torch.Tensor):
 
-        # get random env indexes
-        random_envs=self._random_env_idxs(n=self._n_envs_noise)
+        # genererate random env indexes
+        self._randomize_env_idxs(n=self._n_envs_noise)
 
         if self._is_continuous_actions.any(): # if there are any continuous actions
             self._perturb_actions(actions,
                 action_idxs=self._is_continuous_actions, 
-                env_idxs=random_envs,
+                env_idxs=self._random_env_idxs,
                 normal=True, # use normal for continuous
                 scaling=self._continuous_act_expl_noise_std)
         if (~self._is_continuous_actions).any(): # actions to be treated as discrete
             self._perturb_actions(actions,
                 action_idxs=~self._is_continuous_actions, 
-                env_idxs=random_envs,
+                env_idxs=self._random_env_idxs,
                 normal=False, # use uniform distr for discrete
                 scaling=self._discrete_act_expl_noise_std)
     
@@ -1092,13 +1093,25 @@ class SActorCriticAlgoBase():
             self._random_uniform.uniform_(-1,1)
             noise=self._random_uniform
         
-        actions[env_idxs.flatten(), action_idxs.flatten()]=\
-            actions[env_idxs.flatten(), action_idxs.flatten()]+noise[env_idxs.flatten(), action_idxs.flatten()]*self._action_scale[0, action_idxs.flatten()]*scaling
+        env_indices = torch.where(env_idxs)[0]  # Get indices of True environments
+        action_indices = torch.where(action_idxs)[0]  # Get indices of True actions
+
+        print(self._action_scale[:, action_idxs.flatten()].shape)
+        print(env_idxs.shape)
+        print(action_idxs.shape)
+        print(noise[env_indices, action_indices])
+        print(noise[env_idxs, action_idxs]*self._action_scale[:, action_idxs]*scaling)
+        actions[env_idxs, action_idxs]=\
+            actions[env_idxs, action_idxs]+noise[env_idxs, action_idxs]*self._action_scale[:, action_idxs.flatten()]*scaling
     
-    def _random_env_idxs(self, n: int):
-        random_indices = torch.randperm(self._num_envs,
+    def _randomize_env_idxs(self, n: int):
+        
+        # Sample random integer indices
+        random_indices = torch.randperm(self._num_envs, 
             dtype=torch.int, device=self._torch_device)[:n]
-        return random_indices
+    
+        # Set the sampled indices to True
+        self._random_env_idxs[random_indices, :] = True
 
     def _switch_training_mode(self, 
                     train: bool = True):
