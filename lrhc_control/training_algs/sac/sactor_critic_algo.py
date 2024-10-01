@@ -276,7 +276,7 @@ class SActorCriticAlgoBase():
         self._action_bias = (self._env.get_actions_ub()+self._env.get_actions_lb())/2.0
         self._random_uniform = torch.full_like(actions, fill_value=0.0) # used for sampling random actions (preallocated
         # for efficiency)
-
+    
     def is_done(self):
 
         return self._is_done 
@@ -1043,12 +1043,11 @@ class SActorCriticAlgoBase():
 
     def _sample_random_actions(self):
         
-        torch.nn.init.uniform_(self._random_uniform, a=-1, b=1)
-        
+        self._random_uniform._uniform(from=-1,to=1)
         random_actions = self._random_uniform*self._action_scale+self._action_bias
 
         return random_actions
-    
+        
     def _switch_training_mode(self, 
                     train: bool = True):
 
