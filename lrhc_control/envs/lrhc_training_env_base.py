@@ -345,13 +345,30 @@ class LRhcTrainingEnvBase():
     def step(self, 
             action):
 
-        self._pre_step()
-
         # set action from agent
         actions = self._actions.get_torch_mirror(gpu=self._use_gpu)
         actions[:, :] = action.detach() # writes actions (detaching to avoid
         # grads prop
         
+        self._pre_step()
+
+        if self._add_action_noise:
+            # handle first continuous actions
+            random_envs=self._random_env_idxs(env_perc=0.01)
+            if self._is_continuous_action.any():
+                self._perturb_actions(actions,
+                    action_idxs=self._is_continuous_action, 
+                    env_idxs=random_envs,
+                    normal=True,
+                    scaling=1.0)
+            # then discrete
+            if self._is_discrete_action.any():
+                self._perturb_actions(actions,
+                    action_idxs=self._is_dicrete_action, 
+                    env_idxs=random_envs,
+                    normal=False,
+                    scaling=0.5)
+
         if self._act_mem_buffer is not None:
             self._act_mem_buffer.update(new_data=actions)
 
@@ -750,6 +767,8 @@ class LRhcTrainingEnvBase():
                                         fill_value=1.0) 
         self._actions_lb = torch.full((1, actions_dim), dtype=self._dtype, device=device,
                                         fill_value=-1.0)
+        self._actions_scale = (self._actions_ub - self._actions_lb)/2.0
+        self._actions_offset = (self._actions_ub + self._actions_lb)/2.0
 
         if not self._actions_dim==len(self._get_action_names()):
             error=f"action dim {self._actions_dim} does not match action names length {len(self._get_action_names())}!!"
@@ -782,6 +801,43 @@ class LRhcTrainingEnvBase():
                 dtype=self._dtype,
                 use_gpu=self._use_gpu)
             self._defaut_act_buffer_action = torch.full_like(input=self.get_actions(),fill_value=0.0)
+
+        self._random_uniform = torch.full_like(self._actions, fill_value=0.0) # used for sampling random actions (preallocated
+        # for efficiency)
+        self._random_normal = torch.full_like(self._actions, fill_value=0.0) # used for sampling random actions from a gaussian distr (preallocated
+        # for efficiency)
+        self._random_env_selector = torch.full(size=(self._n_envs,1),fill_value=0.0,
+            dtype=self._dtype,device=device)
+
+        # default to all continuous actions (changes the way noise is added)
+        self._is_continuous_actions=torch.full((1, actions_dim), 
+            dtype=torch.bool, device=device,
+            fill_value=True) 
+        self._is_discrete_action=(~self._is_continuous_action).detach().clone()
+
+        self._add_action_noise=False
+
+    def _perturb_actions(self, actions: torch.Tensor,
+        action_idxs: torch.Tensor, 
+        env_idxs: torch.Tensor = None,
+        normal: bool = True,
+        scaling: float = 1.0):
+        if normal: # gaussian
+            self._random_normal._normal(mean=0, std=1)
+            noise=self._random_normal
+        else: # uniform
+            self._random_uniform._uniform(from=0,to=1)
+            noise=self._random_uniform
+        
+        if env_idxs is None:
+            actions[:, action_idxs.flatten()]=actions[:, action_idxs.flatten()]+noise[:, action_idxs.flatten()]*self._actions_scale*scaling
+        else:
+            actions[env_idxs.flatten(), action_idxs.flatten()]=\
+                actions[env_idxs.flatten(), action_idxs.flatten()]+noise[env_idxs.flatten(), action_idxs.flatten()]*self._actions_scale*scaling
+    
+    def _random_env_idxs(self, env_perc: float = 0.01)
+        self._random_env_selector._uniform(from=0,to=1)
+        return self._random_env_selector > (1.0-env_perc)
 
     def _init_rewards(self):
         
