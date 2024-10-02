@@ -227,18 +227,15 @@ class HybridQuadRhc(RHController):
         v_jnts = self.robot_state.jnts_state.get(data_type="v", robot_idxs=self.controller_index).reshape(-1, 1)
         q_root = self.robot_state.root_state.get(data_type="q", robot_idxs=self.controller_index).reshape(-1, 1)
         p = self.robot_state.root_state.get(data_type="p", robot_idxs=self.controller_index).reshape(-1, 1)
-        if not close_all: # use internal MPC for the base
-            p[0:3,:]=self._get_q_from_sol()[0:3, 1:2] # base pos is open loop
-
-        r_base = Rotation.from_quat(q_root.flatten()).as_matrix() # from base to world (.T the opposite)
-
-        # meas twist is assumed to be provided in BASE link
         v_root = self.robot_state.root_state.get(data_type="v", robot_idxs=self.controller_index).reshape(-1, 1)
-        if not close_all: # use internal MPC for the base vel
-            v_root[0:3,:]=self._get_root_twist_from_sol()[0:3, :]
         omega = self.robot_state.root_state.get(data_type="omega", robot_idxs=self.controller_index).reshape(-1, 1)
+
+        # meas twist is assumed to be provided in BASE link!!!
+        if not close_all: # use internal MPC for the base
+            p[0:3,:]=self._get_root_full_q_from_sol(node_idx=1).reshape(-1,1)[0:3, :] # base pos is open loop
+            v_root[0:3,:]=self._get_root_twist_from_sol(node_idx=1).reshape(-1,1)[0:3, :]
+        # r_base = Rotation.from_quat(q_root.flatten()).as_matrix() # from base to world (.T the opposite)
         
-        # we need twist in local base frame, but measured one is global
         if x_opt is not None:
             # CHECKING q_root for sign consistency!
             # numerical problem: two quaternions can represent the same rotation
@@ -250,7 +247,6 @@ class HybridQuadRhc(RHController):
             diff_quat = self._quaternion_multiply(q_root, state_quat_conjugate)
             if diff_quat[3] < 0:
                 q_root[:] = -q_root
-
 
         return np.concatenate((p, q_root, q_jnts, v_root, omega, v_jnts),
                 axis=0)
