@@ -863,7 +863,7 @@ class SActorCriticAlgoBase():
         self._is_continuous_actions=self._env.is_action_continuous()
         self._continuous_act_expl_noise_std=0.3
         self._discrete_act_expl_noise_std=1.0
-
+        self._noise_freq=600//self._env_n_action_reps
         self._a_optimizer = None
         
         # debug
@@ -944,7 +944,7 @@ class SActorCriticAlgoBase():
             f"experience to policy grad ratio: {self._exp_to_policy_grad_ratio}\n" + \
             f"experience to q fun grad ratio: {self._exp_to_qf_grad_ratio}\n" + \
             f"experience to trgt q fun grad ratio: {self._exp_to_qft_grad_ratio}\n" + \
-            f"amount of noisy transitions over each vec. step: {self._noise_perc} -> {self._n_envs_noise}/vec. step\n"
+            f"amount of noisy transitions over each vec. step: {self._noise_perc} -> {self._n_envs_noise}/{self._noise_freq*self._num_envs} samples\n"
 
         Journal.log(self.__class__.__name__,
             "_init_params",
