@@ -499,6 +499,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         
         sub_rewards = self._sub_rewards.get_torch_mirror(gpu=self._use_gpu)
         sub_rewards[:, 0:1] = self._task_offset*torch.exp(-self._task_scale*task_error)
+        # sub_rewards[:, 0:1] = self._task_offset-self._task_scale*task_error
 
     def _compute_substep_rewards(self):
         task_error_fun = self._task_perc_err_lin
