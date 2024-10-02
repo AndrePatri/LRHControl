@@ -37,7 +37,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # across diff envs
         random_reset_freq = 10 # a random reset once every n-episodes (per env)
         n_preinit_steps = 1 # one steps of the controllers to properly initialize everything
-        action_repeat = 4 # frame skipping (different agent action every action_repeat
+        action_repeat = 1 # frame skipping (different agent action every action_repeat
         # env substeps)
 
         self._single_task_ref_per_episode=True # if True, the task ref is constant over the episode (ie
@@ -93,8 +93,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._health_value = 10.0
 
         # task tracking
-        self._task_offset = 10.0 # 10.0
-        self._task_scale = 10.0 # perc-based
+        self._task_offset = 10.0 
+        self._task_scale = 1.5 
         self._task_err_weights = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.0) 
         self._task_err_weights[0, 0] = 1.0
@@ -487,8 +487,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         return self._rhc_fail_idx_scale*rhc_fail_idx
     
     def _compute_step_rewards(self):
-        # task_error_fun = self._task_perc_err_lin
-        task_error_fun= self._task_perc_err_wms
+        task_error_fun = self._task_perc_err_lin
+        # task_error_fun= self._task_perc_err_wms
         # task_error_fun = self._task_err_lin
 
         agent_task_ref_base_loc = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu) # high level agent refs (hybrid twist)
@@ -498,9 +498,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             weights=self._task_err_weights)
         
         sub_rewards = self._sub_rewards.get_torch_mirror(gpu=self._use_gpu)
-        sub_rewards[:, 0:1] = 10*torch.exp(-self._task_scale*task_error)
-        
-        self._task_offset-self._task_scale*task_error
+        sub_rewards[:, 0:1] = self._task_offset*torch.exp(-self._task_scale*task_error)
 
     def _compute_substep_rewards(self):
         task_error_fun = self._task_perc_err_lin
