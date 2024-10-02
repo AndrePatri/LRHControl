@@ -231,9 +231,12 @@ class HybridQuadRhc(RHController):
         omega = self.robot_state.root_state.get(data_type="omega", robot_idxs=self.controller_index).reshape(-1, 1)
 
         # meas twist is assumed to be provided in BASE link!!!
-        if not close_all: # use internal MPC for the base
+        if not close_all: # use internal MPC for the base and joints
             p[0:3,:]=self._get_root_full_q_from_sol(node_idx=1).reshape(-1,1)[0:3, :] # base pos is open loop
             v_root[0:3,:]=self._get_root_twist_from_sol(node_idx=1).reshape(-1,1)[0:3, :]
+            q_jnts[:, :]=self._get_jnt_q_from_sol(node_idx=1).reshape(-1,1)
+            v_jnts[:, :]=self._get_jnt_v_from_sol(node_idx=1).reshape(-1,1)
+
         # r_base = Rotation.from_quat(q_root.flatten()).as_matrix() # from base to world (.T the opposite)
         
         if x_opt is not None:
@@ -247,6 +250,8 @@ class HybridQuadRhc(RHController):
             diff_quat = self._quaternion_multiply(q_root, state_quat_conjugate)
             if diff_quat[3] < 0:
                 q_root[:] = -q_root
+        
+        
 
         return np.concatenate((p, q_root, q_jnts, v_root, omega, v_jnts),
                 axis=0)
