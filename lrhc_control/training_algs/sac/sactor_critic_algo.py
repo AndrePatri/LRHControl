@@ -858,7 +858,7 @@ class SActorCriticAlgoBase():
         self._alpha = 0.2
 
         self._n_noisy_envs = 2 # n of random envs on which noisy actions will be applied
-        self._noise_freq = 5
+        self._noise_freq = -1
         self._noise_buff_freq=self._n_noisy_envs/(self._noise_freq*self._num_envs)
         self._is_continuous_actions=self._env.is_action_continuous()
         self._continuous_act_expl_noise_std=0.3

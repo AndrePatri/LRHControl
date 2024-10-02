@@ -38,7 +38,8 @@ class SAC(SActorCriticAlgoBase):
             actions = actions.detach()
             if (self._eval and self._det_eval): # use mean instead of stochastic policy
                 actions[:, :] = mean.detach()
-            if not self._eval and (self._vec_transition_counter%self._noise_freq==0): # add some noisy transitions to avoid local minima
+            if not self._eval and (self._noise_freq>0 and
+                (self._vec_transition_counter%self._noise_freq==0)): # add some noisy transitions to avoid local minima
                 self._perturb_some_actions(actions=actions)
         else:
             actions = self._sample_random_actions()
