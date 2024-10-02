@@ -858,8 +858,7 @@ class SActorCriticAlgoBase():
         self._alpha = 0.2
 
         self._n_noisy_envs = 2 # n of random envs on which noisy actions will be applied
-        self._noise_buff_freq_nom = 0.01 # _noise_buff_freq*100% transitions of the replay buffer will be noisy
-        self._noise_freq=round(self._n_noisy_envs/(self._noise_buff_freq_nom*self._num_envs))
+        self._noise_freq = 5
         self._noise_buff_freq=self._n_noisy_envs/(self._noise_freq*self._num_envs)
         self._is_continuous_actions=self._env.is_action_continuous()
         self._continuous_act_expl_noise_std=0.3
