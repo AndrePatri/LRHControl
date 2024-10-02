@@ -857,13 +857,14 @@ class SActorCriticAlgoBase():
         self._log_alpha = None
         self._alpha = 0.2
 
-        self._noise_perc_nom = 0.01
-        self._n_envs_noise = math.ceil(self._num_envs*self._noise_perc_nom)
-        self._noise_perc=self._n_envs_noise/self._num_envs
+        self._n_noisy_envs = 2 # n of random envs on which noisy actions will be applied
+        self._noise_buff_freq_nom = 0.01 # _noise_buff_freq*100% transitions of the replay buffer will be noisy
+        self._noise_freq=round(self._n_noisy_envs/(self._noise_buff_freq_nom*self._num_envs))
+        self._noise_buff_freq=self._n_noisy_envs/(self._noise_freq*self._num_envs)
         self._is_continuous_actions=self._env.is_action_continuous()
         self._continuous_act_expl_noise_std=0.3
         self._discrete_act_expl_noise_std=1.0
-        self._noise_freq=600//self._env_n_action_reps
+        
         self._a_optimizer = None
         
         # debug
@@ -944,7 +945,7 @@ class SActorCriticAlgoBase():
             f"experience to policy grad ratio: {self._exp_to_policy_grad_ratio}\n" + \
             f"experience to q fun grad ratio: {self._exp_to_qf_grad_ratio}\n" + \
             f"experience to trgt q fun grad ratio: {self._exp_to_qft_grad_ratio}\n" + \
-            f"amount of noisy transitions over each vec. step: {self._noise_perc} -> {self._n_envs_noise}/{self._noise_freq*self._num_envs} samples\n"
+            f"amount of noisy transitions in replay buffer: {self._noise_buff_freq*100}% \n"
 
         Journal.log(self.__class__.__name__,
             "_init_params",
@@ -1066,7 +1067,7 @@ class SActorCriticAlgoBase():
             actions: torch.Tensor):
 
         # genererate random env indexes
-        self._randomize_env_idxs(n=self._n_envs_noise)
+        self._randomize_env_idxs(n=self._n_noisy_envs)
 
         if self._is_continuous_actions.any(): # if there are any continuous actions
             self._perturb_actions(actions,
