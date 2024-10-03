@@ -251,8 +251,6 @@ class HybridQuadRhc(RHController):
             if diff_quat[3] < 0:
                 q_root[:] = -q_root
         
-        
-
         return np.concatenate((p, q_root, q_jnts, v_root, omega, v_jnts),
                 axis=0)
     
