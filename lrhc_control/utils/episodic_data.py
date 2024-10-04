@@ -451,28 +451,47 @@ class EpisodicData():
     def step_counters(self):
         return self._steps_counter
     
-    def get_max(self):
-        return self._max_over_eps_last
+    def get_max(self, 
+        env_selector: torch.Tensor = None):
+        if env_selector is None:
+            return self._max_over_eps_last
+        else:
+            return self._max_over_eps_last[env_selector.squeeze(), :]
     
-    def get_avrg(self):
-        return self._average_over_eps_last
-
-    def get_min(self):
-        return self._min_over_eps_last
-    
-    def get_max_over_envs(self):
-        sub_env_max_over_eps, _ = torch.max(self.get_max(), dim=0, keepdim=True)
+    def get_avrg(self, 
+        env_selector: torch.Tensor = None):
+        if env_selector is None:
+            return self._average_over_eps_last
+        else:
+            return self._average_over_eps_last[env_selector.squeeze(), :]
+        
+    def get_min(self, 
+        env_selector: torch.Tensor = None):
+        if env_selector is None:
+            return self._min_over_eps_last
+        else:
+            return self._min_over_eps_last[env_selector.squeeze(), :]
+        
+    def get_max_over_envs(self, 
+        env_selector: torch.Tensor = None):
+        sub_env_max_over_eps, _ = torch.max(self.get_max(env_selector=env_selector), dim=0, keepdim=True)
         return sub_env_max_over_eps
     
-    def get_avrg_over_envs(self):
-        return torch.sum(self.get_avrg(), dim=0, keepdim=True)/self._n_envs
+    def get_avrg_over_envs(self, 
+        env_selector: torch.Tensor = None):
+        return torch.sum(self.get_avrg(env_selector=env_selector), dim=0, keepdim=True)/self._n_envs
 
-    def get_min_over_envs(self):
-        sub_env_min_over_eps, _ = torch.min(self.get_min(), dim=0, keepdim=True)
+    def get_min_over_envs(self, 
+        env_selector: torch.Tensor = None):
+        sub_env_min_over_eps, _ = torch.min(self.get_min(env_selector=env_selector), dim=0, keepdim=True)
         return sub_env_min_over_eps
     
-    def get_n_played_episodes(self):
-        return torch.sum(self._n_played_eps_last).item()
+    def get_n_played_episodes(self, 
+        env_selector: torch.Tensor = None):
+        if env_selector is None:
+            return torch.sum(self._n_played_eps_last).item()
+        else:
+            return torch.sum(self._n_played_eps_last[env_selector.squeeze(), :]).item()
     
     def get_n_played_tsteps(self):
         return torch.sum(self.step_counters()).item()    

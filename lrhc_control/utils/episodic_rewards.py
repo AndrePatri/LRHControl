@@ -68,42 +68,54 @@ class EpisodicRewards(EpisodicData):
             to_be_reset=to_be_reset)
 
     # wrapping base methods for sub rewards
-    def get_sub_rew_max(self):
-        return super().get_max()
+    def get_sub_rew_max(self, 
+        env_selector: torch.Tensor = None):
+        return super().get_max(env_selector=env_selector)
     
-    def get_sub_rew_avrg(self):
-        return super().get_avrg()
+    def get_sub_rew_avrg(self, 
+        env_selector: torch.Tensor = None):
+        return super().get_avrg(env_selector=env_selector)
 
-    def get_sub_rew_min(self):
-        return super().get_min()
+    def get_sub_rew_min(self, 
+        env_selector: torch.Tensor = None):
+        return super().get_min(env_selector=env_selector)
 
-    def get_sub_rew_max_over_envs(self):
-        return super().get_max_over_envs()
+    def get_sub_rew_max_over_envs(self, 
+        env_selector: torch.Tensor = None):
+        return super().get_max_over_envs(env_selector=env_selector)
     
-    def get_sub_rew_avrg_over_envs(self):
-        return super().get_avrg_over_envs()
+    def get_sub_rew_avrg_over_envs(self, 
+        env_selector: torch.Tensor = None):
+        return super().get_avrg_over_envs(env_selector=env_selector)
 
-    def get_sub_rew_min_over_envs(self):
-        return super().get_min_over_envs()
+    def get_sub_rew_min_over_envs(self, 
+        env_selector: torch.Tensor = None):
+        return super().get_min_over_envs(env_selector=env_selector)
     
     # tot reward
-    def get_tot_rew_max(self):
-        return self._tot_reward_episodic_stats.get_max()
+    def get_tot_rew_max(self, 
+        env_selector: torch.Tensor = None):
+        return self._tot_reward_episodic_stats.get_max(env_selector=env_selector)
     
-    def get_tot_rew_avrg(self):
-        return self._tot_reward_episodic_stats.get_avrg()
+    def get_tot_rew_avrg(self, 
+        env_selector: torch.Tensor = None):
+        return self._tot_reward_episodic_stats.get_avrg(env_selector=env_selector)
 
-    def get_tot_rew_min(self):
-        return self._tot_reward_episodic_stats.get_min()
+    def get_tot_rew_min(self, 
+        env_selector: torch.Tensor = None):
+        return self._tot_reward_episodic_stats.get_min(env_selector=env_selector)
 
-    def get_tot_rew_max_over_envs(self):
-        return self._tot_reward_episodic_stats.get_max_over_envs()
+    def get_tot_rew_max_over_envs(self, 
+        env_selector: torch.Tensor = None):
+        return self._tot_reward_episodic_stats.get_max_over_envs(env_selector=env_selector)
     
-    def get_tot_rew_avrg_over_envs(self):
-        return self._tot_reward_episodic_stats.get_avrg_over_envs()
+    def get_tot_rew_avrg_over_envs(self, 
+        env_selector: torch.Tensor = None):
+        return self._tot_reward_episodic_stats.get_avrg_over_envs(env_selector=env_selector)
 
-    def get_tot_rew_min_over_envs(self):
-        return self._tot_reward_episodic_stats.get_min_over_envs()
+    def get_tot_rew_min_over_envs(self, 
+        env_selector: torch.Tensor = None):
+        return self._tot_reward_episodic_stats.get_min_over_envs(env_selector=env_selector)
 
 if __name__ == "__main__":  
 
