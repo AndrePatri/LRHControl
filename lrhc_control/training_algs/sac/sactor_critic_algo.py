@@ -279,9 +279,10 @@ class SActorCriticAlgoBase():
         self._random_normal = torch.full_like(self._random_uniform,fill_value=0.0)
         # for efficiency)
 
-        self._random_env_idxs = torch.zeros((self._num_envs,1), 
-            dtype=torch.bool, device=self._torch_device)
-        self._random_env_idxs[self._noisy_env_selector,:]=True
+        if self._n_noisy_envs:
+            self._random_env_idxs = torch.zeros((self._num_envs,1), 
+                dtype=torch.bool, device=self._torch_device)
+            self._random_env_idxs[self._noisy_env_selector,:]=True
 
     def is_done(self):
 
@@ -860,7 +861,7 @@ class SActorCriticAlgoBase():
         self._log_alpha = None
         self._alpha = 0.2
 
-        self._n_noisy_envs = 2 # n of random envs on which noisy actions will be applied
+        self._n_noisy_envs = 0 # n of random envs on which noisy actions will be applied
         self._noise_freq = 1 
         self._noise_buff_freq=self._n_noisy_envs/(self._noise_freq*self._num_envs)
         self._is_continuous_actions=self._env.is_action_continuous()
