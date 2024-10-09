@@ -461,14 +461,13 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
     
     def _task_err_wms(self, task_ref, task_meas, scaling, weights):
         task_error = (task_meas-task_ref)
-        weighted_error=task_error*weights
-        scaled_w_error=weighted_error/scaling
+        scaled_error=task_error/scaling
         if self._vel_err_smoother is not None:
-            self._vel_err_smoother.update(new_signal=scaled_w_error,
+            self._vel_err_smoother.update(new_signal=scaled_error,
                 ep_finished=None # reset done externally
                 )
-            scaled_w_error=self._vel_err_smoother.get()
-        task_wmse = torch.sum(scaled_w_error*scaled_w_error, dim=1, keepdim=True)/torch.sum(weights).item()
+            scaled_error=self._vel_err_smoother.get()
+        task_wmse = torch.sum(scaled_error*scaled_error*weights, dim=1, keepdim=True)/torch.sum(weights).item()
         return task_wmse # weighted mean square error (along task dimension)
     
     def _task_perc_err_lin(self, task_ref, task_meas, weights):
