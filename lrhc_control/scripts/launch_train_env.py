@@ -27,45 +27,36 @@ if __name__ == "__main__":
     # Parse command line arguments for CPU affinity
     parser = argparse.ArgumentParser(description="Set CPU affinity for the script.")
     parser.add_argument('--cores', nargs='+', type=int, help='List of CPU cores to set affinity to')
-    parser.add_argument('--run_name', type=str, default=None,help='Name of training run')
+    parser.add_argument('--run_name', type=str, default=None, help='Name of training run')
     parser.add_argument('--ns', type=str, help='Namespace to be used for shared memory')
     parser.add_argument('--drop_dir', type=str, help='Directory root where all run data will be dumped')
-    parser.add_argument('--dump_checkpoints', action=argparse.BooleanOptionalAction, default=True, help='Whether to dump model checkpoints during training')
-   
-    parser.add_argument('--obs_norm', action=argparse.BooleanOptionalAction, default=True, help='Whether to enable the use of running normalizer in agent')
-
-    parser.add_argument('--use_cer', action=argparse.BooleanOptionalAction, default=False, help='whether to use combined experience replay (not tested)')
-    parser.add_argument('--sac', action=argparse.BooleanOptionalAction, default=True, help='Use SAC, otherwise PPO, unless dummy is set')
-    parser.add_argument('--dummy', action=argparse.BooleanOptionalAction, default=False, help='')
-
-    parser.add_argument('--eval', action=argparse.BooleanOptionalAction, default=False, help='Whether to perform an evaluation run')
-    parser.add_argument('--n_eval_timesteps', type=int, help='Toal n. of timesteps to be evaluated', default=1e6)
-    parser.add_argument('--mpath', type=str, help='Model path to be used for policy evaluation',default=None)
-    parser.add_argument('--mname', type=str, help='Model name',default=None)
-    parser.add_argument('--det_eval', action=argparse.BooleanOptionalAction, default=True, 
-        help='Whether to perform a deterministic eval (only action mean is used). Only valid if --eval.')
-
-    parser.add_argument('--comment', type=str, help='Any useful comment associated with this run',default="")
-    parser.add_argument('--seed', type=int, help='seed', default=1)
     
-    parser.add_argument('--timeout_ms', type=int, help='connection timeout after which the script self-terminates', default=60000)
+    # Replacing argparse.BooleanOptionalAction with 'store_true' and 'store_false' for Python 3.8 compatibility
+    parser.add_argument('--dump_checkpoints',action='store_true', help='Whether to dump model checkpoints during training')
+    parser.add_argument('--obs_norm',action='store_true', help='Whether to enable the use of running normalizer in agent')
+    parser.add_argument('--use_cer',action='store_true', help='Whether to use combined experience replay (not tested)')
+    parser.add_argument('--sac',action='store_true', help='Use SAC, otherwise PPO, unless dummy is set')
+    parser.add_argument('--dummy',action='store_true', help='Use dummy agent')
+    parser.add_argument('--eval',action='store_true', help='Whether to perform an evaluation run')
+    parser.add_argument('--n_eval_timesteps', type=int, help='Total number of timesteps to be evaluated', default=int(1e6))
+    parser.add_argument('--mpath', type=str, help='Model path to be used for policy evaluation', default=None)
+    parser.add_argument('--mname', type=str, help='Model name', default=None)
+    parser.add_argument('--det_eval',action='store_true', help='Whether to perform a deterministic eval (only action mean is used). Only valid if --eval.')
+    parser.add_argument('--comment', type=str, help='Any useful comment associated with this run', default="")
+    parser.add_argument('--seed', type=int, help='Seed', default=1)
+    parser.add_argument('--timeout_ms', type=int, help='Connection timeout after which the script self-terminates', default=60000)
+    parser.add_argument('--use_cpu',action='store_true', help='If set, all the training (data included) will be performed on CPU')
+    parser.add_argument('--db',action='store_true', help='Whether to enable local data logging for the algorithm (reward metrics, etc.)')
+    parser.add_argument('--env_db',action='store_true', help='Whether to enable env db data logging on shared mem (e.g. reward metrics are not available for reading anymore)')
+    parser.add_argument('--rmdb',action='store_true', help='Whether to enable remote debug (e.g. data logging on remote servers)')
+    parser.add_argument('--override_agent_refs',action='store_true', help='Whether to override automatically generated agent refs (useful for debug)')
+    parser.add_argument('--anomaly_detect',action='store_true', help='Whether to enable anomaly detection (useful for debug)')
 
-    parser.add_argument('--use_cpu', action=argparse.BooleanOptionalAction, default=False, help='If set, all the training (data included) will be perfomed on CPU')
-    parser.add_argument('--db', action=argparse.BooleanOptionalAction, default=True, help='Whether to enable local data logging for the algorithm (reward metrics, etc..)')
-    parser.add_argument('--env_db', action=argparse.BooleanOptionalAction, default=True, help='Whether to enable env db data logging on \
-                            shared mem (e.g.reward metrics are not available for reading anymore)')
-    parser.add_argument('--rmdb', action=argparse.BooleanOptionalAction, default=True, help='Whether to enable remote debug (e.g. data logging on remote servers)')
+    parser.add_argument('--actor_size', type=int, help='Actor network size', default=256)
+    parser.add_argument('--critic_size', type=int, help='Critic network size', default=256)
 
-    parser.add_argument('--override_agent_refs', action=argparse.BooleanOptionalAction, default=False, \
-                help='Whether to override automatically generated agent refs (useful for debug)')
-    parser.add_argument('--anomaly_detect', action=argparse.BooleanOptionalAction, default=False, \
-                help='Whether to override automatically generated agent refs (useful for debug)')
-
-    parser.add_argument('--actor_size', type=int, help='seed', default=256)
-    parser.add_argument('--critic_size', type=int, help='seed', default=256)
-
-    parser.add_argument('--env_fname', type=str, default="linvel_env_baseline", help="training env file name (without extension)")
-    parser.add_argument('--env_classname', type=str, default="LinVelTrackBaseline", help='training env class name')
+    parser.add_argument('--env_fname', type=str, default="linvel_env_baseline", help='Training env file name (without extension)')
+    parser.add_argument('--env_classname', type=str, default="LinVelTrackBaseline", help='Training env class name')
 
     args = parser.parse_args()
     args_dict = vars(args)

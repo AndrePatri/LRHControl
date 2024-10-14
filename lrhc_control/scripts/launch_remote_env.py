@@ -21,17 +21,13 @@ def import_env_module(env_path):
     return env_module
 
 def set_seed(args):
-        import random
-        random.seed(args.seed)
-        random.seed(args.seed) # python seed
-        import torch
-        torch.manual_seed(args.seed)
-        torch.backends.cudnn.deterministic = True
-        # torch.backends.cudnn.benchmark = not self._torch_deterministic
-        # torch.use_deterministic_algorithms(True)
-        # torch.use_deterministic_algorithms(mode=True) # will throw excep. when trying to use non-det. algos
-        import numpy as np
-        np.random.seed(args.seed)
+    import random
+    random.seed(args.seed) # python seed
+    import torch
+    torch.manual_seed(args.seed)
+    torch.backends.cudnn.deterministic = True
+    import numpy as np
+    np.random.seed(args.seed)
 
 if __name__ == '__main__':
 
@@ -45,21 +41,29 @@ if __name__ == '__main__':
     parser.add_argument('--n_contacts', type=int, default=4)
     parser.add_argument('--cluster_dt', type=float, default=0.03, help='dt at which the control cluster runs')
     parser.add_argument('--dmpdir', type=str, help='directory where data is dumped', default="/root/aux_data")
-    parser.add_argument('--remote_stepping', action='store_true', 
+    parser.add_argument('--remote_stepping',action='store_true',
                 help='Whether to use remote stepping for cluster triggering (to be set during training)')
-    parser.add_argument('--use_gpu', action=argparse.BooleanOptionalAction, default=True, help='Whether to use gpu simulation')
-    parser.add_argument('--enable_debug', action=argparse.BooleanOptionalAction, default=False, help='Whether to enable debug mode (may introduce significant overhead)')
-    parser.add_argument('--headless', action=argparse.BooleanOptionalAction, default=True, help='Whether to run simulation in headless mode')
-    parser.add_argument('--verbose', action=argparse.BooleanOptionalAction, default=True, help='')
-    parser.add_argument('--comment', type=str, help='Any useful comment associated with this run',default="")
+    
+    # Replacing argparse.BooleanOptionalAction with 'store_true' and 'store_false' for compatibility with Python 3.8
+    parser.add_argument('--use_gpu',action='store_true', help='Whether to use gpu simulation')
+
+    parser.add_argument('--enable_debug',action='store_true', help='Whether to enable debug mode (may introduce significant overhead)')
+
+    parser.add_argument('--headless',action='store_true', help='Whether to run simulation in headless mode')
+
+    parser.add_argument('--verbose',action='store_true', help='Enable verbose mode')
+
+    parser.add_argument('--comment', type=str, help='Any useful comment associated with this run', default="")
     parser.add_argument('--timeout_ms', type=int, help='connection timeout after which the script self-terminates', default=60000)
     parser.add_argument('--physics_dt', type=float, default=5e-4, help='')
-    parser.add_argument('--use_custom_jnt_imp', action=argparse.BooleanOptionalAction, default=True, 
+
+    parser.add_argument('--use_custom_jnt_imp',action='store_true', 
         help='Whether to override the default PD controller with a custom one')
-    parser.add_argument('--diff_vels', action=argparse.BooleanOptionalAction, default=False, 
+
+    parser.add_argument('--diff_vels',action='store_true', 
         help='Whether to obtain velocities by differentiation or not')
-    parser.add_argument('--init_timesteps', type=int, help='initialization timesteps', 
-            default=1000)
+
+    parser.add_argument('--init_timesteps', type=int, help='initialization timesteps', default=1000)
     parser.add_argument('--seed', type=int, help='seed', default=0)
 
     parser.add_argument('--custom_args_names', nargs='+', default=None,

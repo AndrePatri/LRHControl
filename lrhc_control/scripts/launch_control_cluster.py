@@ -23,20 +23,27 @@ if __name__ == "__main__":
     parser.add_argument('--urdf_path', type=str, help='Robot description package path for URDF ')
     parser.add_argument('--srdf_path', type=str, help='Robot description package path for SRDF ')
     parser.add_argument('--size', type=int, help='cluster size')
-    parser.add_argument('--cloop', action=argparse.BooleanOptionalAction, default=False, help='whether use RHC controllers in closed loop mode')
-    parser.add_argument('--verbose', action='store_true', help='run in verbose mode')
-    parser.add_argument('--enable_debug', action=argparse.BooleanOptionalAction, default=False, help='enable debug mode for cluster client and all controllers')
-    parser.add_argument('--dmpdir', type=str, help='directory where data is dumped',default="/root/aux_data")
-    parser.add_argument('--mp_fork', action=argparse.BooleanOptionalAction, default=True, help='whether to mutliprocess forkserver context')
-    parser.add_argument('--comment', type=str, help='Any useful comment associated with this run',default="")
+
+    # Replacing argparse.BooleanOptionalAction with 'store_true' and 'store_false' for compatibility with Python 3.8
+    parser.add_argument('--cloop',action='store_true', help='whether to use RHC controllers in closed loop mode')
+
+    parser.add_argument('--verbose',action='store_true', help='run in verbose mode')
+
+    parser.add_argument('--enable_debug',action='store_true', help='enable debug mode for cluster client and all controllers')
+
+    parser.add_argument('--dmpdir', type=str, help='directory where data is dumped', default="/root/aux_data")
+
+    parser.add_argument('--no_mp_fork',action='store_true', help='whether to multiprocess with forkserver context')
+
+    parser.add_argument('--comment', type=str, help='Any useful comment associated with this run', default="")
     parser.add_argument('--timeout_ms', type=int, help='connection timeout after which the script self-terminates', default=60000)
-    parser.add_argument('--codegen_override_dir', type=str, help='Path to base dir where codegen is to be loaded',default="")
+    parser.add_argument('--codegen_override_dir', type=str, help='Path to base dir where codegen is to be loaded', default="")
 
     parser.add_argument('--custom_args_names', nargs='+', default=None,
-                            help='list of custom arguments names  to cluster client')
+                            help='list of custom arguments names to cluster client')
     parser.add_argument('--custom_args_vals', nargs='+', default=None,
                             help='list of custom arguments values to cluster client')
-    
+
     parser.add_argument('--cluster_client_fname', type=str, 
         default="lrhc_control.controllers.rhc.hybrid_quad_client",
         help="cluster client file import pattern (without extension)")
@@ -57,12 +64,12 @@ if __name__ == "__main__":
         # Build custom_opt dictionary
         custom_opts.update({name: val for name, val in zip(args.custom_args_names, args.custom_args_vals)})
         
-    if args.mp_fork: # this needs to be in the main
+    if args.no_mp_fork: # this needs to be in the main
+        mp.set_start_method('spawn')
+    else:
         mp.set_start_method('forkserver')
         # mp.set_start_method('fork')
-    else:
-        mp.set_start_method('spawn')
-
+        
     cluster_module=importlib.import_module(args.cluster_client_fname)
     # Get all classes defined in the module
     classes_in_module = [name for name, obj in inspect.getmembers(cluster_module, inspect.isclass) 
@@ -75,7 +82,7 @@ if __name__ == "__main__":
             urdf_xacro_path=args.urdf_path,
             srdf_xacro_path=args.srdf_path,
             open_loop=not args.cloop,
-            use_mp_fork = args.mp_fork,
+            use_mp_fork = not args.no_mp_fork,
             verbose=args.verbose,
             debug=args.enable_debug,
             base_dump_dir=args.dmpdir,

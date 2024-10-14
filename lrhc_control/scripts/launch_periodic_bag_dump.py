@@ -13,17 +13,17 @@ if __name__ == '__main__':
 
     parser.add_argument('--ns', type=str, help='Namespace to be used for cluster shared memory')
     parser.add_argument('--debug', action='store_true', help='Enable debug mode, default is False')
-    parser.add_argument('--verbose', action=argparse.BooleanOptionalAction, default=False, help='Enable verbose mode, default is True')
-    parser.add_argument('--ros2', action=argparse.BooleanOptionalAction, default=True, help='Use ROS 2')
-    parser.add_argument('--with_agent_refs', action=argparse.BooleanOptionalAction, default=False, help='also forward agent refs to rhcviz')
-    parser.add_argument('--rhc_refs_in_h_frame', type=bool, default=True, help='set to true if rhc refs are \
+    parser.add_argument('--verbose',action='store_true', help='Enable verbose mode, default is True')
+    parser.add_argument('--ros2',action='store_true', help='Use ROS 2')
+    parser.add_argument('--with_agent_refs',action='store_true', help='also forward agent refs to rhcviz')
+    parser.add_argument('--rhc_refs_in_h_frame',action='store_true', help='set to true if rhc refs are \
                         specified in the horizontal frame')
-    parser.add_argument('--agent_refs_in_h_frame', type=bool, default=False, help='set to true if agent refs are \
+    parser.add_argument('--agent_refs_in_h_frame',action='store_true', help='set to true if agent refs are \
                         specified in the horizontal frame')
     parser.add_argument('--env_idx', type=int, help='env index of which data is to be published', default=0)
     parser.add_argument('--srdf_path', type=str, help='path to SRDF path specifying homing configuration, to be used for missing joints', default=None)
     parser.add_argument('--dump_path', type=str, default="/tmp", help='where bag will be dumped')
-    parser.add_argument('--use_shared_drop_dir', action=argparse.BooleanOptionalAction, default=True, 
+    parser.add_argument('--use_shared_drop_dir',action='store_true', 
         help='if true use the shared drop dir to drop the data where all the other training data is dropeer')
 
     args = parser.parse_args()
