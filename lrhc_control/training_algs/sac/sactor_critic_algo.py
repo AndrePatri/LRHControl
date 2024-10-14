@@ -156,10 +156,8 @@ class SActorCriticAlgoBase():
         self._unique_id = self._time_id + "-" + self._run_name
 
         self._use_combined_exp_replay=False
-        self._use_prior_exp_replay=False
         try:
             self._use_combined_exp_replay=self._hyperparameters["use_combined_exp_replay"]
-            self._use_prior_exp_replay=self._hyperparameters["use_prior_exp_replay"]
         except:
             pass
 
@@ -286,9 +284,6 @@ class SActorCriticAlgoBase():
                 dtype=torch.bool, device=self._torch_device)
             self._random_env_idxs[self._noisy_env_selector,:]=True
         
-        if self._use_prior_exp_replay:
-            self._init_priorities()
-
     def is_done(self):
 
         return self._is_done 
@@ -1063,8 +1058,6 @@ class SActorCriticAlgoBase():
                 sampled_actions = next_actions_last.clone()
                 sampled_rewards =next_rewards_last.clone()
                 sampled_terminal =next_terminal_last.clone()
-        elif self._use_prior_exp_replay:
-            a=1
         else:
             # sampling from the batched buffer
             up_to = self._replay_buffer_size if self._replay_bf_full else self._bpos*self._num_envs
@@ -1081,9 +1074,6 @@ class SActorCriticAlgoBase():
             sampled_next_obs,\
             sampled_rewards, \
             sampled_terminal
-
-    def _init_priorities(self):
-        a= 1
         
     def _sample_random_actions(self):
         
