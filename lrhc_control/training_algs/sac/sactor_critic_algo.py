@@ -786,11 +786,11 @@ class SActorCriticAlgoBase():
         
         if self._n_noisy_envs > 0:
             # also log sub rewards metrics for exploration envs
-            self._sub_rew_max_expl = torch.full((self._db_data_size, self._num_db_envs, self._n_rewards), 
+            self._sub_rew_max_expl = torch.full((self._db_data_size, self._num_expl_envs, self._n_rewards), 
                 dtype=torch.float32, fill_value=0.0, device="cpu")
-            self._sub_rew_avrg_expl = torch.full((self._db_data_size, self._num_db_envs, self._n_rewards), 
+            self._sub_rew_avrg_expl = torch.full((self._db_data_size, self._num_expl_envs, self._n_rewards), 
                 dtype=torch.float32, fill_value=0.0, device="cpu")
-            self._sub_rew_min_expl = torch.full((self._db_data_size, self._num_db_envs, self._n_rewards), 
+            self._sub_rew_min_expl = torch.full((self._db_data_size, self._num_expl_envs, self._n_rewards), 
                 dtype=torch.float32, fill_value=0.0, device="cpu")
             self._sub_rew_max_over_envs_expl = torch.full((self._db_data_size, 1, self._n_rewards), 
                 dtype=torch.float32, fill_value=0.0, device="cpu")
