@@ -37,7 +37,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # across diff envs
         random_reset_freq = 10 # a random reset once every n-episodes (per env)
         n_preinit_steps = 1 # one steps of the controllers to properly initialize everything
-        action_repeat = 2 # frame skipping (different agent action every action_repeat
+        action_repeat = 1 # frame skipping (different agent action every action_repeat
         # env substeps)
 
         self._single_task_ref_per_episode=True # if True, the task ref is constant over the episode (ie
@@ -47,7 +47,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._add_fail_idx_to_obs=True
         self._add_gn_rhc_loc=True
         self._use_linvel_from_rhc=True
-        self._use_rhc_avrg_vel_pred=False
+        self._use_rhc_avrg_vel_pred=True
         self._use_vel_err_sig_smoother=False # whether to smooth vel error signal
         self._vel_err_smoother=None
         self._use_prob_based_stepping=False
@@ -93,7 +93,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._health_value = 10.0
 
         # task tracking
-        self._task_offset = 0.0
+        self._task_offset = 10.0
         self._task_scale = 1.5 
         self._task_err_weights = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.0) 
