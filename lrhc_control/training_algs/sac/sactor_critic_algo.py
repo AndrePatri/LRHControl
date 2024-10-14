@@ -156,8 +156,10 @@ class SActorCriticAlgoBase():
         self._unique_id = self._time_id + "-" + self._run_name
 
         self._use_combined_exp_replay=False
+        self._use_prior_exp_replay=False
         try:
             self._use_combined_exp_replay=self._hyperparameters["use_combined_exp_replay"]
+            self._use_prior_exp_replay=self._hyperparameters["use_prior_exp_replay"]
         except:
             pass
 
@@ -283,6 +285,9 @@ class SActorCriticAlgoBase():
             self._random_env_idxs = torch.zeros((self._num_envs,1), 
                 dtype=torch.bool, device=self._torch_device)
             self._random_env_idxs[self._noisy_env_selector,:]=True
+        
+        if self._use_prior_exp_replay:
+            self._init_priorities()
 
     def is_done(self):
 
@@ -838,17 +843,17 @@ class SActorCriticAlgoBase():
         self._warmstart_vectimesteps = self._warmstart_timesteps//self._num_envs
         self._warmstart_timesteps = self._num_envs*self._warmstart_vectimesteps # actual
 
-        self._replay_buffer_size_nominal = int(10e6) # 32768
+        self._replay_buffer_size_nominal = int(8e6) # 32768
         self._replay_buffer_size_vec = self._replay_buffer_size_nominal//self._num_envs # 32768
         self._replay_buffer_size = self._replay_buffer_size_vec*self._num_envs
-        self._batch_size = 8192
+        self._batch_size = 4096
         self._total_timesteps = int(tot_tsteps)
         self._total_timesteps = self._total_timesteps//self._env_n_action_reps # correct with n of action reps
         self._total_timesteps_vec = self._total_timesteps // self._num_envs
         self._total_timesteps = self._total_timesteps_vec*self._num_envs # actual n transitions
   
         self._lr_policy = 1e-3
-        self._lr_q = 1e-3
+        self._lr_q = 5e-4
 
         self._discount_factor = 0.99
         self._smoothing_coeff = 0.005
@@ -861,8 +866,8 @@ class SActorCriticAlgoBase():
         self._log_alpha = None
         self._alpha = 0.2
 
-        self._n_noisy_envs = 0 # n of random envs on which noisy actions will be applied
-        self._noise_freq = 1 
+        self._n_noisy_envs = 20 # n of random envs on which noisy actions will be applied
+        self._noise_freq = 10 
         self._noise_buff_freq=self._n_noisy_envs/(self._noise_freq*self._num_envs)
         self._is_continuous_actions=self._env.is_action_continuous()
         self._continuous_act_expl_noise_std=0.3
@@ -1058,7 +1063,8 @@ class SActorCriticAlgoBase():
                 sampled_actions = next_actions_last.clone()
                 sampled_rewards =next_rewards_last.clone()
                 sampled_terminal =next_terminal_last.clone()
-
+        elif self._use_prior_exp_replay:
+            a=1
         else:
             # sampling from the batched buffer
             up_to = self._replay_buffer_size if self._replay_bf_full else self._bpos*self._num_envs
@@ -1076,6 +1082,9 @@ class SActorCriticAlgoBase():
             sampled_rewards, \
             sampled_terminal
 
+    def _init_priorities(self):
+        a= 1
+        
     def _sample_random_actions(self):
         
         self._random_uniform.uniform_(-1,1)
