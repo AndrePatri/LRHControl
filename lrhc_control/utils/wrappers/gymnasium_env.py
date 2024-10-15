@@ -463,32 +463,32 @@ if __name__ == "__main__":
     import argparse,os
 
     parser = argparse.ArgumentParser(description="Set CPU affinity for the script.")
-    parser.add_argument('--db', action=argparse.BooleanOptionalAction, default=True, help='Whether to enable local data logging for the algorithm (reward metrics, etc..)')
-    parser.add_argument('--env_db', action=argparse.BooleanOptionalAction, default=True, help='Whether to enable env db data logging on \
+    parser.add_argument('--db',action='store_true', help='Whether to enable local data logging for the algorithm (reward metrics, etc..)')
+    parser.add_argument('--env_db',action='store_true', help='Whether to enable env db data logging on \
                             shared mem (e.g.reward metrics are not available for reading anymore)')
-    parser.add_argument('--rmdb', action=argparse.BooleanOptionalAction, default=True, help='Whether to enable remote debug (e.g. data logging on remote servers)')
-    parser.add_argument('--obs_norm', action=argparse.BooleanOptionalAction, default=True, help='Whether to enable the use of running normalizer in agent')
+    parser.add_argument('--rmdb',action='store_true', help='Whether to enable remote debug (e.g. data logging on remote servers)')
+    parser.add_argument('--obs_norm',action='store_true', help='Whether to enable the use of running normalizer in agent')
     parser.add_argument('--run_name', type=str, help='Name of training run', default="GymnasiumEnvTest")
     parser.add_argument('--drop_dir', type=str, help='Directory root where all run data will be dumped',default="/tmp")
     parser.add_argument('--comment', type=str, help='Any useful comment associated with this run',default="")
     parser.add_argument('--seed', type=int, help='seed', default=1)
     
-    parser.add_argument('--eval', action=argparse.BooleanOptionalAction, default=False, help='Whether to perform an evaluation run')
+    parser.add_argument('--eval',action='store_true', help='Whether to perform an evaluation run')
     parser.add_argument('--mpath', type=str, help='Model path to be used for policy evaluation',default=None)
     parser.add_argument('--mname', type=str, help='Model name',default=None)
 
     parser.add_argument('--n_eval_timesteps', type=int, help='N. of evaluation timesteps to be performed', default=None)
-    parser.add_argument('--dump_checkpoints', action=argparse.BooleanOptionalAction, default=False, help='Whether to dump model checkpoints during training')
-    parser.add_argument('--use_cpu', action=argparse.BooleanOptionalAction, default=False, help='If set, all the training (data included) will be perfomed on CPU')
+    parser.add_argument('--dump_checkpoints',action='store_true', help='Whether to dump model checkpoints during training')
+    parser.add_argument('--use_cpu',action='store_true', help='If set, all the training (data included) will be perfomed on CPU')
 
     parser.add_argument('--ns', type=str, help='Namespace to be used for shared memory', default="Gymnasium2LRHCEnv")
     parser.add_argument('--num_envs', type=int, help='seed', default=1)
 
-    parser.add_argument('--render', action=argparse.BooleanOptionalAction, default=False, help='Whether to render environemnt')
-    parser.add_argument('--handle_final_obs', action=argparse.BooleanOptionalAction, default=True, help='Whether to handle terminal obs properly')
+    parser.add_argument('--render',action='store_true', help='Whether to render environemnt')
+    parser.add_argument('--handle_final_obs',action='store_true', help='Whether to handle terminal obs properly')
 
-    parser.add_argument('--sac', action=argparse.BooleanOptionalAction, default=True, help='')
-    parser.add_argument('--use_cer', action=argparse.BooleanOptionalAction, default=False, help='use combined experience replay')
+    parser.add_argument('--sac',action='store_true', help='')
+    parser.add_argument('--use_cer',action='store_true', help='use combined experience replay')
     
     parser.add_argument('--actor_size', type=int, help='seed', default=64)
     parser.add_argument('--critic_size', type=int, help='seed', default=64)
