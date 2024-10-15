@@ -87,12 +87,16 @@ class SActorCriticAlgoBase():
         self._start_time = time.perf_counter()
 
         with torch.no_grad(): # don't want grad computation here
-            if not self._collect_transition():
-                return False
+            for i in range(self._collection_freq):
+                if not self._collect_transition():
+                    return False
+                self._vec_transition_counter+=1
         
         self._collection_t = time.perf_counter()
         
-        self._update_policy()
+        for i in range(self._update_freq):
+            self._update_policy()
+            self._update_counter+=1
 
         self._policy_update_t = time.perf_counter()
 
@@ -488,19 +492,19 @@ class SActorCriticAlgoBase():
     def _post_step(self):
                 
         self._collection_dt[self._log_it_counter] += \
-            (self._collection_t-self._start_time) 
+            (self._collection_t-self._start_time)/self._collection_freq
         self._policy_update_dt[self._log_it_counter] += \
-            (self._policy_update_t - self._collection_t)
+            (self._policy_update_t - self._collection_t)/self._update_freq
         
-        self._vec_transition_counter+=1
+        self._step_counter+=1
 
         if ((self._vec_transition_counter-1) > self._warmstart_vectimesteps and (not self._eval)):
-            if (self._vec_transition_counter-1) % self._policy_freq == 0:
-                self._n_policy_updates[self._log_it_counter]+=self._policy_freq # td3 delaye update
+            if (self._update_counter-1) % self._policy_freq == 0:
+                self._n_policy_updates[self._log_it_counter]+=self._policy_freq*self._update_freq # td3 delaye update
             # updating qfun at each vec timesteps
-            self._n_qfun_updates[self._log_it_counter]+=1
+            self._n_qfun_updates[self._log_it_counter]+=self._update_freq
             
-            if (self._vec_transition_counter-1) % self._trgt_net_freq == 0:
+            if (self._update_counter-1) % self._trgt_net_freq == 0:
                 self._n_tqfun_updates[self._log_it_counter]+=1
 
         if ((self._vec_transition_counter-1) > self._warmstart_vectimesteps or self._eval) and \
@@ -715,7 +719,6 @@ class SActorCriticAlgoBase():
                 f"Current env (sub-steping) rt factor: {self._env_step_rt_factor[self._log_it_counter].item()}\n" + \
                 f"Current policy update fps: {self._policy_update_fps[self._log_it_counter].item()}, time for policy updates {self._policy_update_dt[self._log_it_counter].item()} s\n"
             
-            
             Journal.log(self.__class__.__name__,
                 "_post_step",
                 info,
@@ -882,10 +885,11 @@ class SActorCriticAlgoBase():
         self._torch_deterministic = True
 
         # main algo settings
+
+        self._collection_freq=1
+        self._update_freq=1
+
         self._replay_bf_full = False
-        self._warmstart_timesteps = int(5e3)
-        self._warmstart_vectimesteps = self._warmstart_timesteps//self._num_envs
-        self._warmstart_timesteps = self._num_envs*self._warmstart_vectimesteps # actual
 
         self._replay_buffer_size_nominal = int(8e6) # 32768
         self._replay_buffer_size_vec = self._replay_buffer_size_nominal//self._num_envs # 32768
@@ -894,8 +898,16 @@ class SActorCriticAlgoBase():
         self._total_timesteps = int(tot_tsteps)
         self._total_timesteps = self._total_timesteps//self._env_n_action_reps # correct with n of action reps
         self._total_timesteps_vec = self._total_timesteps // self._num_envs
+        self._total_steps = self._total_timesteps_vec//self._collection_freq
+        self._total_timesteps_vec = self._total_steps*self._collection_freq # correct to be a multiple of self._total_steps
         self._total_timesteps = self._total_timesteps_vec*self._num_envs # actual n transitions
-  
+
+        self._warmstart_timesteps = int(5e3)
+        self._warmstart_vectimesteps = self._warmstart_timesteps//self._num_envs
+        self._warmstart_steps=self._warmstart_vectimesteps//self._collection_freq
+        self._warmstart_vectimesteps=self._collection_freq*self._warmstart_steps
+        self._warmstart_timesteps = self._num_envs*self._warmstart_vectimesteps # actual
+
         self._lr_policy = 1e-3
         self._lr_q = 5e-4
 
@@ -937,10 +949,11 @@ class SActorCriticAlgoBase():
 
         self._db_vecstep_frequency = 128 # log db data every n (vectorized) SUB timesteps
         self._db_vecstep_frequency=round(self._db_vecstep_frequency/self._env_n_action_reps) # correcting with actions reps 
-
-        self._n_policy_updates_to_be_done=((self._total_timesteps_vec-self._warmstart_vectimesteps)//self._policy_freq)*self._policy_freq #TD3 delayed update
-        self._n_qf_updates_to_be_done=(self._total_timesteps_vec-self._warmstart_vectimesteps)//1 # qf updated at each vec timesteps
-        self._n_tqf_updates_to_be_done=(self._total_timesteps_vec-self._warmstart_vectimesteps)//self._trgt_net_freq 
+        # correct db vecstep frequency to ensure it's a multiple of self._collection_freq
+        self._db_vecstep_frequency=(self._db_vecstep_frequency//self._collection_freq)*self._collection_freq
+        self._n_policy_updates_to_be_done=(self._total_steps-self._warmstart_steps)*self._update_freq #TD3 delayed update
+        self._n_qf_updates_to_be_done=(self._total_steps-self._warmstart_steps)*self._update_freq # qf updated at each vec timesteps
+        self._n_tqf_updates_to_be_done=(self._total_steps-self._warmstart_steps)*self._update_freq//self._trgt_net_freq
 
         self._exp_to_policy_grad_ratio=float(self._total_timesteps-self._warmstart_timesteps)/float(self._n_policy_updates_to_be_done)
         self._exp_to_qf_grad_ratio=float(self._total_timesteps-self._warmstart_timesteps)/float(self._n_qf_updates_to_be_done)
@@ -957,6 +970,10 @@ class SActorCriticAlgoBase():
         self._hyperparameters["using_gpu"] = self._use_gpu
         self._hyperparameters["total_timesteps_vec"] = self._total_timesteps_vec
 
+        self._hyperparameters["collection_freq"]=self._collection_freq
+        self._hyperparameters["update_freq"]=self._update_freq
+        self._hyperparameters["total_steps"]=self._total_steps
+        
         self._hyperparameters["n_policy_updates_when_done"] = self._n_policy_updates_to_be_done
         self._hyperparameters["n_qf_updates_when_done"] = self._n_qf_updates_to_be_done
         self._hyperparameters["n_tqf_updates_when_done"] = self._n_tqf_updates_to_be_done
@@ -1023,7 +1040,9 @@ class SActorCriticAlgoBase():
             LogType.INFO,
             throw_when_excep = True)
         
+        self._step_counter = 0
         self._vec_transition_counter = 0
+        self._update_counter = 0
         self._log_it_counter = 0
 
     def _init_replay_buffers(self):

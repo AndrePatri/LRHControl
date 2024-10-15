@@ -84,7 +84,7 @@ class SAC(SActorCriticAlgoBase):
             qf_loss.backward()
             self._qf_optimizer.step()
 
-            if self._vec_transition_counter % self._policy_freq == 0:  # TD 3 Delayed update support
+            if self._update_counter % self._policy_freq == 0:  # TD 3 Delayed update support
                 # policy update
                 for i in range(self._policy_freq): # compensate for the delay by doing 'actor_update_interval' instead of 1
                     pi, log_pi, _ = self._agent.get_action(obs)
@@ -105,7 +105,7 @@ class SAC(SActorCriticAlgoBase):
                         self._alpha = self._log_alpha.exp().item()
 
             # update the target networks
-            if self._vec_transition_counter % self._trgt_net_freq == 0:
+            if self._update_counter % self._trgt_net_freq == 0:
                 for param, target_param in zip(self._agent.qf1.parameters(), self._agent.qf1_target.parameters()):
                     target_param.data.copy_(self._smoothing_coeff * param.data + (1 - self._smoothing_coeff) * target_param.data)
                 for param, target_param in zip(self._agent.qf2.parameters(), self._agent.qf2_target.parameters()):
@@ -116,7 +116,7 @@ class SAC(SActorCriticAlgoBase):
             self._qf2_vals[self._log_it_counter, 0] = qf2_a_values.mean().item()
             self._qf1_loss[self._log_it_counter, 0] = qf1_loss.mean().item()
             self._qf2_loss[self._log_it_counter, 0] = qf2_loss.mean().item()
-            if self._vec_transition_counter % self._policy_freq == 0:
+            if self._update_counter % self._policy_freq == 0:
                 self._actor_loss[self._log_it_counter, 0] = actor_loss.mean().item()
                 self._alphas[self._log_it_counter, 0] = self._alpha
                 if self._autotune:
