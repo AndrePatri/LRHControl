@@ -669,18 +669,18 @@ class SActorCriticAlgoBase():
                 
                 if self._n_noisy_envs > 0:
                     # sub reward from expl envs
-                    wandb_d.update({f"sub_reward/{self._reward_names[i]}_sub_rew_max_expl":
+                    wandb_d.update({f"sub_reward_expl/{self._reward_names[i]}_sub_rew_max_expl":
                             wandb.Histogram(self._sub_rew_max_expl.numpy()[self._log_it_counter-1, :, i:i+1]) for i in range(len(self._reward_names))})
-                    wandb_d.update({f"sub_reward/{self._reward_names[i]}_sub_rew_avrg_expl":
+                    wandb_d.update({f"sub_reward_expl/{self._reward_names[i]}_sub_rew_avrg_expl":
                             wandb.Histogram(self._sub_rew_avrg_expl.numpy()[self._log_it_counter-1, :, i:i+1]) for i in range(len(self._reward_names))})
-                    wandb_d.update({f"sub_reward/{self._reward_names[i]}_sub_rew_min_expl":
+                    wandb_d.update({f"sub_reward_expl/{self._reward_names[i]}_sub_rew_min_expl":
                             wandb.Histogram(self._sub_rew_min_expl.numpy()[self._log_it_counter-1, :, i:i+1]) for i in range(len(self._reward_names))})
                 
-                    wandb_d.update({f"sub_reward/{self._reward_names[i]}_sub_rew_max_over_envs_expl":
+                    wandb_d.update({f"sub_reward_expl/{self._reward_names[i]}_sub_rew_max_over_envs_expl":
                             self._sub_rew_max_over_envs_expl[self._log_it_counter-1, :, i:i+1] for i in range(len(self._reward_names))})
-                    wandb_d.update({f"sub_reward/{self._reward_names[i]}_sub_rew_avrg_over_envs_expl":
+                    wandb_d.update({f"sub_reward_expl/{self._reward_names[i]}_sub_rew_avrg_over_envs_expl":
                             self._sub_rew_avrg_over_envs_expl[self._log_it_counter-1, :, i:i+1] for i in range(len(self._reward_names))})
-                    wandb_d.update({f"sub_reward/{self._reward_names[i]}_sub_rew_min_over_envs_expl":
+                    wandb_d.update({f"sub_reward_expl/{self._reward_names[i]}_sub_rew_min_over_envs_expl":
                             self._sub_rew_min_over_envs_expl[self._log_it_counter-1, :, i:i+1] for i in range(len(self._reward_names))})
                 
                 wandb_d.update(self._policy_update_db_data_dict)
