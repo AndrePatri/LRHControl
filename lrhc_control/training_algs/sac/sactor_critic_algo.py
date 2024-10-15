@@ -283,7 +283,7 @@ class SActorCriticAlgoBase():
         self._random_normal = torch.full_like(self._random_uniform,fill_value=0.0)
         # for efficiency)
 
-        if self._n_noisy_envs > 0:
+        if self._num_expl_envs > 0:
             self._expl_env_idxs = torch.zeros((self._num_envs,1), 
                 dtype=torch.bool, device=self._torch_device)
             self._expl_env_idxs[self._expl_env_selector,:]=True
@@ -924,7 +924,6 @@ class SActorCriticAlgoBase():
 
         self._n_noisy_envs = 20 # n of random envs on which noisy actions will be applied
         self._noise_freq = 10 
-        self._noise_buff_freq=self._n_noisy_envs/(self._noise_freq*self._num_envs)
         self._is_continuous_actions=self._env.is_action_continuous()
         self._continuous_act_expl_noise_std=0.3
         self._discrete_act_expl_noise_std=1.0
@@ -946,6 +945,7 @@ class SActorCriticAlgoBase():
                 dtype=torch.int,
                 device="cpu") # we assume last _n_noisy_envs will be noisy
         self._num_expl_envs=self._num_envs-self._num_db_envs
+        self._noise_buff_freq=self._num_expl_envs/(self._noise_freq*self._num_envs)
 
         self._db_vecstep_frequency = 128 # log db data every n (vectorized) SUB timesteps
         self._db_vecstep_frequency=round(self._db_vecstep_frequency/self._env_n_action_reps) # correcting with actions reps 
