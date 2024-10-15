@@ -937,7 +937,7 @@ class SActorCriticAlgoBase():
 
         self._num_db_envs = self._num_envs
         self._db_env_selector=None
-        if self._n_noisy_envs>0: # log data only from envs which are not altered (e.g. by exploration noise)
+        if self._n_noisy_envs>00 and ((self._num_envs-self._n_noisy_envs)>0): # log data only from envs which are not altered (e.g. by exploration noise)
             self._num_db_envs = self._num_envs-self._n_noisy_envs 
             self._db_env_selector=torch.tensor(list(range(0,self._num_db_envs)),
                 dtype=torch.int,
