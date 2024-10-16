@@ -71,14 +71,14 @@ class LRhcClusterClient(ControlClusterClient):
     
     def _generate_srdf(self,namespace:str):
         
-        self._urdf_path=generate_srdf(robot_name=namespace,
+        self._urdf_path=generate_urdf(robot_name=namespace,
             xacro_path=self._urdf_xacro_path,
             dump_path=self._temp_path,
             xrdf_cmds=self._xrdf_cmds())
     
     def _generate_urdf(self,namespace:str):
         
-        self._srdf_path=generate_urdf(robot_name=namespace,
+        self._srdf_path=generate_srdf(robot_name=namespace,
             xacro_path=self._srdf_xacro_path,
             dump_path=self._temp_path,
             xrdf_cmds=self._xrdf_cmds())
