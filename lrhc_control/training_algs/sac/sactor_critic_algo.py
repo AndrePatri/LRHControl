@@ -371,7 +371,7 @@ class SActorCriticAlgoBase():
             hf.create_dataset('tot_rew_avrg_over_envs', data=self._tot_rew_avrg_over_envs.numpy())
             hf.create_dataset('tot_rew_min_over_envs', data=self._tot_rew_min_over_envs.numpy())
             
-            if self._n_noisy_envs > 0:
+            if self._n_expl_envs > 0:
                 # expl envs
                 hf.create_dataset('sub_rew_max_expl', data=self._sub_rew_max_expl.numpy())
                 hf.create_dataset('sub_rew_avrg_expl', data=self._sub_rew_avrg_expl.numpy())
@@ -497,15 +497,6 @@ class SActorCriticAlgoBase():
             (self._policy_update_t - self._collection_t)/self._update_freq
         
         self._step_counter+=1
-
-        if ((self._vec_transition_counter-1) > self._warmstart_vectimesteps and (not self._eval)):
-            if (self._update_counter-1) % self._policy_freq == 0:
-                self._n_policy_updates[self._log_it_counter]+=self._policy_freq*self._update_freq # td3 delaye update
-            # updating qfun at each vec timesteps
-            self._n_qfun_updates[self._log_it_counter]+=self._update_freq
-            
-            if (self._update_counter-1) % self._trgt_net_freq == 0:
-                self._n_tqfun_updates[self._log_it_counter]+=1
 
         if ((self._vec_transition_counter-1) > self._warmstart_vectimesteps or self._eval) and \
             self._vec_transition_counter % self._db_vecstep_frequency== 0:
@@ -887,7 +878,7 @@ class SActorCriticAlgoBase():
         # main algo settings
 
         self._collection_freq=1
-        self._update_freq=1
+        self._update_freq=5
 
         self._replay_bf_full = False
 
