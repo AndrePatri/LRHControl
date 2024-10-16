@@ -407,9 +407,6 @@ class Gymnasium2LRHCEnv():
         else:
             observations, rewards, terminations, truncations, infos = self._env.step(gym_env_action)
 
-        print("AAAAAAAAAAA")
-        print(terminations)
-        print(truncations)
         if self._render:
             self._env.render()
 
