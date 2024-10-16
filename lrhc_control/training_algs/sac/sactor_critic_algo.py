@@ -878,7 +878,7 @@ class SActorCriticAlgoBase():
         # main algo settings
 
         self._collection_freq=1
-        self._update_freq=10
+        self._update_freq=1
 
         self._replay_bf_full = False
 
