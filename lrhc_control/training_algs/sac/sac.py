@@ -38,7 +38,7 @@ class SAC(SActorCriticAlgoBase):
             actions = actions.detach()
             if (self._eval and self._det_eval): # use mean instead of stochastic policy
                 actions[:, :] = mean.detach()
-            if not self._eval and (self._n_noisy_envs>0 and
+            if not self._eval and (self._n_expl_envs>0 and
                 (self._vec_transition_counter%self._noise_freq==0)): # add some noisy transitions to avoid local minima
                 self._perturb_some_actions(actions=actions)
         else:
@@ -83,6 +83,7 @@ class SAC(SActorCriticAlgoBase):
             self._qf_optimizer.zero_grad()
             qf_loss.backward()
             self._qf_optimizer.step()
+            self._n_qfun_updates[self._log_it_counter]+=1
 
             if self._update_counter % self._policy_freq == 0:  # TD 3 Delayed update support
                 # policy update
@@ -103,6 +104,7 @@ class SAC(SActorCriticAlgoBase):
                         alpha_loss.backward()
                         self._a_optimizer.step()
                         self._alpha = self._log_alpha.exp().item()
+                    self._n_policy_updates[self._log_it_counter]+=1
 
             # update the target networks
             if self._update_counter % self._trgt_net_freq == 0:
@@ -110,6 +112,7 @@ class SAC(SActorCriticAlgoBase):
                     target_param.data.copy_(self._smoothing_coeff * param.data + (1 - self._smoothing_coeff) * target_param.data)
                 for param, target_param in zip(self._agent.qf2.parameters(), self._agent.qf2_target.parameters()):
                     target_param.data.copy_(self._smoothing_coeff * param.data + (1 - self._smoothing_coeff) * target_param.data)
+                self._n_tqfun_updates[self._log_it_counter]+=1
 
             # add db info to wandb
             self._qf1_vals[self._log_it_counter, 0] = qf1_a_values.mean().item()

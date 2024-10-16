@@ -49,7 +49,6 @@ class Gymnasium2LRHCEnv():
         self._render = render
         self._render_mode = "rgb_array" if self._render else None
 
-        import os 
         if self._render:
             os.environ["MUJOCO_GL"]="egl"
 
@@ -63,9 +62,9 @@ class Gymnasium2LRHCEnv():
                         # context="fork",
                         # daemon=True) # gym.make_vec is broken (pipes issue)
         else:
-            self._env = gym.vector.make(env_type, 
+            self._env = gym.make_vec(env_type, 
                         num_envs=args.num_envs,
-                        asynchronous=True,
+                        vectorization_mode= "async",  
                         render_mode=self._render_mode)
                         # shared_memory=True,
                         # context="fork",
@@ -112,6 +111,7 @@ class Gymnasium2LRHCEnv():
                                         fill_value=1.0)
         self._actions_lb = torch.full((1, self._actions_dim), dtype=self._torch_dtype, device=self._torch_device,
                                         fill_value=-1.0)
+
         # read bounds from actions space
         if self._render:
             self._actions_ub[:, :] = torch.from_numpy(self._env.action_space.high)
@@ -119,6 +119,9 @@ class Gymnasium2LRHCEnv():
         else:
             self._actions_ub[:, :] = torch.from_numpy(self._env.single_action_space.high)
             self._actions_lb[:, :] = torch.from_numpy(self._env.single_action_space.low)
+
+        self._actions_scale = (self._actions_ub - self._actions_lb)/2.0
+        self._actions_offset = (self._actions_ub + self._actions_lb)/2.0
 
         reward_thresh_default = 1.0
         self._reward_thresh_lb = torch.full((1, 1), dtype=self._torch_dtype, fill_value=-reward_thresh_default, device=self._torch_device) # used for clipping rewards
@@ -254,6 +257,14 @@ class Gymnasium2LRHCEnv():
                                         ep_vec_freq=1)
         self._episodic_rewards_metrics.set_constant_data_scaling(scaling=1)
 
+        # default to all continuous actions (changes the way noise is added)
+        self._is_continuous_actions=torch.full((1, self._actions_dim), 
+            dtype=torch.bool, device=self._torch_device,
+            fill_value=True) 
+
+    def is_action_continuous(self):
+        return self._is_continuous_actions
+    
     def gym_env(self):
         return self._env
     
@@ -330,7 +341,13 @@ class Gymnasium2LRHCEnv():
 
     def get_actions_ub(self):
         return self._actions_ub
-
+    
+    def get_actions_scale(self):
+        return self._actions_scale
+    
+    def get_actions_offset(self):
+        return self._actions_offset
+    
     def name(self):
         return self._namespace
     
@@ -493,7 +510,7 @@ if __name__ == "__main__":
     parser.add_argument('--actor_size', type=int, help='seed', default=64)
     parser.add_argument('--critic_size', type=int, help='seed', default=64)
 
-    parser.add_argument('--env_type', type=str, help='Name of env to be created',default="HalfCheetah-v4")
+    parser.add_argument('--env_type', type=str, help='Name of env to be created',default="HalfCheetah-v5")
 
     args = parser.parse_args()
     args_dict = vars(args)
