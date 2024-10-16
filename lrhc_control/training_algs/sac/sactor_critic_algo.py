@@ -492,9 +492,9 @@ class SActorCriticAlgoBase():
     def _post_step(self):
                 
         self._collection_dt[self._log_it_counter] += \
-            (self._collection_t-self._start_time)/self._collection_freq
+            (self._collection_t-self._start_time)
         self._policy_update_dt[self._log_it_counter] += \
-            (self._policy_update_t - self._collection_t)/self._update_freq
+            (self._policy_update_t - self._collection_t)
         
         self._step_counter+=1
 
@@ -878,7 +878,7 @@ class SActorCriticAlgoBase():
         # main algo settings
 
         self._collection_freq=1
-        self._update_freq=5
+        self._update_freq=10
 
         self._replay_bf_full = False
 
@@ -913,7 +913,7 @@ class SActorCriticAlgoBase():
         self._log_alpha = None
         self._alpha = 0.2
 
-        self._n_noisy_envs = 20 # n of random envs on which noisy actions will be applied
+        self._n_noisy_envs = 0 # n of random envs on which noisy actions will be applied
         self._noise_freq = 10 
         self._is_continuous_actions=self._env.is_action_continuous()
         self._continuous_act_expl_noise_std=0.3
