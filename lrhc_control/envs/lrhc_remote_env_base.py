@@ -275,14 +275,17 @@ class LRhcEnvBase():
     def close(self) -> None:
         if not self._closed:
             for i in range(len(self._robot_names)):
-                self.cluster_servers[self._robot_names[i]].close()
+                if self._robot_names[i] in self.cluster_servers:
+                    self.cluster_servers[self._robot_names[i]].close()
                 if self._use_remote_stepping[i]: # remote signaling
-                    self._remote_reset_requests[self._robot_names[i]].close()
-                    self._remote_resetters[self._robot_names[i]].close()
-                    self._remote_steppers[self._robot_names[i]].close()
-                jnt_imp_shared_data=self._jnt_imp_cntrl_shared_data[self._robot_names[i]]
-                if jnt_imp_shared_data is not None:
-                    jnt_imp_shared_data.close()
+                    if self._robot_names[i] in self._remote_reset_requests:
+                        self._remote_reset_requests[self._robot_names[i]].close()
+                        self._remote_resetters[self._robot_names[i]].close()
+                        self._remote_steppers[self._robot_names[i]].close()
+                if self._robot_names[i] in self._jnt_imp_cntrl_shared_data:
+                    jnt_imp_shared_data=self._jnt_imp_cntrl_shared_data[self._robot_names[i]]
+                    if jnt_imp_shared_data is not None:
+                        jnt_imp_shared_data.close()
             self._close()
             self._closed=True
     
