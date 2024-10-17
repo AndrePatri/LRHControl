@@ -32,12 +32,12 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         episode_timeout_lb = 1024 # episode timeouts (including env substepping when action_repeat>1)
         episode_timeout_ub = 1024
-        n_steps_task_rand_lb = 600 # agent refs randomization freq
-        n_steps_task_rand_ub = 600 # lb not eq. to ub to remove correlations between episodes
+        n_steps_task_rand_lb = 300 # agent refs randomization freq
+        n_steps_task_rand_ub = 300 # lb not eq. to ub to remove correlations between episodes
         # across diff envs
         random_reset_freq = 10 # a random reset once every n-episodes (per env)
         n_preinit_steps = 1 # one steps of the controllers to properly initialize everything
-        action_repeat = 1 # frame skipping (different agent action every action_repeat
+        action_repeat = 2 # frame skipping (different agent action every action_repeat
         # env substeps)
 
         self._single_task_ref_per_episode=True # if True, the task ref is constant over the episode (ie
@@ -47,7 +47,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._add_fail_idx_to_obs=True
         self._add_gn_rhc_loc=True
         self._use_linvel_from_rhc=True
-        self._use_rhc_avrg_vel_pred=True
+        self._use_rhc_avrg_vel_pred=False
         self._use_vel_err_sig_smoother=False # whether to smooth vel error signal
         self._vel_err_smoother=None
         self._use_prob_based_stepping=False
@@ -105,7 +105,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._task_err_weights[0, 5] = 1e-1
 
         # task pred tracking
-        self._task_pred_offset = 10.0 # 10.0
+        self._task_pred_offset = 0.0 # 10.0
         self._task_pred_scale = 1.5 # perc-based
         self._task_pred_err_weights = torch.full((1, 6), dtype=dtype, device=device,
                             fill_value=0.0) 
@@ -195,7 +195,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     act_membf_size=30)
 
         self._is_substep_rew[0]=False
-        self._is_substep_rew[1]=False
+        # self._is_substep_rew[1]=False
 
         # custom db info 
         agent_twist_ref = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=False)
@@ -652,11 +652,11 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
     def _get_rewards_names(self):
 
-        n_rewards = 2
+        n_rewards = 1
         reward_names = [""] * n_rewards
 
         reward_names[0] = "task_error"
-        reward_names[1] = "task_pred_error"
+        # reward_names[1] = "task_pred_error"
 
         # reward_names[1] = "CoT"
         # reward_names[2] = "mech_power"

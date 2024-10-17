@@ -12,6 +12,7 @@ if __name__ == '__main__':
     parser.add_argument('--dump_dt_min', type=float, default=60.0, help='wait these min before dumping a new bag')
 
     parser.add_argument('--ns', type=str, help='Namespace to be used for cluster shared memory')
+    parser.add_argument('--remap_ns', type=str, default=None, help='namespace used to remap rhcviz topics')
     parser.add_argument('--debug', action='store_true', help='Enable debug mode, default is False')
     parser.add_argument('--verbose',action='store_true', help='Enable verbose mode, default is True')
     parser.add_argument('--ros2',action='store_true', help='Use ROS 2')
@@ -32,6 +33,7 @@ if __name__ == '__main__':
     while True:
         
         bag_dumper=RosBagDumper(ns=args.ns,
+            remap_ns=args.remap_ns,
             ros_bridge_dt=args.ros_bridge_dt,
             bag_sdt=args.bag_sdt,
             debug=args.debug,

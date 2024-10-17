@@ -11,6 +11,7 @@ class RosBagDumper():
             ns:str,
             ros_bridge_dt: float,
             bag_sdt: float,
+            remap_ns: str = None,
             debug: bool=False,
             verbose: bool=False,
             dump_path: str = "/tmp",
@@ -26,6 +27,10 @@ class RosBagDumper():
         self._closed=False
         
         self._ns=ns
+        self._remap_ns=remap_ns
+        if self._remap_ns is None: # allow to publish with different namespace (to allow
+            # support for multiple bags at once and multiple rhcviz instances)
+            self._remap_ns=self._ns
 
         self._srdf_path=None
 
@@ -68,7 +73,7 @@ class RosBagDumper():
         ctx = mp.get_context('forkserver')
         self._bag_proc=ctx.Process(target=self._launch_rosbag, 
             name="rosbag_recorder_"+f"{self._ns}",
-            args=(self._ns,self._dump_path,self._timeout_ms,self._use_shared_drop_dir))
+            args=(self._remap_ns,self._dump_path,self._timeout_ms,self._use_shared_drop_dir))
         self._bag_proc.start()
 
         # for detecting when training is finished
@@ -96,6 +101,7 @@ class RosBagDumper():
         else:
             from lrhc_control.utils.rhc_viz.rhc2viz2 import RhcToViz2Bridge
             self._bridge = RhcToViz2Bridge(namespace=self._ns, 
+                remap_ns=self._remap_ns,
                 verbose=self._verbose,
                 rhcviz_basename="RHCViz", 
                 robot_selector=[0, None],
@@ -109,7 +115,7 @@ class RosBagDumper():
 
         # actual process recording bag
         from control_cluster_bridge.utilities.remote_triggering import RemoteTriggererSrvr
-        self._term_trigger=RemoteTriggererSrvr(namespace=self._ns+f"SharedTerminator",
+        self._term_trigger=RemoteTriggererSrvr(namespace=self._remap_ns+f"SharedTerminator",
                                             verbose=self._verbose,
                                             vlevel=VLevel.V1,
                                             force_reconnection=True)
