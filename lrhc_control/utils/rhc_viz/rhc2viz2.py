@@ -41,6 +41,7 @@ class RhcToViz2Bridge:
     
     def __init__(self, 
             namespace: str, 
+            remap_ns: str = None,
             verbose = False,
             vlevel: VLevel = VLevel.V1,
             rhcviz_basename = "RHCViz",
@@ -77,7 +78,9 @@ class RhcToViz2Bridge:
 
         self.namespace = namespace # defines uniquely the kind of controller 
         # (associated with a specific robot)
-
+        self._remap_namespace=remap_ns
+        if self._remap_namespace is None: # allow publishing with different namespace
+            self._remap_namespace=self.namespace
         # ros stuff
         self.ros_names = NamingConventions() # rhcviz naming conventions
         self.rhcviz_basename = rhcviz_basename 
@@ -184,7 +187,7 @@ class RhcToViz2Bridge:
         from datetime import datetime
         time_id = datetime.now().strftime('d%Y_%m_%d_h%H_m%M_s%S')
 
-        self.node = rclpy.create_node(self.rhcviz_basename + "_" + self.namespace+f"_{time_id}")
+        self.node = rclpy.create_node(self.rhcviz_basename + "_" + self._remap_namespace+f"_{time_id}")
         self._qos_settings = QoSProfile(
             reliability=ReliabilityPolicy.RELIABLE, # BEST_EFFORT
             durability=DurabilityPolicy.TRANSIENT_LOCAL, # VOLATILE
@@ -196,39 +199,39 @@ class RhcToViz2Bridge:
             )
 
         self.handshaker = RHCVizHandshake(handshake_topic=self.ros_names.handshake_topicname(basename=self.rhcviz_basename, 
-                                                                                        namespace=self.namespace),
+                                                                                        namespace=self._remap_namespace),
                                         node=self.node,
                                         is_server=True)
         
         self.rhc_q_pub = self.node.create_publisher(Float64MultiArray, 
                                             self.ros_names.rhc_q_topicname(basename=self.rhcviz_basename, 
-                                                                        namespace=self.namespace),
+                                                                        namespace=self._remap_namespace),
                                             qos_profile=self._qos_settings)
 
         self.rhc_refs_pub = self.node.create_publisher(Float64MultiArray, 
                                             self.ros_names.rhc_refs_topicname(basename=self.rhcviz_basename, 
-                                                                        namespace=self.namespace),
+                                                                        namespace=self._remap_namespace),
                                             qos_profile=self._qos_settings)
 
         if self._with_agent_refs:
             self.hl_refs_pub = self.node.create_publisher(Float64MultiArray, 
                                             self.ros_names.hl_refs_topicname(basename=self.rhcviz_basename, 
-                                                                        namespace=self.namespace),
+                                                                        namespace=self._remap_namespace),
                                             qos_profile=self._qos_settings)
             
         self.robot_q_pub = self.node.create_publisher(Float64MultiArray, 
                                             self.ros_names.robot_q_topicname(basename=self.rhcviz_basename, 
-                                                                    namespace=self.namespace),
+                                                                    namespace=self._remap_namespace),
                                             qos_profile=self._qos_settings)
         
         self.robot_jntnames_pub = self.node.create_publisher(String, 
                                             self.ros_names.robot_jntnames(basename=self.rhcviz_basename, 
-                                                                namespace=self.namespace),
+                                                                namespace=self._remap_namespace),
                                             qos_profile=self._qos_settings)       
 
         self.rhc_jntnames_pub = self.node.create_publisher(String, 
                                             self.ros_names.rhc_jntnames(basename=self.rhcviz_basename, 
-                                                                namespace=self.namespace),
+                                                                namespace=self._remap_namespace),
                                             qos_profile=self._qos_settings)   
 
         self.simtime_pub = self.node.create_publisher(Clock, 
