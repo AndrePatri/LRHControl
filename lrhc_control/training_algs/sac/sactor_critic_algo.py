@@ -878,7 +878,7 @@ class SActorCriticAlgoBase():
         # main algo settings
 
         self._collection_freq=1
-        self._update_freq=5
+        self._update_freq=1
 
         self._replay_bf_full = False
 
@@ -913,7 +913,7 @@ class SActorCriticAlgoBase():
         self._log_alpha = None
         self._alpha = 0.2
 
-        self._n_noisy_envs = 20 # n of random envs on which noisy actions will be applied
+        self._n_noisy_envs = 0 # n of random envs on which noisy actions will be applied
         self._noise_freq = 5 
         self._is_continuous_actions=self._env.is_action_continuous()
         self._continuous_act_expl_noise_std=0.3
