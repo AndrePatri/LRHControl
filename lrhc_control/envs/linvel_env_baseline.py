@@ -32,12 +32,12 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         episode_timeout_lb = 1024 # episode timeouts (including env substepping when action_repeat>1)
         episode_timeout_ub = 1024
-        n_steps_task_rand_lb = 300 # agent refs randomization freq
-        n_steps_task_rand_ub = 300 # lb not eq. to ub to remove correlations between episodes
+        n_steps_task_rand_lb = 600 # agent refs randomization freq
+        n_steps_task_rand_ub = 600 # lb not eq. to ub to remove correlations between episodes
         # across diff envs
         random_reset_freq = 10 # a random reset once every n-episodes (per env)
         n_preinit_steps = 1 # one steps of the controllers to properly initialize everything
-        action_repeat = 2 # frame skipping (different agent action every action_repeat
+        action_repeat = 1 # frame skipping (different agent action every action_repeat
         # env substeps)
 
         self._single_task_ref_per_episode=True # if True, the task ref is constant over the episode (ie
@@ -324,7 +324,17 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         if self._vel_err_smoother is not None: # reset smoother
             self._vel_err_smoother.reset(to_be_reset=episode_finished.flatten())
 
-    def _custom_substep_post_substepping(self):
+    def _custom_post_substp_pre_rew(self):
+        # get fresh robot orientation
+        robot_q = self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
+        # rotate agent ref from world to robot base
+        world2base_frame(t_w=self._agent_twist_ref_current_w, q_b=robot_q, 
+            t_out=self._agent_twist_ref_current_base_loc)
+        # write it to agent refs tensors
+        self._agent_refs.rob_refs.root_state.set(data_type="twist", data=self._agent_twist_ref_current_base_loc,
+                                            gpu=self._use_gpu)
+        
+    def _custom_post_substp_post_rew(self):
         pass
 
     def _apply_actions_to_rhc(self):
@@ -499,7 +509,6 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         sub_rewards[:, 0:1] = self._task_offset*torch.exp(-self._task_scale*task_error)
 
         if self._use_rhc_avrg_vel_pred:
-            agent_task_ref_base_loc = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu) # high level agent refs (hybrid twist)
             self._get_avrg_rhc_root_twist(out=self._root_twist_avrg_rhc_base_loc_next,base_loc=True) # get estimated avrg vel 
             # from MPC after stepping
             task_pred_error=task_error_fun(task_meas=self._root_twist_avrg_rhc_base_loc_next, 
@@ -534,11 +543,10 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         
     def _randomize_task_refs(self,
         env_indxs: torch.Tensor = None):
-        
-        robot_q = self._robot_state.root_state.get(data_type="q",gpu=self._use_gpu)
 
-        # we randomize the reference in world frame, since it's much more intuitive and then rotate it in 
-        # the base frame
+        # we randomize the reference in world frame, since it's much more intuitive 
+        # (it will be rotated in base frame when provided to the agent and used for rew 
+        # computation)
         
         if self._use_pof0: # sample from bernoulli distribution
             torch.bernoulli(input=self._pof1_b,out=self._bernoulli_coeffs) # by default bernoulli_coeffs are 1 if not _use_pof0
@@ -552,13 +560,6 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             torch.nn.init.uniform_(random_uniform, a=-1, b=1)
             self._agent_twist_ref_current_w[env_indxs, :] = random_uniform * self._twist_ref_scale + self._twist_ref_offset
             self._agent_twist_ref_current_w[env_indxs, :] = self._agent_twist_ref_current_w[env_indxs, :]*self._bernoulli_coeffs[env_indxs, :]
-        
-        # rotate from world to robot's base frame (robot q may not be available on real robot or be an inaccurate estimate)
-        world2base_frame(t_w=self._agent_twist_ref_current_w, q_b=robot_q, t_out=self._agent_twist_ref_current_base_loc)
-        self._agent_refs.rob_refs.root_state.set(data_type="twist", data=self._agent_twist_ref_current_base_loc,
-                                            gpu=self._use_gpu)
-        
-        self._synch_refs(gpu=self._use_gpu)
     
     def _get_obs_names(self):
 

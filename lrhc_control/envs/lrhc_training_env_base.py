@@ -107,7 +107,7 @@ class LRhcTrainingEnvBase():
 
         self._use_act_mem_bf = use_act_mem_bf
         self._act_membf_size = round(act_membf_size/self._action_repeat) 
-        
+
         self._closed = False
 
         self._override_agent_refs = override_agent_refs
@@ -278,6 +278,7 @@ class LRhcTrainingEnvBase():
             self._sub_terminations.synch_mirror(from_gpu=True,non_blocking=True)
             self._tot_rewards.synch_mirror(from_gpu=True,non_blocking=True)
             self._sub_rewards.synch_mirror(from_gpu=True,non_blocking=True)
+            self._agent_refs.rob_refs.root_state.synch_mirror(from_gpu=True,non_blocking=True) 
             # if we want reliable db data then we should synchronize data streams
             torch.cuda.synchronize()
 
@@ -291,6 +292,7 @@ class LRhcTrainingEnvBase():
         self._sub_truncations.synch_all(read=False, retry = True)
         self._terminations.synch_all(read=False, retry = True) 
         self._sub_terminations.synch_all(read=False, retry = True)
+        self._agent_refs.rob_refs.root_state.synch_all(read=False, retry = True)
 
     def _remote_sim_step(self):
 
@@ -376,8 +378,10 @@ class LRhcTrainingEnvBase():
             self._synch_obs(gpu=self._use_gpu) # read obs from shared mem (done in substeps also, 
             # since substeps rewards will need updated substep obs)
             
+            self._custom_post_substp_pre_rew() # custom substepping logic
             self._compute_substep_rewards()
             self._assemble_substep_rewards() # includes rewards clipping
+            self._custom_post_substp_post_rew() # custom substepping logic
 
             if not i==(self._action_repeat-1):
                 # just sends reset signal to complete remote step sequence,
@@ -401,8 +405,6 @@ class LRhcTrainingEnvBase():
                 if self._srew_drescaling: # scale rewards depending on the n of subrewards
                     scale*=sub_rewards.shape[1] # n. dims rescaling
                 tot_rewards.mul_(1/scale)
-
-            self._custom_substep_post_substepping() # custom substepping logic
 
             if not stepping_ok:
                 return False
@@ -1138,7 +1140,7 @@ class LRhcTrainingEnvBase():
         self._rhc_status.activation_state.synch_all(read=False, retry=True) # activates all controllers
     
     def _synch_obs(self,
-            gpu=True):
+            gpu: bool = True):
 
         # read from shared memory on CPU
         # robot state
@@ -1188,16 +1190,6 @@ class LRhcTrainingEnvBase():
             self._rhc_status.rhc_fail_idx.synch_mirror(from_gpu=False,non_blocking=True)
             torch.cuda.synchronize() # ensuring that all the streams on the GPU are completed \
             # before the CPU continues execution
-
-    def _synch_refs(self,
-            gpu=True):
-
-        if gpu:
-            # copies latest refs from GPU to CPU shared mem for debugging
-            # non_blocking = True is not safe from GPU to CPU, but since we are only using it 
-            # for db, we don't care
-            self._agent_refs.rob_refs.root_state.synch_mirror(from_gpu=True,non_blocking=False) 
-        self._agent_refs.rob_refs.root_state.synch_all(read=False, retry = True) # write on shared mem
     
     def _override_refs(self,
             gpu=True):
@@ -1351,7 +1343,11 @@ class LRhcTrainingEnvBase():
         pass
     
     @abstractmethod
-    def _custom_substep_post_substepping(self):
+    def _custom_post_substp_post_rew(self):
+        pass
+    
+    @abstractmethod
+    def _custom_post_substp_pre_rew(self):
         pass
 
     @abstractmethod

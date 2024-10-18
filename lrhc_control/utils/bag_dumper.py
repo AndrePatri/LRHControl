@@ -22,7 +22,8 @@ class RosBagDumper():
             abort_wallmin:float=5.0,
             with_agent_refs:bool=True,
             rhc_refs_in_h_frame:bool=True,
-            agent_refs_in_h_frame:bool=False):
+            agent_refs_in_h_frame:bool=False,
+            use_static_idx: bool = True):
 
         self._closed=False
         
@@ -39,6 +40,7 @@ class RosBagDumper():
         self._agent_refs_in_h_frame=agent_refs_in_h_frame
 
         self._env_idx=env_idx
+        self._use_static_idx=use_static_idx
 
         self._timeout_ms=240000
         self._dump_path=dump_path
@@ -111,7 +113,8 @@ class RosBagDumper():
                 env_idx=self._env_idx,
                 sim_time_trgt=self._bag_sdt,
                 srdf_homing_file_path=self._srdf_path,
-                abort_wallmin=self._abort_wallmin)
+                abort_wallmin=self._abort_wallmin,
+                use_static_idx=self._use_static_idx)
 
         # actual process recording bag
         from control_cluster_bridge.utilities.remote_triggering import RemoteTriggererSrvr

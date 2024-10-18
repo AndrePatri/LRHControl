@@ -25,6 +25,14 @@ class MemBuffer():
         self._torch_device = "cuda" if use_gpu else "cpu"
 
         self._horizon=horizon # number of samples to store
+        if self._horizon < 2:
+            exception = f"Provided horizon ({horizon}) should be at least 2!!"
+            Journal.log(self.__class__.__name__ + f"[{self._name}]",
+                "__init__",
+                exception,
+                LogType.EXCEP,
+                throw_when_excep=True)
+    
         self._membf_pos=0 #position in mem buff at which new samples with be added
       
         self._debug = debug

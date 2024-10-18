@@ -287,7 +287,8 @@ class SActorCriticAlgoBase():
             self._expl_env_idxs = torch.zeros((self._num_envs,1), 
                 dtype=torch.bool, device=self._torch_device)
             self._expl_env_idxs[self._expl_env_selector,:]=True
-        
+            self._pert_counter=0.0
+
     def is_done(self):
 
         return self._is_done 
@@ -878,7 +879,7 @@ class SActorCriticAlgoBase():
         # main algo settings
 
         self._collection_freq=1
-        self._update_freq=5
+        self._update_freq=1
 
         self._replay_bf_full = False
 
@@ -913,8 +914,10 @@ class SActorCriticAlgoBase():
         self._log_alpha = None
         self._alpha = 0.2
 
-        self._n_noisy_envs = 20 # n of random envs on which noisy actions will be applied
-        self._noise_freq = 5 
+        self._n_noisy_envs = 2 # n of random envs on which noisy actions will be applied
+        self._noise_freq = 50
+        self._noise_duration = 10 # should be less than _noise_freq
+
         self._is_continuous_actions=self._env.is_action_continuous()
         self._continuous_act_expl_noise_std=0.3
         self._discrete_act_expl_noise_std=1.0
@@ -936,7 +939,10 @@ class SActorCriticAlgoBase():
                 dtype=torch.int,
                 device="cpu") # we assume last _n_noisy_envs will be noisy
         self._n_expl_envs=self._num_envs-self._num_db_envs
-        self._noise_buff_freq=self._n_expl_envs/(self._noise_freq*self._num_envs)
+
+        self._transition_noise_freq=float(self._noise_duration)/float(self._noise_freq)
+        self._env_noise_freq=float(self._n_expl_envs)/float(self._num_envs)
+        self._noise_buff_freq=self._transition_noise_freq*self._env_noise_freq
 
         self._db_vecstep_frequency = 128 # log db data every n (vectorized) SUB timesteps
         self._db_vecstep_frequency=round(self._db_vecstep_frequency/self._env_n_action_reps) # correcting with actions reps 
@@ -1147,7 +1153,7 @@ class SActorCriticAlgoBase():
 
         # genererate random env indexes
         # self._randomize_env_idxs(n=self._n_expl_envs)
-
+        
         if self._is_continuous_actions.any(): # if there are any continuous actions
             self._perturb_actions(actions,
                 action_idxs=self._is_continuous_actions, 
@@ -1160,6 +1166,10 @@ class SActorCriticAlgoBase():
                 env_idxs=self._expl_env_idxs,
                 normal=False, # use uniform distr for discrete
                 scaling=self._discrete_act_expl_noise_std)
+        
+        self._pert_counter+=1
+        if self._pert_counter >= self._noise_duration:
+            self._pert_counter=0
     
     def _perturb_actions(self, actions: torch.Tensor,
         action_idxs: torch.Tensor, 
@@ -1174,7 +1184,7 @@ class SActorCriticAlgoBase():
             noise=self._random_uniform
         
         env_indices = torch.where(env_idxs)[0].reshape(-1,1)  # Get indices of True environments
-        action_indices = torch.where(action_idxs)[0].reshape(1,-1) # Get indices of True actions
+        action_indices = torch.where(action_idxs)[1].reshape(1,-1) # Get indices of True actions
         
         actions[env_indices, action_indices]=\
             actions[env_indices, action_indices]+noise[env_indices, action_indices]*self._action_scale[0:1,action_indices.flatten()]*scaling

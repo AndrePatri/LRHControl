@@ -52,7 +52,8 @@ class RhcToViz2Bridge:
             env_idx: int = 0,
             sim_time_trgt: float = None,
             srdf_homing_file_path: str = None,
-            abort_wallmin: float = 5.0):
+            abort_wallmin: float = 5.0,
+            use_static_idx: bool = True):
         
         self._srdf_homing_file_path=srdf_homing_file_path # used to retrieve homing
         self._homer=None
@@ -64,7 +65,7 @@ class RhcToViz2Bridge:
 
         self._current_index = env_idx
         # self._use_static_idx = True if env_idx >= 0 else False
-        self._use_static_idx =True
+        self._use_static_idx =use_static_idx
 
         self._rhc_refs_in_hor_frame = rhc_refs_in_h_frame
         self._agent_refs_in_h_frame = agent_refs_in_h_frame
