@@ -107,7 +107,7 @@ class LRhcTrainingEnvBase():
 
         self._use_act_mem_bf = use_act_mem_bf
         self._act_membf_size = round(act_membf_size/self._action_repeat) 
-        
+
         self._closed = False
 
         self._override_agent_refs = override_agent_refs
