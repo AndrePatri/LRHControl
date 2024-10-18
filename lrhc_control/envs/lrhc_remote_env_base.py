@@ -1092,6 +1092,10 @@ class LRhcEnvBase():
     @abstractmethod
     def current_time(self) -> float:
         pass
+    
+    @abstractmethod
+    def _sim_is_running(self) -> bool:
+        pass
 
     def _get_contact_f(self, 
         robot_name: str, 
