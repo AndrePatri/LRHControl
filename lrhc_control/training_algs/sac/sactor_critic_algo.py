@@ -238,6 +238,7 @@ class SActorCriticAlgoBase():
         
         if self._autotune:
             self._target_entropy = -self._env.actions_dim()
+            self._hyperparameters["_target_entropy"]=self._target_entropy # updating target entropy
             self._log_alpha = torch.zeros(1, requires_grad=True, device=self._torch_device)
             self._alpha = self._log_alpha.exp().item()
             self._a_optimizer = optim.Adam([self._log_alpha], lr=self._lr_q)
@@ -879,7 +880,7 @@ class SActorCriticAlgoBase():
         # main algo settings
 
         self._collection_freq=1
-        self._update_freq=1
+        self._update_freq=2
 
         self._replay_bf_full = False
 
@@ -914,7 +915,7 @@ class SActorCriticAlgoBase():
         self._log_alpha = None
         self._alpha = 0.2
 
-        self._n_noisy_envs = 2 # n of random envs on which noisy actions will be applied
+        self._n_noisy_envs = 10 # n of random envs on which noisy actions will be applied
         self._noise_freq = 50
         self._noise_duration = 10 # should be less than _noise_freq
 
