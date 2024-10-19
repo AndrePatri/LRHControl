@@ -427,10 +427,7 @@ class SActorCriticAlgoBase():
             hf.create_dataset('actor_loss_min', data=self._actor_loss_mean.numpy())
 
             hf.create_dataset('alphas', data=self._alphas.numpy())
-            hf.create_dataset('alpha_loss_mean', data=self._alpha_loss_mean.numpy())
-            hf.create_dataset('alpha_loss_std', data=self._alpha_loss_mean.numpy())
-            hf.create_dataset('alpha_loss_max', data=self._alpha_loss_mean.numpy())
-            hf.create_dataset('alpha_loss_min', data=self._alpha_loss_mean.numpy())
+            hf.create_dataset('alpha_loss', data=self._alpha_loss.numpy())
 
             # dump all custom env data
             db_data_names = list(self._env.custom_db_data.keys())
@@ -738,10 +735,7 @@ class SActorCriticAlgoBase():
                         "sac_actor_info/policy_entropy_min": self._policy_entropy_min[self._log_it_counter, 0],
 
                         "sac_alpha_info/alpha": self._alphas[self._log_it_counter, 0],
-                        "sac_alpha_info/alpha_loss_mean": self._alpha_loss_mean[self._log_it_counter, 0],
-                        "sac_alpha_info/alpha_loss_std": self._alpha_loss_std[self._log_it_counter, 0],
-                        "sac_alpha_info/alpha_loss_max": self._alpha_loss_max[self._log_it_counter, 0],
-                        "sac_alpha_info/alpha_loss_min": self._alpha_loss_min[self._log_it_counter, 0],
+                        "sac_alpha_info/alpha_loss": self._alpha_loss[self._log_it_counter, 0],
                         "sac_alpha_info/target_entropy": self._target_entropy})
 
                     self._wandb_d.update(self._policy_update_db_data_dict)
@@ -949,14 +943,8 @@ class SActorCriticAlgoBase():
         
         self._alphas = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=torch.nan, device="cpu")
-        self._alpha_loss_mean = torch.full((self._db_data_size, 1), 
-                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
-        self._alpha_loss_std = torch.full((self._db_data_size, 1), 
-                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
-        self._alpha_loss_max = torch.full((self._db_data_size, 1), 
-                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
-        self._alpha_loss_min = torch.full((self._db_data_size, 1), 
-                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
+        self._alpha_loss = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu"))
 
         self._policy_entropy_mean=torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=torch.nan, device="cpu")
