@@ -117,22 +117,69 @@ class SAC(SActorCriticAlgoBase):
                     target_param.data.copy_(self._smoothing_coeff * param.data + (1 - self._smoothing_coeff) * target_param.data)
                 self._n_tqfun_updates[self._log_it_counter]+=1
 
-            # add db info to wandb
-            self._qf1_vals[self._log_it_counter, 0] = qf1_a_values.mean().item()
-            self._qf2_vals[self._log_it_counter, 0] = qf2_a_values.mean().item()
-            self._qf1_loss[self._log_it_counter, 0] = qf1_loss.mean().item()
-            self._qf2_loss[self._log_it_counter, 0] = qf2_loss.mean().item()
-            if self._update_counter % self._policy_freq == 0:
-                self._actor_loss[self._log_it_counter, 0] = actor_loss.mean().item()
-                self._alphas[self._log_it_counter, 0] = self._alpha
-                if self._autotune:
-                    self._alpha_loss[self._log_it_counter, 0] = alpha_loss.mean().item()
-            self._policy_update_db_data_dict.update({
-                                            "sac_info/qf1_vals": self._qf1_vals[self._log_it_counter, 0],
-                                            "sac_info/_qf2_vals": self._qf2_vals[self._log_it_counter, 0],
-                                            "sac_info/_qf1_loss": self._qf1_loss[self._log_it_counter, 0],
-                                            "sac_info/_qf2_loss": self._qf2_loss[self._log_it_counter, 0],
-                                            "sac_info/_actor_loss": self._actor_loss[self._log_it_counter, 0],
-                                            "sac_info/_alpha": self._alphas[self._log_it_counter, 0],
-                                            "sac_info/_alpha_loss": self._alpha_loss[self._log_it_counter, 0]}) 
-            
+            if self._debug:
+                # DEBUG INFO
+        
+                # current q estimates on training batch
+                self._qf1_vals_mean[self._log_it_counter, 0] = qf1_a_values.mean().item()
+                self._qf2_vals_mean[self._log_it_counter, 0] = qf2_a_values.mean().item()
+                self._qf1_vals_std[self._log_it_counter, 0] = qf1_a_values.std().item()
+                self._qf2_vals_std[self._log_it_counter, 0] = qf2_a_values.std().item()
+                self._qf1_vals_max[self._log_it_counter, 0] = qf1_a_values.max().item()
+                self._qf2_vals_max[self._log_it_counter, 0] = qf2_a_values.max().item()
+                self._qf1_vals_min[self._log_it_counter, 0] = qf1_a_values.min().item()
+                self._qf2_vals_min[self._log_it_counter, 0] = qf2_a_values.min().item()
+
+                # q losses (~bellman error)
+                self._qf1_loss_mean[self._log_it_counter, 0] = qf1_loss.mean().item()
+                self._qf2_loss_mean[self._log_it_counter, 0] = qf2_loss.mean().item()
+                self._qf1_loss_std[self._log_it_counter, 0] = qf1_loss.std().item()
+                self._qf2_loss_std[self._log_it_counter, 0] = qf2_loss.std().item()
+                self._qf1_loss_max[self._log_it_counter, 0] = qf1_loss.max().item()
+                self._qf2_loss_max[self._log_it_counter, 0] = qf2_loss.max().item()
+                self._qf1_loss_min[self._log_it_counter, 0] = qf1_loss.min().item()
+                self._qf2_loss_min[self._log_it_counter, 0] = qf2_loss.min().item()
+
+                if self._update_counter % self._policy_freq == 0:
+                    # just log last policy update info
+                    self._actor_loss_mean[self._log_it_cou2nter, 0] = actor_loss.mean().item()
+                    self._actor_loss_std[self._log_it_counter, 0] = actor_loss.std().item()
+                    self._actor_loss_max[self._log_it_counter, 0] = actor_loss.max().item()
+                    self._actor_loss_min[self._log_it_counter, 0] = actor_loss.min().item()
+
+                    self._alphas[self._log_it_counter, 0] = self._alpha
+                    if self._autotune:
+                        self._alpha_loss_mean[self._log_it_counter, 0] = alpha_loss.mean().item()
+                        self._alpha_loss_std[self._log_it_counter, 0] = alpha_loss.std().item()
+                        self._alpha_loss_max[self._log_it_counter, 0] = alpha_loss.max().item()
+                        self._alpha_loss_min[self._log_it_counter, 0] = alpha_loss.min().item()
+
+                if self._remote_db: 
+                    self._policy_update_db_data_dict.update({
+                        "sac_q_info/qf1_vals_mean": self._qf1_vals_mean[self._log_it_counter, 0],
+                        "sac_q_info/qf2_vals_mean": self._qf2_vals_mean[self._log_it_counter, 0],
+                        "sac_q_info/qf1_vals_std": self._qf1_vals_std[self._log_it_counter, 0],
+                        "sac_q_info/qf2_vals_std": self._qf2_vals_std[self._log_it_counter, 0],
+                        "sac_q_info/qf1_vals_max": self._qf1_vals_max[self._log_it_counter, 0],
+                        "sac_q_info/qf2_vals_max": self._qf2_vals_max[self._log_it_counter, 0],
+                        "sac_q_info/qf1_vals_min": self._qf1_vals_min[self._log_it_counter, 0],
+                        "sac_q_info/qf2_vals_min": self._qf2_vals_min[self._log_it_counter, 0],
+                        "sac_q_info/qf1_loss_mean": self._qf1_loss_mean[self._log_it_counter, 0],
+                        "sac_q_info/qf2_loss_mean": self._qf2_loss_mean[self._log_it_counter, 0],
+                        "sac_q_info/qf1_loss_std": self._qf1_loss_std[self._log_it_counter, 0],
+                        "sac_q_info/qf2_loss_std": self._qf2_loss_std[self._log_it_counter, 0],
+                        "sac_q_info/qf1_loss_max": self._qf1_loss_max[self._log_it_counter, 0],
+                        "sac_q_info/qf2_loss_max": self._qf2_loss_max[self._log_it_counter, 0],
+                        "sac_q_info/qf1_loss_min": self._qf1_loss_min[self._log_it_counter, 0],
+                        "sac_q_info/qf2_loss_mean": self._qf2_loss_min[self._log_it_counter, 0],
+
+                        "sac_actor_info/actor_loss_mean": self._actor_loss_mean[self._log_it_counter, 0],
+                        "sac_actor_info/actor_loss_std": self._actor_loss_std[self._log_it_counter, 0],
+                        "sac_actor_info/actor_loss_max": self._actor_loss_max[self._log_it_counter, 0],
+                        "sac_actor_info/actor_loss_min": self._actor_loss_min[self._log_it_counter, 0],
+
+                        "sac_alpha_info/alpha": self._alphas[self._log_it_counter, 0],
+                        "sac_alpha_info/alpha_loss_mean": self._alpha_loss_mean[self._log_it_counter, 0],
+                        "sac_alpha_info/alpha_loss_std": self._alpha_loss_std[self._log_it_counter, 0],
+                        "sac_alpha_info/alpha_loss_max": self._alpha_loss_max[self._log_it_counter, 0],
+                        "sac_alpha_info/alpha_loss_min": self._alpha_loss_min[self._log_it_counter, 0]}) 

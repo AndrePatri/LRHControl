@@ -396,14 +396,34 @@ class SActorCriticAlgoBase():
             hf.create_dataset('elapsed_min', data=self._elapsed_min.numpy())
 
             # algo data 
-            hf.create_dataset('qf1_vals', data=self._qf1_vals.numpy())
-            hf.create_dataset('qf2_vals', data=self._qf2_vals.numpy())
-            hf.create_dataset('qf1_loss', data=self._qf1_loss.numpy())
-            hf.create_dataset('qf2_loss', data=self._qf2_loss.numpy())
-            hf.create_dataset('qf_loss', data=self._qf_loss.numpy())
-            hf.create_dataset('actor_loss', data=self._actor_loss.numpy())
+            hf.create_dataset('qf1_vals_mean', data=self._qf1_vals_mean.numpy())
+            hf.create_dataset('qf2_vals_mean', data=self._qf2_vals_mean.numpy())
+            hf.create_dataset('qf1_vals_std', data=self._qf1_vals_mean.numpy())
+            hf.create_dataset('qf2_vals_std', data=self._qf2_vals_mean.numpy())
+            hf.create_dataset('qf1_vals_max', data=self._qf1_vals_mean.numpy())
+            hf.create_dataset('qf1_vals_min', data=self._qf1_vals_mean.numpy())
+            hf.create_dataset('qf2_vals_max', data=self._qf2_vals_mean.numpy())
+            hf.create_dataset('qf2_vals_min', data=self._qf2_vals_mean.numpy())
+
+            hf.create_dataset('qf1_loss_mean', data=self._qf1_loss_mean.numpy())
+            hf.create_dataset('qf2_loss_mean', data=self._qf2_loss_mean.numpy())
+            hf.create_dataset('qf1_loss_std', data=self._qf1_loss_mean.numpy())
+            hf.create_dataset('qf2_loss_std', data=self._qf2_loss_mean.numpy())
+            hf.create_dataset('qf1_loss_max', data=self._qf1_loss_mean.numpy())
+            hf.create_dataset('qf1_loss_min', data=self._qf1_loss_mean.numpy())
+            hf.create_dataset('qf2_loss_max', data=self._qf2_loss_mean.numpy())
+            hf.create_dataset('qf2_loss_min', data=self._qf2_loss_mean.numpy())
+
+            hf.create_dataset('actor_loss_mean', data=self._actor_loss_mean.numpy())
+            hf.create_dataset('actor_loss_std', data=self._actor_loss_mean.numpy())
+            hf.create_dataset('actor_loss_max', data=self._actor_loss_mean.numpy())
+            hf.create_dataset('actor_loss_min', data=self._actor_loss_mean.numpy())
+
             hf.create_dataset('alphas', data=self._alphas.numpy())
-            hf.create_dataset('alpha_loss', data=self._alpha_loss.numpy())
+            hf.create_dataset('alpha_loss_mean', data=self._alpha_loss_mean.numpy())
+            hf.create_dataset('alpha_loss_std', data=self._alpha_loss_mean.numpy())
+            hf.create_dataset('alpha_loss_max', data=self._alpha_loss_mean.numpy())
+            hf.create_dataset('alpha_loss_min', data=self._alpha_loss_mean.numpy())
 
             # dump all custom env data
             db_data_names = list(self._env.custom_db_data.keys())
@@ -418,9 +438,10 @@ class SActorCriticAlgoBase():
                 hf.create_dataset(db_info, data=self._env.custom_db_info[db_info])
             
             # other data
-            hf.create_dataset('running_mean_obs', data=self._running_mean_obs.numpy())
-            hf.create_dataset('running_std_obs', data=self._running_std_obs.numpy())
-        
+            if self._agent.running_norm is not None:
+                hf.create_dataset('running_mean_obs', data=self._running_mean_obs.numpy())
+                hf.create_dataset('running_std_obs', data=self._running_std_obs.numpy())
+            
         info = f"done."
         Journal.log(self.__class__.__name__,
             "_dump_dbinfo_to_file",
@@ -683,6 +704,11 @@ class SActorCriticAlgoBase():
                 wandb_d.update(self._policy_update_db_data_dict)
                 wandb_d.update(self._custom_env_data_db_dict)
 
+                if self._agent.running_norm is not None:
+                    # adding info on running normalizer if used
+                    wandb_d.update({f"running_norm/mean": self._running_mean_obs[self._log_it_counter-1, :]})
+                    wandb_d.update({f"running_norm/std": self._running_std_obs[self._log_it_counter-1, :]})
+
                 wandb.log(wandb_d)
 
         if self._verbose:
@@ -834,28 +860,66 @@ class SActorCriticAlgoBase():
                 dtype=torch.float32, fill_value=0.0, device="cpu")
 
         # algorithm-specific db info
-        self._qf1_vals = torch.full((self._db_data_size, 1), 
+        self._qf1_vals_mean = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=torch.nan, device="cpu")
-        self._qf2_vals = torch.full((self._db_data_size, 1), 
+        self._qf2_vals_mean = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=torch.nan, device="cpu")
-        self._qf1_loss = torch.full((self._db_data_size, 1), 
+        self._qf1_vals_std = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=torch.nan, device="cpu")
-        self._qf2_loss = torch.full((self._db_data_size, 1), 
+        self._qf2_vals_std = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=torch.nan, device="cpu")
-        self._qf_loss = torch.full((self._db_data_size, 1), 
+        self._qf1_vals_max = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=torch.nan, device="cpu")
-        self._actor_loss = torch.full((self._db_data_size, 1), 
+        self._qf1_vals_min = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=torch.nan, device="cpu")
+        self._qf2_vals_max = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
+        self._qf2_vals_min = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
+        
+        self._qf1_loss_mean = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
+        self._qf2_loss_mean = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
+        self._qf1_loss_std = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
+        self._qf2_loss_std = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
+        self._qf1_loss_max = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
+        self._qf1_loss_min = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
+        self._qf2_loss_max = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
+        self._qf2_loss_min = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
+        
+        self._actor_loss_mean = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
+        self._actor_loss_std = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
+        self._actor_loss_min = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
+        self._actor_loss_max = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
+        
         self._alphas = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=torch.nan, device="cpu")
-        self._alpha_loss = torch.full((self._db_data_size, 1), 
+        self._alpha_loss_mean = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
+        self._alpha_loss_std = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
+        self._alpha_loss_max = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
+        self._alpha_loss_min = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=torch.nan, device="cpu")
 
         # other data
-        self._running_mean_obs = torch.full((self._db_data_size, self._env.obs_dim()), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._running_std_obs = torch.full((self._db_data_size, self._env.obs_dim()), 
-                    dtype=torch.float32, fill_value=0.0, device="cpu")
+        if self._agent.running_norm is not None:
+            self._running_mean_obs = torch.full((self._db_data_size, self._env.obs_dim()), 
+                        dtype=torch.float32, fill_value=0.0, device="cpu")
+            self._running_std_obs = torch.full((self._db_data_size, self._env.obs_dim()), 
+                        dtype=torch.float32, fill_value=0.0, device="cpu")
         
     def _init_params(self,
             tot_tsteps: int,
