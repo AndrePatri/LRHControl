@@ -541,7 +541,8 @@ class SActorCriticAlgoBase():
 
             self._n_of_played_episodes[self._log_it_counter] = self._episodic_reward_metrics.get_n_played_episodes(env_selector=self._db_env_selector)
 
-            self._ep_tsteps_env_distribution[self._log_it_counter, :]=self._episodic_reward_metrics.step_counters(env_selector=self._db_env_selector)
+            self._ep_tsteps_env_distribution[self._log_it_counter, :]=\
+                self._episodic_reward_metrics.step_counters(env_selector=self._db_env_selector)*self._env_n_action_reps
 
             # updating episodic reward metrics
             self._tot_rew_max[self._log_it_counter, :, :] = self._episodic_reward_metrics.get_tot_rew_max(env_selector=self._db_env_selector)
@@ -561,7 +562,8 @@ class SActorCriticAlgoBase():
             # exploration envs
             if self._n_expl_envs > 0:
                 
-                self._ep_tsteps_expl_env_distribution[self._log_it_counter, :]=self._episodic_reward_metrics.step_counters(env_selector=self._expl_env_selector)
+                self._ep_tsteps_expl_env_distribution[self._log_it_counter, :]=\
+                    self._episodic_reward_metrics.step_counters(env_selector=self._expl_env_selector)*self._env_n_action_reps
 
                 self._sub_rew_max_expl[self._log_it_counter, :, :] = self._episodic_reward_metrics.get_sub_rew_max(env_selector=self._expl_env_selector)
                 self._sub_rew_avrg_expl[self._log_it_counter, :, :] = self._episodic_reward_metrics.get_sub_rew_avrg(env_selector=self._expl_env_selector)
