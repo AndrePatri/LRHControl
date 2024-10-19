@@ -669,6 +669,8 @@ class SActorCriticAlgoBase():
                 self._wandb_d.update({'log_iteration' : self._log_it_counter})
                 self._wandb_d.update(dict(zip(info_names, info_data)))
                 # tot reward
+                self._wandb_d.update({'correlation_db/ep_timesteps_env_distr': wandb.Histogram(self._ep_tsteps_env_distribution[self._log_it_counter, :, :].numpy())})
+
                 self._wandb_d.update({'tot_reward/tot_rew_max': wandb.Histogram(self._tot_rew_max[self._log_it_counter, :, :].numpy()),
                     'tot_reward/tot_rew_avrg': wandb.Histogram(self._tot_rew_avrg[self._log_it_counter, :, :].numpy()),
                     'tot_reward/tot_rew_min': wandb.Histogram(self._tot_rew_min[self._log_it_counter, :, :].numpy()),
@@ -691,6 +693,8 @@ class SActorCriticAlgoBase():
                         self._sub_rew_min_over_envs[self._log_it_counter, :, i:i+1] for i in range(len(self._reward_names))})
                 
                 if self._n_expl_envs > 0:
+                    self._wandb_d.update({'correlation_db/ep_timesteps_expl_env_distr': wandb.Histogram(self._ep_tsteps_expl_env_distribution[self._log_it_counter, :, :].numpy())})
+
                     # sub reward from expl envs
                     self._wandb_d.update({f"sub_reward_expl/{self._reward_names[i]}_sub_rew_max_expl":
                             wandb.Histogram(self._sub_rew_max_expl.numpy()[self._log_it_counter, :, i:i+1]) for i in range(len(self._reward_names))})
