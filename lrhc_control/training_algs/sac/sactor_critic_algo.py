@@ -411,20 +411,10 @@ class SActorCriticAlgoBase():
             hf.create_dataset('qf1_vals_min', data=self._qf1_vals_mean.numpy())
             hf.create_dataset('qf2_vals_max', data=self._qf2_vals_mean.numpy())
             hf.create_dataset('qf2_vals_min', data=self._qf2_vals_mean.numpy())
+            hf.create_dataset('qf1_loss', data=self._qf1_loss.numpy())
+            hf.create_dataset('qf2_loss', data=self._qf2_loss.numpy())
 
-            hf.create_dataset('qf1_loss_mean', data=self._qf1_loss_mean.numpy())
-            hf.create_dataset('qf2_loss_mean', data=self._qf2_loss_mean.numpy())
-            hf.create_dataset('qf1_loss_std', data=self._qf1_loss_mean.numpy())
-            hf.create_dataset('qf2_loss_std', data=self._qf2_loss_mean.numpy())
-            hf.create_dataset('qf1_loss_max', data=self._qf1_loss_mean.numpy())
-            hf.create_dataset('qf1_loss_min', data=self._qf1_loss_mean.numpy())
-            hf.create_dataset('qf2_loss_max', data=self._qf2_loss_mean.numpy())
-            hf.create_dataset('qf2_loss_min', data=self._qf2_loss_mean.numpy())
-
-            hf.create_dataset('actor_loss_mean', data=self._actor_loss_mean.numpy())
-            hf.create_dataset('actor_loss_std', data=self._actor_loss_mean.numpy())
-            hf.create_dataset('actor_loss_max', data=self._actor_loss_mean.numpy())
-            hf.create_dataset('actor_loss_min', data=self._actor_loss_mean.numpy())
+            hf.create_dataset('actor_loss', data=self._actor_loss.numpy())
 
             hf.create_dataset('alphas', data=self._alphas.numpy())
             hf.create_dataset('alpha_loss', data=self._alpha_loss.numpy())
@@ -716,19 +706,10 @@ class SActorCriticAlgoBase():
                         "sac_q_info/qf2_vals_max": self._qf2_vals_max[self._log_it_counter, 0],
                         "sac_q_info/qf1_vals_min": self._qf1_vals_min[self._log_it_counter, 0],
                         "sac_q_info/qf2_vals_min": self._qf2_vals_min[self._log_it_counter, 0],
-                        "sac_q_info/qf1_loss_mean": self._qf1_loss_mean[self._log_it_counter, 0],
-                        "sac_q_info/qf2_loss_mean": self._qf2_loss_mean[self._log_it_counter, 0],
-                        "sac_q_info/qf1_loss_std": self._qf1_loss_std[self._log_it_counter, 0],
-                        "sac_q_info/qf2_loss_std": self._qf2_loss_std[self._log_it_counter, 0],
-                        "sac_q_info/qf1_loss_max": self._qf1_loss_max[self._log_it_counter, 0],
-                        "sac_q_info/qf2_loss_max": self._qf2_loss_max[self._log_it_counter, 0],
-                        "sac_q_info/qf1_loss_min": self._qf1_loss_min[self._log_it_counter, 0],
-                        "sac_q_info/qf2_loss_mean": self._qf2_loss_min[self._log_it_counter, 0],
+                        "sac_q_info/qf1_loss": self._qf1_loss[self._log_it_counter, 0],
+                        "sac_q_info/qf2_loss": self._qf2_loss[self._log_it_counter, 0],
 
-                        "sac_actor_info/actor_loss_mean": self._actor_loss_mean[self._log_it_counter, 0],
-                        "sac_actor_info/actor_loss_std": self._actor_loss_std[self._log_it_counter, 0],
-                        "sac_actor_info/actor_loss_max": self._actor_loss_max[self._log_it_counter, 0],
-                        "sac_actor_info/actor_loss_min": self._actor_loss_min[self._log_it_counter, 0],
+                        "sac_actor_info/actor_loss": self._actor_loss[self._log_it_counter, 0],
                         "sac_actor_info/policy_entropy_mean": self._policy_entropy_mean[self._log_it_counter, 0],
                         "sac_actor_info/policy_entropy_std": self._policy_entropy_std[self._log_it_counter, 0],
                         "sac_actor_info/policy_entropy_max": self._policy_entropy_max[self._log_it_counter, 0],
@@ -914,31 +895,12 @@ class SActorCriticAlgoBase():
                     dtype=torch.float32, fill_value=torch.nan, device="cpu")
         self._qf2_vals_min = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=torch.nan, device="cpu")
-        
-        self._qf1_loss_mean = torch.full((self._db_data_size, 1), 
+        self._qf1_loss = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=torch.nan, device="cpu")
-        self._qf2_loss_mean = torch.full((self._db_data_size, 1), 
+        self._qf2_loss = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=torch.nan, device="cpu")
-        self._qf1_loss_std = torch.full((self._db_data_size, 1), 
-                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
-        self._qf2_loss_std = torch.full((self._db_data_size, 1), 
-                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
-        self._qf1_loss_max = torch.full((self._db_data_size, 1), 
-                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
-        self._qf1_loss_min = torch.full((self._db_data_size, 1), 
-                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
-        self._qf2_loss_max = torch.full((self._db_data_size, 1), 
-                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
-        self._qf2_loss_min = torch.full((self._db_data_size, 1), 
-                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
-        
-        self._actor_loss_mean = torch.full((self._db_data_size, 1), 
-                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
-        self._actor_loss_std = torch.full((self._db_data_size, 1), 
-                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
-        self._actor_loss_min = torch.full((self._db_data_size, 1), 
-                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
-        self._actor_loss_max = torch.full((self._db_data_size, 1), 
+    
+        self._actor_loss= torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=torch.nan, device="cpu")
         
         self._alphas = torch.full((self._db_data_size, 1), 
