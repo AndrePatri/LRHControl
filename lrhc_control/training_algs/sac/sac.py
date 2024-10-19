@@ -32,7 +32,7 @@ class SAC(SActorCriticAlgoBase):
         # either terminated or truncated. CRUCIAL: we need to clone, 
         # otherwise obs is be a view and will be overridden in the call to step
         # with next_obs!!!
-        if self._vec_transition_counter > self._warmstart_vectimesteps or \
+        if self._vec_transition_counter > (self._warmstart_vectimesteps-1) or \
             self._eval:
             actions, _, mean = self._agent.get_action(x=obs)
             actions = actions.detach()
@@ -62,7 +62,7 @@ class SAC(SActorCriticAlgoBase):
     def _update_policy(self):
         
         # training phase
-        if self._vec_transition_counter>self._warmstart_vectimesteps:
+        if self._vec_transition_counter > (self._warmstart_vectimesteps-1):
                 
             self._switch_training_mode(train=True)
 
@@ -117,7 +117,8 @@ class SAC(SActorCriticAlgoBase):
                     target_param.data.copy_(self._smoothing_coeff * param.data + (1 - self._smoothing_coeff) * target_param.data)
                 self._n_tqfun_updates[self._log_it_counter]+=1
 
-            if self._debug:
+            if self._debug and \
+                (self._vec_transition_counter % self._db_vecstep_frequency):
                 # DEBUG INFO
         
                 # current q estimates on training batch

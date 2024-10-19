@@ -56,7 +56,8 @@ class SActorCriticAlgoBase():
         self._policy_update_db_data_dict =  {}
         self._custom_env_data_db_dict = {}
         self._hyperparameters = {}
-        
+        self._wandb_d={}
+
         self._episodic_reward_metrics = self._env.ep_rewards_metrics()
         
         tot_tsteps=200e6
@@ -519,16 +520,16 @@ class SActorCriticAlgoBase():
             shutil.copytree(aux_dir, aux_drop_dir, dirs_exist_ok=True)
 
     def _post_step(self):
-                
+        
+        # these have to always be updated
         self._collection_dt[self._log_it_counter] += \
             (self._collection_t-self._start_time)
         self._policy_update_dt[self._log_it_counter] += \
             (self._policy_update_t - self._collection_t)
         
-        self._step_counter+=1
+        self._step_counter+=1 # counts algo steps
 
-        if ((self._vec_transition_counter-1) > self._warmstart_vectimesteps or self._eval) and \
-            self._vec_transition_counter % self._db_vecstep_frequency== 0:
+        if self._vec_transition_counter % self._db_vecstep_frequency== 0:
             # only log data every n timesteps 
         
             self._env_step_fps[self._log_it_counter] = (self._db_vecstep_frequency*self._num_envs)/ self._collection_dt[self._log_it_counter]
@@ -667,90 +668,92 @@ class SActorCriticAlgoBase():
                     self._custom_env_data_db_dict.update({f"env_dbdata/{dbdatan}-{data_names[i]}" + "_min_over_envs": 
                         data["min_over_envs"][self._log_it_counter, :, i:i+1] for i in range(len(data_names))})
                 
-                wandb_d={'log_iteration' : self._log_it_counter}
-                wandb_d.update(dict(zip(info_names, info_data)))
+                self._wandb_d.update({'log_iteration' : self._log_it_counter})
+                self._wandb_d.update(dict(zip(info_names, info_data)))
                 # tot reward
-                wandb_d.update({'tot_reward/tot_rew_max': wandb.Histogram(self._tot_rew_max[self._log_it_counter, :, :].numpy()),
+                self._wandb_d.update({'tot_reward/tot_rew_max': wandb.Histogram(self._tot_rew_max[self._log_it_counter, :, :].numpy()),
                     'tot_reward/tot_rew_avrg': wandb.Histogram(self._tot_rew_avrg[self._log_it_counter, :, :].numpy()),
                     'tot_reward/tot_rew_min': wandb.Histogram(self._tot_rew_min[self._log_it_counter, :, :].numpy()),
                     'tot_reward/tot_rew_max_over_envs': self._tot_rew_max_over_envs[self._log_it_counter, :, :].item(),
                     'tot_reward/tot_rew_avrg_over_envs': self._tot_rew_avrg_over_envs[self._log_it_counter, :, :].item(),
                     'tot_reward/tot_rew_min_over_envs': self._tot_rew_min_over_envs[self._log_it_counter, :, :].item()})
                 # sub rewards from db envs
-                wandb_d.update({f"sub_reward/{self._reward_names[i]}_sub_rew_max":
+                self._wandb_d.update({f"sub_reward/{self._reward_names[i]}_sub_rew_max":
                         wandb.Histogram(self._sub_rew_max.numpy()[self._log_it_counter, :, i:i+1]) for i in range(len(self._reward_names))})
-                wandb_d.update({f"sub_reward/{self._reward_names[i]}_sub_rew_avrg":
+                self._wandb_d.update({f"sub_reward/{self._reward_names[i]}_sub_rew_avrg":
                         wandb.Histogram(self._sub_rew_avrg.numpy()[self._log_it_counter, :, i:i+1]) for i in range(len(self._reward_names))})
-                wandb_d.update({f"sub_reward/{self._reward_names[i]}_sub_rew_min":
+                self._wandb_d.update({f"sub_reward/{self._reward_names[i]}_sub_rew_min":
                         wandb.Histogram(self._sub_rew_min.numpy()[self._log_it_counter, :, i:i+1]) for i in range(len(self._reward_names))})
             
-                wandb_d.update({f"sub_reward/{self._reward_names[i]}_sub_rew_max_over_envs":
+                self._wandb_d.update({f"sub_reward/{self._reward_names[i]}_sub_rew_max_over_envs":
                         self._sub_rew_max_over_envs[self._log_it_counter, :, i:i+1] for i in range(len(self._reward_names))})
-                wandb_d.update({f"sub_reward/{self._reward_names[i]}_sub_rew_avrg_over_envs":
+                self._wandb_d.update({f"sub_reward/{self._reward_names[i]}_sub_rew_avrg_over_envs":
                         self._sub_rew_avrg_over_envs[self._log_it_counter, :, i:i+1] for i in range(len(self._reward_names))})
-                wandb_d.update({f"sub_reward/{self._reward_names[i]}_sub_rew_min_over_envs":
+                self._wandb_d.update({f"sub_reward/{self._reward_names[i]}_sub_rew_min_over_envs":
                         self._sub_rew_min_over_envs[self._log_it_counter, :, i:i+1] for i in range(len(self._reward_names))})
                 
                 if self._n_expl_envs > 0:
                     # sub reward from expl envs
-                    wandb_d.update({f"sub_reward_expl/{self._reward_names[i]}_sub_rew_max_expl":
+                    self._wandb_d.update({f"sub_reward_expl/{self._reward_names[i]}_sub_rew_max_expl":
                             wandb.Histogram(self._sub_rew_max_expl.numpy()[self._log_it_counter, :, i:i+1]) for i in range(len(self._reward_names))})
-                    wandb_d.update({f"sub_reward_expl/{self._reward_names[i]}_sub_rew_avrg_expl":
+                    self._wandb_d.update({f"sub_reward_expl/{self._reward_names[i]}_sub_rew_avrg_expl":
                             wandb.Histogram(self._sub_rew_avrg_expl.numpy()[self._log_it_counter, :, i:i+1]) for i in range(len(self._reward_names))})
-                    wandb_d.update({f"sub_reward_expl/{self._reward_names[i]}_sub_rew_min_expl":
+                    self._wandb_d.update({f"sub_reward_expl/{self._reward_names[i]}_sub_rew_min_expl":
                             wandb.Histogram(self._sub_rew_min_expl.numpy()[self._log_it_counter, :, i:i+1]) for i in range(len(self._reward_names))})
                 
-                    wandb_d.update({f"sub_reward_expl/{self._reward_names[i]}_sub_rew_max_over_envs_expl":
+                    self._wandb_d.update({f"sub_reward_expl/{self._reward_names[i]}_sub_rew_max_over_envs_expl":
                             self._sub_rew_max_over_envs_expl[self._log_it_counter, :, i:i+1] for i in range(len(self._reward_names))})
-                    wandb_d.update({f"sub_reward_expl/{self._reward_names[i]}_sub_rew_avrg_over_envs_expl":
+                    self._wandb_d.update({f"sub_reward_expl/{self._reward_names[i]}_sub_rew_avrg_over_envs_expl":
                             self._sub_rew_avrg_over_envs_expl[self._log_it_counter, :, i:i+1] for i in range(len(self._reward_names))})
-                    wandb_d.update({f"sub_reward_expl/{self._reward_names[i]}_sub_rew_min_over_envs_expl":
+                    self._wandb_d.update({f"sub_reward_expl/{self._reward_names[i]}_sub_rew_min_over_envs_expl":
                             self._sub_rew_min_over_envs_expl[self._log_it_counter, :, i:i+1] for i in range(len(self._reward_names))})
                 
-                # algo info
-                self._policy_update_db_data_dict.update({
-                    "sac_q_info/qf1_vals_mean": self._qf1_vals_mean[self._log_it_counter, 0],
-                    "sac_q_info/qf2_vals_mean": self._qf2_vals_mean[self._log_it_counter, 0],
-                    "sac_q_info/qf1_vals_std": self._qf1_vals_std[self._log_it_counter, 0],
-                    "sac_q_info/qf2_vals_std": self._qf2_vals_std[self._log_it_counter, 0],
-                    "sac_q_info/qf1_vals_max": self._qf1_vals_max[self._log_it_counter, 0],
-                    "sac_q_info/qf2_vals_max": self._qf2_vals_max[self._log_it_counter, 0],
-                    "sac_q_info/qf1_vals_min": self._qf1_vals_min[self._log_it_counter, 0],
-                    "sac_q_info/qf2_vals_min": self._qf2_vals_min[self._log_it_counter, 0],
-                    "sac_q_info/qf1_loss_mean": self._qf1_loss_mean[self._log_it_counter, 0],
-                    "sac_q_info/qf2_loss_mean": self._qf2_loss_mean[self._log_it_counter, 0],
-                    "sac_q_info/qf1_loss_std": self._qf1_loss_std[self._log_it_counter, 0],
-                    "sac_q_info/qf2_loss_std": self._qf2_loss_std[self._log_it_counter, 0],
-                    "sac_q_info/qf1_loss_max": self._qf1_loss_max[self._log_it_counter, 0],
-                    "sac_q_info/qf2_loss_max": self._qf2_loss_max[self._log_it_counter, 0],
-                    "sac_q_info/qf1_loss_min": self._qf1_loss_min[self._log_it_counter, 0],
-                    "sac_q_info/qf2_loss_mean": self._qf2_loss_min[self._log_it_counter, 0],
+                if self._vec_transition_counter > (self._warmstart_vectimesteps-1):
+                    # algo info
+                    self._policy_update_db_data_dict.update({
+                        "sac_q_info/qf1_vals_mean": self._qf1_vals_mean[self._log_it_counter, 0],
+                        "sac_q_info/qf2_vals_mean": self._qf2_vals_mean[self._log_it_counter, 0],
+                        "sac_q_info/qf1_vals_std": self._qf1_vals_std[self._log_it_counter, 0],
+                        "sac_q_info/qf2_vals_std": self._qf2_vals_std[self._log_it_counter, 0],
+                        "sac_q_info/qf1_vals_max": self._qf1_vals_max[self._log_it_counter, 0],
+                        "sac_q_info/qf2_vals_max": self._qf2_vals_max[self._log_it_counter, 0],
+                        "sac_q_info/qf1_vals_min": self._qf1_vals_min[self._log_it_counter, 0],
+                        "sac_q_info/qf2_vals_min": self._qf2_vals_min[self._log_it_counter, 0],
+                        "sac_q_info/qf1_loss_mean": self._qf1_loss_mean[self._log_it_counter, 0],
+                        "sac_q_info/qf2_loss_mean": self._qf2_loss_mean[self._log_it_counter, 0],
+                        "sac_q_info/qf1_loss_std": self._qf1_loss_std[self._log_it_counter, 0],
+                        "sac_q_info/qf2_loss_std": self._qf2_loss_std[self._log_it_counter, 0],
+                        "sac_q_info/qf1_loss_max": self._qf1_loss_max[self._log_it_counter, 0],
+                        "sac_q_info/qf2_loss_max": self._qf2_loss_max[self._log_it_counter, 0],
+                        "sac_q_info/qf1_loss_min": self._qf1_loss_min[self._log_it_counter, 0],
+                        "sac_q_info/qf2_loss_mean": self._qf2_loss_min[self._log_it_counter, 0],
 
-                    "sac_actor_info/actor_loss_mean": self._actor_loss_mean[self._log_it_counter, 0],
-                    "sac_actor_info/actor_loss_std": self._actor_loss_std[self._log_it_counter, 0],
-                    "sac_actor_info/actor_loss_max": self._actor_loss_max[self._log_it_counter, 0],
-                    "sac_actor_info/actor_loss_min": self._actor_loss_min[self._log_it_counter, 0],
-                    "sac_actor_info/policy_entropy_mean": self._policy_entropy_mean[self._log_it_counter, 0],
-                    "sac_actor_info/policy_entropy_std": self._policy_entropy_std[self._log_it_counter, 0],
-                    "sac_actor_info/policy_entropy_max": self._policy_entropy_max[self._log_it_counter, 0],
-                    "sac_actor_info/policy_entropy_min": self._policy_entropy_min[self._log_it_counter, 0],
+                        "sac_actor_info/actor_loss_mean": self._actor_loss_mean[self._log_it_counter, 0],
+                        "sac_actor_info/actor_loss_std": self._actor_loss_std[self._log_it_counter, 0],
+                        "sac_actor_info/actor_loss_max": self._actor_loss_max[self._log_it_counter, 0],
+                        "sac_actor_info/actor_loss_min": self._actor_loss_min[self._log_it_counter, 0],
+                        "sac_actor_info/policy_entropy_mean": self._policy_entropy_mean[self._log_it_counter, 0],
+                        "sac_actor_info/policy_entropy_std": self._policy_entropy_std[self._log_it_counter, 0],
+                        "sac_actor_info/policy_entropy_max": self._policy_entropy_max[self._log_it_counter, 0],
+                        "sac_actor_info/policy_entropy_min": self._policy_entropy_min[self._log_it_counter, 0],
 
-                    "sac_alpha_info/alpha": self._alphas[self._log_it_counter, 0],
-                    "sac_alpha_info/alpha_loss_mean": self._alpha_loss_mean[self._log_it_counter, 0],
-                    "sac_alpha_info/alpha_loss_std": self._alpha_loss_std[self._log_it_counter, 0],
-                    "sac_alpha_info/alpha_loss_max": self._alpha_loss_max[self._log_it_counter, 0],
-                    "sac_alpha_info/alpha_loss_min": self._alpha_loss_min[self._log_it_counter, 0],
-                    "sac_alpha_info/target_entropy": self._target_entropy})
+                        "sac_alpha_info/alpha": self._alphas[self._log_it_counter, 0],
+                        "sac_alpha_info/alpha_loss_mean": self._alpha_loss_mean[self._log_it_counter, 0],
+                        "sac_alpha_info/alpha_loss_std": self._alpha_loss_std[self._log_it_counter, 0],
+                        "sac_alpha_info/alpha_loss_max": self._alpha_loss_max[self._log_it_counter, 0],
+                        "sac_alpha_info/alpha_loss_min": self._alpha_loss_min[self._log_it_counter, 0],
+                        "sac_alpha_info/target_entropy": self._target_entropy})
+
+                    self._wandb_d.update(self._policy_update_db_data_dict)
 
                 if self._agent.running_norm is not None:
                     # adding info on running normalizer if used
-                    wandb_d.update({f"running_norm/mean": self._running_mean_obs[self._log_it_counter, :]})
-                    wandb_d.update({f"running_norm/std": self._running_std_obs[self._log_it_counter, :]})
-
-                wandb_d.update(self._policy_update_db_data_dict)
-                wandb_d.update(self._custom_env_data_db_dict) 
+                    self._wandb_d.update({f"running_norm/mean": self._running_mean_obs[self._log_it_counter, :]})
+                    self._wandb_d.update({f"running_norm/std": self._running_std_obs[self._log_it_counter, :]})
                 
-                wandb.log(wandb_d)
+                self._wandb_d.update(self._custom_env_data_db_dict) 
+                
+                wandb.log(self._wandb_d)
 
         if self._verbose:
                        
@@ -761,7 +764,7 @@ class SActorCriticAlgoBase():
                 f"experience to policy grad ratio: {experience_to_policy_grad_ratio}\n" + \
                 f"experience to q fun grad ratio: {experience_to_qfun_grad_ratio}\n" + \
                 f"experience to trgt q fun grad ratio: {experience_to_tqfun_grad_ratio}\n"+ \
-                f"Warmstart completed: {self._vec_transition_counter > self._warmstart_vectimesteps or self._eval}\n" +\
+                f"Warmstart completed: {(self._vec_transition_counter > (self._warmstart_vectimesteps-1)) or self._eval}\n" +\
                 f"Replay buffer full: {self._replay_bf_full}\n" +\
                 f"Elapsed time: {self._elapsed_min[self._log_it_counter].item()/60.0} h\n" + \
                 f"Estimated remaining training time: " + \
@@ -962,8 +965,8 @@ class SActorCriticAlgoBase():
         self._policy_entropy_max=torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=torch.nan, device="cpu")
         self._policy_entropy_min=torch.full((self._db_data_size, 1), 
-                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
-        
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")            
+
     def _init_params(self,
             tot_tsteps: int,
             run_name: str = "SACDefaultRunName"):
