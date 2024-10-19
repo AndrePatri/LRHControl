@@ -156,7 +156,7 @@ if __name__ == '__main__':
     rt_factor = RtFactor(dt_nom=remote_env_params["physics_dt"],
                 window_size=50000)
 
-    while env._simulation_app.is_running():
+    while env._sim_is_running():
         
         # try:
         if rt_factor.reset_due():
