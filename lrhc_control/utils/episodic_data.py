@@ -455,10 +455,7 @@ class EpisodicData():
 
     def data_names(self):
         return self._data_names
-    
-    def step_counters(self):
-        return self._steps_counter
-    
+
     def get_max(self, 
         env_selector: torch.Tensor = None):
         if env_selector is None:
@@ -502,8 +499,29 @@ class EpisodicData():
         else:
             return torch.sum(self._n_played_eps_last[env_selector.squeeze(), :]).item()
     
-    def get_n_played_tsteps(self):
-        return torch.sum(self.step_counters()).item()    
+    def step_counters(self, 
+        env_selector: torch.Tensor = None):
+        if env_selector is None:
+            return self._steps_counter
+        else:
+            return self._steps_counter[env_selector.squeeze(), :]
+
+    def get_n_played_tsteps(self, 
+        env_selector: torch.Tensor = None):
+        return torch.sum(self.step_counters(env_selector=env_selector)).item()    
+
+    def get_avrg_tstep(self, 
+        env_selector: torch.Tensor = None):
+        scale=self._n_envs if env_selector is None else env_selector.flatten().shape[0]
+        return torch.sum(self.step_counters(env_selector=env_selector)).item()/scale  
+    
+    def get_min_tstep(self, 
+        env_selector: torch.Tensor = None):
+        return self.step_counters(env_selector=env_selector).min()
+            
+    def get_max_tstep(self, 
+        env_selector: torch.Tensor = None):
+        return self.step_counters(env_selector=env_selector).max()
 
 if __name__ == "__main__":  
 

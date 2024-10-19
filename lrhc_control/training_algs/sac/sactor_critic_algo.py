@@ -419,6 +419,11 @@ class SActorCriticAlgoBase():
             hf.create_dataset('alphas', data=self._alphas.numpy())
             hf.create_dataset('alpha_loss', data=self._alpha_loss.numpy())
 
+            hf.create_dataset('policy_entropy_mean', data=self._policy_entropy_mean.numpy())
+            hf.create_dataset('policy_entropy_std', data=self._policy_entropy_std.numpy())
+            hf.create_dataset('policy_entropy_max', data=self._policy_entropy_max.numpy())
+            hf.create_dataset('policy_entropy_min', data=self._policy_entropy_min.numpy())
+
             # dump all custom env data
             db_data_names = list(self._env.custom_db_data.keys())
             for db_dname in db_data_names:
@@ -523,7 +528,6 @@ class SActorCriticAlgoBase():
             if "substepping_dt" in self._hyperparameters:
                 self._env_step_rt_factor[self._log_it_counter] = self._env_step_fps[self._log_it_counter]*self._env_n_action_reps*self._hyperparameters["substepping_dt"]
 
-            self._n_of_played_episodes[self._log_it_counter] = self._episodic_reward_metrics.get_n_played_episodes(env_selector=self._db_env_selector)
             self._n_timesteps_done[self._log_it_counter]=self._vec_transition_counter*self._num_envs
             
             self._n_policy_updates[self._log_it_counter]+=self._n_policy_updates[self._log_it_counter-1]
@@ -534,7 +538,11 @@ class SActorCriticAlgoBase():
                 self._n_policy_updates[self._log_it_counter-1])/self._policy_update_dt[self._log_it_counter]
 
             self._elapsed_min[self._log_it_counter] = (time.perf_counter() - self._start_time_tot)/60.0
-        
+
+            self._n_of_played_episodes[self._log_it_counter] = self._episodic_reward_metrics.get_n_played_episodes(env_selector=self._db_env_selector)
+
+            self._ep_tsteps_env_distribution[self._log_it_counter, :]=self._episodic_reward_metrics.step_counters(env_selector=self._db_env_selector)
+
             # updating episodic reward metrics
             self._tot_rew_max[self._log_it_counter, :, :] = self._episodic_reward_metrics.get_tot_rew_max(env_selector=self._db_env_selector)
             self._tot_rew_avrg[self._log_it_counter, :, :] = self._episodic_reward_metrics.get_tot_rew_avrg(env_selector=self._db_env_selector)
@@ -552,6 +560,9 @@ class SActorCriticAlgoBase():
 
             # exploration envs
             if self._n_expl_envs > 0:
+                
+                self._ep_tsteps_expl_env_distribution[self._log_it_counter, :]=self._episodic_reward_metrics.step_counters(env_selector=self._expl_env_selector)
+
                 self._sub_rew_max_expl[self._log_it_counter, :, :] = self._episodic_reward_metrics.get_sub_rew_max(env_selector=self._expl_env_selector)
                 self._sub_rew_avrg_expl[self._log_it_counter, :, :] = self._episodic_reward_metrics.get_sub_rew_avrg(env_selector=self._expl_env_selector)
                 self._sub_rew_min_expl[self._log_it_counter, :, :] = self._episodic_reward_metrics.get_sub_rew_min(env_selector=self._expl_env_selector)
@@ -792,9 +803,12 @@ class SActorCriticAlgoBase():
         self._n_tqfun_updates = torch.full((self._db_data_size, 1), 
                     dtype=torch.int32, fill_value=0, device="cpu")
         self._elapsed_min = torch.full((self._db_data_size, 1), 
-                    dtype=torch.float32, fill_value=0, device="cpu")
-        
+                    dtype=torch.float32, fill_value=0, device="cpu")        
+
         # reward db data
+        self._ep_tsteps_env_distribution = torch.full((self._db_data_size, self._num_db_envs, 1), 
+                    dtype=torch.int32, fill_value=-1, device="cpu")
+
         self._reward_names = self._episodic_reward_metrics.reward_names()
         self._reward_names_str = "[" + ', '.join(self._reward_names) + "]"
         self._n_rewards = self._episodic_reward_metrics.n_rewards()
@@ -826,6 +840,10 @@ class SActorCriticAlgoBase():
             dtype=torch.float32, fill_value=0.0, device="cpu")
         
         if self._n_expl_envs > 0:
+
+            self._ep_tsteps_expl_env_distribution = torch.full((self._db_data_size, self._n_expl_envs, 1), 
+                    dtype=torch.int32, fill_value=-1, device="cpu")
+
             # also log sub rewards metrics for exploration envs
             self._sub_rew_max_expl = torch.full((self._db_data_size, self._n_expl_envs, self._n_rewards), 
                 dtype=torch.float32, fill_value=0.0, device="cpu")
