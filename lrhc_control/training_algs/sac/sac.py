@@ -142,10 +142,16 @@ class SAC(SActorCriticAlgoBase):
 
                 if self._update_counter % self._policy_freq == 0:
                     # just log last policy update info
-                    self._actor_loss_mean[self._log_it_cou2nter, 0] = actor_loss.mean().item()
+                    self._actor_loss_mean[self._log_it_counter, 0] = actor_loss.mean().item()
                     self._actor_loss_std[self._log_it_counter, 0] = actor_loss.std().item()
                     self._actor_loss_max[self._log_it_counter, 0] = actor_loss.max().item()
                     self._actor_loss_min[self._log_it_counter, 0] = actor_loss.min().item()
+
+                    policy_entropy=-log_pi
+                    self._policy_entropy_mean[self._log_it_counter, 0] = policy_entropy.mean().item()
+                    self._policy_entropy_std[self._log_it_counter, 0] = policy_entropy.std().item()
+                    self._policy_entropy_max[self._log_it_counter, 0] = policy_entropy.max().item()
+                    self._policy_entropy_min[self._log_it_counter, 0] = policy_entropy.min().item()
 
                     self._alphas[self._log_it_counter, 0] = self._alpha
                     if self._autotune:
@@ -177,9 +183,14 @@ class SAC(SActorCriticAlgoBase):
                         "sac_actor_info/actor_loss_std": self._actor_loss_std[self._log_it_counter, 0],
                         "sac_actor_info/actor_loss_max": self._actor_loss_max[self._log_it_counter, 0],
                         "sac_actor_info/actor_loss_min": self._actor_loss_min[self._log_it_counter, 0],
+                        "sac_actor_info/policy_entropy_mean": self._policy_entropy_mean[self._log_it_counter, 0],
+                        "sac_actor_info/policy_entropy_std": self._policy_entropy_std[self._log_it_counter, 0],
+                        "sac_actor_info/policy_entropy_max": self._policy_entropy_max[self._log_it_counter, 0],
+                        "sac_actor_info/policy_entropy_min": self._policy_entropy_min[self._log_it_counter, 0],
 
                         "sac_alpha_info/alpha": self._alphas[self._log_it_counter, 0],
                         "sac_alpha_info/alpha_loss_mean": self._alpha_loss_mean[self._log_it_counter, 0],
                         "sac_alpha_info/alpha_loss_std": self._alpha_loss_std[self._log_it_counter, 0],
                         "sac_alpha_info/alpha_loss_max": self._alpha_loss_max[self._log_it_counter, 0],
                         "sac_alpha_info/alpha_loss_min": self._alpha_loss_min[self._log_it_counter, 0]}) 
+                        "sac_alpha_info/target_entropy": self._target_entropy,

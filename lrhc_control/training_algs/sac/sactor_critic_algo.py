@@ -197,6 +197,12 @@ class SActorCriticAlgoBase():
                     debug=self._debug,
                     layer_size_actor=layer_size_actor,
                     layer_size_critic=layer_size_critic)
+        if self._agent.running_norm is not None:
+            # some db data for the agent
+            self._running_mean_obs = torch.full((self._db_data_size, self._env.obs_dim()), 
+                        dtype=torch.float32, fill_value=0.0, device="cpu")
+            self._running_std_obs = torch.full((self._db_data_size, self._env.obs_dim()), 
+                        dtype=torch.float32, fill_value=0.0, device="cpu")
 
         # load model if necessary 
         if self._eval: # load pretrained model
@@ -914,12 +920,14 @@ class SActorCriticAlgoBase():
         self._alpha_loss_min = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=torch.nan, device="cpu")
 
-        # other data
-        if self._agent.running_norm is not None:
-            self._running_mean_obs = torch.full((self._db_data_size, self._env.obs_dim()), 
-                        dtype=torch.float32, fill_value=0.0, device="cpu")
-            self._running_std_obs = torch.full((self._db_data_size, self._env.obs_dim()), 
-                        dtype=torch.float32, fill_value=0.0, device="cpu")
+        self._policy_entropy_mean=torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
+        self._policy_entropy_std=torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
+        self._policy_entropy_max=torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
+        self._policy_entropy_min=torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
         
     def _init_params(self,
             tot_tsteps: int,
