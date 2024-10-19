@@ -654,66 +654,66 @@ class SActorCriticAlgoBase():
                     data_names = self._env.custom_db_data[dbdatan].data_names()
 
                     self._custom_env_data_db_dict.update({f"env_dbdata/{dbdatan}" + "_max": 
-                            wandb.Histogram(data["max"][self._log_it_counter-1, :, :].numpy())})
+                            wandb.Histogram(data["max"][self._log_it_counter, :, :].numpy())})
                     self._custom_env_data_db_dict.update({f"env_dbdata/{dbdatan}" + "_avrg": 
-                            wandb.Histogram(data["avrg"][self._log_it_counter-1, :, :].numpy())})
+                            wandb.Histogram(data["avrg"][self._log_it_counter, :, :].numpy())})
                     self._custom_env_data_db_dict.update({f"env_dbdata/{dbdatan}" + "_min": 
-                            wandb.Histogram(data["min"][self._log_it_counter-1, :, :].numpy())})
+                            wandb.Histogram(data["min"][self._log_it_counter, :, :].numpy())})
             
                     self._custom_env_data_db_dict.update({f"env_dbdata/{dbdatan}-{data_names[i]}" + "_max_over_envs": 
-                        data["max_over_envs"][self._log_it_counter-1, :, i:i+1] for i in range(len(data_names))})
+                        data["max_over_envs"][self._log_it_counter, :, i:i+1] for i in range(len(data_names))})
                     self._custom_env_data_db_dict.update({f"env_dbdata/{dbdatan}-{data_names[i]}" + "_avrg_over_envs": 
-                        data["avrg_over_envs"][self._log_it_counter-1, :, i:i+1] for i in range(len(data_names))})
+                        data["avrg_over_envs"][self._log_it_counter, :, i:i+1] for i in range(len(data_names))})
                     self._custom_env_data_db_dict.update({f"env_dbdata/{dbdatan}-{data_names[i]}" + "_min_over_envs": 
-                        data["min_over_envs"][self._log_it_counter-1, :, i:i+1] for i in range(len(data_names))})
+                        data["min_over_envs"][self._log_it_counter, :, i:i+1] for i in range(len(data_names))})
                 
                 wandb_d={'log_iteration' : self._log_it_counter}
                 wandb_d.update(dict(zip(info_names, info_data)))
                 # tot reward
-                wandb_d.update({'tot_reward/tot_rew_max': wandb.Histogram(self._tot_rew_max[self._log_it_counter-1, :, :].numpy()),
-                    'tot_reward/tot_rew_avrg': wandb.Histogram(self._tot_rew_avrg[self._log_it_counter-1, :, :].numpy()),
-                    'tot_reward/tot_rew_min': wandb.Histogram(self._tot_rew_min[self._log_it_counter-1, :, :].numpy()),
-                    'tot_reward/tot_rew_max_over_envs': self._tot_rew_max_over_envs[self._log_it_counter-1, :, :].item(),
-                    'tot_reward/tot_rew_avrg_over_envs': self._tot_rew_avrg_over_envs[self._log_it_counter-1, :, :].item(),
-                    'tot_reward/tot_rew_min_over_envs': self._tot_rew_min_over_envs[self._log_it_counter-1, :, :].item()})
+                wandb_d.update({'tot_reward/tot_rew_max': wandb.Histogram(self._tot_rew_max[self._log_it_counter, :, :].numpy()),
+                    'tot_reward/tot_rew_avrg': wandb.Histogram(self._tot_rew_avrg[self._log_it_counter, :, :].numpy()),
+                    'tot_reward/tot_rew_min': wandb.Histogram(self._tot_rew_min[self._log_it_counter, :, :].numpy()),
+                    'tot_reward/tot_rew_max_over_envs': self._tot_rew_max_over_envs[self._log_it_counter, :, :].item(),
+                    'tot_reward/tot_rew_avrg_over_envs': self._tot_rew_avrg_over_envs[self._log_it_counter, :, :].item(),
+                    'tot_reward/tot_rew_min_over_envs': self._tot_rew_min_over_envs[self._log_it_counter, :, :].item()})
                 # sub rewards from db envs
                 wandb_d.update({f"sub_reward/{self._reward_names[i]}_sub_rew_max":
-                        wandb.Histogram(self._sub_rew_max.numpy()[self._log_it_counter-1, :, i:i+1]) for i in range(len(self._reward_names))})
+                        wandb.Histogram(self._sub_rew_max.numpy()[self._log_it_counter, :, i:i+1]) for i in range(len(self._reward_names))})
                 wandb_d.update({f"sub_reward/{self._reward_names[i]}_sub_rew_avrg":
-                        wandb.Histogram(self._sub_rew_avrg.numpy()[self._log_it_counter-1, :, i:i+1]) for i in range(len(self._reward_names))})
+                        wandb.Histogram(self._sub_rew_avrg.numpy()[self._log_it_counter, :, i:i+1]) for i in range(len(self._reward_names))})
                 wandb_d.update({f"sub_reward/{self._reward_names[i]}_sub_rew_min":
-                        wandb.Histogram(self._sub_rew_min.numpy()[self._log_it_counter-1, :, i:i+1]) for i in range(len(self._reward_names))})
+                        wandb.Histogram(self._sub_rew_min.numpy()[self._log_it_counter, :, i:i+1]) for i in range(len(self._reward_names))})
             
                 wandb_d.update({f"sub_reward/{self._reward_names[i]}_sub_rew_max_over_envs":
-                        self._sub_rew_max_over_envs[self._log_it_counter-1, :, i:i+1] for i in range(len(self._reward_names))})
+                        self._sub_rew_max_over_envs[self._log_it_counter, :, i:i+1] for i in range(len(self._reward_names))})
                 wandb_d.update({f"sub_reward/{self._reward_names[i]}_sub_rew_avrg_over_envs":
-                        self._sub_rew_avrg_over_envs[self._log_it_counter-1, :, i:i+1] for i in range(len(self._reward_names))})
+                        self._sub_rew_avrg_over_envs[self._log_it_counter, :, i:i+1] for i in range(len(self._reward_names))})
                 wandb_d.update({f"sub_reward/{self._reward_names[i]}_sub_rew_min_over_envs":
-                        self._sub_rew_min_over_envs[self._log_it_counter-1, :, i:i+1] for i in range(len(self._reward_names))})
+                        self._sub_rew_min_over_envs[self._log_it_counter, :, i:i+1] for i in range(len(self._reward_names))})
                 
                 if self._n_expl_envs > 0:
                     # sub reward from expl envs
                     wandb_d.update({f"sub_reward_expl/{self._reward_names[i]}_sub_rew_max_expl":
-                            wandb.Histogram(self._sub_rew_max_expl.numpy()[self._log_it_counter-1, :, i:i+1]) for i in range(len(self._reward_names))})
+                            wandb.Histogram(self._sub_rew_max_expl.numpy()[self._log_it_counter, :, i:i+1]) for i in range(len(self._reward_names))})
                     wandb_d.update({f"sub_reward_expl/{self._reward_names[i]}_sub_rew_avrg_expl":
-                            wandb.Histogram(self._sub_rew_avrg_expl.numpy()[self._log_it_counter-1, :, i:i+1]) for i in range(len(self._reward_names))})
+                            wandb.Histogram(self._sub_rew_avrg_expl.numpy()[self._log_it_counter, :, i:i+1]) for i in range(len(self._reward_names))})
                     wandb_d.update({f"sub_reward_expl/{self._reward_names[i]}_sub_rew_min_expl":
-                            wandb.Histogram(self._sub_rew_min_expl.numpy()[self._log_it_counter-1, :, i:i+1]) for i in range(len(self._reward_names))})
+                            wandb.Histogram(self._sub_rew_min_expl.numpy()[self._log_it_counter, :, i:i+1]) for i in range(len(self._reward_names))})
                 
                     wandb_d.update({f"sub_reward_expl/{self._reward_names[i]}_sub_rew_max_over_envs_expl":
-                            self._sub_rew_max_over_envs_expl[self._log_it_counter-1, :, i:i+1] for i in range(len(self._reward_names))})
+                            self._sub_rew_max_over_envs_expl[self._log_it_counter, :, i:i+1] for i in range(len(self._reward_names))})
                     wandb_d.update({f"sub_reward_expl/{self._reward_names[i]}_sub_rew_avrg_over_envs_expl":
-                            self._sub_rew_avrg_over_envs_expl[self._log_it_counter-1, :, i:i+1] for i in range(len(self._reward_names))})
+                            self._sub_rew_avrg_over_envs_expl[self._log_it_counter, :, i:i+1] for i in range(len(self._reward_names))})
                     wandb_d.update({f"sub_reward_expl/{self._reward_names[i]}_sub_rew_min_over_envs_expl":
-                            self._sub_rew_min_over_envs_expl[self._log_it_counter-1, :, i:i+1] for i in range(len(self._reward_names))})
+                            self._sub_rew_min_over_envs_expl[self._log_it_counter, :, i:i+1] for i in range(len(self._reward_names))})
                 
                 wandb_d.update(self._policy_update_db_data_dict)
                 wandb_d.update(self._custom_env_data_db_dict)
 
                 if self._agent.running_norm is not None:
                     # adding info on running normalizer if used
-                    wandb_d.update({f"running_norm/mean": self._running_mean_obs[self._log_it_counter-1, :]})
-                    wandb_d.update({f"running_norm/std": self._running_std_obs[self._log_it_counter-1, :]})
+                    wandb_d.update({f"running_norm/mean": self._running_mean_obs[self._log_it_counter, :]})
+                    wandb_d.update({f"running_norm/std": self._running_std_obs[self._log_it_counter, :]})
 
                 wandb.log(wandb_d)
 

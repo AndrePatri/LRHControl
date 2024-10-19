@@ -192,5 +192,5 @@ class SAC(SActorCriticAlgoBase):
                         "sac_alpha_info/alpha_loss_mean": self._alpha_loss_mean[self._log_it_counter, 0],
                         "sac_alpha_info/alpha_loss_std": self._alpha_loss_std[self._log_it_counter, 0],
                         "sac_alpha_info/alpha_loss_max": self._alpha_loss_max[self._log_it_counter, 0],
-                        "sac_alpha_info/alpha_loss_min": self._alpha_loss_min[self._log_it_counter, 0]}) 
-                        "sac_alpha_info/target_entropy": self._target_entropy,
+                        "sac_alpha_info/alpha_loss_min": self._alpha_loss_min[self._log_it_counter, 0],
+                        "sac_alpha_info/target_entropy": self._target_entropy}) 
