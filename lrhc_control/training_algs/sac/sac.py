@@ -159,38 +159,3 @@ class SAC(SActorCriticAlgoBase):
                         self._alpha_loss_std[self._log_it_counter, 0] = alpha_loss.std().item()
                         self._alpha_loss_max[self._log_it_counter, 0] = alpha_loss.max().item()
                         self._alpha_loss_min[self._log_it_counter, 0] = alpha_loss.min().item()
-
-                if self._remote_db: 
-                    self._policy_update_db_data_dict.update({
-                        "sac_q_info/qf1_vals_mean": self._qf1_vals_mean[self._log_it_counter, 0],
-                        "sac_q_info/qf2_vals_mean": self._qf2_vals_mean[self._log_it_counter, 0],
-                        "sac_q_info/qf1_vals_std": self._qf1_vals_std[self._log_it_counter, 0],
-                        "sac_q_info/qf2_vals_std": self._qf2_vals_std[self._log_it_counter, 0],
-                        "sac_q_info/qf1_vals_max": self._qf1_vals_max[self._log_it_counter, 0],
-                        "sac_q_info/qf2_vals_max": self._qf2_vals_max[self._log_it_counter, 0],
-                        "sac_q_info/qf1_vals_min": self._qf1_vals_min[self._log_it_counter, 0],
-                        "sac_q_info/qf2_vals_min": self._qf2_vals_min[self._log_it_counter, 0],
-                        "sac_q_info/qf1_loss_mean": self._qf1_loss_mean[self._log_it_counter, 0],
-                        "sac_q_info/qf2_loss_mean": self._qf2_loss_mean[self._log_it_counter, 0],
-                        "sac_q_info/qf1_loss_std": self._qf1_loss_std[self._log_it_counter, 0],
-                        "sac_q_info/qf2_loss_std": self._qf2_loss_std[self._log_it_counter, 0],
-                        "sac_q_info/qf1_loss_max": self._qf1_loss_max[self._log_it_counter, 0],
-                        "sac_q_info/qf2_loss_max": self._qf2_loss_max[self._log_it_counter, 0],
-                        "sac_q_info/qf1_loss_min": self._qf1_loss_min[self._log_it_counter, 0],
-                        "sac_q_info/qf2_loss_mean": self._qf2_loss_min[self._log_it_counter, 0],
-
-                        "sac_actor_info/actor_loss_mean": self._actor_loss_mean[self._log_it_counter, 0],
-                        "sac_actor_info/actor_loss_std": self._actor_loss_std[self._log_it_counter, 0],
-                        "sac_actor_info/actor_loss_max": self._actor_loss_max[self._log_it_counter, 0],
-                        "sac_actor_info/actor_loss_min": self._actor_loss_min[self._log_it_counter, 0],
-                        "sac_actor_info/policy_entropy_mean": self._policy_entropy_mean[self._log_it_counter, 0],
-                        "sac_actor_info/policy_entropy_std": self._policy_entropy_std[self._log_it_counter, 0],
-                        "sac_actor_info/policy_entropy_max": self._policy_entropy_max[self._log_it_counter, 0],
-                        "sac_actor_info/policy_entropy_min": self._policy_entropy_min[self._log_it_counter, 0],
-
-                        "sac_alpha_info/alpha": self._alphas[self._log_it_counter, 0],
-                        "sac_alpha_info/alpha_loss_mean": self._alpha_loss_mean[self._log_it_counter, 0],
-                        "sac_alpha_info/alpha_loss_std": self._alpha_loss_std[self._log_it_counter, 0],
-                        "sac_alpha_info/alpha_loss_max": self._alpha_loss_max[self._log_it_counter, 0],
-                        "sac_alpha_info/alpha_loss_min": self._alpha_loss_min[self._log_it_counter, 0],
-                        "sac_alpha_info/target_entropy": self._target_entropy}) 

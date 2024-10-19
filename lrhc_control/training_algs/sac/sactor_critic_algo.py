@@ -707,14 +707,49 @@ class SActorCriticAlgoBase():
                     wandb_d.update({f"sub_reward_expl/{self._reward_names[i]}_sub_rew_min_over_envs_expl":
                             self._sub_rew_min_over_envs_expl[self._log_it_counter, :, i:i+1] for i in range(len(self._reward_names))})
                 
-                wandb_d.update(self._policy_update_db_data_dict)
-                wandb_d.update(self._custom_env_data_db_dict)
+                # algo info
+                self._policy_update_db_data_dict.update({
+                    "sac_q_info/qf1_vals_mean": self._qf1_vals_mean[self._log_it_counter, 0],
+                    "sac_q_info/qf2_vals_mean": self._qf2_vals_mean[self._log_it_counter, 0],
+                    "sac_q_info/qf1_vals_std": self._qf1_vals_std[self._log_it_counter, 0],
+                    "sac_q_info/qf2_vals_std": self._qf2_vals_std[self._log_it_counter, 0],
+                    "sac_q_info/qf1_vals_max": self._qf1_vals_max[self._log_it_counter, 0],
+                    "sac_q_info/qf2_vals_max": self._qf2_vals_max[self._log_it_counter, 0],
+                    "sac_q_info/qf1_vals_min": self._qf1_vals_min[self._log_it_counter, 0],
+                    "sac_q_info/qf2_vals_min": self._qf2_vals_min[self._log_it_counter, 0],
+                    "sac_q_info/qf1_loss_mean": self._qf1_loss_mean[self._log_it_counter, 0],
+                    "sac_q_info/qf2_loss_mean": self._qf2_loss_mean[self._log_it_counter, 0],
+                    "sac_q_info/qf1_loss_std": self._qf1_loss_std[self._log_it_counter, 0],
+                    "sac_q_info/qf2_loss_std": self._qf2_loss_std[self._log_it_counter, 0],
+                    "sac_q_info/qf1_loss_max": self._qf1_loss_max[self._log_it_counter, 0],
+                    "sac_q_info/qf2_loss_max": self._qf2_loss_max[self._log_it_counter, 0],
+                    "sac_q_info/qf1_loss_min": self._qf1_loss_min[self._log_it_counter, 0],
+                    "sac_q_info/qf2_loss_mean": self._qf2_loss_min[self._log_it_counter, 0],
+
+                    "sac_actor_info/actor_loss_mean": self._actor_loss_mean[self._log_it_counter, 0],
+                    "sac_actor_info/actor_loss_std": self._actor_loss_std[self._log_it_counter, 0],
+                    "sac_actor_info/actor_loss_max": self._actor_loss_max[self._log_it_counter, 0],
+                    "sac_actor_info/actor_loss_min": self._actor_loss_min[self._log_it_counter, 0],
+                    "sac_actor_info/policy_entropy_mean": self._policy_entropy_mean[self._log_it_counter, 0],
+                    "sac_actor_info/policy_entropy_std": self._policy_entropy_std[self._log_it_counter, 0],
+                    "sac_actor_info/policy_entropy_max": self._policy_entropy_max[self._log_it_counter, 0],
+                    "sac_actor_info/policy_entropy_min": self._policy_entropy_min[self._log_it_counter, 0],
+
+                    "sac_alpha_info/alpha": self._alphas[self._log_it_counter, 0],
+                    "sac_alpha_info/alpha_loss_mean": self._alpha_loss_mean[self._log_it_counter, 0],
+                    "sac_alpha_info/alpha_loss_std": self._alpha_loss_std[self._log_it_counter, 0],
+                    "sac_alpha_info/alpha_loss_max": self._alpha_loss_max[self._log_it_counter, 0],
+                    "sac_alpha_info/alpha_loss_min": self._alpha_loss_min[self._log_it_counter, 0],
+                    "sac_alpha_info/target_entropy": self._target_entropy})
 
                 if self._agent.running_norm is not None:
                     # adding info on running normalizer if used
                     wandb_d.update({f"running_norm/mean": self._running_mean_obs[self._log_it_counter, :]})
                     wandb_d.update({f"running_norm/std": self._running_std_obs[self._log_it_counter, :]})
 
+                wandb_d.update(self._policy_update_db_data_dict)
+                wandb_d.update(self._custom_env_data_db_dict) 
+                
                 wandb.log(wandb_d)
 
         if self._verbose:
