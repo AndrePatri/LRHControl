@@ -132,22 +132,12 @@ class SAC(SActorCriticAlgoBase):
                 self._qf2_vals_min[self._log_it_counter, 0] = qf2_a_values.min().item()
 
                 # q losses (~bellman error)
-                self._qf1_loss_mean[self._log_it_counter, 0] = qf1_loss.mean().item()
-                self._qf2_loss_mean[self._log_it_counter, 0] = qf2_loss.mean().item()
-                self._qf1_loss_std[self._log_it_counter, 0] = qf1_loss.std().item()
-                self._qf2_loss_std[self._log_it_counter, 0] = qf2_loss.std().item()
-                self._qf1_loss_max[self._log_it_counter, 0] = qf1_loss.max().item()
-                self._qf2_loss_max[self._log_it_counter, 0] = qf2_loss.max().item()
-                self._qf1_loss_min[self._log_it_counter, 0] = qf1_loss.min().item()
-                self._qf2_loss_min[self._log_it_counter, 0] = qf2_loss.min().item()
-
+                self._qf1_loss[self._log_it_counter, 0] = qf1_loss.item()
+                self._qf2_loss[self._log_it_counter, 0] = qf2_loss.item()
+    
                 if self._update_counter % self._policy_freq == 0:
                     # just log last policy update info
-                    self._actor_loss_mean[self._log_it_counter, 0] = actor_loss.mean().item()
-                    self._actor_loss_std[self._log_it_counter, 0] = actor_loss.std().item()
-                    self._actor_loss_max[self._log_it_counter, 0] = actor_loss.max().item()
-                    self._actor_loss_min[self._log_it_counter, 0] = actor_loss.min().item()
-
+                    self._actor_loss[self._log_it_counter, 0] = actor_loss.item()
                     policy_entropy=-log_pi
                     self._policy_entropy_mean[self._log_it_counter, 0] = policy_entropy.mean().item()
                     self._policy_entropy_std[self._log_it_counter, 0] = policy_entropy.std().item()
@@ -156,7 +146,4 @@ class SAC(SActorCriticAlgoBase):
 
                     self._alphas[self._log_it_counter, 0] = self._alpha
                     if self._autotune:
-                        self._alpha_loss_mean[self._log_it_counter, 0] = alpha_loss.mean().item()
-                        self._alpha_loss_std[self._log_it_counter, 0] = alpha_loss.std().item()
-                        self._alpha_loss_max[self._log_it_counter, 0] = alpha_loss.max().item()
-                        self._alpha_loss_min[self._log_it_counter, 0] = alpha_loss.min().item()
+                        self._alpha_loss[self._log_it_counter, 0] = alpha_loss.item()

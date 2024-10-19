@@ -906,7 +906,7 @@ class SActorCriticAlgoBase():
         self._alphas = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=torch.nan, device="cpu")
         self._alpha_loss = torch.full((self._db_data_size, 1), 
-                    dtype=torch.float32, fill_value=torch.nan, device="cpu"))
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
 
         self._policy_entropy_mean=torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=torch.nan, device="cpu")
