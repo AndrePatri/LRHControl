@@ -401,7 +401,7 @@ class LRhcTrainingEnvBase():
                 self._clamp_rewards(sub_rewards) # clamp all sub rewards
 
                 # compensating with action repeat to kee the same ret scale 
-                tot_rewards[:, :] = torch.sum(sub_rewards, dim=1, keepdim=True)*self._action_repeat
+                tot_rewards[:, :] = torch.sum(sub_rewards, dim=1, keepdim=True)
 
                 scale=1 # scale tot rew by the number of action repeats
                 if self._srew_drescaling: # scale rewards depending on the n of subrewards
