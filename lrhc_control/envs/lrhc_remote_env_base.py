@@ -6,6 +6,7 @@ from lrhc_control.utils.jnt_imp_control_base import JntImpCntrlBase
 from lrhc_control.utils.hybrid_quad_xrdf_gen import get_xrdf_cmds
 from lrhc_control.utils.xrdf_gen import generate_srdf, generate_urdf
 from lrhc_control.utils.math_utils import quaternion_difference
+from lrhc_control.utils.custom_arg_parsing import extract_custom_xacro_args, merge_xacro_cmds
 
 from control_cluster_bridge.utilities.homing import RobotHomer
 from control_cluster_bridge.utilities.shared_data.jnt_imp_control import JntImpCntrlData
@@ -1051,15 +1052,19 @@ class LRhcEnvBase():
                     urdf_path: str,
                     srdf_path: str):
         
+        custom_xacro_args=extract_custom_xacro_args(self._env_opts)
         Journal.log(self.__class__.__name__,
                     "update_root_offsets",
                     "generating URDF for robot "+ f"{robot_name}, from URDF {urdf_path}...",
                     LogType.STAT,
                     throw_when_excep = True)
+        xrdf_cmds=self._xrdf_cmds(robot_name=robot_name)
+        xrdf_cmds=merge_xacro_cmds(prev_cmds=xrdf_cmds,
+            new_cmds=custom_xacro_args)
         self._urdf_dump_paths[robot_name]=generate_urdf(robot_name=robot_name, 
             xacro_path=urdf_path,
             dump_path=self._descr_dump_path,
-            xrdf_cmds=self._xrdf_cmds(robot_name=robot_name))
+            xrdf_cmds=xrdf_cmds)
         Journal.log(self.__class__.__name__,
                     "update_root_offsets",
                     "generating SRDF for robot "+ f"{robot_name}, from SRDF {srdf_path}...",
@@ -1069,7 +1074,7 @@ class LRhcEnvBase():
         self._srdf_dump_paths[robot_name]=generate_srdf(robot_name=robot_name, 
             xacro_path=srdf_path,
             dump_path=self._descr_dump_path,
-            xrdf_cmds=self._xrdf_cmds(robot_name=robot_name))
+            xrdf_cmds=xrdf_cmds)
     
     def _xrdf_cmds(self, robot_name:str):
         urdfpath=self._robot_urdf_paths[robot_name]
