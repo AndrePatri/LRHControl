@@ -4,6 +4,8 @@ import multiprocessing as mp
 import importlib.util
 import inspect
 
+from lrhc_control.utils.custom_arg_parsing import generate_custom_arg_dict
+
 from SharsorIPCpp.PySharsorIPC import Journal, LogType
 
 this_script_name = os.path.splitext(os.path.basename(os.path.abspath(__file__)))[0]
@@ -40,10 +42,12 @@ if __name__ == "__main__":
     parser.add_argument('--codegen_override_dir', type=str, help='Path to base dir where codegen is to be loaded', default="")
 
     parser.add_argument('--custom_args_names', nargs='+', default=None,
-                            help='list of custom arguments names to cluster client')
+                            help='list of custom arguments names')
     parser.add_argument('--custom_args_vals', nargs='+', default=None,
-                            help='list of custom arguments values to cluster client')
-
+                            help='list of custom arguments values')
+    parser.add_argument('--custom_args_dtype', nargs='+', default=None,
+                            help='list of custom arguments data types')
+    
     parser.add_argument('--cluster_client_fname', type=str, 
         default="lrhc_control.controllers.rhc.hybrid_quad_client",
         help="cluster client file import pattern (without extension)")
@@ -51,19 +55,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     # Ensure custom_args_names and custom_args_vals have the same length
-    custom_opts={"cloop": args.cloop, 
-        "codegen_override_dir": args.codegen_override_dir}
-    if args.custom_args_names and args.custom_args_vals:
-        if len(args.custom_args_names) != len(args.custom_args_vals):
-            Journal.log("launch_control_cluster.py",
-                "",
-                f"custom_args_names and custom_args_vals lengths do not match!",
-                LogType.EXCEP,
-                throw_when_excep = False)
-            exit()
-        # Build custom_opt dictionary
-        custom_opts.update({name: val for name, val in zip(args.custom_args_names, args.custom_args_vals)})
-        
+    custom_opts = generate_custom_arg_dict(args=args)
+    custom_opts.update({"cloop": args.cloop, 
+        "codegen_override_dir": args.codegen_override_dir})
     if args.no_mp_fork: # this needs to be in the main
         mp.set_start_method('spawn')
     else:

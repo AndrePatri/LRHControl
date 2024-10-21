@@ -67,11 +67,11 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, help='seed', default=0)
 
     parser.add_argument('--custom_args_names', nargs='+', default=None,
-                            help='list of custom arguments names  to cluster client')
+                            help='list of custom arguments names')
     parser.add_argument('--custom_args_vals', nargs='+', default=None,
-                            help='list of custom arguments values to cluster client')
+                            help='list of custom arguments values')
     parser.add_argument('--custom_args_dtype', nargs='+', default=None,
-                            help='list of custom arguments data types to cluster client')
+                            help='list of custom arguments data types')
     
     parser.add_argument('--env_fname', type=str, 
         default="lrhcontrolenvs.envs.isaac_env",
