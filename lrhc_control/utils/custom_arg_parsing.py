@@ -24,6 +24,9 @@ def generate_custom_arg_dict(args: argparse.Namespace):
                     custom_opt[name] = float(val)
                 elif dtype == "bool":
                     custom_opt[name] = val.lower() in ["true", "1", "yes"]
+                elif dtype == "xacro":
+                    val_str=str(val)
+                    custom_opt[name] = f"{name}:="+val_str
                 else:  # Default is string
                     custom_opt[name] = val
             except ValueError as e:
