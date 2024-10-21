@@ -122,7 +122,7 @@ class HybridQuadRhcRefs(RhcRefs):
                     else: # contact phase
                         for contact_force_ref in self._f_reg_ref[i]: # set for references depending on n of contacts and contact forces per-contact
                             scale=self._n_forces_per_contact[i]*n_limbs_in_contact
-                            contact_force_ref.assign(self._total_weight)
+                            contact_force_ref.assign(self._total_weight/scale)
                         if timeline.getEmptyNodes() > 0: # if there's space, always add a stance
                             self.gait_manager.add_stand(timeline_name)
 
