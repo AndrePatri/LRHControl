@@ -106,43 +106,9 @@ class HybridQuadRhcRefs(RhcRefs):
             self.rob_refs.synch_from_shared_mem()
             self.phase_id.synch_all(read=True, retry=True)
             self.contact_flags.synch_all(read=True, retry=True)
-
-            phase_id = self.phase_id.read_retry(row_index=self.robot_index,
-                                col_index=0)[0]
             
-            if phase_id == -1: # custom phases
-                contact_flags = self.contact_flags.get_numpy_mirror()[self.robot_index, :]
-                n_limbs_in_contact=np.sum(contact_flags).item()
-                is_contact = contact_flags.flatten().tolist() 
-                for i in range(len(is_contact)): # loop through contact timelines
-                    timeline_name = self._timeline_names[i]
-                    timeline = self.gait_manager._contact_timelines[timeline_name]
-                    if is_contact[i]==False: # flight phase
-                        self.gait_manager.add_flight(timeline_name)
-                    else: # contact phase
-                        for contact_force_ref in self._f_reg_ref[i]: # set for references depending on n of contacts and contact forces per-contact
-                            scale=self._n_forces_per_contact[i]*n_limbs_in_contact
-                            contact_force_ref.assign(self._total_weight/scale)
-                        if timeline.getEmptyNodes() > 0: # if there's space, always add a stance
-                            self.gait_manager.add_stand(timeline_name)
+            self._handle_contact_phases()
 
-                for timeline_name in self._timeline_names: # sanity check on the timeline to avoid nasty empty nodes
-                    timeline = self.gait_manager._contact_timelines[timeline_name]
-                    if timeline.getEmptyNodes() > 0:
-                        error = f"Empty nodes detected over the horizon! Make sure to fill the whole horizon with valid phases!!"
-                        Journal.log(self.__class__.__name__,
-                            "step",
-                            error,
-                            LogType.EXCEP,
-                            throw_when_excep = True)
-            else:
-                exception = f"Unsupported phase id {phase_id} has been received!"
-                Journal.log(self.__class__.__name__,
-                    "step",
-                    exception,
-                    LogType.EXCEP,
-                    throw_when_excep = True)
-                
             # updated internal references with latest available ones
             self._apply_refs_to_tasks(q_base=q_base)
             
@@ -156,6 +122,52 @@ class HybridQuadRhcRefs(RhcRefs):
                 LogType.EXCEP,
                 throw_when_excep = True)
     
+    def _handle_contact_phases(self):
+
+        phase_id = self.phase_id.read_retry(row_index=self.robot_index,
+                                col_index=0)[0]
+        pz_ref=self.rob_refs.contact_pos.get(data_type = "p_z", 
+                robot_idxs=self.robot_index_np).reshape(-1, 1)
+        
+        if phase_id == -1: # boolean stepping 
+            contact_flags_refs = self.contact_flags.get_numpy_mirror()[self.robot_index, :]
+            target_n_limbs_in_contact=np.sum(contact_flags_refs).item()
+            is_contact = contact_flags_refs.flatten().tolist() 
+            for i in range(len(is_contact)): # loop through contact timelines
+                timeline_name = self._timeline_names[i]
+                timeline = self.gait_manager._contact_timelines[timeline_name]
+                if is_contact[i]==False: # flight phase
+                    self.gait_manager.add_flight(timeline_name)
+                else: # contact phase
+                    for contact_force_ref in self._f_reg_ref[i]: # set for references depending on n of contacts and contact forces per-contact
+                        scale=self._n_forces_per_contact[i]*target_n_limbs_in_contact
+                        contact_force_ref.assign(self._total_weight/scale)
+                    if timeline.getEmptyNodes() > 0: # if there's space, always add a stance
+                        self.gait_manager.add_stand(timeline_name)
+
+            for timeline_name in self._timeline_names: # sanity check on the timeline to avoid nasty empty nodes
+                timeline = self.gait_manager._contact_timelines[timeline_name]
+                if timeline.getEmptyNodes() > 0:
+                    error = f"Empty nodes detected over the horizon! Make sure to fill the whole horizon with valid phases!!"
+                    Journal.log(self.__class__.__name__,
+                        "step",
+                        error,
+                        LogType.EXCEP,
+                        throw_when_excep = True)
+        elif phase_id == 0:
+            Journal.log(self.__class__.__name__,
+                "step",
+                "not yet supported!!",
+                LogType.EXCEP,
+                throw_when_excep = True)
+        else:
+            exception = f"Unsupported mode ID {phase_id} has been received!"
+            Journal.log(self.__class__.__name__,
+                "step",
+                exception,
+                LogType.EXCEP,
+                throw_when_excep = True)
+                    
     def _apply_refs_to_tasks(self, q_base = None):
         # can be overridden by child
         base_q_full_ref = self.rob_refs.root_state.get(data_type = "q_full", 
