@@ -166,7 +166,6 @@ class LRhcEnvBase():
         self._env_opts.update(env_opts)
 
         self.step_counter = 0 # global step counter
-        self._init_steps_done = False
         self._n_init_steps = n_init_step # n steps to be performed before applying solutions from control clusters
         self._srdf_dump_paths = robot_srdf_paths
         self._homers = {} 
@@ -382,21 +381,18 @@ class LRhcEnvBase():
 
             control_cluster=self.cluster_servers[robot_name]
             control_cluster.pre_trigger()
+            to_be_activated=control_cluster.get_inactive_controllers()
             control_cluster.activate_controllers(
-                idxs=control_cluster.get_inactive_controllers())
-            active = control_cluster.get_active_controllers(gpu=self._use_gpu)
-            just_activated = control_cluster.get_just_activated(gpu=self._use_gpu)
-            just_deactivated = control_cluster.get_just_deactivated(gpu=self._use_gpu)
+                idxs=to_be_activated)
+            self._update_root_offsets(robot_name,
+                    env_indxs=to_be_activated)
 
-            if just_activated is not None: # transition of some controllers from not active -> active
-                self._update_root_offsets(robot_name,
-                    env_indxs=just_activated) # we use relative state wrt to this state for the controllers
-                self._set_startup_jnt_imp_gains(robot_name=robot_name, 
-                    env_indxs=just_activated)
+            self._set_startup_jnt_imp_gains(robot_name=robot_name, 
+                env_indxs=to_be_activated)
                 # self._reset_jnt_imp_control_gains(robot_name=robot_name, 
                 #                 env_indxs = just_activated) # setting runtime state for jnt imp controller
             self._write_state_to_cluster(robot_name=robot_name, 
-                env_indxs=active)
+                env_indxs=to_be_activated)
             control_cluster.trigger_solution()
 
         self._setup_done=True
@@ -519,8 +515,11 @@ class LRhcEnvBase():
                 # if overriding low-lev jnt imp. this has to run at the highest
                 # freq possible
                 start=time.perf_counter()
-                self._read_state_from_robot(robot_name=robot_name)
+                self._read_jnts_state_from_robot(robot_name=robot_name)
                 self.debug_data["time_to_get_states_from_sim"]= time.perf_counter()-start
+                self._write_state_to_jnt_imp(robot_name=robot_name)
+                self._jnt_imp_controllers[robot_name].apply_cmds()
+
             control_cluster = self.cluster_servers[robot_name]
             if control_cluster.is_cluster_instant(self.cluster_sim_step_counters[robot_name]):
                 control_cluster.wait_for_solution() # this is blocking
@@ -532,20 +531,32 @@ class LRhcEnvBase():
                         reset_cluster_counter=False,
                         randomize=True)
                     # activate inactive controllers
-                    control_cluster.activate_controllers(idxs=control_cluster.get_inactive_controllers())
+                control_cluster.activate_controllers(idxs=control_cluster.get_inactive_controllers())
+
                 control_cluster.pre_trigger() # performs pre-trigger steps, like retrieving
                 # values of some rhc flags on shared memory
                 active = control_cluster.get_active_controllers(gpu=self._use_gpu)
                 
+                # handle cluster activation/deactivation
+                self._handle_cluster_state_switch(robot_name=robot_name)
+
                 # write last cmds to low level control
-                self._update_jnt_imp_cntrl_actions(robot_name=robot_name, 
-                        actions=control_cluster.get_actions(),
-                        env_indxs=active)
+                self._set_cluster_actions(robot_name=robot_name)
+
+                # read state necessary for cluster
+                start=time.perf_counter()
+                self._read_state_from_robot(robot_name=robot_name, 
+                    env_indxs=active)
                 if not self._override_low_lev_controller:
                     # we can update the state just at the rate at which the cluster needs it
-                    start=time.perf_counter()
-                    self._read_state_from_robot(robot_name=robot_name, env_indxs=active)
-                    self.debug_data["time_to_get_states_from_sim"]= time.perf_counter()-start
+                    self._read_jnts_state_from_robot(robot_name=robot_name,env_indxs=active)
+                    self._write_state_to_jnt_imp(robot_name=robot_name) # write anyway state to jnt imp controller even 
+                    # if not overriding for db purposes
+                    self._jnt_imp_controllers[robot_name].apply_cmds()
+                self.debug_data["time_to_get_states_from_sim"]= time.perf_counter()-start
+
+                self._update_jnt_imp_cntrl_shared_data() # only if debug_mode_jnt_imp is enabled
+
                 # write last state to the cluster of controllers
                 self._write_state_to_cluster(robot_name=robot_name, 
                     env_indxs=active)
@@ -559,7 +570,10 @@ class LRhcEnvBase():
             if self._override_low_lev_controller:
                 # if overriding low-lev jnt imp. this has to run at the highest
                 # freq possible
-                self._read_state_from_robot(robot_name=robot_name)
+                self._read_jnts_state_from_robot(robot_name=robot_name)
+                self._write_state_to_jnt_imp(robot_name=robot_name)
+                self._jnt_imp_controllers[robot_name].apply_cmds()
+
             control_cluster = self.cluster_servers[robot_name]
             if control_cluster.is_cluster_instant(self.cluster_sim_step_counters[robot_name]):
                 control_cluster.wait_for_solution() # this is blocking
@@ -571,18 +585,26 @@ class LRhcEnvBase():
                         reset_cluster_counter=False,
                         randomize=True)
                     # activate inactive controllers
-                    control_cluster.activate_controllers(idxs=control_cluster.get_inactive_controllers())
+                control_cluster.activate_controllers(idxs=control_cluster.get_inactive_controllers())
+                
                 control_cluster.pre_trigger() # performs pre-trigger steps, like retrieving
                 # values of some rhc flags on shared memory
                 active = control_cluster.get_active_controllers(gpu=self._use_gpu)
+
+                # handle cluster activation/deactivation
+                self._handle_cluster_state_switch(robot_name=robot_name)
                 
                 # write last cmds to low level control
-                self._update_jnt_imp_cntrl_actions(robot_name=robot_name, 
-                        actions=control_cluster.get_actions(),
-                        env_indxs=active)
+                self._set_cluster_actions(robot_name=robot_name)
+                
+                # read state necessary for cluster
+                self._read_state_from_robot(robot_name=robot_name, 
+                    env_indxs=active)
+                
                 if not self._override_low_lev_controller:
-                    # we can update the state just at the rate at which the cluster needs it
-                    self._read_state_from_robot(robot_name=robot_name, env_indxs=active)
+                    # we can update the jnt state just at the rate at which the cluster needs it
+                    self._read_jnts_state_from_robot(robot_name=robot_name, env_indxs=active)
+                    self._jnt_imp_controllers[robot_name].apply_cmds()
                 # write last state to the cluster of controllers
                 self._write_state_to_cluster(robot_name=robot_name, 
                     env_indxs=active)
@@ -597,22 +619,31 @@ class LRhcEnvBase():
                 self.debug_data["sim_time"][robot_name]=self.cluster_sim_step_counters[robot_name]*self.physics_dt()
                 self.debug_data["cluster_sol_time"][robot_name] = \
                     self.cluster_servers[robot_name].solution_time()
-                
         self.step_counter +=1
-        if self.step_counter>=self._n_init_steps and \
-                not self._init_steps_done:
-            self._init_steps_done = True
-        
+
     def _post_sim_step(self) -> bool:
 
         for i in range(len(self._robot_names)):
             robot_name = self._robot_names[i]
             self.cluster_sim_step_counters[robot_name]+=1
         self.step_counter +=1
-        if self.step_counter>=self._n_init_steps and \
-                not self._init_steps_done:
-            self._init_steps_done = True
 
+    def _handle_cluster_state_switch(self, robot_name: str):
+
+        control_cluster = self.cluster_servers[robot_name]
+
+        just_activated = control_cluster.get_just_activated(gpu=self._use_gpu)
+        just_deactivated = control_cluster.get_just_deactivated(gpu=self._use_gpu)
+
+        if just_activated is not None:
+            self._update_root_offsets(robot_name,
+                env_indxs=just_activated) # we use relative state wrt to this state for the controllers
+            self._set_startup_jnt_imp_gains(robot_name=robot_name, 
+                            env_indxs = just_activated)
+        if just_deactivated is not None:
+            self._reset_jnt_imp_control(robot_name=robot_name,
+                env_indxs=just_deactivated)
+                    
     def _reset(self,
             robot_name: str,
             env_indxs: torch.Tensor = None,
@@ -862,58 +893,29 @@ class LRhcEnvBase():
             pos_gains=startup_p_gains[env_indxs, :], 
             vel_gains=startup_d_gains[env_indxs, :])
     
-    def _update_jnt_imp_cntrl_actions(self,
-        robot_name: str, 
-        actions = None,
-        env_indxs: torch.Tensor = None):
+    def _write_state_to_jnt_imp(self,
+        robot_name: str):
         pass
-    
-        if env_indxs is not None and self._debug:
-            if not isinstance(env_indxs, torch.Tensor):
-                error = "Provided env_indxs should be a torch tensor of indexes!"
-                Journal.log(self.__class__.__name__,
-                    "_step_jnt_imp_control",
-                    error,
-                    LogType.EXCEP,
-                    True)
-            if self._use_gpu:
-                if not env_indxs.device.type == "cuda":
-                    error = "Provided env_indxs should be on GPU!"
-                    Journal.log(self.__class__.__name__,
-                    "_step_jnt_imp_control",
-                    error,
-                    LogType.EXCEP,
-                    True)
-            else:
-                if not env_indxs.device.type == "cpu":
-                    error = "Provided env_indxs should be on CPU!"
-                    Journal.log(self.__class__.__name__,
-                        "_step_jnt_imp_control",
-                        error,
-                        LogType.EXCEP,
-                        True)
-                
+     
         # always update ,imp. controller internal state (jnt imp control is supposed to be
         # always running)
         self._jnt_imp_controllers[robot_name].update_state(pos=self.jnts_q(robot_name=robot_name), 
-                vel = self.jnts_v(robot_name=robot_name),
-                eff = self.jnts_eff(robot_name=robot_name))
+            vel = self.jnts_v(robot_name=robot_name),
+            eff = self.jnts_eff(robot_name=robot_name))
 
-        if actions is not None and env_indxs is not None:
-            # if new actions are received, also update references
-            # (only use actions if env_indxs is provided)
+    def _set_cluster_actions(self, 
+        robot_name):
+        control_cluster = self.cluster_servers[robot_name]
+        actions=control_cluster.get_actions()
+        active_controllers=control_cluster.get_active_controllers(gpu=self._use_gpu)
+        
+        if active_controllers is not None:
             self._jnt_imp_controllers[robot_name].set_refs(
-                pos_ref=actions.jnts_state.get(data_type="q", gpu=self._use_gpu)[env_indxs, :], 
-                vel_ref=actions.jnts_state.get(data_type="v", gpu=self._use_gpu)[env_indxs, :], 
-                eff_ref=actions.jnts_state.get(data_type="eff", gpu=self._use_gpu)[env_indxs, :],
-                robot_indxs = env_indxs)
-
-        # # jnt imp. controller actions are always applied
-        self._jnt_imp_controllers[robot_name].apply_cmds()
-
-        if self._debug:
-            self._update_jnt_imp_cntrl_shared_data() # only if debug_mode_jnt_imp is enabled
-    
+                pos_ref=actions.jnts_state.get(data_type="q", gpu=self._use_gpu)[active_controllers, :], 
+                vel_ref=actions.jnts_state.get(data_type="v", gpu=self._use_gpu)[active_controllers, :], 
+                eff_ref=actions.jnts_state.get(data_type="eff", gpu=self._use_gpu)[active_controllers, :],
+                robot_indxs=active_controllers)            
+        
     def _update_root_offsets(self, 
                     robot_name: str,
                     env_indxs: torch.Tensor = None):
@@ -1001,25 +1003,13 @@ class LRhcEnvBase():
         # resets all internal data, refs to defaults
         self._jnt_imp_controllers[robot_name].reset(robot_indxs=env_indxs)
 
-        # restore current state
-        if env_indxs is None:
-            self._jnt_imp_controllers[robot_name].update_state(pos = self._jnts_q[robot_name][:, :], 
-                vel = self._jnts_v[robot_name][:, :],
-                eff = None,
-                robot_indxs = None)
-        else:
-            self._jnt_imp_controllers[robot_name].update_state(pos = self._jnts_q[robot_name][env_indxs, :], 
-                vel = self._jnts_v[robot_name][env_indxs, :],
-                eff = None,
-                robot_indxs = env_indxs)
-        
         #restore jnt imp refs to homing            
         if env_indxs is None:                               
             self._jnt_imp_controllers[robot_name].set_refs(pos_ref=self._homing[:, :],
-                                                    robot_indxs = None)
+                robot_indxs = None)
         else:
             self._jnt_imp_controllers[robot_name].set_refs(pos_ref=self._homing[env_indxs, :],
-                                                            robot_indxs = env_indxs)
+                robot_indxs = env_indxs)
 
         # actually applies reset commands to the articulation
         # self._jnt_imp_controllers[robot_name].apply_cmds()          
@@ -1076,7 +1066,7 @@ class LRhcEnvBase():
         
         custom_xacro_args=extract_custom_xacro_args(self._env_opts)
         Journal.log(self.__class__.__name__,
-                    "update_root_offsets",
+                    "_generate_rob_descriptions",
                     "generating URDF for robot "+ f"{robot_name}, from URDF {urdf_path}...",
                     LogType.STAT,
                     throw_when_excep = True)
@@ -1088,7 +1078,7 @@ class LRhcEnvBase():
             dump_path=self._descr_dump_path,
             xrdf_cmds=xrdf_cmds)
         Journal.log(self.__class__.__name__,
-                    "update_root_offsets",
+                    "_generate_rob_descriptions",
                     "generating SRDF for robot "+ f"{robot_name}, from SRDF {srdf_path}...",
                     LogType.STAT,
                     throw_when_excep = True)
@@ -1159,6 +1149,12 @@ class LRhcEnvBase():
         env_indxs: torch.Tensor = None):
         pass
     
+    @abstractmethod
+    def _read_jnts_state_from_robot(self,
+        robot_name: str,
+        env_indxs: torch.Tensor = None):
+        pass
+
     @abstractmethod
     def _init_robots_state(self):
         pass
