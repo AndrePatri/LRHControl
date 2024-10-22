@@ -518,7 +518,7 @@ class LRhcEnvBase():
                 self._read_jnts_state_from_robot(robot_name=robot_name)
                 self.debug_data["time_to_get_states_from_sim"]= time.perf_counter()-start
                 self._write_state_to_jnt_imp(robot_name=robot_name)
-                self._jnt_imp_controllers[robot_name].apply_cmds()
+                self._apply_cmds_to_jnt_imp_control(robot_name=robot_name)
 
             control_cluster = self.cluster_servers[robot_name]
             if control_cluster.is_cluster_instant(self.cluster_sim_step_counters[robot_name]):
@@ -552,7 +552,7 @@ class LRhcEnvBase():
                     self._read_jnts_state_from_robot(robot_name=robot_name,env_indxs=active)
                     self._write_state_to_jnt_imp(robot_name=robot_name) # write anyway state to jnt imp controller even 
                     # if not overriding for db purposes
-                    self._jnt_imp_controllers[robot_name].apply_cmds()
+                    self._apply_cmds_to_jnt_imp_control(robot_name=robot_name)
                 self.debug_data["time_to_get_states_from_sim"]= time.perf_counter()-start
 
                 self._update_jnt_imp_cntrl_shared_data() # only if debug_mode_jnt_imp is enabled
@@ -572,7 +572,7 @@ class LRhcEnvBase():
                 # freq possible
                 self._read_jnts_state_from_robot(robot_name=robot_name)
                 self._write_state_to_jnt_imp(robot_name=robot_name)
-                self._jnt_imp_controllers[robot_name].apply_cmds()
+                self._apply_cmds_to_jnt_imp_control(robot_name=robot_name)
 
             control_cluster = self.cluster_servers[robot_name]
             if control_cluster.is_cluster_instant(self.cluster_sim_step_counters[robot_name]):
@@ -604,7 +604,7 @@ class LRhcEnvBase():
                 if not self._override_low_lev_controller:
                     # we can update the jnt state just at the rate at which the cluster needs it
                     self._read_jnts_state_from_robot(robot_name=robot_name, env_indxs=active)
-                    self._jnt_imp_controllers[robot_name].apply_cmds()
+                    self._apply_cmds_to_jnt_imp_control(robot_name=robot_name)
                 # write last state to the cluster of controllers
                 self._write_state_to_cluster(robot_name=robot_name, 
                     env_indxs=active)
@@ -915,7 +915,11 @@ class LRhcEnvBase():
                 vel_ref=actions.jnts_state.get(data_type="v", gpu=self._use_gpu)[active_controllers, :], 
                 eff_ref=actions.jnts_state.get(data_type="eff", gpu=self._use_gpu)[active_controllers, :],
                 robot_indxs=active_controllers)            
-        
+    
+    def _apply_cmds_to_jnt_imp_control(self, robot_name:str):
+
+        self._jnt_imp_controllers[robot_name].apply_cmds()
+
     def _update_root_offsets(self, 
                     robot_name: str,
                     env_indxs: torch.Tensor = None):
