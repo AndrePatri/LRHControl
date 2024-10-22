@@ -1,6 +1,7 @@
 from control_cluster_bridge.cluster_client.control_cluster_client import ControlClusterClient
 from lrhc_control.utils.xrdf_gen import generate_srdf, generate_urdf
 from lrhc_control.utils.hybrid_quad_xrdf_gen import get_xrdf_cmds
+from lrhc_control.utils.custom_arg_parsing import extract_custom_xacro_args, merge_xacro_cmds
 
 from SharsorIPCpp.PySharsorIPC import Journal, LogType
 
@@ -47,10 +48,7 @@ class LRhcClusterClient(ControlClusterClient):
         self._srdf_xacro_path = srdf_xacro_path
         self._urdf_path=""
         self._srdf_path=""
-        self._generate_srdf(namespace=namespace)
-
-        self._generate_urdf(namespace=namespace)
-
+        
         super().__init__(namespace = namespace, 
                         cluster_size=cluster_size,
                         isolated_cores_only = isolated_cores_only,
@@ -60,6 +58,10 @@ class LRhcClusterClient(ControlClusterClient):
                         verbose = verbose,
                         debug = debug,
                         custom_opts=custom_opts)
+        self._generate_srdf(namespace=namespace)
+
+        self._generate_urdf(namespace=namespace)
+
     
     def codegen_dir(self):
 
@@ -71,17 +73,25 @@ class LRhcClusterClient(ControlClusterClient):
     
     def _generate_srdf(self,namespace:str):
         
+        custom_xacro_args=extract_custom_xacro_args(self._custom_opts)
+        cmds=merge_xacro_cmds(prev_cmds=self._xrdf_cmds(),
+            new_cmds=custom_xacro_args)
+    
         self._urdf_path=generate_urdf(robot_name=namespace,
             xacro_path=self._urdf_xacro_path,
             dump_path=self._temp_path,
-            xrdf_cmds=self._xrdf_cmds())
+            xrdf_cmds=cmds)
     
     def _generate_urdf(self,namespace:str):
         
+        custom_xacro_args=extract_custom_xacro_args(self._custom_opts)
+        cmds=merge_xacro_cmds(prev_cmds=self._xrdf_cmds(),
+            new_cmds=custom_xacro_args)
+
         self._srdf_path=generate_srdf(robot_name=namespace,
             xacro_path=self._srdf_xacro_path,
             dump_path=self._temp_path,
-            xrdf_cmds=self._xrdf_cmds())
+            xrdf_cmds=cmds)
             
     @abstractmethod
     def _xrdf_cmds(self):
