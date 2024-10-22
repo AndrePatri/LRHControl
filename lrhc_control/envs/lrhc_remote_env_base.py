@@ -176,8 +176,7 @@ class LRhcEnvBase():
         self._jnt_imp_config_paths = {}
 
         # control cluster data
-        self.cluster_timers = {}
-        self.cluster_step_counters = {}
+        self.cluster_sim_step_counters = {}
         self.cluster_servers = {}
         self._trigger_sol = {}
         self._wait_sol = {}
@@ -300,7 +299,7 @@ class LRhcEnvBase():
             self._gravity_normalized[robot_name][:, 2]=-1.0
             self._gravity_normalized_base_loc[robot_name]=self._gravity_normalized[robot_name].detach().clone()
 
-            self.cluster_step_counters[robot_name]=0
+            self.cluster_sim_step_counters[robot_name]=0
             self._is_first_trigger[robot_name] = True
             if not isinstance(self._cluster_dt[robot_name], (float)):
                 exception = f"cluster_dt[{i}] should be a float!"
@@ -331,8 +330,6 @@ class LRhcEnvBase():
             self.debug_data["cluster_sol_time"][robot_name] = np.nan
             self.debug_data["cluster_state_update_dt"][robot_name] = np.nan
             self.debug_data["sim_time"][robot_name] = np.nan
-            if self._debug:
-                self.cluster_timers[robot_name] = time.perf_counter()
             # remote sim stepping
             if self._use_remote_stepping[i]:
                 self._remote_steppers[robot_name] = RemoteStepperClnt(namespace=robot_name,
@@ -365,9 +362,9 @@ class LRhcEnvBase():
             self._homing=robot_homing.repeat(self._num_envs, 1)
 
             self._jnts_q_default[robot_name] = self._homing
-            self._move_jnts_to_homing()
-            self._move_root_to_defconfig()
-
+            self._set_jnts_homing(robot_name=robot_name)
+            self._set_root_to_defconfig(robot_name=robot_name)
+            self._reset_sim()
             self._init_safe_cluster_actions(robot_name=robot_name)
 
             self._jnt_imp_controllers[robot_name] = self._generate_jnt_imp_control(robot_name=robot_name)
@@ -383,19 +380,42 @@ class LRhcEnvBase():
                                             safe=False)
             self._jnt_imp_cntrl_shared_data[robot_name].run()
 
+            control_cluster=self.cluster_servers[robot_name]
+            control_cluster.pre_trigger()
+            control_cluster.activate_controllers(
+                idxs=control_cluster.get_inactive_controllers())
+            active = control_cluster.get_active_controllers(gpu=self._use_gpu)
+            just_activated = control_cluster.get_just_activated(gpu=self._use_gpu)
+            just_deactivated = control_cluster.get_just_deactivated(gpu=self._use_gpu)
+
+            if just_activated is not None: # transition of some controllers from not active -> active
+                self._update_root_offsets(robot_name,
+                    env_indxs=just_activated) # we use relative state wrt to this state for the controllers
+                self._set_startup_jnt_imp_gains(robot_name=robot_name, 
+                    env_indxs=just_activated)
+                # self._reset_jnt_imp_control_gains(robot_name=robot_name, 
+                #                 env_indxs = just_activated) # setting runtime state for jnt imp controller
+            self._write_state_to_cluster(robot_name=robot_name, 
+                env_indxs=active)
+            control_cluster.trigger_solution()
+
         self._setup_done=True
 
     def step(self) -> bool:
         success=True
-        self._pre_step()
+
         if self._debug:
+            self._pre_step_db()
             self._env_timer=time.perf_counter()
-        self._step_sim()
-        # success = success and 
-        if self._debug:
+            self._step_sim()
             self.debug_data["time_to_step_world"] = \
                 time.perf_counter() - self._env_timer
-        self._post_sim_step()
+            self._post_sim_step()
+        else:
+            self._pre_step()
+            self._step_sim()
+            self._post_sim_step()
+
         return success
     
     def render(self, mode:str="human") -> None:
@@ -403,41 +423,26 @@ class LRhcEnvBase():
 
     def reset(self,
         env_indxs: torch.Tensor = None,
-        robot_names: List[str] = None,
-        reset_sim: bool = False,
         reset_cluster: bool = False,
         reset_cluster_counter = False,
-        randomize: bool = False) -> None:
+        randomize: bool = False,
+        reset_sim: bool = False) -> None:
 
-        if reset_cluster: # reset controllers remotely
-            self._reset_cluster(env_indxs=env_indxs,
-                    robot_names=robot_names)
+        for i in range(len(self._robot_names)):
+            robot_name=self._robot_names[i]
+            self._reset(robot_name=robot_name,
+                env_indxs=env_indxs,
+                randomize=randomize,
+                reset_cluster=reset_cluster,
+                reset_cluster_counter=reset_cluster_counter)
         if reset_sim:
             self._reset_sim()
-        if robot_names is None:
-            robot_names = self._robot_names
-
-        self._reset(env_indxs=env_indxs,
-            robot_names=robot_names,
-            randomize=randomize)
-        
-        if reset_cluster: # reset the state of clusters using the reset state
-            for i in range(len(robot_names)):
-                self._write_state_to_cluster(robot_name=robot_names[i],
-                                env_indxs=env_indxs)
-                if reset_cluster_counter:
-                    self.cluster_step_counters[robot_names[i]] = 0                
 
     def _reset_cluster(self,
-            env_indxs: torch.Tensor = None,
-            robot_names: List[str]=None):
-        rob_names = robot_names
-        if rob_names is None:
-            rob_names = self._robot_names
-        for i in range(len(rob_names)):
-            robot_name = rob_names[i]
-            control_cluster = self.cluster_servers[robot_name]
-            control_cluster.reset_controllers(idxs=env_indxs)
+            robot_name: str,
+            env_indxs: torch.Tensor = None):
+        control_cluster = self.cluster_servers[robot_name]
+        control_cluster.reset_controllers(idxs=env_indxs)
 
     def _write_state_to_cluster(self, 
         robot_name: str, 
@@ -504,113 +509,134 @@ class LRhcEnvBase():
         rhc_cmds.jnts_state.set(data=self._homing, data_type="q", gpu=self._use_gpu)
         rhc_cmds.jnts_state.set(data=null_action, data_type="v", gpu=self._use_gpu)
         rhc_cmds.jnts_state.set(data=null_action, data_type="eff", gpu=self._use_gpu)
-    
-    def _pre_step(self) -> None:
 
-        self._update_state_from_sim()
-
+    def _pre_step_db(self) -> None:
+        
         # cluster step logic here
         for i in range(len(self._robot_names)):
-            
             robot_name = self._robot_names[i]
-            control_cluster = self.cluster_servers[robot_name] # retrieve control
-            # cluster states
-            active = None 
-            just_activated = None
-            just_deactivated = None                
-            failed = None
-            
-            # 1) this runs @cluster_dt: waits + retrieves latest solution
-            if control_cluster.is_cluster_instant(self.cluster_step_counters[robot_name]) and \
-                    self._init_steps_done:
-                
+            if self._override_low_lev_controller:
+                # if overriding low-lev jnt imp. this has to run at the highest
+                # freq possible
+                start=time.perf_counter()
+                self._read_state_from_robot(robot_name=robot_name)
+                self.debug_data["time_to_get_states_from_sim"]= time.perf_counter()-start
+            control_cluster = self.cluster_servers[robot_name]
+            if control_cluster.is_cluster_instant(self.cluster_sim_step_counters[robot_name]):
+                control_cluster.wait_for_solution() # this is blocking
+                failed = control_cluster.get_failed_controllers(gpu=self._use_gpu)
+                if failed is not None:
+                    self._reset(env_indxs=failed,
+                        robot_name=robot_name,
+                        reset_cluster=True,
+                        reset_cluster_counter=False,
+                        randomize=True)
+                    # activate inactive controllers
+                    control_cluster.activate_controllers(idxs=control_cluster.get_inactive_controllers())
                 control_cluster.pre_trigger() # performs pre-trigger steps, like retrieving
                 # values of some rhc flags on shared memory
-                if not self._is_first_trigger[robot_name]: # first trigger we don't wait (there has been no trigger)
-                    control_cluster.wait_for_solution() # this is blocking
-                    if self._debug:
-                        self.cluster_timers[robot_name] = time.perf_counter()
-                    failed = control_cluster.get_failed_controllers(gpu=self._use_gpu)
-                    if self._use_remote_stepping[i]:
-                        self._remote_steppers[robot_name].ack() # signal cluster stepping is finished
-                        if failed is not None: # deactivate robot completely (basically, deactivate jnt imp controller)
-                            self._deactivate(env_indxs=failed,
-                                robot_names=[robot_name])
-                        self._process_remote_reset_req(robot_name=robot_name) # wait for remote reset request (blocking)
-                    else:
-                        # automatically reset and reactivate failed controllers if not running remotely
-                        if failed is not None:
-                            self.reset(env_indxs=failed,
-                                    robot_names=[robot_name],
-                                    reset_sim=False,
-                                    reset_cluster=True,
-                                    reset_cluster_counter=False,
-                                    randomize=True)
-                        # activate inactive controllers
-                        control_cluster.activate_controllers(idxs=control_cluster.get_inactive_controllers())
-
-            active = control_cluster.get_active_controllers(gpu=self._use_gpu)
-            # 2) this runs at @simulation dt i.e. the highest possible rate,
-            # using the latest available RHC actions
-            self._update_jnt_imp_cntrl_actions(robot_name=robot_name, 
+                active = control_cluster.get_active_controllers(gpu=self._use_gpu)
+                
+                # write last cmds to low level control
+                self._update_jnt_imp_cntrl_actions(robot_name=robot_name, 
                         actions=control_cluster.get_actions(),
                         env_indxs=active)
-            # 3) this runs at @cluster_dt: trigger cluster solution
-            if control_cluster.is_cluster_instant(self.cluster_step_counters[robot_name]) and \
-                    self._init_steps_done:
-                if self._is_first_trigger[robot_name]:
-                        # we update the all the default root state now. This state will be used 
-                        # for future resets
-                        self._synch_default_root_states(robot_name=robot_name)
-                        self._is_first_trigger[robot_name] = False
-                if self._use_remote_stepping[i]:
-                        self._wait_for_remote_step_req(robot_name=robot_name)
-                # handling controllers transition to running state
-                just_activated = control_cluster.get_just_activated(gpu=self._use_gpu) 
-                just_deactivated = control_cluster.get_just_deactivated(gpu=self._use_gpu)
-                if just_activated is not None: # transition of some controllers from not active -> active
-                    self._update_root_offsets(robot_name,
-                                    env_indxs=just_activated) # we use relative state wrt to this state for the controllers
-                    self._set_startup_jnt_imp_gains(robot_name=robot_name, 
-                                    env_indxs = just_activated)
-                    # self._reset_jnt_imp_control_gains(robot_name=robot_name, 
-                    #                 env_indxs = just_activated) # setting runtime state for jnt imp controller
-                if just_deactivated is not None:
-                    self._reset_jnt_imp_control(robot_name=robot_name,
-                            env_indxs=just_deactivated)
+                if not self._override_low_lev_controller:
+                    # we can update the state just at the rate at which the cluster needs it
+                    start=time.perf_counter()
+                    self._read_state_from_robot(robot_name=robot_name, env_indxs=active)
+                    self.debug_data["time_to_get_states_from_sim"]= time.perf_counter()-start
+                # write last state to the cluster of controllers
                 self._write_state_to_cluster(robot_name=robot_name, 
-                                    env_indxs=active) # always update cluster state every cluster dt
+                    env_indxs=active)
                 control_cluster.trigger_solution() # trigger only active controllers
 
-    def _post_sim_step(self) -> bool:
+    def _pre_step(self) -> None:
+        
+        # cluster step logic here
+        for i in range(len(self._robot_names)):
+            robot_name = self._robot_names[i]
+            if self._override_low_lev_controller:
+                # if overriding low-lev jnt imp. this has to run at the highest
+                # freq possible
+                self._read_state_from_robot(robot_name=robot_name)
+            control_cluster = self.cluster_servers[robot_name]
+            if control_cluster.is_cluster_instant(self.cluster_sim_step_counters[robot_name]):
+                control_cluster.wait_for_solution() # this is blocking
+                failed = control_cluster.get_failed_controllers(gpu=self._use_gpu)
+                if failed is not None:
+                    self._reset(env_indxs=failed,
+                        robot_name=robot_name,
+                        reset_cluster=True,
+                        reset_cluster_counter=False,
+                        randomize=True)
+                    # activate inactive controllers
+                    control_cluster.activate_controllers(idxs=control_cluster.get_inactive_controllers())
+                control_cluster.pre_trigger() # performs pre-trigger steps, like retrieving
+                # values of some rhc flags on shared memory
+                active = control_cluster.get_active_controllers(gpu=self._use_gpu)
+                
+                # write last cmds to low level control
+                self._update_jnt_imp_cntrl_actions(robot_name=robot_name, 
+                        actions=control_cluster.get_actions(),
+                        env_indxs=active)
+                if not self._override_low_lev_controller:
+                    # we can update the state just at the rate at which the cluster needs it
+                    self._read_state_from_robot(robot_name=robot_name, env_indxs=active)
+                # write last state to the cluster of controllers
+                self._write_state_to_cluster(robot_name=robot_name, 
+                    env_indxs=active)
+                control_cluster.trigger_solution() # trigger only active controllers
+                    
+    def _post_sim_step_db(self) -> bool:
+
+        for i in range(len(self._robot_names)):
+            robot_name = self._robot_names[i]
+            self.cluster_sim_step_counters[robot_name]+=1
+            if self._debug:
+                self.debug_data["sim_time"][robot_name]=self.cluster_sim_step_counters[robot_name]*self.physics_dt()
+                self.debug_data["cluster_sol_time"][robot_name] = \
+                    self.cluster_servers[robot_name].solution_time()
+                
         self.step_counter +=1
         if self.step_counter>=self._n_init_steps and \
                 not self._init_steps_done:
             self._init_steps_done = True
+        
+    def _post_sim_step(self) -> bool:
+
         for i in range(len(self._robot_names)):
             robot_name = self._robot_names[i]
-            self.cluster_step_counters[robot_name] += 1
-            if self._debug:
-                self.debug_data["sim_time"][robot_name]=self.cluster_step_counters[robot_name]*self.physics_dt()
-                self.debug_data["cluster_sol_time"][robot_name] = \
-                    self.cluster_servers[robot_name].solution_time()
+            self.cluster_sim_step_counters[robot_name]+=1
+        self.step_counter +=1
+        if self.step_counter>=self._n_init_steps and \
+                not self._init_steps_done:
+            self._init_steps_done = True
 
     def _reset(self,
+            robot_name: str,
             env_indxs: torch.Tensor = None,
-            robot_names: List[str] =None,
-            randomize: bool = False):
+            randomize: bool = False,
+            reset_cluster: bool = False,
+            reset_cluster_counter = False):
 
-        # we first reset all target articulations to their default state
-        rob_names = robot_names if (robot_names is not None) else self._robot_names
+        if reset_cluster: # reset controllers remotely
+            self._reset_cluster(env_indxs=env_indxs,
+                robot_name=robot_name)
         # resets the state of target robot and env to the defaults
         self._reset_state(env_indxs=env_indxs, 
-            robot_names=rob_names,
+            robot_name=robot_name,
             randomize=randomize)
         # and jnt imp. controllers
-        for i in range(len(rob_names)):
-            self.reset_jnt_imp_control(robot_name=rob_names[i],
-                                env_indxs=env_indxs)
-    
+        self._reset_jnt_imp_control(robot_name=robot_name,
+                env_indxs=env_indxs)
+        
+        if reset_cluster: # reset the state of clusters using the reset state
+            self._write_state_to_cluster(robot_name=robot_name,
+                env_indxs=env_indxs)
+        if reset_cluster_counter:
+            self.cluster_sim_step_counters[robot_name] = 0 
+        
     def _randomize_yaw(self,
             robot_name: str,
             env_indxs: torch.Tensor = None):
@@ -631,14 +657,11 @@ class LRhcEnvBase():
                                 torch.sin(yaw_angles / 2)), dim=1).reshape(num_indices, 4)
 
     def _deactivate(self,
-            env_indxs: torch.Tensor = None,
-            robot_names: List[str] =None):
+        robot_name: str,
+        env_indxs: torch.Tensor = None):
         
         # deactivate jnt imp controllers for given robots and envs (makes the robot fall)
-        rob_names = robot_names if (robot_names is not None) else self._robot_names
-        for i in range(len(rob_names)):
-            robot_name = rob_names[i]
-            self._jnt_imp_controllers[robot_name].deactivate(robot_indxs = env_indxs)
+        self._jnt_imp_controllers[robot_name].deactivate(robot_indxs=env_indxs)
     
     def _n_contacts(self, robot_name: str) -> List[int]:
         return self._num_contacts[robot_name]
@@ -770,9 +793,8 @@ class LRhcEnvBase():
         reset_requests.synch_all(read=True, retry=True) # read reset requests from shared mem
         to_be_reset = reset_requests.to_be_reset(gpu=self._use_gpu)
         if to_be_reset is not None:
-            self.reset(env_indxs=to_be_reset,
-                robot_names=[robot_name],
-                reset_sim=False,
+            self._reset(env_indxs=to_be_reset,
+                robot_name=robot_name,
                 reset_cluster=True,
                 reset_cluster_counter=False,
                 randomize=True)
@@ -977,7 +999,7 @@ class LRhcEnvBase():
                     throw_when_excep = True)
 
         # resets all internal data, refs to defaults
-        self._jnt_imp_controllers[robot_name].reset(robot_indxs = env_indxs)
+        self._jnt_imp_controllers[robot_name].reset(robot_indxs=env_indxs)
 
         # restore current state
         if env_indxs is None:
@@ -1003,7 +1025,7 @@ class LRhcEnvBase():
         # self._jnt_imp_controllers[robot_name].apply_cmds()          
 
     def _synch_default_root_states(self,
-            robot_name: str = None,
+            robot_name: str,
             env_indxs: torch.Tensor = None):
 
         if self._debug:
@@ -1132,9 +1154,9 @@ class LRhcEnvBase():
         pass
     
     @abstractmethod
-    def _update_state_from_sim(self,
-        env_indxs: torch.Tensor = None,
-        robot_names: List[str] = None):
+    def _read_state_from_robot(self,
+        robot_name: str,
+        env_indxs: torch.Tensor = None):
         pass
     
     @abstractmethod
@@ -1143,8 +1165,8 @@ class LRhcEnvBase():
 
     @abstractmethod
     def _reset_state(self,
+            robot_name: str,
             env_indxs: torch.Tensor = None,
-            robot_names: List[str] =None,
             randomize: bool = False):
         pass
     
@@ -1157,11 +1179,11 @@ class LRhcEnvBase():
         pass
     
     @abstractmethod
-    def _move_jnts_to_homing(self):
+    def _set_jnts_homing(self, robot_name: str):
         pass
 
     @abstractmethod
-    def _move_root_to_defconfig(self):
+    def _set_root_to_defconfig(self, robot_name: str):
         pass
 
     @abstractmethod

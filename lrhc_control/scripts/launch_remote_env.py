@@ -153,21 +153,19 @@ if __name__ == '__main__':
         override_low_lev_controller=args.use_custom_jnt_imp) # create environment
     env.reset(reset_sim=True)
 
-    rt_factor = RtFactor(dt_nom=remote_env_params["physics_dt"],
-                window_size=50000)
+    rt_factor = RtFactor(dt_nom=env.physics_dt(),
+                window_size=10000)
     
     while env._sim_is_running():
         
-        # try:
         if rt_factor.reset_due():
             rt_factor.reset()
-        
         env.step() 
         rt_factor.update()
 
         for i in range(len(robot_names)):
             robot_name=robot_names[i]
-            n_steps = env.cluster_step_counters[robot_name]
+            n_steps = env.cluster_sim_step_counters[robot_name]
             sol_counter = env.cluster_servers[robot_name].solution_counter()
             trigger_counter = env.cluster_servers[robot_name].trigger_counter()
             shared_sim_infos[i].write(dyn_info_name=["sim_rt_factor", 

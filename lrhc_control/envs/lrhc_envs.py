@@ -33,7 +33,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
         self.env_timer = time.perf_counter()
 
         self._global_step_counter = 0
-        self.cluster_step_counters = {}
+        self.cluster_sim_step_counters = {}
         self.cluster_servers = {}
         self._trigger_sol = {}
         self._wait_sol = {}
@@ -62,7 +62,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
             failed = None
             
             # 1) this runs @cluster_dt: wait + retrieve latest solution
-            if control_cluster.is_cluster_instant(self.cluster_step_counters[robot_name]) and \
+            if control_cluster.is_cluster_instant(self.cluster_sim_step_counters[robot_name]) and \
                     self._init_steps_done:
                 
                 control_cluster.pre_trigger() # performs pre-trigger steps, like retrieving
@@ -97,7 +97,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                         actions = control_cluster.get_actions(),
                         env_indxs = active)
             # 3) this runs at @cluster_dt: trigger cluster solution
-            if control_cluster.is_cluster_instant(self.cluster_step_counters[robot_name]) and \
+            if control_cluster.is_cluster_instant(self.cluster_sim_step_counters[robot_name]) and \
                     self._init_steps_done:
                 if self._is_first_trigger[robot_name]:
                         # we update the all the default root state now. This state will be used 
@@ -150,13 +150,13 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
             self._init_steps_done = True # next cluster step we wait for connection to remote client
         for i in range(len(self.robot_names)):
             robot_name = self.robot_names[i]
-            self.cluster_step_counters[robot_name] += 1
+            self.cluster_sim_step_counters[robot_name] += 1
 
             # if self._use_remote_stepping[i] and self._init_steps_done:
             #     self._signal_sim_env_is_ready(robot_name=robot_name) # signal sim is ready
            
             # if self.debug:
-            self.debug_data["sim_time"][robot_name]=self.cluster_step_counters[robot_name]*self.get_task().integration_dt()
+            self.debug_data["sim_time"][robot_name]=self.cluster_sim_step_counters[robot_name]*self.get_task().integration_dt()
             self.debug_data["cluster_sol_time"][robot_name] = \
                 self.cluster_servers[robot_name].solution_time()
             self.debug_data["cluster_time"] = self.cluster_servers[robot_name]
@@ -222,7 +222,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
         for i in range(len(self.robot_names)):
             
             robot_name = self.robot_names[i]
-            self.cluster_step_counters[robot_name] = 0
+            self.cluster_sim_step_counters[robot_name] = 0
             self._is_first_trigger[robot_name] = True
             if not isinstance(cluster_dt[i], float):
                 exception = f"cluster_dt should be a list of float values!"
@@ -315,7 +315,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                                 env_indxs=env_indxs)
         if reset_counter:
             for i in range(len(rob_names)):
-                self.cluster_step_counters[rob_names[i]] = 0
+                self.cluster_sim_step_counters[rob_names[i]] = 0
     
     def close(self):
 
@@ -389,7 +389,7 @@ class LRhcIsaacSimEnv(IsaacSimEnv):
                     self.cluster_servers[robot_name].get_state().contact_wrenches.set(data=f_contact, data_type="f",
                             contact_name=contact_link, robot_idxs = env_indxs, gpu=self.using_gpu)
             else:
-                if (self.debug and ((self.cluster_step_counters[robot_name] + 1) % 10000) == 0):
+                if (self.debug and ((self.cluster_sim_step_counters[robot_name] + 1) % 10000) == 0):
                     # sporadic warning
                     warning = f"Contact state from link {contact_link} cannot be retrieved in IsaacSim if using use_gpu_pipeline is set to True!"
                     Journal.log(self.__class__.__name__,
