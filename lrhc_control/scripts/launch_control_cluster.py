@@ -24,7 +24,7 @@ if __name__ == "__main__":
     parser.add_argument('--ns', type=str, help='Namespace to be used for cluster shared memory')
     parser.add_argument('--urdf_path', type=str, help='Robot description package path for URDF ')
     parser.add_argument('--srdf_path', type=str, help='Robot description package path for SRDF ')
-    parser.add_argument('--size', type=int, help='cluster size')
+    parser.add_argument('--size', type=int, help='cluster size', default=1)
 
     # Replacing argparse.BooleanOptionalAction with 'store_true' and 'store_false' for compatibility with Python 3.8
     parser.add_argument('--cloop',action='store_true', help='whether to use RHC controllers in closed loop mode')
