@@ -336,15 +336,15 @@ class LRhcEnvBase():
             # remote sim stepping
             if self._use_remote_stepping[i]:
                 self._remote_steppers[robot_name] = RemoteStepperClnt(namespace=robot_name,
-                                                            verbose=self._verbose,
+                                                            verbose=self._debug,
                                                             vlevel=self._vlevel)
                 self._remote_resetters[robot_name] = RemoteResetClnt(namespace=robot_name,
-                                                            verbose=self._verbose,
+                                                            verbose=self._debug,
                                                             vlevel=self._vlevel)
                 self._remote_reset_requests[robot_name] = RemoteResetRequest(namespace=robot_name,
                                                                     n_env=self._num_envs,
                                                                     is_server=True,
-                                                                    verbose=self._verbose,
+                                                                    verbose=self._debug,
                                                                     vlevel=self._vlevel, 
                                                                     force_reconnection=self._force_reconnection, 
                                                                     safe=False)
@@ -445,7 +445,7 @@ class LRhcEnvBase():
         base_loc: bool = True):
         
         if self._debug:
-            if not isinstance(env_indxs, Union[torch.Tensor, None]):
+            if not isinstance(env_indxs, (torch.Tensor, type(None))):
                 msg = "Provided env_indxs should be a torch tensor of indexes!"
                 raise Exception(f"[{self.__class__.__name__}]" + f"[{self.journal.exception}]: " + msg)
             
@@ -604,8 +604,8 @@ class LRhcEnvBase():
         rob_names = robot_names if (robot_names is not None) else self._robot_names
         # resets the state of target robot and env to the defaults
         self._reset_state(env_indxs=env_indxs, 
-                    robot_names=rob_names,
-                    randomize=randomize)
+            robot_names=rob_names,
+            randomize=randomize)
         # and jnt imp. controllers
         for i in range(len(rob_names)):
             self.reset_jnt_imp_control(robot_name=rob_names[i],
