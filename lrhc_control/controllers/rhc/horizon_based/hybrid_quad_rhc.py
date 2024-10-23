@@ -128,7 +128,6 @@ class HybridQuadRhc(RHController):
         pass
     
     def get_vertex_fnames_from_ti(self):
-        self._ti.setTaskFromYaml(self.config_path)
         tasks=self._ti.task_list
         contact_f_names=[]
         for task in tasks:
