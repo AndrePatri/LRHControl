@@ -575,9 +575,11 @@ class LRhcEnvBase():
                 self._update_jnt_imp_cntrl_shared_data() # only if debug_mode_jnt_imp is enabled
 
                 # write last state to the cluster of controllers
+                start=time.perf_counter()
                 self._write_state_to_cluster(robot_name=robot_name, 
                     env_indxs=active)
-                
+                self.debug_data["cluster_state_update_dt"][robot_name] = time.perf_counter()-start
+
                 if self._use_remote_stepping[i]:
                     self._wait_for_remote_step_req(robot_name=robot_name)
 
