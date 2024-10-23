@@ -8,7 +8,6 @@ from SharsorIPCpp.PySharsorIPC import dtype
 from SharsorIPCpp.PySharsor.wrappers.shared_data_view import SharedTWrapper
 
 from control_cluster_bridge.utilities.remote_triggering import RemoteTriggererClnt,RemoteTriggererSrvr
-import rosbag2_py
 
 from SharsorIPCpp.PySharsorIPC import StringTensorClient
 
@@ -116,8 +115,7 @@ if __name__ == '__main__':
         dump_path=shared_drop_dir_val[0]
     
     bridge = None
-    if not args.ros2:
-
+    if not args.ros2: 
         from lrhc_control.utils.rhc_viz.rhc2viz import RhcToVizBridge
 
         bridge = RhcToVizBridge(namespace=args.ns, 
@@ -126,7 +124,11 @@ if __name__ == '__main__':
                         robot_selector=[0, None],
                         with_agent_refs=args.with_agent_refs,
                         rhc_refs_in_h_frame=args.rhc_refs_in_h_frame,
-                        agent_refs_in_h_frame=args.agent_refs_in_h_frame)
+                        agent_refs_in_h_frame=args.agent_refs_in_h_frame,
+                        env_idx=args.env_idx,
+                        sim_time_trgt=stime_trgt,
+                        srdf_homing_file_path=args.srdf_path,
+                        abort_wallmin=args.abort_wallmin)
     else:
 
         from lrhc_control.utils.rhc_viz.rhc2viz2 import RhcToViz2Bridge

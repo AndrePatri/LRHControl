@@ -26,7 +26,7 @@ from std_msgs.msg import Float64MultiArray
 from std_msgs.msg import String
 from rosgraph_msgs.msg import Clock
 
-from rclpy.node import Node
+# from rclpy.node import Node
 from rclpy.qos import ReliabilityPolicy, DurabilityPolicy, HistoryPolicy, LivelinessPolicy
 from rclpy.qos import QoSProfile
 
@@ -248,7 +248,7 @@ class RhcToViz2Bridge:
         self._sim_data.run()
         self._sim_datanames = self._sim_data.param_keys
         self._simtime_idx = self._sim_datanames.index("cluster_time")
-        self._ros2_clock = Clock()
+        self._ros_clock = Clock()
 
         # robot state
         self.robot_state = RobotState(namespace=self.namespace,
@@ -511,10 +511,10 @@ class RhcToViz2Bridge:
     
     def _publish(self):
         
-        self._ros2_clock.clock.sec = int(self._sim_time)
-        self._ros2_clock.clock.nanosec = int((self._sim_time - self._ros2_clock.clock.sec)*1e9)
+        self._ros_clock.clock.sec = int(self._sim_time)
+        self._ros_clock.clock.nanosec = int((self._sim_time - self._ros_clock.clock.sec)*1e9)
 
-        self.simtime_pub.publish(self._ros2_clock)
+        self.simtime_pub.publish(self._ros_clock)
         # continously publish also joint names 
         self.robot_jntnames_pub.publish(String(data=self.jnt_names_robot_encoded))
         
@@ -550,6 +550,7 @@ class RhcToViz2Bridge:
             rhc_refs = np.concatenate((rhc_ref_pose, rhc_ref_twist_h.flatten()), axis=0)
         else:
             rhc_refs = np.concatenate((rhc_ref_pose, rhc_ref_twist), axis=0)
+
         # high lev refs
         if self._with_agent_refs:
             if self._agent_refs_in_h_frame:
@@ -574,6 +575,7 @@ class RhcToViz2Bridge:
                     t_out=agent_ref_twist_w)
                 hl_refs = np.concatenate((hl_ref_pose, agent_ref_twist_w.flatten()), axis=0)
 
+        # publish rhc q
         if not self._contains_nan(rhc_q):
             self.rhc_q_pub.publish(Float64MultiArray(data=rhc_q))
         else:
