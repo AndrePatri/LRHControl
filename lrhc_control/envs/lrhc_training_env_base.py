@@ -36,12 +36,12 @@ from SharsorIPCpp.PySharsorIPC import Journal
 
 from perf_sleep.pyperfsleep import PerfSleep
 
-from abc import abstractmethod
+from abc import abstractmethod, ABC
 
 import os
 from typing import List
 
-class LRhcTrainingEnvBase():
+class LRhcTrainingEnvBase(ABC):
 
     """Base class for a remote training environment tailored to Learning-based Receding Horizon Control"""
 

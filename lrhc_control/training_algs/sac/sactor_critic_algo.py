@@ -22,7 +22,7 @@ from SharsorIPCpp.PySharsorIPC import VLevel
 
 from abc import ABC, abstractmethod
 
-class SActorCriticAlgoBase():
+class SActorCriticAlgoBase(ABC):
 
     # base class for actor-critic RL algorithms
      

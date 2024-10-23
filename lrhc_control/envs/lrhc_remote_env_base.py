@@ -26,7 +26,7 @@ from abc import ABC, abstractmethod
 
 JntImpCntrlChild = TypeVar('JntImpCntrlChild', bound='JntImpCntrlBase')
 
-class LRhcEnvBase():
+class LRhcEnvBase(ABC):
 
     def __init__(self,
                 robot_names: List[str],
@@ -390,7 +390,7 @@ class LRhcEnvBase():
                 self._step_sim()
 
             # read state 
-            self._read_state_from_robot(robot_name=robot_name)
+            self._read_root_state_from_robot(robot_name=robot_name)
             self._read_jnts_state_from_robot(robot_name=robot_name)
 
             # write some inits for all robots
@@ -561,7 +561,7 @@ class LRhcEnvBase():
 
                 # read state necessary for cluster
                 start=time.perf_counter()
-                self._read_state_from_robot(robot_name=robot_name, 
+                self._read_root_state_from_robot(robot_name=robot_name, 
                     env_indxs=active)
                 
                 if not self._override_low_lev_controller:
@@ -629,7 +629,7 @@ class LRhcEnvBase():
                 self._set_cluster_actions(robot_name=robot_name)
                 
                 # read state necessary for cluster
-                self._read_state_from_robot(robot_name=robot_name, 
+                self._read_root_state_from_robot(robot_name=robot_name, 
                     env_indxs=active)
                 
                 if not self._override_low_lev_controller:
@@ -1176,7 +1176,7 @@ class LRhcEnvBase():
         pass
     
     @abstractmethod
-    def _read_state_from_robot(self,
+    def _read_root_state_from_robot(self,
         robot_name: str,
         env_indxs: torch.Tensor = None):
         pass
