@@ -136,7 +136,7 @@ class JntSafety:
         elif effort:
             tensor[:, :] = torch.clamp(tensor[:, :], min=self.limit_matrix[:, 2], max=self.limit_matrix[:, 5])               
             
-class JntImpCntrlBase:
+class JntImpCntrlBase(ABC):
 
     class IndxState(Enum):
 

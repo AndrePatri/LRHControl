@@ -26,7 +26,7 @@ from abc import ABC, abstractmethod
 
 JntImpCntrlChild = TypeVar('JntImpCntrlChild', bound='JntImpCntrlBase')
 
-class LRhcEnvBase():
+class LRhcEnvBase(ABC):
 
     def __init__(self,
                 robot_names: List[str],
