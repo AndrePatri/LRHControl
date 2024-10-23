@@ -127,9 +127,20 @@ class HybridQuadRhc(RHController):
     def _init_rhc_task_cmds(self):
         pass
     
+    def get_vertex_fnames_from_ti(self):
+        self._ti.setTaskFromYaml(self.config_path)
+        tasks=self._ti.task_list
+        contact_f_names=[]
+        for task in tasks:
+            if isinstance(task, ContactTask):
+                interaction_task=task.dynamics_tasks[0]
+                contact_f_names.append(interaction_task.vertex_frames[0])
+        return contact_f_names
+        
     def _get_contact_names(self):
-
-        return list(self._ti.model.cmap.keys())
+        # should get contact names from vertex frames
+        # list(self._ti.model.cmap.keys())
+        return self.get_vertex_fnames_from_ti()
     
     def _get_robot_jnt_names(self):
 
