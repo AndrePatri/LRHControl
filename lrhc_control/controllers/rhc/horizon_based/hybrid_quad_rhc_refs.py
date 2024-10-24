@@ -52,10 +52,10 @@ class HybridQuadRhcRefs(RhcRefs):
         self._timelines = self.gait_manager._contact_timelines
         self._timeline_names = self.gait_manager._timeline_names
 
+        self._total_weight = np.atleast_2d(np.array([0, 0, self._kin_dyn.mass() * 9.81])).T # the robot's weight
+
         # task interfaces from horizon for setting commands to rhc
         self._get_tasks()
-
-        self._total_weight = np.atleast_2d(np.array([0, 0, self._kin_dyn.mass() * 9.81])).T # the robot's weight
 
     def _get_tasks(self):
         # can be overridden by child
@@ -73,8 +73,10 @@ class HybridQuadRhcRefs(RhcRefs):
             j=0
             forces_on_contact=self._ti.model.cmap[timeline]
             self._n_forces_per_contact[i]=len(forces_on_contact)
+            scale=4*self._n_forces_per_contact[i] # just regularize over 1/4 of the  weight
             for force in forces_on_contact:
                 self._f_reg_ref[i].append(self._prb.getParameters(name=f"{timeline}_force_reg_f{j}_ref"))
+                self._f_reg_ref[i][j].assign(self._total_weight/scale)
                 j+=1
             i+=1
 
@@ -139,9 +141,10 @@ class HybridQuadRhcRefs(RhcRefs):
                 if is_contact[i]==False: # flight phase
                     self.gait_manager.add_flight(timeline_name)
                 else: # contact phase
-                    for contact_force_ref in self._f_reg_ref[i]: # set for references depending on n of contacts and contact forces per-contact
-                        scale=self._n_forces_per_contact[i]*target_n_limbs_in_contact
-                        contact_force_ref.assign(self._total_weight/scale)
+                    # for contact_force_ref in self._f_reg_ref[i]: # set for references depending on n of contacts and contact forces per-contact
+                    #     # scale=self._n_forces_per_contact[i]*target_n_limbs_in_contact
+                    #     scale=4 # just regularize
+                    #     contact_force_ref.assign(self._total_weight/scale)
                     if timeline.getEmptyNodes() > 0: # if there's space, always add a stance
                         self.gait_manager.add_stand(timeline_name)
 
