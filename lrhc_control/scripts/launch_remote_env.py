@@ -62,8 +62,8 @@ if __name__ == '__main__':
 
     parser.add_argument('--diff_vels',action='store_true', 
         help='Whether to obtain velocities by differentiation or not')
-
-    parser.add_argument('--init_timesteps', type=int, help='initialization timesteps', default=1000)
+    
+    parser.add_argument('--init_timesteps', type=int, help='initialization timesteps', default=None)
     parser.add_argument('--seed', type=int, help='seed', default=0)
 
     parser.add_argument('--custom_args_names', nargs='+', default=None,
@@ -78,6 +78,12 @@ if __name__ == '__main__':
         help="env file import pattern (without extension)")
     
     args = parser.parse_args()
+    
+    default_init_duration=2.0 # [s]
+    default_init_tsteps=int(default_init_duration/args.physics_dt)
+    init_tsteps=args.init_timesteps 
+    if init_tsteps is None:
+        init_tsteps=default_init_tsteps
     
     set_seed(args=args) # deterministic run setting
 
@@ -146,7 +152,7 @@ if __name__ == '__main__':
         debug=args.enable_debug,
         verbose=args.verbose,
         vlevel=VLevel.V2,
-        n_init_step=args.init_timesteps,
+        n_init_step=init_tsteps,
         timeout_ms=args.timeout_ms,
         env_opts=remote_env_params,
         use_gpu=args.use_gpu,
