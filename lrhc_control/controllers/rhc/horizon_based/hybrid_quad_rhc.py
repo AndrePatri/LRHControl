@@ -15,6 +15,8 @@ import os
 import time
 from abc import ABC, abstractmethod
 
+from typing import Dict
+
 class HybridQuadRhc(RHController):
 
     def __init__(self, 
@@ -33,8 +35,8 @@ class HybridQuadRhc(RHController):
             verbose = False, 
             debug = False,
             refs_in_hor_frame = True,
-            timeout_ms: int = 60000
-            ):
+            timeout_ms: int = 60000,
+            custom_opts: Dict = {}):
 
         self._refs_in_hor_frame = refs_in_hor_frame
 
@@ -74,6 +76,11 @@ class HybridQuadRhc(RHController):
 
         self._c_timelines = dict()
         self._f_reg_timelines = dict()
+        
+        self._custom_opts={
+            "replace_continuous_joints": True # whether to replace continuous joints with revolute
+            }
+        self._custom_opts.update(custom_opts)
 
         super().__init__(srdf_path=srdf_path,
                         n_nodes=n_nodes,
@@ -111,6 +118,20 @@ class HybridQuadRhc(RHController):
         z = w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2
         return np.array([x, y, z, w])
     
+    def _get_continuous_jnt_names(self):
+        import xml.etree.ElementTree as ET
+        root = ET.fromstring(self.urdf)
+        continuous_joints = []
+        for joint in root.findall('joint'):
+            joint_type = joint.get('type')
+            if joint_type == 'continuous':
+                joint_name = joint.get('name')
+                continuous_joints.append(joint_name)
+        return continuous_joints
+    
+    def _get_jnt_id(self, jnt_name):
+        return self._kin_dyn.joint_iq(jnt_name)
+    
     @abstractmethod
     def _init_problem(self):
         pass
@@ -144,15 +165,12 @@ class HybridQuadRhc(RHController):
     def _get_robot_jnt_names(self):
 
         joints_names = self._kin_dyn.joint_names()
-
         to_be_removed = ["universe", 
                         "reference", 
                         "world", 
                         "floating", 
                         "floating_base"]
-        
         for name in to_be_removed:
-
             if name in joints_names:
                 joints_names.remove(name)
 
