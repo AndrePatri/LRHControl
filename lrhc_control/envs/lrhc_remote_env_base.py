@@ -385,7 +385,7 @@ class LRhcEnvBase(ABC):
             if to_be_activated is not None:
                 control_cluster.activate_controllers(
                     idxs=to_be_activated)
-            
+
             for n in range(self._n_init_steps): # run some initialization steps
                 self._step_sim()
 
@@ -395,6 +395,7 @@ class LRhcEnvBase(ABC):
 
             # write some inits for all robots
             self._update_root_offsets(robot_name)
+            self._synch_default_root_states(robot_name=robot_name)
             self._set_startup_jnt_imp_gains(robot_name=robot_name)
             self._write_state_to_cluster(robot_name=robot_name)
 
