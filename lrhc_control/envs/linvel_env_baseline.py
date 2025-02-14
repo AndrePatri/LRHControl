@@ -100,12 +100,18 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._add_env_opt(env_opts, "use_rhc_avrg_vel_tracking", False)
 
         # task tracking
-        self._add_env_opt(env_opts, "use_relative_error", default=True) # use relative vel error (wrt current task norm)
-        self._add_env_opt(env_opts, "directional_tracking", default=True) # whether to compute tracking rew based on reference direction
+        self._add_env_opt(env_opts, "use_relative_error", default=False) # use relative vel error (wrt current task norm)
+        self._add_env_opt(env_opts, "directional_tracking", default=True) # whether to compute tracking error based on reference direction
+
+        self._add_env_opt(env_opts, "use_L1_norm", default=True) # whether to use L1 norm for the error (otherwise L2)
+        self._add_env_opt(env_opts, "use_exp_track_rew", default=False) # whether to use a reward of the form A*e^(B*x), 
+        # otherwise A*(1-B*x)
 
         self._add_env_opt(env_opts, "use_fail_idx_weight", default=False)
+        self._add_env_opt(env_opts, "task_track_offset_exp", default=10.0)
+        self._add_env_opt(env_opts, "task_track_scale_exp", default=3.0)
         self._add_env_opt(env_opts, "task_track_offset", default=10.0)
-        self._add_env_opt(env_opts, "task_track_scale", default=3.0)
+        self._add_env_opt(env_opts, "task_track_scale", default=1.5)
         self._add_env_opt(env_opts, "task_track_front_weight", default=1.0)
         self._add_env_opt(env_opts, "task_track_lat_weight", default=env_opts["task_track_front_weight"]/20.0)
         self._add_env_opt(env_opts, "task_track_vert_weight", default=env_opts["task_track_front_weight"]/20.0)
@@ -789,6 +795,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                 ep_finished=episode_finished,
                 ignore_ep_end=ignore_ep_end)
     
+    # reward functions
     def _action_rate(self):
         continuous_actions=self._is_continuous_actions
         discrete_actions=~self._is_continuous_actions
@@ -835,32 +842,28 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         weighted_jnt_vel = torch.sum(jnts_vel*jnts_vel, dim=1, keepdim=True)/self._n_jnts
         return weighted_jnt_vel
     
-    def _track_relative_err_wms(self, task_ref, task_meas, weights, epsi: float = 0.0, directional: bool = False):
-        ref_norm = task_ref.norm(dim=1,keepdim=True)
-        self._task_err_scaling[:, :] = ref_norm+epsi
-        if directional:
-            task_perc_err=self._track_err_directional(task_ref=task_ref, task_meas=task_meas, 
-                scaling=self._task_err_scaling, weights=weights)
-        else:
-            task_perc_err=self._track_err_wms(task_ref=task_ref, task_meas=task_meas, 
-                scaling=self._task_err_scaling, weights=weights)
-        # perc_err_thresh=2.0 # no more than perc_err_thresh*100 % error on each dim
-        # task_perc_err.clamp_(0.0,perc_err_thresh**2) 
-        return task_perc_err
+    def _rhc_fail_idx(self, gpu: bool):
+        rhc_fail_idx = self._rhc_status.rhc_fail_idx.get_torch_mirror(gpu=gpu)
+        return self._env_opts["rhc_fail_idx_scale"]*rhc_fail_idx
     
-    def _track_err_wms(self, task_ref, task_meas, scaling, weights):
+    # basic L1 and L2 error functions
+    def _track_err_wmse(self, task_ref, task_meas, scaling, weights):
+        # weighted mean-squared error computation 
         task_error = (task_meas-task_ref)
         # add to db metrics
         self._track_error_db[:, :]=task_error
         scaled_error=task_error/scaling
+        
         task_wmse = torch.sum(scaled_error*scaled_error*weights, dim=1, keepdim=True)/torch.sum(weights).item()
         return task_wmse # weighted mean square error (along task dimension)
     
-    def _track_err_directional(self, task_ref, task_meas, scaling, weights):
+    def _track_err_dir_wmse(self, task_ref, task_meas, scaling, weights):
+        # weighted DIRECTIONAL mean-squared error computation 
         task_error = (task_meas-task_ref)
         # add to db metrics
         self._track_error_db[:, :]=task_error
         task_error=task_error/scaling
+
         task_ref_xy_linvel=task_ref[:, 0:2]
         task_error_xy_linvel=task_error[:, 0:2]
         task_ref_linvel_norm=task_ref_xy_linvel.norm(dim=1,keepdim=True)
@@ -878,35 +881,55 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         task_wmse_dir = torch.sum(full_error*full_error*weights, dim=1, keepdim=True)/torch.sum(weights).item()
         return task_wmse_dir # weighted mean square error (along task dimension)
     
-    def _track_relative_err_lin(self, task_ref, task_meas, weights, directional):
-        task_wmse = self._track_relative_err_wms(task_ref=task_ref, task_meas=task_meas,
-            weights=weights, epsi=1e-2, directional=directional)
-        return task_wmse.sqrt()
-    
-    def _track_err_lin(self, task_ref, task_meas, weights, directional: bool = False):
-        self._task_err_scaling[:, :] = 1
+    # L2 errors
+    def _tracking_err_rel_wmse(self, task_ref, task_meas, weights, directional: bool = False):
+        ref_norm = task_ref.norm(dim=1,keepdim=True) # norm of the full twist reference
+        self._task_err_scaling[:, :] = ref_norm+1e-2
         if directional:
-            task_wmse = self._track_err_directional(task_ref=task_ref, task_meas=task_meas, 
+            task_rel_err_wmse=self._track_err_dir_wmse(task_ref=task_ref, task_meas=task_meas, 
                 scaling=self._task_err_scaling, weights=weights)
         else:
-            task_wmse = self._track_err_wms(task_ref=task_ref, task_meas=task_meas, 
+            task_rel_err_wmse=self._track_err_wmse(task_ref=task_ref, task_meas=task_meas, 
                 scaling=self._task_err_scaling, weights=weights)
-            
-        return task_wmse.sqrt()
+        return task_rel_err_wmse
     
-    def _rhc_fail_idx(self, gpu: bool):
-        rhc_fail_idx = self._rhc_status.rhc_fail_idx.get_torch_mirror(gpu=gpu)
-        return self._env_opts["rhc_fail_idx_scale"]*rhc_fail_idx
+    def _tracking_err_wmse(self, task_ref, task_meas, weights, directional: bool = False):
+        self._task_err_scaling[:, :] = 1
+        if directional:
+            task_err_wmse = self._track_err_dir_wmse(task_ref=task_ref, 
+                task_meas=task_meas, scaling=self._task_err_scaling, weights=weights)
+        else:
+            task_err_wmse = self._track_err_wmse(task_ref=task_ref, 
+                task_meas=task_meas, scaling=self._task_err_scaling, weights=weights)
+        return task_err_wmse
     
+    # L1 errors
+    def _tracking_err_rel_lin(self, task_ref, task_meas, weights, directional):
+        task_rel_err_wmse = self._tracking_err_rel_wmse(task_ref=task_ref, 
+            task_meas=task_meas, weights=weights, directional=directional)
+        return task_rel_err_wmse.sqrt()
+    
+    def _tracking_err_lin(self, task_ref, task_meas, weights, directional: bool = False):
+        self._task_err_scaling[:, :] = 1
+        task_err_wmse=self._tracking_err_wmse(task_ref=task_ref,
+            task_meas=task_meas, weights=weights, directional=directional)
+        return task_err_wmse.sqrt()
+    
+    # reward computation over steps/substeps
     def _compute_step_rewards(self):
         
         sub_rewards = self._sub_rewards.get_torch_mirror(gpu=self._use_gpu)
 
         # tracking reward
-        task_error_fun = self._track_err_lin
-        if self._env_opts["use_relative_error"]:
-            task_error_fun = self._track_relative_err_lin
-
+        if self._env_opts["use_L1_norm"]: # linear errors
+            task_error_fun = self._tracking_err_lin
+            if self._env_opts["use_relative_error"]:
+                task_error_fun = self._tracking_err_rel_lin
+        else: # quadratic error
+            task_error_fun = self._tracking_err_wmse
+            if self._env_opts["use_relative_error"]:
+                task_error_fun = self._tracking_err_rel_wmse
+                
         agent_task_ref_base_loc = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu) # high level agent refs (hybrid twist)
         self._get_avrg_step_root_twist(out=self._step_avrg_root_twist_base_loc, base_loc=True)
         task_error = task_error_fun(task_meas=self._step_avrg_root_twist_base_loc, 
@@ -915,7 +938,13 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             directional=self._env_opts["directional_tracking"])
 
         idx=self._reward_map["task_error"]
-        sub_rewards[:, idx:(idx+1)] =  self._env_opts["task_track_offset"]*torch.exp(-self._env_opts["task_track_scale"]*task_error)
+        if self._env_opts["use_exp_track_rew"]:
+            sub_rewards[:, idx:(idx+1)] =  \
+                self._env_opts["task_track_offset_exp"]*torch.exp(-self._env_opts["task_track_scale_exp"]*task_error)
+        else: # simple linear reward
+            sub_rewards[:, idx:(idx+1)] = \
+                self._env_opts["task_track_offset"]*(1.0-self._env_opts["task_track_scale"]*task_error)
+
         if self._env_opts["use_fail_idx_weight"]: # add weight based on fail idx
             fail_idx=self._rhc_fail_idx(gpu=self._use_gpu)
             sub_rewards[:, idx:(idx+1)]=(1-fail_idx)*sub_rewards[:, idx:(idx+1)]
@@ -923,10 +952,11 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             self._track_rew_smoother.update(new_signal=sub_rewards[:, 0:1])
             sub_rewards[:, idx:(idx+1)]=self._track_rew_smoother.get()
 
+        # action rate
         if self._env_opts["add_action_rate_reward"]:
             action_rate=self._action_rate()
             idx=self._reward_map["action_rate"]
-            sub_rewards[:, idx:(idx+1)] = self._env_opts["action_rate_offset"]*(1-self._env_opts["action_rate_scale"]*action_rate)
+            sub_rewards[:, idx:(idx+1)] = self._env_opts["action_rate_offset"]*(1.0-self._env_opts["action_rate_scale"]*action_rate)
 
         # mpc vel tracking
         if self._env_opts["use_rhc_avrg_vel_tracking"]:
