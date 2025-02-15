@@ -54,6 +54,7 @@ if __name__ == "__main__":
 
     parser.add_argument('--tot_tsteps', type=int, help='Total number of timesteps to be collected', default=int(30e6))
     parser.add_argument('--action_repeat', type=int, help='Frame skipping (1-> no skip)', default=1)
+    parser.add_argument('--discount_factor', type=float, help='', default=0.99)
     parser.add_argument('--obs_norm',action='store_true', help='Whether to enable the use of running normalizer in agent')
     parser.add_argument('--obs_rescale',action='store_true', help='Whether to rescale observation depending on their expected range')
     parser.add_argument('--add_weight_norm',action='store_true', help='Whether to add weight normalization to agent llayers')
