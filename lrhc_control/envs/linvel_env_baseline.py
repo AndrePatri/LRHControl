@@ -104,12 +104,12 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._add_env_opt(env_opts, "directional_tracking", default=True) # whether to compute tracking error based on reference direction
 
         self._add_env_opt(env_opts, "use_L1_norm", default=True) # whether to use L1 norm for the error (otherwise L2)
-        self._add_env_opt(env_opts, "use_exp_track_rew", default=False) # whether to use a reward of the form A*e^(B*x), 
+        self._add_env_opt(env_opts, "use_exp_track_rew", default=True) # whether to use a reward of the form A*e^(B*x), 
         # otherwise A*(1-B*x)
 
         self._add_env_opt(env_opts, "use_fail_idx_weight", default=False)
         self._add_env_opt(env_opts, "task_track_offset_exp", default=10.0)
-        self._add_env_opt(env_opts, "task_track_scale_exp", default=3.0)
+        self._add_env_opt(env_opts, "task_track_scale_exp", default=5.0)
         self._add_env_opt(env_opts, "task_track_offset", default=10.0)
         self._add_env_opt(env_opts, "task_track_scale", default=1.5)
         self._add_env_opt(env_opts, "task_track_front_weight", default=1.0)
