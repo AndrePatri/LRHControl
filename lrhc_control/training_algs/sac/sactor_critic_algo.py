@@ -376,16 +376,14 @@ class SActorCriticAlgoBase(ABC):
         self._hyperparameters.update(self._env_opts) 
 
         if not self._eval:
-            self._init_optimizers()
+            self._init_agent_optimizers()
 
             self._init_replay_buffers() # only needed when training
             if self._validate:
                 self._init_validation_buffers() 
         
         if self._autotune:
-            self._log_alpha = torch.zeros(1, requires_grad=True, device=self._torch_device)
-            self._alpha = self._log_alpha.exp().item()
-            self._a_optimizer = optim.Adam([self._log_alpha], lr=self._lr_q)
+            self._init_alpha_autotuning()
         
         if self._use_rnd:
             self._rnd_net = RNDFull(input_dim=self._rnd_indim, output_dim=self._rnd_outdim,
@@ -1045,11 +1043,16 @@ class SActorCriticAlgoBase(ABC):
                 self._running_std_rnd_input = torch.full((self._db_data_size, self._rnd_net.input_dim()), 
                         dtype=torch.float32, fill_value=0.0, device="cpu")
     
-    def _init_optimizers(self):
+    def _init_agent_optimizers(self):
         self._qf_optimizer = optim.Adam(list(self._agent.qf1.parameters()) + list(self._agent.qf2.parameters()), 
                                     lr=self._lr_q)
         self._actor_optimizer = optim.Adam(list(self._agent.actor.parameters()), 
                                 lr=self._lr_policy)
+
+    def _init_alpha_autotuning(self):
+        self._log_alpha = torch.zeros(1, requires_grad=True, device=self._torch_device)
+        self._alpha = self._log_alpha.exp().item()
+        self._a_optimizer = optim.Adam([self._log_alpha], lr=self._lr_q)
 
     def _init_replay_buffers(self):
         
@@ -2079,9 +2082,15 @@ class SActorCriticAlgoBase(ABC):
         import gc
         del self._qf_optimizer
         del self._actor_optimizer
+        if self._autotune:
+            del self._a_optimizer
+            del self._log_alpha
+            del self._alpha
         gc.collect()
-        self._init_optimizers()
-        
+        self._init_agent_optimizers()
+        if self._autotune: # also reinitialize alpha optimization
+            self._init_alpha_autotuning()
+
     def _switch_training_mode(self, 
                     train: bool = True):
 
