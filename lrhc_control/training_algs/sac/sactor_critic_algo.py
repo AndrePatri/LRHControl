@@ -141,7 +141,7 @@ class SActorCriticAlgoBase(ABC):
                 self._update_batch_norm(bsize=self._bnorm_bsize)
 
         if self._use_period_resets and \
-            self._vec_transition_counter & self._period_resets_vecfreq == 0:
+            self._vec_transition_counter % self._period_resets_vecfreq == 0:
             # to fight the primacy bias
             self._reset_agent()
 
