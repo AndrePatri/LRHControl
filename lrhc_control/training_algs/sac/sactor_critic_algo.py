@@ -140,6 +140,11 @@ class SActorCriticAlgoBase(ABC):
             with torch.no_grad(): # don't need grad computation here
                 self._update_batch_norm(bsize=self._bnorm_bsize)
 
+        if self._use_period_resets and \
+            self._vec_transition_counter & self._period_resets_vecfreq == 0:
+            # to fight the primacy issue
+            self._reset_agent()
+
         self._policy_update_t_start = time.perf_counter()
         for i in range(self._update_freq):
             self._update_policy()
@@ -371,10 +376,7 @@ class SActorCriticAlgoBase(ABC):
         self._hyperparameters.update(self._env_opts) 
 
         if not self._eval:
-            self._qf_optimizer = optim.Adam(list(self._agent.qf1.parameters()) + list(self._agent.qf2.parameters()), 
-                                    lr=self._lr_q)
-            self._actor_optimizer = optim.Adam(list(self._agent.actor.parameters()), 
-                                    lr=self._lr_policy)
+            self._init_optimizers()
 
             self._init_replay_buffers() # only needed when training
             if self._validate:
@@ -517,6 +519,10 @@ class SActorCriticAlgoBase(ABC):
         self._policy_freq = 2
         self._trgt_net_freq = 1
         self._rnd_freq = 1
+
+        # period nets resets (for tackling the primacy issue)
+        self._use_period_resets=use_period_resets
+        self._period_resets_vecfreq=25*self._task_rand_timeout_ub
 
         # exploration
 
@@ -696,6 +702,9 @@ class SActorCriticAlgoBase(ABC):
         self._hyperparameters["m_checkpoint_freq"] = self._m_checkpoint_freq
         self._hyperparameters["db_vecstep_frequency"] = self._db_vecstep_frequency
         self._hyperparameters["m_checkpoint_freq"] = self._m_checkpoint_freq
+
+        self._hyperparameters["use_period_resets"]= self._use_period_resets
+        self._hyperparameters["period_resets_freq"]= self._period_resets_vecfreq
 
         self._hyperparameters["use_rnd"] = self._use_rnd
         self._hyperparameters["rnd_lwidth"] = self._rnd_lwidth
@@ -1033,7 +1042,13 @@ class SActorCriticAlgoBase(ABC):
                         dtype=torch.float32, fill_value=0.0, device="cpu")
                 self._running_std_rnd_input = torch.full((self._db_data_size, self._rnd_net.input_dim()), 
                         dtype=torch.float32, fill_value=0.0, device="cpu")
-            
+    
+    def _init_optimizers(self):
+        self._qf_optimizer = optim.Adam(list(self._agent.qf1.parameters()) + list(self._agent.qf2.parameters()), 
+                                    lr=self._lr_q)
+        self._actor_optimizer = optim.Adam(list(self._agent.actor.parameters()), 
+                                lr=self._lr_policy)
+
     def _init_replay_buffers(self):
         
         self._bpos = 0
@@ -2054,6 +2069,17 @@ class SActorCriticAlgoBase(ABC):
         #     sampled_rew = batched_rew[shuffled_buffer_idxs]
         #     self._reward_normalizer.manual_stat_update(x=sampled_rew)
 
+    def _reset_agent(self):
+        # not super efficient, but effective -> 
+        # brand new agent, brand new optimizers
+        self._agent.reset()
+        # forcing deallocation of previous optimizers 
+        import gc
+        del self._qf_optimizer
+        del self._actor_optimizer
+        gc.collect()
+        self._init_optimizers()
+        
     def _switch_training_mode(self, 
                     train: bool = True):
 

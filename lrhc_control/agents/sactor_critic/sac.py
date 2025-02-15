@@ -45,15 +45,16 @@ class SACAgent(nn.Module):
         self._n_hidden_layers_actor=n_hidden_layers_actor
         self._n_hidden_layers_critic=n_hidden_layers_critic
 
+        self._obs_dim=obs_dim
+        self._actions_dim=actions_dim
+        self._actions_ub=actions_ub
+        self._actions_lb=actions_lb
+
+        self._add_weight_norm=add_weight_norm
+
         if compression_ratio > 0.0:
             self._layer_width_actor=int(compression_ratio*obs_dim)
             self._layer_width_critic=int(compression_ratio*(obs_dim+actions_dim))
-        
-        if add_weight_norm:
-            Journal.log(self.__class__.__name__,
-                "__init__",
-                f"Will use weight normalization reparametrization\n",
-                LogType.INFO)
         
         self._normalize_obs = norm_obs
         self._rescale_obs=rescale_obs
@@ -69,12 +70,6 @@ class SACAgent(nn.Module):
         self._rescaling_epsi=1e-9
 
         self._debug = debug
-
-        self.actor = None
-        self.qf1 = None
-        self.qf1_target = None
-        self.qf2 = None
-        self.qf2_target = None
 
         self._torch_device = device
         self._torch_dtype = dtype
@@ -117,67 +112,9 @@ class SACAgent(nn.Module):
         self.register_buffer(
             "obs_bias", obs_bias)
         
-        self.actor = Actor(obs_dim=obs_dim,
-                    actions_dim=actions_dim,
-                    actions_ub=actions_ub,
-                    actions_lb=actions_lb,
-                    device=device,
-                    dtype=dtype,
-                    layer_width=self._layer_width_actor,
-                    n_hidden_layers=self._n_hidden_layers_actor,
-                    add_weight_norm=add_weight_norm
-                    )
-
-        if (not is_eval) or load_qf: # just needed for training or during eval
-            # for debug, if enabled
-            self.qf1 = CriticQ(obs_dim=obs_dim,
-                    actions_dim=actions_dim,
-                    device=device,
-                    dtype=dtype,
-                    layer_width=self._layer_width_critic,
-                    n_hidden_layers=self._n_hidden_layers_critic,
-                    add_weight_norm=add_weight_norm)
-            self.qf1_target = CriticQ(obs_dim=obs_dim,
-                    actions_dim=actions_dim,
-                    device=device,
-                    dtype=dtype,
-                    layer_width=self._layer_width_critic,
-                    n_hidden_layers=self._n_hidden_layers_critic,
-                    add_weight_norm=add_weight_norm)
-            
-            self.qf2 = CriticQ(obs_dim=obs_dim,
-                    actions_dim=actions_dim,
-                    device=device,
-                    dtype=dtype,
-                    layer_width=self._layer_width_critic,
-                    n_hidden_layers=self._n_hidden_layers_critic,
-                    add_weight_norm=add_weight_norm)
-            self.qf2_target = CriticQ(obs_dim=obs_dim,
-                    actions_dim=actions_dim,
-                    device=device,
-                    dtype=dtype,
-                    layer_width=self._layer_width_critic,
-                    n_hidden_layers=self._n_hidden_layers_critic,
-                    add_weight_norm=add_weight_norm)
+        self._build_nets()
         
-            self.qf1_target.load_state_dict(self.qf1.state_dict())
-            self.qf2_target.load_state_dict(self.qf2.state_dict())
-
-        self.obs_running_norm = None
-        if self._normalize_obs:
-            self.obs_running_norm = RunningNormalizer((obs_dim,), epsilon=epsilon, 
-                                    device=device, dtype=dtype, 
-                                    freeze_stats=True, # always start with freezed stats
-                                    debug=self._debug)
-            self.obs_running_norm.type(dtype) # ensuring correct dtype for whole module
-
-        if self._use_torch_compile:
-            self.actor = torch.compile(self.actor)
-            self.qf1 = torch.compile(self.qf1)
-            self.qf2 = torch.compile(self.qf2)
-            self.qf1_target = torch.compile(self.qf1_target)
-            self.qf2_target = torch.compile(self.qf2_target)
-            self.obs_running_norm=torch.compile(self.obs_running_norm)
+        self._init_obs_norm()
 
         msg=f"Created SAC agent with actor [{self._layer_width_actor}, {self._n_hidden_layers_actor}]\
         and critic [{self._layer_width_critic}, {self._n_hidden_layers_critic}] sizes.\
@@ -188,6 +125,105 @@ class SACAgent(nn.Module):
             msg,
             LogType.INFO)
     
+    def _init_obs_norm(self):
+        
+        self.obs_running_norm=None
+        if self._normalize_obs:
+            self.obs_running_norm = RunningNormalizer((obs_dim,), epsilon=epsilon, 
+                                        device=device, dtype=dtype, 
+                                        freeze_stats=True, # always start with freezed stats
+                                        debug=self._debug)
+            self.obs_running_norm.type(dtype) # ensuring correct dtype for whole module
+
+    def _build_nets(self):
+
+        if self._add_weight_norm:
+            Journal.log(self.__class__.__name__,
+                "__init__",
+                f"Will use weight normalization reparametrization\n",
+                LogType.INFO)
+
+        self.actor=None
+        self.qf1=None
+        self.qf2=None
+        self.qf1_target=None
+        self.qf2_target=None
+        
+        self.actor = Actor(obs_dim=self._obs_dim,
+                    actions_dim=self.actions_dim,
+                    actions_ub=self._actions_ub,
+                    actions_lb=self._actions_lb,
+                    device=self._torch_device,
+                    dtype=self._torch_dtype,
+                    layer_width=self._layer_width_actor,
+                    n_hidden_layers=self._n_hidden_layers_actor,
+                    add_weight_norm=self._add_weight_norm
+                    )
+
+        if (not is_eval) or load_qf: # just needed for training or during eval
+            # for debug, if enabled
+            self.qf1 = CriticQ(obs_dim=self._obs_dim,
+                    actions_dim=self._actions_dim,
+                    device=self._torch_device,
+                    dtype=self._torch_dtype,
+                    layer_width=self._layer_width_critic,
+                    n_hidden_layers=self._n_hidden_layers_critic,
+                    add_weight_norm=self._add_weight_norm)
+            self.qf1_target = CriticQ(obs_dim=self._obs_dim,
+                    actions_dim=self._actions_dim,
+                    device=self._torch_device,
+                    dtype=self._torch_dtype,
+                    layer_width=self._layer_width_critic,
+                    n_hidden_layers=self._n_hidden_layers_critic,
+                    add_weight_norm=self._add_weight_norm)
+            
+            self.qf2 = CriticQ(obs_dim=self._obs_dim,
+                    actions_dim=self._actions_dim,
+                    device=self._torch_device,
+                    dtype=self._torch_dtype,
+                    layer_width=self._layer_width_critic,
+                    n_hidden_layers=self._n_hidden_layers_critic,
+                    add_weight_norm=self._add_weight_norm)
+            self.qf2_target = CriticQ(obs_dim=self._obs_dim,
+                    actions_dim=self._actions_dim,
+                    device=self._torch_device,
+                    dtype=self._torch_dtype,
+                    layer_width=self._layer_width_critic,
+                    n_hidden_layers=self._n_hidden_layers_critic,
+                    add_weight_norm=self._add_weight_norm)
+        
+            self.qf1_target.load_state_dict(self.qf1.state_dict())
+            self.qf2_target.load_state_dict(self.qf2.state_dict())
+
+        if self._use_torch_compile:
+            self.obs_running_norm=torch.compile(self.obs_running_norm)
+            self.actor = torch.compile(self.actor)
+            if (not is_eval) or load_qf:
+                self.qf1 = torch.compile(self.qf1)
+                self.qf2 = torch.compile(self.qf2)
+                self.qf1_target = torch.compile(self.qf1_target)
+                self.qf2_target = torch.compile(self.qf2_target)
+            
+    def reset(self, reset_stats: bool = False):
+        # we should just reinitialize the parameters, but for easiness
+        # we recreate the networks
+
+        # force deallocation of objects
+        import gc
+        del self.actor
+        del self.qf1
+        del self.qf2
+        del self.qf1_target
+        del self.qf2_target
+        gc.collect()
+
+        self._build_nets()
+
+        if reset_stats: # we also reinitialize obs norm
+            self._init_obs_norm()
+
+        # self.obs_running_norm.reset()
+
     def layer_width_actor(self):
         return self._layer_width_actor
 
@@ -361,7 +397,7 @@ class CriticQ(nn.Module):
     def forward(self, x, a):
         x = torch.cat([x, a], dim=1)
         return self._q_net(x)
-
+        
 class Actor(nn.Module):
     def __init__(self,
         obs_dim: int, 
