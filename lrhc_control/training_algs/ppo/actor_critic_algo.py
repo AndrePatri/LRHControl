@@ -448,6 +448,8 @@ class ActorCriticAlgoBase(ABC):
         self._anneal_lr = False
 
         self._discount_factor = 0.99
+        if "discount_factor" in custom_args:
+            self._discount_factor=custom_args["discount_factor"]
         self._gae_lambda = 0.95 # λ = 1 gives an unbiased estimate of the total reward (but high variance),
         # λ < 1 gives a biased estimate, but with less variance. 0.95
         
