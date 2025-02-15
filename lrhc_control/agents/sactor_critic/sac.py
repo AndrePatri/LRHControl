@@ -52,6 +52,11 @@ class SACAgent(nn.Module):
 
         self._add_weight_norm=add_weight_norm
 
+        self._is_eval=is_eval
+        self._load_qf=load_qf
+
+        self._epsilon=epsilon
+
         if compression_ratio > 0.0:
             self._layer_width_actor=int(compression_ratio*obs_dim)
             self._layer_width_critic=int(compression_ratio*(obs_dim+actions_dim))
@@ -129,11 +134,12 @@ class SACAgent(nn.Module):
         
         self.obs_running_norm=None
         if self._normalize_obs:
-            self.obs_running_norm = RunningNormalizer((obs_dim,), epsilon=epsilon, 
-                                        device=device, dtype=dtype, 
+            self.obs_running_norm = RunningNormalizer((self._obs_dim,), 
+                                        epsilon=self._epsilon, 
+                                        device=self._torch_device, dtype=self._torch_dtype, 
                                         freeze_stats=True, # always start with freezed stats
                                         debug=self._debug)
-            self.obs_running_norm.type(dtype) # ensuring correct dtype for whole module
+            self.obs_running_norm.type(self._torch_dtype) # ensuring correct dtype for whole module
 
     def _build_nets(self):
 
@@ -150,7 +156,7 @@ class SACAgent(nn.Module):
         self.qf2_target=None
         
         self.actor = Actor(obs_dim=self._obs_dim,
-                    actions_dim=self.actions_dim,
+                    actions_dim=self._actions_dim,
                     actions_ub=self._actions_ub,
                     actions_lb=self._actions_lb,
                     device=self._torch_device,
@@ -160,7 +166,7 @@ class SACAgent(nn.Module):
                     add_weight_norm=self._add_weight_norm
                     )
 
-        if (not is_eval) or load_qf: # just needed for training or during eval
+        if (not self._is_eval) or self._load_qf: # just needed for training or during eval
             # for debug, if enabled
             self.qf1 = CriticQ(obs_dim=self._obs_dim,
                     actions_dim=self._actions_dim,
@@ -198,7 +204,7 @@ class SACAgent(nn.Module):
         if self._use_torch_compile:
             self.obs_running_norm=torch.compile(self.obs_running_norm)
             self.actor = torch.compile(self.actor)
-            if (not is_eval) or load_qf:
+            if (not self._is_eval) or self._load_qf:
                 self.qf1 = torch.compile(self.qf1)
                 self.qf2 = torch.compile(self.qf2)
                 self.qf1_target = torch.compile(self.qf1_target)

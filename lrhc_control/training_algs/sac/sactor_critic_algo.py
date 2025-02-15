@@ -142,7 +142,7 @@ class SActorCriticAlgoBase(ABC):
 
         if self._use_period_resets and \
             self._vec_transition_counter & self._period_resets_vecfreq == 0:
-            # to fight the primacy issue
+            # to fight the primacy bias
             self._reset_agent()
 
         self._policy_update_t_start = time.perf_counter()
@@ -503,7 +503,7 @@ class SActorCriticAlgoBase(ABC):
         self._collection_freq=1
         self._update_freq=1
 
-        self._replay_buffer_size_vec=1*self._task_rand_timeout_ub # cover at least a number of eps
+        self._replay_buffer_size_vec=2*self._task_rand_timeout_ub # cover at least a number of eps
         self._replay_buffer_size = self._replay_buffer_size_vec*self._num_envs
         self._batch_size = 8192
 
@@ -520,8 +520,10 @@ class SActorCriticAlgoBase(ABC):
         self._trgt_net_freq = 1
         self._rnd_freq = 1
 
-        # period nets resets (for tackling the primacy issue)
-        self._use_period_resets=use_period_resets
+        # period nets resets (for tackling the primacy bias)
+        self._use_period_resets=False
+        if "use_period_resets" in custom_args:
+            self._use_period_resets=custom_args["use_period_resets"]
         self._period_resets_vecfreq=15*self._task_rand_timeout_ub
         self._period_resets_vecfreq = (self._period_resets_vecfreq//self._collection_freq)*self._collection_freq
         # exploration
