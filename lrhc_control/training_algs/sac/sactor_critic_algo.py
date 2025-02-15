@@ -522,8 +522,8 @@ class SActorCriticAlgoBase(ABC):
 
         # period nets resets (for tackling the primacy issue)
         self._use_period_resets=use_period_resets
-        self._period_resets_vecfreq=25*self._task_rand_timeout_ub
-
+        self._period_resets_vecfreq=15*self._task_rand_timeout_ub
+        self._period_resets_vecfreq = (self._period_resets_vecfreq//self._collection_freq)*self._collection_freq
         # exploration
 
         # entropy regularization
