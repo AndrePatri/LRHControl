@@ -140,8 +140,14 @@ class SActorCriticAlgoBase(ABC):
             with torch.no_grad(): # don't need grad computation here
                 self._update_batch_norm(bsize=self._bnorm_bsize)
 
-        if self._use_period_resets and \
-            self._vec_transition_counter % self._period_resets_vecfreq == 0:
+        if self._use_period_resets:
+
+            self._periodic_resets_on=(self._vec_transition_counter >= self._reset_vecstep_start) and \
+               (self._vec_transition_counter < self._reset_vecstep_end)
+
+            if self._periodic_resets_on and \
+                (self._vec_transition_counter-self._reset_vecstep_start) % self._period_resets_vecfreq == 0:
+
             # to fight the primacy bias
             self._reset_agent()
 
@@ -518,12 +524,6 @@ class SActorCriticAlgoBase(ABC):
         self._trgt_net_freq = 1
         self._rnd_freq = 1
 
-        # period nets resets (for tackling the primacy bias)
-        self._use_period_resets=False
-        if "use_period_resets" in custom_args:
-            self._use_period_resets=custom_args["use_period_resets"]
-        self._period_resets_vecfreq=15*self._task_rand_timeout_ub
-        self._period_resets_vecfreq = (self._period_resets_vecfreq//self._collection_freq)*self._collection_freq
         # exploration
 
         # entropy regularization
@@ -594,7 +594,17 @@ class SActorCriticAlgoBase(ABC):
         self._warmstart_vectimesteps = self._warmstart_timesteps//self._num_envs
         # ensuring multiple of collection_freq
         self._warmstart_timesteps = self._num_envs*self._warmstart_vectimesteps # actual
-            
+        
+        # period nets resets (for tackling the primacy bias)
+        self._use_period_resets=False
+        if "use_period_resets" in custom_args:
+            self._use_period_resets=custom_args["use_period_resets"]
+        self._period_resets_vecfreq=30*self._task_rand_timeout_ub
+        self._period_resets_vecfreq = (self._period_resets_vecfreq//self._collection_freq)*self._collection_freq
+        self._reset_vecstep_start=int(0.05*self._total_timesteps_vec)
+        self._reset_vecstep_end=(0.8*self._total_timesteps_vec)
+        self._periodic_resets_on=False
+
         # debug
         self._m_checkpoint_freq_nom = 1e6 # n totoal timesteps after which a checkpoint model is dumped
         self._m_checkpoint_freq= self._m_checkpoint_freq_nom//self._num_envs
@@ -705,6 +715,8 @@ class SActorCriticAlgoBase(ABC):
 
         self._hyperparameters["use_period_resets"]= self._use_period_resets
         self._hyperparameters["period_resets_freq"]= self._period_resets_vecfreq
+        self._hyperparameters["reset_vecstep_start"]= self._reset_vecstep_start
+        self._hyperparameters["reset_vecstep_end"]= self._reset_vecstep_end
 
         self._hyperparameters["use_rnd"] = self._use_rnd
         self._hyperparameters["rnd_lwidth"] = self._rnd_lwidth
