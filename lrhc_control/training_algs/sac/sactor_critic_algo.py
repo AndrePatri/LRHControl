@@ -148,8 +148,8 @@ class SActorCriticAlgoBase(ABC):
             if self._periodic_resets_on and \
                 (self._vec_transition_counter-self._reset_vecstep_start) % self._period_resets_vecfreq == 0:
 
-            # to fight the primacy bias
-            self._reset_agent()
+                # to fight the primacy bias
+                self._reset_agent()
 
         self._policy_update_t_start = time.perf_counter()
         for i in range(self._update_freq):
