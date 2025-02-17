@@ -129,9 +129,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         # action rate penalty
         self._add_env_opt(env_opts, "action_rate_offset", default=1.0)
-        self._add_env_opt(env_opts, "action_rate_scale", default=0.5)
-        self._add_env_opt(env_opts, "action_rate_rew_d_weight", default=0.1)
-        self._add_env_opt(env_opts, "action_rate_rew_c_weight", default=0.8)
+        self._add_env_opt(env_opts, "action_rate_scale", default=2.0)
+        self._add_env_opt(env_opts, "action_rate_rew_d_weight", default=0.05)
+        self._add_env_opt(env_opts, "action_rate_rew_c_weight", default=1.0)
 
         # jnt vel penalty
         self._add_env_opt(env_opts, "jnt_vel_offset", default=1.0)
@@ -370,9 +370,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                             fill_value=1.0)
         self._power_penalty_weights_sum = torch.sum(self._power_penalty_weights).item()
         subr_names=self._get_rewards_names() # initializes
-        # _reward_map
         
-            
         # reward clipping
         self._reward_thresh_lb[:, :]=-1e6 # (neg rewards can be nasty, especially if they all become negative)
         self._reward_thresh_ub[:, :]=1e6
@@ -393,15 +391,16 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._actions_ub[:, 0:3] = v_cmd_max  
         self._actions_lb[:, 3:6] = -omega_cmd_max # twist cmds
         self._actions_ub[:, 3:6] = omega_cmd_max  
+        idx=self._actions_map["contact_flag_start"]
         if self._env_opts["use_prob_based_stepping"]:
-            self._actions_lb[:, 6:10] = 0.0 # contact flags
-            self._actions_ub[:, 6:10] = 1.0 
+            self._actions_lb[:, idx:idx+self._n_contacts] = 0.0 # contact flags
+            self._actions_ub[:, idx:idx+self._n_contacts] = 1.0 
         else:
-            self._actions_lb[:, 6:10] = -1.0 
-            self._actions_ub[:, 6:10] = 1.0 
+            self._actions_lb[:, idx:idx+self._n_contacts] = -1.0 
+            self._actions_ub[:, idx:idx+self._n_contacts] = 1.0 
         
         self._default_action[:, :] = (self._actions_ub+self._actions_lb)/2.0
-        self._default_action[:, ~self._is_continuous_actions] = 1.0
+        # self._default_action[:, ~self._is_continuous_actions] = 1.0
             
         # assign obs bounds (useful if not using automatic obs normalization)
         obs_names=self._get_obs_names()
@@ -514,7 +513,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                 dtype=self._dtype,
                 use_gpu=self._use_gpu)
 
-        # if we need the action rete, we also need the action history
+        # if we need the action rate, we also need the action history
         if self._env_opts["add_action_rate_reward"]:
             if not self._env_opts["use_action_history"]:
                 Journal.log(self.__class__.__name__,

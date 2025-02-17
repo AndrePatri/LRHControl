@@ -32,9 +32,11 @@ class VariableFlightsBaseline(LinVelTrackBaseline):
             env_opts: Dict = {}):
 
         self._add_env_opt(env_opts, "control_flength", default=True) 
-        self._add_env_opt(env_opts, "control_fapex", default=True) 
+        self._add_env_opt(env_opts, "control_fapex", default=False) 
         self._add_env_opt(env_opts, "control_fend", default=False) 
         
+        self._add_env_opt(env_opts, "flength_min", default=3) # substeps
+
         # temporarily creating robot state client to get some data
         robot_state_tmp = RobotState(namespace=namespace,
                                 is_server=False, 
@@ -76,29 +78,15 @@ class VariableFlightsBaseline(LinVelTrackBaseline):
         
         LinVelTrackBaseline._custom_post_init(self)
 
-        # actions bounds
-        _=self._get_action_names() # also fills actions map
-        
-        if not self._env_opts["use_prob_based_stepping"]:
-            self._is_continuous_actions[6:10]=False
-        v_cmd_max = 2.5*self._env_opts["max_cmd_v"]
-        omega_cmd_max = 2.5*self._env_opts["max_cmd_v"]
-        self._actions_lb[:, 0:3] = -v_cmd_max 
-        self._actions_ub[:, 0:3] = v_cmd_max  
-        self._actions_lb[:, 3:6] = -omega_cmd_max # twist cmds
-        self._actions_ub[:, 3:6] = omega_cmd_max  
-        if self._env_opts["use_prob_based_stepping"]:
-            self._actions_lb[:, 6:10] = 0.0 # contact flags
-            self._actions_ub[:, 6:10] = 1.0 
-        else:
-            self._actions_lb[:, 6:10] = -1.0 
-            self._actions_ub[:, 6:10] = 1.0 
+        self._add_env_opt(self._env_opts, "flength_max", default=self._n_nodes_rhc.mean().item()) # MPC steps (substeps)
+
+        # additional actions bounds
         
         # flight params (length)
         if self._env_opts["control_flength"]:
             idx=self._actions_map["flight_len_start"]
-            self._actions_lb[:, idx:(idx+self._n_contacts)]=3
-            self._actions_ub[:, idx:(idx+self._n_contacts)]=self._n_nodes_rhc.mean().item()
+            self._actions_lb[:, idx:(idx+self._n_contacts)]=self._env_opts["flength_min"]
+            self._actions_ub[:, idx:(idx+self._n_contacts)]=self._env_opts["flength_max"]
             self._is_continuous_actions[idx:(idx+self._n_contacts)]=True
         # flight params (apex)
         if self._env_opts["control_fapex"]:
@@ -113,8 +101,9 @@ class VariableFlightsBaseline(LinVelTrackBaseline):
             self._actions_ub[:, idx:(idx+self._n_contacts)]=0.5
             self._is_continuous_actions[idx:(idx+self._n_contacts)]=True
 
+        # redefine default actions
         self._default_action[:, :] = (self._actions_ub+self._actions_lb)/2.0
-        self._default_action[:, ~self._is_continuous_actions] = 1.0
+        # self._default_action[:, ~self._is_continuous_actions] = 1.0
 
     def _set_rhc_refs(self):
         LinVelTrackBaseline._set_rhc_refs(self)

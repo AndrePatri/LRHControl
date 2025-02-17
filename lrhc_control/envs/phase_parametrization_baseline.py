@@ -87,14 +87,7 @@ class PhaseParametrizationBaseline(LinVelTrackBaseline):
         self._add_env_opt(self._env_opts, "phase_vecfreq_max", default=self._env_opts["n_steps_task_rand_ub"]*self._action_repeat) # substeps
         self._add_env_opt(self._env_opts, "flight_freq_lb_thresh", default=1.0/self._env_opts["phase_vecfreq_max"]) # substeps
 
-        # actions bounds        
-        v_cmd_max = 2.5*self._env_opts["max_cmd_v"]
-        omega_cmd_max = 2.5*self._env_opts["max_cmd_v"]
-        self._actions_lb[:, 0:3] = -v_cmd_max 
-        self._actions_ub[:, 0:3] = v_cmd_max  
-        self._actions_lb[:, 3:6] = -omega_cmd_max # twist cmds
-        self._actions_ub[:, 3:6] = omega_cmd_max  
-
+        # actions bounds
         idx=self._actions_map["flights_per_substeps_start"] # n. flights/n. substeps [0, 1.0/min_flight_length]
         self._actions_lb[:, idx:idx+self._n_contacts] = 0.0
         self._actions_ub[:, idx:idx+self._n_contacts] = 1.0/self._env_opts["flength_min"]
@@ -109,7 +102,6 @@ class PhaseParametrizationBaseline(LinVelTrackBaseline):
             self._actions_lb[:, idx:(idx+self._n_contacts)]=self._env_opts["flength_min"]
             self._actions_ub[:, idx:(idx+self._n_contacts)]=self._env_opts["flength_max"]
             self._is_continuous_actions[idx:(idx+self._n_contacts)]=True
-
         # flight params (apex)
         if self._env_opts["control_fapex"]:
             idx=self._actions_map["flight_apex_start"]
@@ -124,10 +116,7 @@ class PhaseParametrizationBaseline(LinVelTrackBaseline):
             self._is_continuous_actions[idx:(idx+self._n_contacts)]=True
 
         self._default_action[:, :] = (self._actions_ub+self._actions_lb)/2.0
-        self._default_action[:, ~self._is_continuous_actions] = 1.0
-    
-    def _custom_post_step(self,episode_finished):
-        LinVelTrackBaseline._custom_post_step(self, episode_finished=episode_finished)
+        # self._default_action[:, ~self._is_continuous_actions] = 1.0
     
     def _set_rhc_refs(self):
         
