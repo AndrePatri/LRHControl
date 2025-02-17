@@ -131,8 +131,7 @@ class FakePosEnvVariableFlights(VariableFlightsBaseline):
 
         # we randomize the reference in world frame
         if env_indxs is None:
-            self._trgt_d.uniform_(self._env_opts["min_distance"],
-                        self._env_opts["max_distance"])
+            self._trgt_d.uniform_(self._env_opts["min_distance"], self._env_opts["max_distance"])
             self._trgt_theta.uniform_(0.0, 2*torch.pi)
 
             self._p_trgt_w[:, :]=self._robot_state.root_state.get(data_type="p",gpu=self._use_gpu)[:, 0:2] +\
@@ -144,8 +143,7 @@ class FakePosEnvVariableFlights(VariableFlightsBaseline):
                 integer_idxs=torch.nonzero(env_indxs).flatten()
                 
                 trgt_d_selected=self._trgt_d[integer_idxs, :]
-                trgt_d_selected.uniform_(self._env_opts["min_distance"],
-                        self._env_opts["max_distance"])
+                trgt_d_selected.uniform_(self._env_opts["min_distance"], self._env_opts["max_distance"])
                 self._trgt_d[integer_idxs, :]=trgt_d_selected
 
                 trgt_theta_selected=self._trgt_theta[integer_idxs, :]
