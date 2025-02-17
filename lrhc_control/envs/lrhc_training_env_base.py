@@ -240,7 +240,10 @@ class LRhcTrainingEnvBase(ABC):
             self._env_opts["random_reset_freq"]=-1
         self._random_reset_active=self._env_opts["use_random_safety_reset"]
 
-        if self._env_opts["use_random_trunc"] <=0:
+        self._env_opts["random_trunc_freq"] = round(self._env_opts["random_trunc_freq"]/self._action_repeat) 
+        self._env_opts["random_trunc_freq_delta"] = round(self._env_opts["random_trunc_freq_delta"]/self._action_repeat) 
+
+        if self._env_opts["random_trunc_freq"] <=0:
             self._env_opts["use_random_trunc"]=False
             self._env_opts["random_trunc_freq"]=-1
 
