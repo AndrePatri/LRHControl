@@ -505,7 +505,7 @@ class SActorCriticAlgoBase(ABC):
             custom_args: Dict = {}):
     
         self._collection_freq=1
-        self._update_freq=1
+        self._update_freq=32
 
         self._replay_buffer_size_vec=3*self._task_rand_timeout_ub # cover at least a number of eps
         self._replay_buffer_size = self._replay_buffer_size_vec*self._num_envs
@@ -602,7 +602,13 @@ class SActorCriticAlgoBase(ABC):
         self._period_resets_vecfreq=30*self._task_rand_timeout_ub
         self._period_resets_vecfreq = (self._period_resets_vecfreq//self._collection_freq)*self._collection_freq
         self._reset_vecstep_start=int(0.05*self._total_timesteps_vec)
-        self._reset_vecstep_end=(0.8*self._total_timesteps_vec)
+        self._just_one_reset=True
+        if self._just_one_reset:
+            # we set the end as the fist reset + a fraction of the reset frequency (this way only one reset will happen)
+            self._reset_vecstep_end=int(self._reset_vecstep_start+0.8*self._period_resets_vecfreq)
+        else:
+            self._reset_vecstep_end=int(0.8*self._total_timesteps_vec)
+
         self._periodic_resets_on=False
 
         # debug
