@@ -66,8 +66,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             env_opts["episode_timeout_ub"]*2)  # to randomize trunc frequency between envs
     
         if not env_opts["single_task_ref_per_episode"]:
-            env_opts["random_reset_freq"]=env_opts["random_reset_freq"]/\
-                round(env_opts["episode_timeout_lb"])/float(env_opts["n_steps_task_rand_lb"])
+            env_opts["random_reset_freq"]=int(env_opts["random_reset_freq"]/\
+                (env_opts["episode_timeout_lb"]/float(env_opts["n_steps_task_rand_lb"])))
         
         self._add_env_opt(env_opts, "action_repeat", 1) # frame skipping (different agent action every action_repeat
         # env substeps)
