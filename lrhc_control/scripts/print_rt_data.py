@@ -30,18 +30,18 @@ if __name__ == "__main__":
     parser.add_argument('--env_idx', type=int, help='', default=0)
     parser.add_argument('--env_range', type=int, help='', default=1)
     parser.add_argument('--dtype', type=str, help='', default="float")
-    parser.add_argument('--with_counters', action="store_true", default=False, help='')
-    parser.add_argument('--with_safety_counter', action="store_true", default=False, help='')
+    parser.add_argument('--with_counters', action="store_true", help='')
+    parser.add_argument('--with_safety_counter', action="store_true", help='')
     parser.add_argument('--resolution', type=int, help='', default=2)
-    parser.add_argument('--with_sub_r', action="store_true", default=True, help='')
-    parser.add_argument('--with_sub_t', action="store_true", default=True, help='')
-    parser.add_argument('--with_sinfo', action="store_true", default=True, help='')
+    parser.add_argument('--with_sub_r', action="store_true", help='')
+    parser.add_argument('--with_sub_t', action="store_true", help='')
+    parser.add_argument('--with_sinfo', action="store_true", help='')
     parser.add_argument('--obs_names', nargs='+', default=None,
                         help='')
-    parser.add_argument('--robot_state', action="store_true", default=True, help='')
-    parser.add_argument('--with_obs', action="store_true", default=True, help='')
-    parser.add_argument('--with_actions', action="store_true", default=True, help='')
-    parser.add_argument('--with_rew', action="store_true", default=True, help='')
+    parser.add_argument('--robot_state', action="store_true", help='')
+    parser.add_argument('--with_obs', action="store_true", help='')
+    parser.add_argument('--with_actions', action="store_true", help='')
+    parser.add_argument('--with_rew', action="store_true", help='')
 
     args = parser.parse_args()
 
@@ -62,7 +62,7 @@ if __name__ == "__main__":
     if args.robot_state:
         robot_state= RobotState(namespace=namespace,is_server=False,verbose=True, 
                     vlevel=VLevel.V2,safe=False,
-                    with_gpu_mirror=False,dtype=dtype)
+                    with_gpu_mirror=False)
         robot_state.run()
 
     obs = Observations(namespace=namespace,is_server=False,verbose=True, 
