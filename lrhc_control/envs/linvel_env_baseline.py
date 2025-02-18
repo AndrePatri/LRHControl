@@ -51,9 +51,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._add_env_opt(env_opts, "episode_timeout_ub", 
             1024)
         self._add_env_opt(env_opts, "n_steps_task_rand_lb", 
-            512)
+            256)
         self._add_env_opt(env_opts, "n_steps_task_rand_ub", 
-            512)
+            256)
         self._add_env_opt(env_opts, "use_random_safety_reset", 
             True)
         self._add_env_opt(env_opts, "random_reset_freq", 
@@ -76,7 +76,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         
         self._add_env_opt(env_opts, "vec_ep_freq_metrics_db", 1) # n eps over which debug metrics are reported
         self._add_env_opt(env_opts, "demo_envs_perc", 0.0)
-        self._add_env_opt(env_opts, "max_cmd_v", 1.0) # maximum cmd v for v actions (single component)
+        self._add_env_opt(env_opts, "max_cmd_v", 0.5) # maximum cmd v for lin v actions (single component)
+        self._add_env_opt(env_opts, "max_cmd_omega", 0.5) # maximum cmd v for omega v actions (single component)
 
         # action smoothing
         self._add_env_opt(env_opts, "use_action_smoothing", False)
@@ -386,7 +387,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             self._is_continuous_actions[6:10]=False
 
         v_cmd_max = self._env_opts["max_cmd_v"]
-        omega_cmd_max = self._env_opts["max_cmd_v"]
+        omega_cmd_max = self._env_opts["max_cmd_omega"]
         self._actions_lb[:, 0:3] = -v_cmd_max 
         self._actions_ub[:, 0:3] = v_cmd_max  
         self._actions_lb[:, 3:6] = -omega_cmd_max # twist cmds
