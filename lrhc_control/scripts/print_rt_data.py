@@ -5,6 +5,9 @@ from lrhc_control.utils.shared_data.training_env import Actions
 from lrhc_control.utils.shared_data.training_env import Terminations, SubTerminations
 from lrhc_control.utils.shared_data.training_env import Truncations, SubTruncations
 from lrhc_control.utils.shared_data.training_env import EpisodesCounter, TaskRandCounter, SafetyRandResetsCounter
+
+from control_cluster_bridge.utilities.shared_data.rhc_data import RobotState
+
 from control_cluster_bridge.utilities.shared_data.sim_data import SharedEnvInfo
 
 import time 
@@ -35,6 +38,7 @@ if __name__ == "__main__":
     parser.add_argument('--with_sinfo', action="store_true", default=True, help='')
     parser.add_argument('--obs_names', nargs='+', default=None,
                         help='')
+    parser.add_argument('--robot_state', action="store_true", default=True, help='')
 
     args = parser.parse_args()
 
@@ -52,6 +56,12 @@ if __name__ == "__main__":
     if args.dtype == "double":
         dtype=eigenipc_dtype.Double
     
+    if args.robot_state:
+        robot_state= RobotState(namespace=namespace,is_server=False,verbose=True, 
+                    vlevel=VLevel.V2,safe=False,
+                    with_gpu_mirror=False,dtype=dtype)
+        robot_state.run()
+
     obs = Observations(namespace=namespace,is_server=False,verbose=True, 
                 vlevel=VLevel.V2,safe=False,
                 with_gpu_mirror=False,dtype=dtype)
@@ -98,7 +108,7 @@ if __name__ == "__main__":
                     safe=False,
                     verbose=True,
                     vlevel=VLevel.V2)
-
+    
     obs.run()
     # next_obs.run()
     obs_names=obs.col_names()
@@ -165,6 +175,13 @@ if __name__ == "__main__":
                 sim_data_read=sim_data.get()
                 sim_time=sim_data_read[simtime_idx].item()
                 sim_rt_factor=sim_data_read[rt_factor_idx].item() 
+            
+            if args.robot_state:
+                robot_state.synch_from_shared_mem()
+                p=robot_state.root_state.get(data_type="p")[idx:idx+env_range, :]
+                v=robot_state.root_state.get(data_type="v")[idx:idx+env_range, :]
+                gn=robot_state.root_state.get(data_type="gn")[idx:idx+env_range, :]
+
             obs.synch_all(read=True, retry=True)
             # next_obs.synch_all(read=True, retry=True)
             act.synch_all(read=True, retry=True)
@@ -182,6 +199,16 @@ if __name__ == "__main__":
             print(f"wall time: {round(elapsed_tot_nom, 2)} [s] -->\n")
             if sim_data is not None:
                 print(f"sim time: {round(sim_time, 2)} [s]; rt factor: {round(sim_rt_factor, 2)}\n")
+            
+            if args.robot_state:
+                print("\n robot state:")
+                print("\n p:")
+                print(p)
+                print("\n v:")
+                print(v)
+                print("\n gn:")
+                print(gn)
+
             print("\nobservations:")
             print(obs_selected_names, sep = ", ")
             print(obs.get_torch_mirror(gpu=False)[idx:idx+env_range, obs_idxs])
