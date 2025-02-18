@@ -39,6 +39,9 @@ if __name__ == "__main__":
     parser.add_argument('--obs_names', nargs='+', default=None,
                         help='')
     parser.add_argument('--robot_state', action="store_true", default=True, help='')
+    parser.add_argument('--with_obs', action="store_true", default=True, help='')
+    parser.add_argument('--with_actions', action="store_true", default=True, help='')
+    parser.add_argument('--with_rew', action="store_true", default=True, help='')
 
     args = parser.parse_args()
 
@@ -182,10 +185,13 @@ if __name__ == "__main__":
                 v=robot_state.root_state.get(data_type="v")[idx:idx+env_range, :]
                 gn=robot_state.root_state.get(data_type="gn")[idx:idx+env_range, :]
 
-            obs.synch_all(read=True, retry=True)
+            if args.with_obs:
+                obs.synch_all(read=True, retry=True)
             # next_obs.synch_all(read=True, retry=True)
-            act.synch_all(read=True, retry=True)
-            rew.synch_all(read=True, retry=True)
+            if args.with_actions:
+                act.synch_all(read=True, retry=True)
+            if args.with_rew:
+                rew.synch_all(read=True, retry=True)
             if sub_rew is not None:
                 sub_rew.synch_all(read=True, retry=True)
             if sub_trunc is not None:
@@ -209,16 +215,19 @@ if __name__ == "__main__":
                 print("\n gn:")
                 print(gn)
 
-            print("\nobservations:")
-            print(obs_selected_names, sep = ", ")
-            print(obs.get_torch_mirror(gpu=False)[idx:idx+env_range, obs_idxs])
-            # print("-->next observations:")
-            # print(next_obs.get_torch_mirror(gpu=False)[idx:idx+env_range, :])
-            print("\nactions:")
-            print(act_names, sep = ", ")
-            print(act.get_torch_mirror(gpu=False)[idx:idx+env_range, :])
-            print("\nrewards:")
-            print(rew.get_torch_mirror(gpu=False)[idx:idx+env_range, :])
+            if args.with_obs:
+                print("\nobservations:")
+                print(obs_selected_names, sep = ", ")
+                print(obs.get_torch_mirror(gpu=False)[idx:idx+env_range, obs_idxs])
+                # print("-->next observations:")
+                # print(next_obs.get_torch_mirror(gpu=False)[idx:idx+env_range, :])
+            if args.with_actions:
+                print("\nactions:")
+                print(act_names, sep = ", ")
+                print(act.get_torch_mirror(gpu=False)[idx:idx+env_range, :])
+            if args.with_rew:
+                print("\nrewards:")
+                print(rew.get_torch_mirror(gpu=False)[idx:idx+env_range, :])
             if sub_rew is not None:
                 print("\nsub-rewards:")
                 print(*sub_rew_names, sep = ", ") 
