@@ -509,7 +509,7 @@ class SActorCriticAlgoBase(ABC):
 
         self._replay_buffer_size_vec=3*self._task_rand_timeout_ub # cover at least a number of eps
         self._replay_buffer_size = self._replay_buffer_size_vec*self._num_envs
-        self._batch_size = 8192
+        self._batch_size = 16392
 
         self._lr_policy = 5e-4
         self._lr_q = 1e-3
@@ -546,7 +546,7 @@ class SActorCriticAlgoBase(ABC):
         self._noise_duration_vec=self._noise_duration_vec//self._env_n_action_reps
         
         self._continuous_act_expl_noise_std=0.3 # wrt actions scale
-        self._discrete_act_expl_noise_std=1.5 # setting it a bit > 1 helps in ensuring discr. actions range is explored
+        self._discrete_act_expl_noise_std=1.2 # setting it a bit > 1 helps in ensuring discr. actions range is explored
         
         # rnd
         self._use_rnd=False
