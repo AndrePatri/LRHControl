@@ -392,13 +392,14 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._actions_ub[:, 0:3] = v_cmd_max  
         self._actions_lb[:, 3:6] = -omega_cmd_max # twist cmds
         self._actions_ub[:, 3:6] = omega_cmd_max  
-        idx=self._actions_map["contact_flag_start"]
-        if self._env_opts["use_prob_based_stepping"]:
-            self._actions_lb[:, idx:idx+self._n_contacts] = 0.0 # contact flags
-            self._actions_ub[:, idx:idx+self._n_contacts] = 1.0 
-        else:
-            self._actions_lb[:, idx:idx+self._n_contacts] = -1.0 
-            self._actions_ub[:, idx:idx+self._n_contacts] = 1.0 
+        if "contact_flag_start" in self._actions_map:
+            idx=self._actions_map["contact_flag_start"]
+            if self._env_opts["use_prob_based_stepping"]:
+                self._actions_lb[:, idx:idx+self._n_contacts] = 0.0 # contact flags
+                self._actions_ub[:, idx:idx+self._n_contacts] = 1.0 
+            else:
+                self._actions_lb[:, idx:idx+self._n_contacts] = -1.0 
+                self._actions_ub[:, idx:idx+self._n_contacts] = 1.0 
         
         self._default_action[:, :] = (self._actions_ub+self._actions_lb)/2.0
         # self._default_action[:, ~self._is_continuous_actions] = 1.0
