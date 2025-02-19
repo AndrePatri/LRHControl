@@ -552,8 +552,7 @@ class Actor(nn.Module):
         return action, log_prob, mean
     
     def remove_scaling(self, a):
-        a=(a - self.action_bias)/(self.action_scale+1e-6)
-        return a
+        return (a - self.action_bias)/self.action_scale
 
 if __name__ == "__main__":  
     
