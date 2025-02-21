@@ -506,6 +506,7 @@ class SActorCriticAlgoBase(ABC):
     
         self._collection_freq=1
         self._update_freq=32
+        self._utd_ratio=self._update_freq/(self._collection_freq*self._num_envs)
 
         self._replay_buffer_size_vec=3*self._task_rand_timeout_ub # cover at least a number of eps
         self._replay_buffer_size = self._replay_buffer_size_vec*self._num_envs
@@ -687,6 +688,8 @@ class SActorCriticAlgoBase(ABC):
         self._hyperparameters["collection_freq"]=self._collection_freq
         self._hyperparameters["update_freq"]=self._update_freq
         self._hyperparameters["total_steps"]=self._total_steps
+        
+        self._hyperparameters["utd_ratio"] = self._utd_ratio
         
         self._hyperparameters["n_policy_updates_when_done"] = self._n_policy_updates_to_be_done
         self._hyperparameters["n_qf_updates_when_done"] = self._n_qf_updates_to_be_done
