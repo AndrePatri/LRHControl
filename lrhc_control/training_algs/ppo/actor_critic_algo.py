@@ -464,6 +464,8 @@ class ActorCriticAlgoBase(ABC):
         self._max_grad_norm_critic = 0.5
         self._target_kl = None
 
+        self._utd_ratio=(self._update_epochs*self._num_minibatches)/(self._batch_size)
+        
         self._n_policy_updates_to_be_done = self._update_epochs*self._num_minibatches*self._iterations_n
         self._n_vfun_updates_to_be_done=self._n_policy_updates_to_be_done
 
@@ -499,6 +501,8 @@ class ActorCriticAlgoBase(ABC):
         self._hyperparameters["total_timesteps_vec"] = self._total_timesteps_vec
         self._hyperparameters["n_iterations"] = self._iterations_n
         self._hyperparameters["rollout_vec_timesteps"] = self._rollout_vec_timesteps
+
+        self._hyperparameters["utd_ratio"] = self._utd_ratio
 
         self._hyperparameters["n_policy_updates_per_batch"] = self._update_epochs*self._num_minibatches
         self._hyperparameters["n_policy_updates_when_done"] = self._n_policy_updates_to_be_done
