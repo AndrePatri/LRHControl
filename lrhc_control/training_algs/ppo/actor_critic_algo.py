@@ -425,7 +425,7 @@ class ActorCriticAlgoBase(ABC):
         self._total_timesteps = int(tot_tsteps) # total timesteps to be collected (including sub envs)
         # self._total_timesteps = self._total_timesteps # correct with n of action reps
         
-        self._rollout_vec_timesteps = 128 # numer of vectorized steps (rescaled depending on env substepping) 
+        self._rollout_vec_timesteps = 256 # numer of vectorized steps (rescaled depending on env substepping) 
         # to be done per policy rollout (influences adv estimation!!!)
         self._rollout_vec_timesteps =self._rollout_vec_timesteps//self._env_n_action_reps # correct for action rep
         
@@ -438,7 +438,7 @@ class ActorCriticAlgoBase(ABC):
         self._bnorm_bsize = 4096 # size of batch used for batch normalization
 
         # policy update
-        self._num_minibatches = 8
+        self._num_minibatches = 32
         self._minibatch_size = self._batch_size // self._num_minibatches
         
         self._base_lr_actor = 1e-3 
