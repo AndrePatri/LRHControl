@@ -425,7 +425,7 @@ class ActorCriticAlgoBase(ABC):
         self._total_timesteps = int(tot_tsteps) # total timesteps to be collected (including sub envs)
         # self._total_timesteps = self._total_timesteps # correct with n of action reps
         
-        self._rollout_vec_timesteps = 128 # numer of vectorized steps (rescaled depending on env substepping) 
+        self._rollout_vec_timesteps = 256 # numer of vectorized steps (rescaled depending on env substepping) 
         # to be done per policy rollout (influences adv estimation!!!)
         self._rollout_vec_timesteps =self._rollout_vec_timesteps//self._env_n_action_reps # correct for action rep
         
@@ -438,7 +438,7 @@ class ActorCriticAlgoBase(ABC):
         self._bnorm_bsize = 4096 # size of batch used for batch normalization
 
         # policy update
-        self._num_minibatches = 8
+        self._num_minibatches = 32
         self._minibatch_size = self._batch_size // self._num_minibatches
         
         self._base_lr_actor = 1e-3 
@@ -857,13 +857,6 @@ class ActorCriticAlgoBase(ABC):
                 sub_rew_full=self._episodic_reward_metrics.get_full_episodic_subrew()
                 tot_rew_full=self._episodic_reward_metrics.get_full_episodic_totrew()
 
-                if self._n_expl_envs > 0:
-                    sub_rew_full_expl=self._episodic_reward_metrics.get_full_episodic_subrew(env_selector=self._expl_env_selector)
-                    tot_rew_full_expl=self._episodic_reward_metrics.get_full_episodic_totrew(env_selector=self._expl_env_selector)
-                if self._env.n_demo_envs() > 0:
-                    sub_rew_full_demo=self._episodic_reward_metrics.get_full_episodic_subrew(env_selector=self._demo_env_selector)
-                    tot_rew_full_demo=self._episodic_reward_metrics.get_full_episodic_totrew(env_selector=self._demo_env_selector)
-
                 ep_vec_freq=self._episodic_reward_metrics.ep_vec_freq() # assuming all db data was collected with the same ep_vec_freq
 
                 hf.attrs['sub_reward_names'] = self._reward_names
@@ -888,16 +881,6 @@ class ActorCriticAlgoBase(ABC):
                         data=sub_rew_full[ep_idx, :, :, :])
                     hf.create_dataset(ep_prefix+'tot_rew', 
                         data=tot_rew_full[ep_idx, :, :, :])
-                    if self._n_expl_envs > 0:
-                        hf.create_dataset(ep_prefix+'sub_rew_expl', 
-                            data=sub_rew_full_expl[ep_idx, :, :, :])
-                        hf.create_dataset(ep_prefix+'tot_rew_expl', 
-                            data=tot_rew_full_expl[ep_idx, :, :, :])
-                    if self._env.n_demo_envs() > 0:
-                        hf.create_dataset(ep_prefix+'sub_rew_demo', 
-                            data=sub_rew_full_demo)
-                        hf.create_dataset(ep_prefix+'tot_rew_demo', 
-                            data=tot_rew_full_demo[ep_idx, :, :, :])
                     
                     # dump all custom env data
                     db_data_names = list(self._env.custom_db_data.keys())
@@ -906,12 +889,6 @@ class ActorCriticAlgoBase(ABC):
                         var_name = db_dname
                         hf.create_dataset(ep_prefix+var_name, 
                             data=episodic_data.get_full_episodic_data()[ep_idx, :, :, :])
-                        if self._n_expl_envs > 0:
-                            hf.create_dataset(ep_prefix+var_name+"_expl", 
-                                data=episodic_data.get_full_episodic_data(env_selector=self._expl_env_selector)[ep_idx, :, :, :])
-                        if self._env.n_demo_envs() > 0:
-                            hf.create_dataset(ep_prefix+var_name+"_demo", 
-                                data=episodic_data.get_full_episodic_data(env_selector=self._demo_env_selector)[ep_idx, :, :, :])
                 
             Journal.log(self.__class__.__name__,
                 "_dump_env_checkpoints",

@@ -542,18 +542,19 @@ class Actor(nn.Module):
         mean, log_std = self(x)
         std = log_std.exp()
         normal = torch.distributions.Normal(mean, std)
-        x_t = normal.rsample()  # Reparameterization trick
+        x_t = normal.rsample()  # Reparameterization trick (for SAC we neex action
+        # to be differentible since we use Q nets. Using sample() would break the
+        # comp. graph and not allow gradients to flow)
         y_t = torch.tanh(x_t)
         action = y_t * self.action_scale + self.action_bias
-        log_prob = normal.log_prob(x_t)
-        log_prob = log_prob - torch.log(self.action_scale * (1 - y_t.pow(2)) + 1e-6)
-        log_prob = log_prob.sum(1, keepdim=True)
+        log_prob = normal.log_prob(x_t) # log probability before applying tanh
+        log_prob = log_prob - torch.log(self.action_scale * (1 - y_t.pow(2)) + 1e-6) # correct using the log of the derivative of tanh
+        log_prob = log_prob.sum(1, keepdim=True) 
         mean = torch.tanh(mean) * self.action_scale + self.action_bias
         return action, log_prob, mean
     
     def remove_scaling(self, a):
-        a=(a - self.action_bias)/(self.action_scale+1e-6)
-        return a
+        return (a - self.action_bias)/self.action_scale
 
 if __name__ == "__main__":  
     
