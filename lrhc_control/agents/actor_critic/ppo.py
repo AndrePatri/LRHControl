@@ -283,7 +283,7 @@ class CriticV(nn.Module):
             nn.Tanh()
         ])
 
-        for _ in range(n_hidden_layers - 2):
+        for _ in range(n_hidden_layers - 1):
             layers.extend([
                 llayer_init(
                     layer=nn.Linear(layer_width, layer_width),
@@ -402,7 +402,7 @@ class Actor(nn.Module):
                 nn.Tanh()
             ])
             
-            for _ in range(n_hidden_layers - 2):
+            for _ in range(n_hidden_layers - 1):
                 layers.extend([
                     llayer_init(nn.Linear(layer_width, layer_width), 
                         init_type="orthogonal",

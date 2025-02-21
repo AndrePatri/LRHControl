@@ -343,11 +343,14 @@ class CriticQ(nn.Module):
         self._first_hidden_layer_width=self._q_net_dim # fist layer fully connected and of same dim
         # as input
 
+        init_type="kaiming_uniform" # maintains the variance of activations throughout the network
+        nonlinearity="leaky_relu" # suited for kaiming
+
         # Input layer
         layers = [llayer_init(
             layer=nn.Linear(self._q_net_dim, self._first_hidden_layer_width),
-            init_type="kaiming_uniform",
-            nonlinearity="leaky_relu",
+            init_type=init_type,
+            nonlinearity=nonlinearity,
             a_leaky_relu=self._lrelu_slope,
             device=self._torch_device,
             dtype=self._torch_dtype,
@@ -358,8 +361,8 @@ class CriticQ(nn.Module):
         layers.extend([
             llayer_init(
                 layer=nn.Linear(self._first_hidden_layer_width, layer_width),
-                init_type="kaiming_uniform",
-                nonlinearity="leaky_relu",
+                init_type=init_type,
+                nonlinearity=nonlinearity,
                 a_leaky_relu=self._lrelu_slope,
                 device=self._torch_device,
                 dtype=self._torch_dtype,
@@ -368,12 +371,12 @@ class CriticQ(nn.Module):
             nn.LeakyReLU(negative_slope=self._lrelu_slope)
         ])
 
-        for _ in range(n_hidden_layers - 2):
+        for _ in range(n_hidden_layers - 1):
             layers.extend([
                 llayer_init(
                     layer=nn.Linear(layer_width, layer_width),
-                    init_type="kaiming_uniform",
-                    nonlinearity="leaky_relu",
+                    init_type=init_type,
+                    nonlinearity=nonlinearity,
                     a_leaky_relu=self._lrelu_slope,
                     device=self._torch_device,
                     dtype=self._torch_dtype,
@@ -387,6 +390,8 @@ class CriticQ(nn.Module):
             llayer_init(
                 layer=nn.Linear(layer_width, 1),
                 init_type="uniform",
+                uniform_biases=False, # contact biases
+                bias_const=-0.1, # slightly negative to prevent overestimation
                 device=self._torch_device,
                 dtype=self._torch_dtype,
                 add_weight_norm=add_weight_norm
@@ -493,7 +498,7 @@ class Actor(nn.Module):
             nn.LeakyReLU(negative_slope=self._lrelu_slope)
         ])
         
-        for _ in range(n_hidden_layers - 2):
+        for _ in range(n_hidden_layers - 1):
             layers.extend([
                 llayer_init(nn.Linear(layer_width, layer_width), 
                     init_type="kaiming_uniform",
@@ -511,14 +516,17 @@ class Actor(nn.Module):
         # Mean and log_std layers
         self.fc_mean = llayer_init(nn.Linear(layer_width, self._actions_dim), 
                         init_type="uniform",
+                        uniform_biases=False,
+                        bias_const=0.0,
                         device=self._torch_device, 
                         dtype=self._torch_dtype,
-                        add_weight_norm=add_weight_norm)
+                        add_weight_norm=add_weight_norm,)
         self.fc_logstd = llayer_init(nn.Linear(layer_width, self._actions_dim), 
                         init_type="uniform",
+                        uniform_biases=False,
+                        bias_const=-0.1,
                         device=self._torch_device, 
                         dtype=self._torch_dtype,
-                        bias_const=-1.0, # for encouraging exploration
                         add_weight_norm=add_weight_norm
                         )
 
