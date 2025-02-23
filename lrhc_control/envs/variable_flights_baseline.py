@@ -35,7 +35,7 @@ class VariableFlightsBaseline(LinVelTrackBaseline):
         self._add_env_opt(env_opts, "control_fapex", default=False) 
         self._add_env_opt(env_opts, "control_fend", default=False) 
         
-        self._add_env_opt(env_opts, "flength_min", default=3) # substeps
+        self._add_env_opt(env_opts, "flength_min", default=5) # substeps
 
         # temporarily creating robot state client to get some data
         robot_state_tmp = RobotState(namespace=namespace,
