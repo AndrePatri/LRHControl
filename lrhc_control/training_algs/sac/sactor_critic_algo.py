@@ -602,15 +602,19 @@ class SActorCriticAlgoBase(ABC):
         self._use_period_resets=False
         if "use_period_resets" in custom_args:
             self._use_period_resets=custom_args["use_period_resets"]
-        self._period_resets_vecfreq=30*self._task_rand_timeout_ub
+        self._just_one_reset=False
+        self._period_resets_freq=int(4e6)
+        self._period_resets_start=int(1.5e6)
+        self._period_resets_end=int(0.8*self._total_timesteps)
+
+        self._period_resets_vecfreq=self._period_resets_freq//self._num_envs
         self._period_resets_vecfreq = (self._period_resets_vecfreq//self._collection_freq)*self._collection_freq
-        self._reset_vecstep_start=int(0.05*self._total_timesteps_vec)
-        self._just_one_reset=True
+        self._reset_vecstep_start=self._period_resets_start//self._num_envs
+        self._reset_vecstep_end=self._period_resets_end//self._num_envs
+
         if self._just_one_reset:
             # we set the end as the fist reset + a fraction of the reset frequency (this way only one reset will happen)
             self._reset_vecstep_end=int(self._reset_vecstep_start+0.8*self._period_resets_vecfreq)
-        else:
-            self._reset_vecstep_end=int(0.8*self._total_timesteps_vec)
 
         self._periodic_resets_on=False
 
@@ -725,9 +729,13 @@ class SActorCriticAlgoBase(ABC):
         self._hyperparameters["m_checkpoint_freq"] = self._m_checkpoint_freq
 
         self._hyperparameters["use_period_resets"]= self._use_period_resets
-        self._hyperparameters["period_resets_freq"]= self._period_resets_vecfreq
-        self._hyperparameters["reset_vecstep_start"]= self._reset_vecstep_start
-        self._hyperparameters["reset_vecstep_end"]= self._reset_vecstep_end
+        self._hyperparameters["just_one_reset"]= self._just_one_reset
+        self._hyperparameters["period_resets_vecfreq"]= self._period_resets_vecfreq
+        self._hyperparameters["period_resets_vecstart"]= self._reset_vecstep_start
+        self._hyperparameters["period_resets_vecend"]= self._reset_vecstep_end
+        self._hyperparameters["period_resets_freq"]= self._period_resets_freq
+        self._hyperparameters["period_resets_start"]= self._period_resets_start
+        self._hyperparameters["period_resets_end"]= self._period_resets_end
 
         self._hyperparameters["use_rnd"] = self._use_rnd
         self._hyperparameters["rnd_lwidth"] = self._rnd_lwidth
