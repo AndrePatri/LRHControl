@@ -1,6 +1,9 @@
 import torch
 import math
 from torch.nn.utils import weight_norm, remove_weight_norm              
+from EigenIPC.PyEigenIPC import LogType
+from EigenIPC.PyEigenIPC import Journal
+from EigenIPC.PyEigenIPC import VLevel
 
 def llayer_init(layer, 
     init_type=None,
@@ -9,9 +12,18 @@ def llayer_init(layer,
     bias_const=0.0,
     device: str = "cuda",
     dtype = torch.float32,
+    orth_init_gain: float = 1.0,
     uniform_biases: bool = False,
     add_weight_norm: bool = False,
-    orth_init_gain: float = 1.0):
+    add_layer_norm: bool = False,
+    add_batch_norm: bool = False):
+
+        if add_layer_norm and add_batch_norm:
+            Journal.log(self.__class__.__name__,
+                "llayer_init",
+                f"Cannot use both layer and batch normalization! Choose one of the two.",
+                LogType.EXCEP,
+                throw_when_excep = True)
 
         # Move to device and set dtype
         layer.to(device).type(dtype)
@@ -43,6 +55,12 @@ def llayer_init(layer,
         if add_weight_norm:
             layer = weight_norm(layer)
 
+        # Apply Layer Normalization or Batch Normalization
+        if add_layer_norm:
+            layer = nn.Sequential(layer, nn.LayerNorm(layer.out_features, device=device, dtype=dtype))
+        elif add_batch_norm:
+            layer = nn.Sequential(layer, nn.BatchNorm1d(layer.out_features, device=device, dtype=dtype))
+            
         return layer
 
 def llayer_reset(layer,

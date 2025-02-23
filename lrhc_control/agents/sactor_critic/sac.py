@@ -34,7 +34,9 @@ class SACAgent(nn.Module):
             layer_width_critic:int=512,
             n_hidden_layers_critic:int=4,
             torch_compile: bool = False,
-            add_weight_norm: bool = False):
+            add_weight_norm: bool = False,
+            add_layer_norm: bool = False,
+            add_batch_norm: bool = False):
 
         super().__init__()
 
@@ -51,6 +53,8 @@ class SACAgent(nn.Module):
         self._actions_lb=actions_lb
 
         self._add_weight_norm=add_weight_norm
+        self._add_layer_norm=add_layer_norm
+        self._add_batch_norm=add_batch_norm
 
         self._is_eval=is_eval
         self._load_qf=load_qf
@@ -163,7 +167,9 @@ class SACAgent(nn.Module):
                     dtype=self._torch_dtype,
                     layer_width=self._layer_width_actor,
                     n_hidden_layers=self._n_hidden_layers_actor,
-                    add_weight_norm=self._add_weight_norm
+                    add_weight_norm=self._add_weight_norm,
+                    add_layer_norm=self._add_layer_norm,
+                    add_batch_norm=self._add_batch_norm,
                     )
 
         if (not self._is_eval) or self._load_qf: # just needed for training or during eval
@@ -174,14 +180,18 @@ class SACAgent(nn.Module):
                     dtype=self._torch_dtype,
                     layer_width=self._layer_width_critic,
                     n_hidden_layers=self._n_hidden_layers_critic,
-                    add_weight_norm=self._add_weight_norm)
+                    add_weight_norm=self._add_weight_norm,
+                    add_layer_norm=self._add_layer_norm,
+                    add_batch_norm=self._add_batch_norm)
             self.qf1_target = CriticQ(obs_dim=self._obs_dim,
                     actions_dim=self._actions_dim,
                     device=self._torch_device,
                     dtype=self._torch_dtype,
                     layer_width=self._layer_width_critic,
                     n_hidden_layers=self._n_hidden_layers_critic,
-                    add_weight_norm=self._add_weight_norm)
+                    add_weight_norm=self._add_weight_norm,
+                    add_layer_norm=self._add_layer_norm,
+                    add_batch_norm=self._add_batch_norm)
             
             self.qf2 = CriticQ(obs_dim=self._obs_dim,
                     actions_dim=self._actions_dim,
@@ -189,14 +199,18 @@ class SACAgent(nn.Module):
                     dtype=self._torch_dtype,
                     layer_width=self._layer_width_critic,
                     n_hidden_layers=self._n_hidden_layers_critic,
-                    add_weight_norm=self._add_weight_norm)
+                    add_weight_norm=self._add_weight_norm,
+                    add_layer_norm=self._add_layer_norm,
+                    add_batch_norm=self._add_batch_norm)
             self.qf2_target = CriticQ(obs_dim=self._obs_dim,
                     actions_dim=self._actions_dim,
                     device=self._torch_device,
                     dtype=self._torch_dtype,
                     layer_width=self._layer_width_critic,
                     n_hidden_layers=self._n_hidden_layers_critic,
-                    add_weight_norm=self._add_weight_norm)
+                    add_weight_norm=self._add_weight_norm,
+                    add_layer_norm=self._add_layer_norm,
+                    add_batch_norm=self._add_batch_norm)
         
             self.qf1_target.load_state_dict(self.qf1.state_dict())
             self.qf2_target.load_state_dict(self.qf2.state_dict())
@@ -327,7 +341,9 @@ class CriticQ(nn.Module):
         dtype = torch.float32,
         layer_width: int = 512,
         n_hidden_layers: int = 4,
-        add_weight_norm: bool = False):
+        add_weight_norm: bool = False,
+        add_layer_norm: bool = False,
+        add_batch_norm: bool = False):
 
         super().__init__()
 
@@ -354,7 +370,9 @@ class CriticQ(nn.Module):
             a_leaky_relu=self._lrelu_slope,
             device=self._torch_device,
             dtype=self._torch_dtype,
-            add_weight_norm=add_weight_norm
+            add_weight_norm=add_weight_norm,
+            add_layer_norm=add_layer_norm,
+            add_batch_norm=add_batch_norm
         ), nn.LeakyReLU(negative_slope=self._lrelu_slope)]
         
         # Hidden layers
@@ -366,7 +384,9 @@ class CriticQ(nn.Module):
                 a_leaky_relu=self._lrelu_slope,
                 device=self._torch_device,
                 dtype=self._torch_dtype,
-                add_weight_norm=add_weight_norm
+                add_weight_norm=add_weight_norm,
+                add_layer_norm=add_layer_norm,
+                add_batch_norm=add_batch_norm
             ),
             nn.LeakyReLU(negative_slope=self._lrelu_slope)
         ])
@@ -380,7 +400,9 @@ class CriticQ(nn.Module):
                     a_leaky_relu=self._lrelu_slope,
                     device=self._torch_device,
                     dtype=self._torch_dtype,
-                    add_weight_norm=add_weight_norm
+                    add_weight_norm=add_weight_norm,
+                    add_layer_norm=add_layer_norm,
+                    add_batch_norm=add_batch_norm
                 ),
                 nn.LeakyReLU(negative_slope=self._lrelu_slope)
             ])
@@ -394,7 +416,9 @@ class CriticQ(nn.Module):
                 bias_const=-0.1, # slightly negative to prevent overestimation
                 device=self._torch_device,
                 dtype=self._torch_dtype,
-                add_weight_norm=add_weight_norm
+                add_weight_norm=False,
+                add_layer_norm=False,
+                add_batch_norm=False
             )
         )
 
@@ -419,8 +443,10 @@ class Actor(nn.Module):
         dtype = torch.float32,
         layer_width: int = 256,
         n_hidden_layers: int = 2,
-        add_weight_norm: bool = False):
-        
+        add_weight_norm: bool = False,
+        add_layer_norm: bool = False,
+        add_batch_norm: bool = False):
+    
         super().__init__()
 
         self._lrelu_slope=0.01
@@ -482,7 +508,9 @@ class Actor(nn.Module):
                     a_leaky_relu=self._lrelu_slope,
                     device=self._torch_device, 
                     dtype=self._torch_dtype,
-                    add_weight_norm=add_weight_norm),
+                    add_weight_norm=add_weight_norm,
+                    add_layer_norm=add_layer_norm,
+                    add_batch_norm=add_batch_norm),
             nn.LeakyReLU(negative_slope=self._lrelu_slope)]
     
         # Hidden layers
@@ -494,7 +522,9 @@ class Actor(nn.Module):
                 a_leaky_relu=self._lrelu_slope,
                 device=self._torch_device,
                 dtype=self._torch_dtype,
-                add_weight_norm=add_weight_norm),
+                add_weight_norm=add_weight_norm,
+                add_layer_norm=add_layer_norm,
+                add_batch_norm=add_batch_norm),
             nn.LeakyReLU(negative_slope=self._lrelu_slope)
         ])
         
@@ -506,7 +536,9 @@ class Actor(nn.Module):
                     a_leaky_relu=self._lrelu_slope,
                     device=self._torch_device,
                     dtype=self._torch_dtype,
-                    add_weight_norm=add_weight_norm),
+                    add_weight_norm=add_weight_norm,
+                    add_layer_norm=add_layer_norm,
+                    add_batch_norm=add_batch_norm),
                 nn.LeakyReLU(negative_slope=self._lrelu_slope)
             ])
         
@@ -520,14 +552,18 @@ class Actor(nn.Module):
                         bias_const=0.0,
                         device=self._torch_device, 
                         dtype=self._torch_dtype,
-                        add_weight_norm=add_weight_norm,)
+                        add_weight_norm=False,
+                        add_layer_norm=False,
+                        add_batch_norm=False)
         self.fc_logstd = llayer_init(nn.Linear(layer_width, self._actions_dim), 
                         init_type="uniform",
                         uniform_biases=False,
                         bias_const=-0.1,
                         device=self._torch_device, 
                         dtype=self._torch_dtype,
-                        add_weight_norm=add_weight_norm
+                        add_weight_norm=False,
+                        add_layer_norm=False,
+                        add_batch_norm=False
                         )
 
         # Move all components to the specified device and dtype
