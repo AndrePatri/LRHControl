@@ -31,7 +31,7 @@ class PhaseParametrizationBaseline(LinVelTrackBaseline):
             timeout_ms: int = 60000,
             env_opts: Dict = {}):
         
-        self._add_env_opt(env_opts, "flength_min", default=3) # substeps
+        self._add_env_opt(env_opts, "flength_min", default=5) # substeps
 
         self._add_env_opt(env_opts, "control_flength", default=False)
         self._add_env_opt(env_opts, "control_fapex", default=False) 
