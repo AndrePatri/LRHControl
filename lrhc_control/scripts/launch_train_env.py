@@ -57,7 +57,10 @@ if __name__ == "__main__":
     parser.add_argument('--discount_factor', type=float, help='', default=0.99)
     parser.add_argument('--obs_norm',action='store_true', help='Whether to enable the use of running normalizer in agent')
     parser.add_argument('--obs_rescale',action='store_true', help='Whether to rescale observation depending on their expected range')
-    parser.add_argument('--add_weight_norm',action='store_true', help='Whether to add weight normalization to agent llayers')
+    parser.add_argument('--add_weight_norm',action='store_true', help='Whether to add weight normalization to agent interal llayers')
+    parser.add_argument('--add_layer_norm',action='store_true', help='Whether to add layer normalization to agent internal llayers')
+    parser.add_argument('--add_batch_norm',action='store_true', help='Whether to add batch normalization to agent internal llayers')
+
     parser.add_argument('--act_rescale_critic',action='store_true', help='Whether to rescale actions provided to critic (if SAC) to be in range [-1, 1]')
     parser.add_argument('--use_period_resets',action='store_true', help='')
 

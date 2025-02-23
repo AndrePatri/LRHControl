@@ -288,6 +288,8 @@ class SActorCriticAlgoBase(ABC):
 
         use_torch_compile=False
         add_weight_norm=False
+        add_layer_norm=False
+        add_batch_norm=False
         compression_ratio=-1.0
         if "use_torch_compile" in self._hyperparameters and \
             self._hyperparameters["use_torch_compile"]:
@@ -295,6 +297,12 @@ class SActorCriticAlgoBase(ABC):
         if "add_weight_norm" in self._hyperparameters and \
             self._hyperparameters["add_weight_norm"]:
             add_weight_norm=True
+        if "add_layer_norm" in self._hyperparameters and \
+            self._hyperparameters["add_layer_norm"]:
+            add_layer_norm=True
+        if "add_batch_norm" in self._hyperparameters and \
+            self._hyperparameters["add_batch_norm"]:
+            add_batch_norm=True
         if "compression_ratio" in self._hyperparameters:
             compression_ratio=self._hyperparameters["compression_ratio"]
 
@@ -322,7 +330,9 @@ class SActorCriticAlgoBase(ABC):
                         n_hidden_layers_actor=n_hidden_layers_actor,
                         n_hidden_layers_critic=n_hidden_layers_critic,
                         torch_compile=use_torch_compile,
-                        add_weight_norm=add_weight_norm)
+                        add_weight_norm=add_weight_norm,
+                        add_layer_norm=add_layer_norm,
+                        add_batch_norm=add_batch_norm)
         else: # we use a fake agent
             self._agent = DummyAgent(obs_dim=self._env.obs_dim(),
                     actions_dim=self._env.actions_dim(),
@@ -610,7 +620,7 @@ class SActorCriticAlgoBase(ABC):
         self._use_period_resets=False
         if "use_period_resets" in custom_args:
             self._use_period_resets=custom_args["use_period_resets"]
-        self._adaptive_resets=False # trigger reset based on overfit metric
+        self._adaptive_resets=True # trigger reset based on overfit metric
         self._just_one_reset=False
         self._periodic_resets_freq=int(4e6)
         self._periodic_resets_start=int(1.5e6)
