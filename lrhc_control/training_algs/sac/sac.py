@@ -277,7 +277,12 @@ class SAC(SActorCriticAlgoBase):
                 self._actor_loss_validation[self._log_it_counter, 0] = actor_loss_eval.item()
                 if self._autotune: # also compute alpha loss
                     alpha_loss_eval = (-self._log_alpha.exp() * (log_pi + self._target_entropy)).mean()
-                    self._alpha_loss_validation[self._log_it_counter, 0] = alpha_loss_eval.item() 
+                    self._alpha_loss_validation[self._log_it_counter, 0] = alpha_loss_eval.item()
+                
+                # compute an index of overfit to training data
+                self._update_overfit_idx(loss=(self._qf1_loss[self._log_it_counter, 0]+self._qf2_loss[self._log_it_counter, 0])/2.0, 
+                        val_loss=(self._qf1_loss_validation[self._log_it_counter, 0]+self._qf2_loss_validation[self._log_it_counter, 0])/2.0)
+                self._overfit_index[self._log_it_counter, 0] = self._overfit_idx                
 
     def _get_performance_metric(self):
         # to be overridden

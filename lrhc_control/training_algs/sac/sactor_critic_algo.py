@@ -128,6 +128,7 @@ class SActorCriticAlgoBase(ABC):
 
         self._start_time = time.perf_counter()
 
+        # experience collection
         with torch.no_grad(): # don't need grad computation here
             for i in range(self._collection_freq):
                 if not self._collect_transition():
@@ -140,17 +141,7 @@ class SActorCriticAlgoBase(ABC):
             with torch.no_grad(): # don't need grad computation here
                 self._update_batch_norm(bsize=self._bnorm_bsize)
 
-        if self._use_period_resets:
-
-            self._periodic_resets_on=(self._vec_transition_counter >= self._reset_vecstep_start) and \
-               (self._vec_transition_counter < self._reset_vecstep_end)
-
-            if self._periodic_resets_on and \
-                (self._vec_transition_counter-self._reset_vecstep_start) % self._periodic_resets_vecfreq == 0:
-
-                # to fight the primacy bias
-                self._reset_agent()
-
+        # policy update
         self._policy_update_t_start = time.perf_counter()
         for i in range(self._update_freq):
             self._update_policy()
@@ -159,13 +150,25 @@ class SActorCriticAlgoBase(ABC):
         self._policy_update_t = time.perf_counter()
         
         with torch.no_grad():
-
-            if self._vec_transition_counter % self._validation_db_vecstep_freq == 0:
+            if self._validate and (self._vec_transition_counter % self._validation_db_vecstep_freq == 0):
+                # validation
                 self._update_validation_losses()
             self._validation_t = time.perf_counter()
-
             self._post_step()
         
+        if self._use_period_resets:
+            # periodic policy resets
+            if not self._adaptive_resets:
+                self._periodic_resets_on=(self._vec_transition_counter >= self._reset_vecstep_start) and \
+                (self._vec_transition_counter < self._reset_vecstep_end)
+
+                if self._periodic_resets_on and \
+                    (self._vec_transition_counter-self._reset_vecstep_start) % self._periodic_resets_vecfreq == 0:
+                    self._reset_agent()
+            else: # trigger reset based on overfit metric
+                if self._overfit_idx > self._overfit_idx_thresh:
+                    self._reset_agent()
+
         return not self.is_done()
 
     def eval(self):
@@ -200,6 +203,11 @@ class SActorCriticAlgoBase(ABC):
     @abstractmethod
     def _update_validation_losses(self):
         pass
+
+    def _update_overfit_idx(self, loss, val_loss):
+        overfit_now=(val_loss-loss)/loss
+        self._overfit_idx=self._overfit_idx_alpha*overfit_now+\
+            (1-self._overfit_idx_alpha)*self._overfit_idx
 
     def setup(self,
             run_name: str,
@@ -602,6 +610,7 @@ class SActorCriticAlgoBase(ABC):
         self._use_period_resets=False
         if "use_period_resets" in custom_args:
             self._use_period_resets=custom_args["use_period_resets"]
+        self._adaptive_resets=False # trigger reset based on overfit metric
         self._just_one_reset=False
         self._periodic_resets_freq=int(4e6)
         self._periodic_resets_start=int(1.5e6)
@@ -671,6 +680,9 @@ class SActorCriticAlgoBase(ABC):
         self._validation_db_vecstep_freq=self._db_vecstep_frequency
         if self._eval: # no need for validation transitions during evaluation
             self._validate=False
+        self._overfit_idx=0.0
+        self._overfit_idx_alpha=0.1 # exponential MA
+        self._overfit_idx_thresh=2.0
 
         self._n_policy_updates_to_be_done=(self._total_steps-self._warmstart_vectimesteps)*self._update_freq #TD3 delayed update
         self._n_qf_updates_to_be_done=(self._total_steps-self._warmstart_vectimesteps)*self._update_freq # qf updated at each vec timesteps
@@ -1010,6 +1022,8 @@ class SActorCriticAlgoBase(ABC):
         self._alpha_loss = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=torch.nan, device="cpu")
         if self._validate: # add db data for validation losses
+            self._overfit_index = torch.full((self._db_data_size, 1), 
+                        dtype=torch.float32, fill_value=torch.nan, device="cpu")
             self._qf1_loss_validation = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=torch.nan, device="cpu")
             self._qf2_loss_validation = torch.full((self._db_data_size, 1), 
@@ -1387,7 +1401,8 @@ class SActorCriticAlgoBase(ABC):
                 hf.create_dataset('qf2_loss_validation', data=self._qf2_loss_validation.numpy())
                 hf.create_dataset('actor_loss_validation', data=self._actor_loss_validation.numpy())
                 hf.create_dataset('alpha_loss_validation', data=self._alpha_loss_validation.numpy())
-                
+                hf.create_dataset('overfit_index', data=self._overfit_index.numpy())
+
             hf.create_dataset('alphas', data=self._alphas.numpy())
             
             hf.create_dataset('policy_entropy_mean', data=self._policy_entropy_mean.numpy())
@@ -1860,6 +1875,7 @@ class SActorCriticAlgoBase(ABC):
                         self._policy_update_db_data_dict.update({
                             "sac_q_info/qf1_loss_validation": self._qf1_loss_validation[self._log_it_counter, 0],
                             "sac_q_info/qf2_loss_validation": self._qf2_loss_validation[self._log_it_counter, 0],
+                            "sac_q_info/overfit_index": self._overfit_index[self._log_it_counter, 0],
                             "sac_actor_info/actor_loss_validation": self._actor_loss_validation[self._log_it_counter, 0],
                             "sac_alpha_info/alpha_loss_validation": self._alpha_loss_validation[self._log_it_counter, 0]})
 
@@ -2121,6 +2137,8 @@ class SActorCriticAlgoBase(ABC):
         self._init_agent_optimizers()
         if self._autotune: # also reinitialize alpha optimization
             self._init_alpha_autotuning()
+
+        self._overfit_idx=0.0
 
     def _switch_training_mode(self, 
                     train: bool = True):
