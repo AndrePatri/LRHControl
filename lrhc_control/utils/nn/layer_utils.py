@@ -1,6 +1,8 @@
 import torch
 import math
-from torch.nn.utils import weight_norm, remove_weight_norm              
+from torch.nn.utils import weight_norm, remove_weight_norm    
+from torch.nn import BatchNorm1d, LayerNorm
+
 from EigenIPC.PyEigenIPC import LogType
 from EigenIPC.PyEigenIPC import Journal
 from EigenIPC.PyEigenIPC import VLevel
@@ -57,10 +59,10 @@ def llayer_init(layer,
 
         # Apply Layer Normalization or Batch Normalization
         if add_layer_norm:
-            layer = nn.Sequential(layer, nn.LayerNorm(layer.out_features, device=device, dtype=dtype,
+            layer = nn.Sequential(layer, LayerNorm(layer.out_features, device=device, dtype=dtype,
                                                 elementwise_affine=True, bias=True))
         elif add_batch_norm:
-            layer = nn.Sequential(layer, nn.BatchNorm1d(layer.out_features, device=device, dtype=dtype,
+            layer = nn.Sequential(layer, BatchNorm1d(layer.out_features, device=device, dtype=dtype,
                                                     eps=1e-05, 
                                                     affine=True, # y(k) = γ(k)̂ x(k) + β(k). to make sure that the transformation inserted in the network can represent the identity transform
                                                     momentum=0.1, #used if track_running_stats (stats smoothing coeff)
