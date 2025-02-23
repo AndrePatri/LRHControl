@@ -128,6 +128,8 @@ class SACAgent(nn.Module):
         msg=f"Created SAC agent with actor [{self._layer_width_actor}, {self._n_hidden_layers_actor}]\
         and critic [{self._layer_width_critic}, {self._n_hidden_layers_critic}] sizes.\
         \n Runningobs normalizer: {type(self.obs_running_norm)} \
+        \n Batch normalization: {self._add_batch_norm} \
+        \n Layer normalization: {self._add_layer_norm} \
         \n Critic input actions are descaled: {self._use_action_rescale_for_critic}"
         Journal.log(self.__class__.__name__,
             "__init__",
