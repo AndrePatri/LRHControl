@@ -863,15 +863,15 @@ class SActorCriticAlgoBase(ABC):
                     dtype=torch.float32, fill_value=0.0, device="cpu")
         
         self._n_of_played_episodes = torch.full((self._db_data_size, 1), 
-                    dtype=torch.int32, fill_value=-1, device="cpu")
+                    dtype=torch.int32, fill_value=0, device="cpu")
         self._n_timesteps_done = torch.full((self._db_data_size, 1), 
-                    dtype=torch.int32, fill_value=-1, device="cpu")
+                    dtype=torch.int32, fill_value=0, device="cpu")
         self._n_policy_updates = torch.full((self._db_data_size, 1), 
-                    dtype=torch.int32, fill_value=-1, device="cpu")
+                    dtype=torch.int32, fill_value=0, device="cpu")
         self._n_qfun_updates = torch.full((self._db_data_size, 1), 
-                    dtype=torch.int32, fill_value=-1, device="cpu")
+                    dtype=torch.int32, fill_value=0, device="cpu")
         self._n_tqfun_updates = torch.full((self._db_data_size, 1), 
-                    dtype=torch.int32, fill_value=-1, device="cpu")
+                    dtype=torch.int32, fill_value=0, device="cpu")
         self._elapsed_min = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")        
         
