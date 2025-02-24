@@ -691,7 +691,7 @@ class SActorCriticAlgoBase(ABC):
         if self._eval: # no need for validation transitions during evaluation
             self._validate=False
         self._overfit_idx=0.0
-        self._overfit_idx_alpha=0.05 # exponential MA
+        self._overfit_idx_alpha=0.03 # exponential MA
         self._overfit_idx_thresh=2.0
 
         self._n_policy_updates_to_be_done=(self._total_steps-self._warmstart_vectimesteps)*self._update_freq #TD3 delayed update
