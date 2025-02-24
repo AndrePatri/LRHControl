@@ -130,6 +130,7 @@ class SACAgent(nn.Module):
         \n Runningobs normalizer: {type(self.obs_running_norm)} \
         \n Batch normalization: {self._add_batch_norm} \
         \n Layer normalization: {self._add_layer_norm} \
+        \n Weight normalization: {self._add_weight_norm} \
         \n Critic input actions are descaled: {self._use_action_rescale_for_critic}"
         Journal.log(self.__class__.__name__,
             "__init__",
