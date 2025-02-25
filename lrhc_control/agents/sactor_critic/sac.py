@@ -417,7 +417,7 @@ class CriticQ(nn.Module):
                 layer=nn.Linear(layer_width, 1),
                 init_type="uniform",
                 uniform_biases=False, # contact biases
-                bias_const=-1.0, # negative to prevent overestimation
+                bias_const=-0.1, # negative to prevent overestimation
                 device=self._torch_device,
                 dtype=self._torch_dtype,
                 add_weight_norm=False,
