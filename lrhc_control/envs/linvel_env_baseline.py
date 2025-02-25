@@ -108,9 +108,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # otherwise A*(1-B*x)
 
         self._add_env_opt(env_opts, "use_fail_idx_weight", default=False)
-        self._add_env_opt(env_opts, "task_track_offset_exp", default=10.0)
+        self._add_env_opt(env_opts, "task_track_offset_exp", default=1.0)
         self._add_env_opt(env_opts, "task_track_scale_exp", default=5.0)
-        self._add_env_opt(env_opts, "task_track_offset", default=10.0)
+        self._add_env_opt(env_opts, "task_track_offset", default=1.0)
         self._add_env_opt(env_opts, "task_track_scale", default=1.5)
         self._add_env_opt(env_opts, "task_track_front_weight", default=1.0)
         self._add_env_opt(env_opts, "task_track_lat_weight", default=env_opts["task_track_front_weight"]/4.0)
@@ -118,23 +118,23 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._add_env_opt(env_opts, "task_track_omega_weight", default=env_opts["task_track_front_weight"]/2.0)
 
         # task pred tracking
-        self._add_env_opt(env_opts, "task_pred_track_offset", default=10.0)
+        self._add_env_opt(env_opts, "task_pred_track_offset", default=1.0)
         self._add_env_opt(env_opts, "task_pred_track_scale", default=3.0)
 
         # energy penalties
-        self._add_env_opt(env_opts, "CoT_offset", default=1.0)
+        self._add_env_opt(env_opts, "CoT_offset", default=0.1)
         self._add_env_opt(env_opts, "CoT_scale", default=5e-4)
-        self._add_env_opt(env_opts, "power_offset", default=1.0)
+        self._add_env_opt(env_opts, "power_offset", default=0.1)
         self._add_env_opt(env_opts, "power_scale", default=8e-4)
 
         # action rate penalty
-        self._add_env_opt(env_opts, "action_rate_offset", default=5.0)
+        self._add_env_opt(env_opts, "action_rate_offset", default=0.3)
         self._add_env_opt(env_opts, "action_rate_scale", default=2.0)
         self._add_env_opt(env_opts, "action_rate_rew_d_weight", default=0.05)
         self._add_env_opt(env_opts, "action_rate_rew_c_weight", default=1.0)
 
         # jnt vel penalty
-        self._add_env_opt(env_opts, "jnt_vel_offset", default=1.0)
+        self._add_env_opt(env_opts, "jnt_vel_offset", default=0.1)
         self._add_env_opt(env_opts, "jnt_vel_scale", default=2.0)
 
         # terminations
