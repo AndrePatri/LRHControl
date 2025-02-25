@@ -523,7 +523,7 @@ class SActorCriticAlgoBase(ABC):
             custom_args: Dict = {}):
     
         self._collection_freq=1
-        self._update_freq=4
+        self._update_freq=8
 
         self._replay_buffer_size_vec=6*self._task_rand_timeout_ub # cover at least a number of eps            
         self._replay_buffer_size = self._replay_buffer_size_vec*self._num_envs
@@ -532,7 +532,7 @@ class SActorCriticAlgoBase(ABC):
             self._replay_buffer_size_vec = self._replay_buffer_size//self._num_envs
             self._replay_buffer_size=self._replay_buffer_size_vec*self._num_envs
 
-        self._batch_size = 8192
+        self._batch_size = 1024
 
         new_transitions_per_batch=self._collection_freq*self._num_envs/self._replay_buffer_size # assumes uniform sampling
         self._utd_ratio=self._update_freq/(new_transitions_per_batch*self._batch_size)
@@ -544,7 +544,7 @@ class SActorCriticAlgoBase(ABC):
         if "discount_factor" in custom_args:
             self._discount_factor=custom_args["discount_factor"]
 
-        self._smoothing_coeff = 0.005
+        self._smoothing_coeff = 0.05
 
         self._policy_freq = 2
         self._trgt_net_freq = 1
@@ -575,13 +575,13 @@ class SActorCriticAlgoBase(ABC):
         self._discrete_act_expl_noise_std=1.2 # setting it a bit > 1 helps in ensuring discr. actions range is explored
         
         # rnd
-        self._use_rnd=False
+        self._use_rnd=True
         self._rnd_net=None
         self._rnd_optimizer = None
         self._rnd_lr = 1e-3
         if "use_rnd" in custom_args and (not self._eval):
             self._use_rnd=custom_args["use_rnd"]
-        self._rnd_weight=2.0
+        self._rnd_weight=1.0
         self._alpha=0.0
         self._novelty_scaler=None
         if self._use_rnd:

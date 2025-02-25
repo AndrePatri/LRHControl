@@ -6,6 +6,8 @@ from lrhc_control.utils.shared_data.training_env import Truncations
 
 from lrhc_control.utils.episodic_rewards import EpisodicRewards
 
+from lrhc_control.utils.determinism import deterministic_run
+
 from EigenIPC.PyEigenIPC import VLevel
 from EigenIPC.PyEigenIPC import LogType
 from EigenIPC.PyEigenIPC import Journal
@@ -508,11 +510,11 @@ class Gymnasium2LRHCEnv():
             custom_db_data.reset(keep_track=keep_track)
 
     def post_step(self):
+        terminated = self._terminations.get_torch_mirror(gpu=self._use_gpu)
+        truncated = self._truncations.get_torch_mirror(gpu=self._use_gpu)
+        episode_finished = torch.logical_or(terminated,
+                        truncated)
         if self._is_debug:
-            terminated = self._terminations.get_torch_mirror(gpu=self._use_gpu)
-            truncated = self._truncations.get_torch_mirror(gpu=self._use_gpu)
-            episode_finished = torch.logical_or(terminated,
-                            truncated)
             episode_finished_cpu = episode_finished.cpu()
             self._debug() # copies db data on shared memory
             self._update_custom_db_data(episode_finished=episode_finished_cpu)
@@ -566,12 +568,16 @@ if __name__ == "__main__":
     parser.add_argument('--actor_n_hlayers', type=int, help='Actor network size', default=2)
     parser.add_argument('--critic_n_hlayers', type=int, help='Critic network size', default=3)
 
+    parser.add_argument('--use_rnd',action='store_true', help='Whether to use RND for exploration')
+
     parser.add_argument('--env_type', type=str, help='Name of env to be created',default="HalfCheetah-v5")
 
     args = parser.parse_args()
     args_dict = vars(args)
     env_type = args.env_type
-
+    
+    deterministic_run(seed=args.seed, torch_det_algos=False)
+    
     if (not args.mpath is None) and (not args.mname is None):
         mpath_full = os.path.join(args.mpath, args.mname)
     else:
