@@ -246,6 +246,8 @@ class ActorCriticAlgoBase(ABC):
 
         use_torch_compile=False
         add_weight_norm=False
+        add_layer_norm=False
+        add_batch_norm=False
         compression_ratio=-1.0
         if "use_torch_compile" in self._hyperparameters and \
             self._hyperparameters["use_torch_compile"]:
@@ -253,6 +255,12 @@ class ActorCriticAlgoBase(ABC):
         if "add_weight_norm" in self._hyperparameters and \
             self._hyperparameters["add_weight_norm"]:
             add_weight_norm=True
+        if "add_layer_norm" in self._hyperparameters and \
+            self._hyperparameters["add_layer_norm"]:
+            add_layer_norm=True
+        if "add_batch_norm" in self._hyperparameters and \
+            self._hyperparameters["add_batch_norm"]:
+            add_batch_norm=True
         if "compression_ratio" in self._hyperparameters:
             compression_ratio=self._hyperparameters["compression_ratio"]
         
@@ -276,6 +284,8 @@ class ActorCriticAlgoBase(ABC):
                             n_hidden_layers_critic=n_hidden_layers_critic,
                             torch_compile=use_torch_compile,
                             add_weight_norm=add_weight_norm,
+                            add_layer_norm=add_layer_norm,
+                            add_batch_norm=add_batch_norm,
                             out_std_actor=0.01,
                             out_std_critic=1.0)
         else: # we use a fake agent

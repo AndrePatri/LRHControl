@@ -37,6 +37,8 @@ class ACAgent(nn.Module):
             n_hidden_layers_critic:int=4,
             torch_compile: bool = False,
             add_weight_norm: bool = False,
+            add_layer_norm: bool = False,
+            add_batch_norm: bool = False,
             out_std_critic: float = 1.0,
             out_std_actor: float = 0.01):
 
@@ -128,7 +130,9 @@ class ACAgent(nn.Module):
                     layer_width=self._layer_width_critic,
                     n_hidden_layers=self._n_hidden_layers_critic,
                     out_std=out_std_critic,
-                    add_weight_norm=add_weight_norm)
+                    add_weight_norm=add_weight_norm,
+                    add_layer_norm=self._add_layer_norm,
+                    add_batch_norm=self._add_batch_norm)
 
         self.actor = Actor(obs_dim=obs_dim,
                             actions_dim=actions_dim,
@@ -139,6 +143,8 @@ class ACAgent(nn.Module):
                             layer_width=self._layer_width_actor,
                             n_hidden_layers=self._n_hidden_layers_actor,
                             add_weight_norm=add_weight_norm,
+                            add_layer_norm=self._add_layer_norm,
+                            add_batch_norm=self._add_batch_norm,
                             out_std=out_std_actor)
 
         self.obs_running_norm = None
@@ -245,7 +251,9 @@ class CriticV(nn.Module):
         layer_width: int = 512,
         n_hidden_layers: int = 4,
         out_std: float = 1.0,
-        add_weight_norm: bool = False):
+        add_weight_norm: bool = False,
+        add_layer_norm: bool = False,
+        add_batch_norm: bool = False):
 
         super().__init__()
 
@@ -260,51 +268,60 @@ class CriticV(nn.Module):
         self._first_hidden_layer_width=self._v_net_dim # fist layer fully connected and of same dim
         # as input
 
+        init_type="orthogonal"
         # Input layer
-        layers = [llayer_init(
+        layers=llayer_init(
             layer=nn.Linear(self._v_net_dim, self._first_hidden_layer_width),
-            init_type="orthogonal",
+            init_type=init_type,
             a_leaky_relu=self._lrelu_slope,
             device=self._torch_device,
             dtype=self._torch_dtype,
-            add_weight_norm=add_weight_norm
-        ), nn.Tanh()
-        ]
+            add_weight_norm=add_weight_norm,
+            add_layer_norm=add_layer_norm,
+            add_batch_norm=add_batch_norm
+        )
+        layers.extend(nn.Tanh())
         
         # Hidden layers
-        layers.extend([
+        layers.extend(
             llayer_init(
                 layer=nn.Linear(self._first_hidden_layer_width, layer_width),
-                init_type="orthogonal",
+                init_type=init_type
                 device=self._torch_device,
                 dtype=self._torch_dtype,
-                add_weight_norm=add_weight_norm
-            ),
-            nn.Tanh()
-        ])
+                add_weight_norm=add_weight_norm,
+                add_layer_norm=add_layer_norm,
+                add_batch_norm=add_batch_norm
+            )
+        )
+        layers.extend(nn.Tanh())
 
         for _ in range(n_hidden_layers - 1):
-            layers.extend([
+            layers.extend(
                 llayer_init(
                     layer=nn.Linear(layer_width, layer_width),
-                    init_type="orthogonal",
+                    init_type=init_type,
                     a_leaky_relu=self._lrelu_slope,
                     device=self._torch_device,
                     dtype=self._torch_dtype,
-                    add_weight_norm=add_weight_norm
-                ),
-                nn.Tanh()
-            ])
+                    add_weight_norm=add_weight_norm,
+                    add_layer_norm=add_layer_norm,
+                    add_batch_norm=add_batch_norm
+                )
+            )
+            layers.extend(nn.Tanh())
 
         # Output layer
-        layers.append(
+        layers.extend(
             llayer_init(
                 layer=nn.Linear(layer_width, 1),
-                init_type="orthogonal",
+                init_type=init_type,
                 orth_init_gain=out_std,
                 device=self._torch_device,
                 dtype=self._torch_dtype,
-                add_weight_norm=add_weight_norm
+                add_weight_norm=add_weight_norm,
+                add_layer_norm=add_layer_norm,
+                add_batch_norm=add_batch_norm
             )
         )
 
@@ -329,6 +346,8 @@ class Actor(nn.Module):
             layer_width: int = 256,
             n_hidden_layers: int = 2,
             add_weight_norm: bool = False,
+            add_layer_norm: bool = False,
+            add_batch_norm: bool = False,
             out_std: float = 0.01):
             
             super().__init__()
@@ -382,41 +401,41 @@ class Actor(nn.Module):
                 "action_bias", actions_bias)
             
 
+            init_type="orthogonal"
             # Input layer followed by hidden layers
-            layers = [llayer_init(nn.Linear(self._obs_dim, self._first_hidden_layer_width), 
-                        init_type="orthogonal",
+            layers = llayer_init(nn.Linear(self._obs_dim, self._first_hidden_layer_width), 
+                        init_type=init_type,
                         device=self._torch_device, 
                         dtype=self._torch_dtype,
-                        add_weight_norm=add_weight_norm),
-                nn.Tanh()
-                ]
+                        add_weight_norm=add_weight_norm)
+            layers.extend(nn.Tanh())
         
             # Hidden layers
             # first hidden optionally uses _first_hidden_layer_width
-            layers.extend([
+            layers.extend(
                 llayer_init(nn.Linear(self._first_hidden_layer_width, layer_width), 
-                    init_type="orthogonal",
+                    init_type=init_type,
                     device=self._torch_device,
                     dtype=self._torch_dtype,
-                    add_weight_norm=add_weight_norm),
-                nn.Tanh()
-            ])
+                    add_weight_norm=add_weight_norm)
+            )
+            layers.extend(nn.Tanh())
             
             for _ in range(n_hidden_layers - 1):
-                layers.extend([
+                layers.extend(
                     llayer_init(nn.Linear(layer_width, layer_width), 
-                        init_type="orthogonal",
+                        init_type=init_type,
                         device=self._torch_device,
                         dtype=self._torch_dtype,
                         add_weight_norm=add_weight_norm),
-                    nn.Tanh()
-                ])
+                )
+                layers.extend(nn.Tanh())
             
             # Output layer
-            layers.append(
+            layers.extend(
                 llayer_init(
                     layer=nn.Linear(layer_width,self._actions_dim),
-                    init_type="orthogonal",
+                    init_type=init_type,
                     device=self._torch_device,
                     dtype=self._torch_dtype,
                     add_weight_norm=add_weight_norm,

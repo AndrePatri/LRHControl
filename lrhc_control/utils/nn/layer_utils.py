@@ -58,17 +58,19 @@ def llayer_init(layer,
             layer = weight_norm(layer)
 
         # Apply Layer Normalization or Batch Normalization
+        processed_layer=[]
+        processed_layer.append(layer)
         if add_layer_norm:
-            layer = Sequential(layer, LayerNorm(layer.out_features, device=device, dtype=dtype,
+            processed_layer.append(LayerNorm(layer.out_features, device=device, dtype=dtype,
                                                 elementwise_affine=True, bias=True))
         elif add_batch_norm:
-            layer = Sequential(layer, BatchNorm1d(layer.out_features, device=device, dtype=dtype,
+            processed_layer.append(BatchNorm1d(layer.out_features, device=device, dtype=dtype,
                                                     eps=1e-05, 
                                                     affine=True, # y(k) = γ(k)̂ x(k) + β(k). to make sure that the transformation inserted in the network can represent the identity transform
                                                     momentum=0.1, #used if track_running_stats (stats smoothing coeff)
                                                     track_running_stats=True))
             
-        return layer
+        return processed_layer
 
 def llayer_reset(layer,
         init_type=None,

@@ -364,8 +364,8 @@ class CriticQ(nn.Module):
         init_type="kaiming_uniform" # maintains the variance of activations throughout the network
         nonlinearity="leaky_relu" # suited for kaiming
 
-        # Input layer
-        layers = [llayer_init(
+        # Input layer        
+        layers=llayer_init(
             layer=nn.Linear(self._q_net_dim, self._first_hidden_layer_width),
             init_type=init_type,
             nonlinearity=nonlinearity,
@@ -375,10 +375,11 @@ class CriticQ(nn.Module):
             add_weight_norm=add_weight_norm,
             add_layer_norm=add_layer_norm,
             add_batch_norm=add_batch_norm
-        ), nn.LeakyReLU(negative_slope=self._lrelu_slope)]
+        )
+        layers.extend([nn.LeakyReLU(negative_slope=self._lrelu_slope)])
         
         # Hidden layers
-        layers.extend([
+        layers.extend(
             llayer_init(
                 layer=nn.Linear(self._first_hidden_layer_width, layer_width),
                 init_type=init_type,
@@ -389,12 +390,12 @@ class CriticQ(nn.Module):
                 add_weight_norm=add_weight_norm,
                 add_layer_norm=add_layer_norm,
                 add_batch_norm=add_batch_norm
-            ),
-            nn.LeakyReLU(negative_slope=self._lrelu_slope)
-        ])
+            )
+        )
+        layers.extend([nn.LeakyReLU(negative_slope=self._lrelu_slope)])
 
         for _ in range(n_hidden_layers - 1):
-            layers.extend([
+            layers.extend(
                 llayer_init(
                     layer=nn.Linear(layer_width, layer_width),
                     init_type=init_type,
@@ -405,12 +406,12 @@ class CriticQ(nn.Module):
                     add_weight_norm=add_weight_norm,
                     add_layer_norm=add_layer_norm,
                     add_batch_norm=add_batch_norm
-                ),
-                nn.LeakyReLU(negative_slope=self._lrelu_slope)
-            ])
+                )
+            )
+            layers.extend([nn.LeakyReLU(negative_slope=self._lrelu_slope)])
 
         # Output layer
-        layers.append(
+        layers.extend(
             llayer_init(
                 layer=nn.Linear(layer_width, 1),
                 init_type="uniform",
@@ -427,6 +428,9 @@ class CriticQ(nn.Module):
         # Creating the full sequential network
         self._q_net = nn.Sequential(*layers)
         self._q_net.to(self._torch_device).type(self._torch_dtype)
+
+        print("Critic architecture")
+        print(self._q_net)
 
     def get_n_params(self):
         return sum(p.numel() for p in self.parameters())
@@ -504,7 +508,7 @@ class Actor(nn.Module):
         self.LOG_STD_MIN = -5
 
         # Input layer followed by hidden layers
-        layers = [llayer_init(nn.Linear(self._obs_dim, self._first_hidden_layer_width), 
+        layers=llayer_init(nn.Linear(self._obs_dim, self._first_hidden_layer_width), 
                     init_type="kaiming_uniform",
                     nonlinearity="leaky_relu",
                     a_leaky_relu=self._lrelu_slope,
@@ -512,12 +516,12 @@ class Actor(nn.Module):
                     dtype=self._torch_dtype,
                     add_weight_norm=add_weight_norm,
                     add_layer_norm=add_layer_norm,
-                    add_batch_norm=add_batch_norm),
-            nn.LeakyReLU(negative_slope=self._lrelu_slope)]
+                    add_batch_norm=add_batch_norm)
+        layers.extend([nn.LeakyReLU(negative_slope=self._lrelu_slope)])
     
         # Hidden layers
         # first hidden optionally uses _first_hidden_layer_width
-        layers.extend([
+        layers.extend(
             llayer_init(nn.Linear(self._first_hidden_layer_width, layer_width), 
                 init_type="kaiming_uniform",
                 nonlinearity="leaky_relu",
@@ -526,12 +530,12 @@ class Actor(nn.Module):
                 dtype=self._torch_dtype,
                 add_weight_norm=add_weight_norm,
                 add_layer_norm=add_layer_norm,
-                add_batch_norm=add_batch_norm),
-            nn.LeakyReLU(negative_slope=self._lrelu_slope)
-        ])
+                add_batch_norm=add_batch_norm)
+        )
+        layers.extend([nn.LeakyReLU(negative_slope=self._lrelu_slope)])
         
         for _ in range(n_hidden_layers - 1):
-            layers.extend([
+            layers.extend(
                 llayer_init(nn.Linear(layer_width, layer_width), 
                     init_type="kaiming_uniform",
                     nonlinearity="leaky_relu",
@@ -540,15 +544,15 @@ class Actor(nn.Module):
                     dtype=self._torch_dtype,
                     add_weight_norm=add_weight_norm,
                     add_layer_norm=add_layer_norm,
-                    add_batch_norm=add_batch_norm),
-                nn.LeakyReLU(negative_slope=self._lrelu_slope)
-            ])
+                    add_batch_norm=add_batch_norm)            
+            )
+            layers.extend([nn.LeakyReLU(negative_slope=self._lrelu_slope)])
         
         # Sequential layers for the feature extractor
         self._fc12 = nn.Sequential(*layers)
 
         # Mean and log_std layers
-        self.fc_mean = llayer_init(nn.Linear(layer_width, self._actions_dim), 
+        out_fc_mean=llayer_init(nn.Linear(layer_width, self._actions_dim), 
                         init_type="uniform",
                         uniform_biases=False,
                         bias_const=0.0,
@@ -557,7 +561,8 @@ class Actor(nn.Module):
                         add_weight_norm=False,
                         add_layer_norm=False,
                         add_batch_norm=False)
-        self.fc_logstd = llayer_init(nn.Linear(layer_width, self._actions_dim), 
+        self.fc_mean = nn.Sequential(*out_fc_mean)
+        out_fc_logstd= llayer_init(nn.Linear(layer_width, self._actions_dim), 
                         init_type="uniform",
                         uniform_biases=False,
                         bias_const=-0.1,
@@ -565,13 +570,18 @@ class Actor(nn.Module):
                         dtype=self._torch_dtype,
                         add_weight_norm=False,
                         add_layer_norm=False,
-                        add_batch_norm=False
-                        )
+                        add_batch_norm=False)
+        self.fc_logstd = nn.Sequential(*out_fc_logstd)
 
         # Move all components to the specified device and dtype
         self._fc12.to(device=self._torch_device, dtype=self._torch_dtype)
         self.fc_mean.to(device=self._torch_device, dtype=self._torch_dtype)
         self.fc_logstd.to(device=self._torch_device, dtype=self._torch_dtype)
+
+        print("Actor architecture")
+        print(self._fc12)
+        print(self.fc_mean)
+        print(self.fc_logstd)
 
     def get_n_params(self):
         return sum(p.numel() for p in self.parameters())
