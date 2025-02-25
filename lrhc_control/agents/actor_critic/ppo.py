@@ -286,7 +286,7 @@ class CriticV(nn.Module):
         layers.extend(
             llayer_init(
                 layer=nn.Linear(self._first_hidden_layer_width, layer_width),
-                init_type=init_type
+                init_type=init_type,
                 device=self._torch_device,
                 dtype=self._torch_dtype,
                 add_weight_norm=add_weight_norm,

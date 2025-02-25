@@ -532,6 +532,9 @@ if __name__ == "__main__":
                             shared mem (e.g.reward metrics are not available for reading anymore)')
     parser.add_argument('--rmdb',action='store_true', help='Whether to enable remote debug (e.g. data logging on remote servers)')
     parser.add_argument('--obs_norm',action='store_true', help='Whether to enable the use of running normalizer in agent')
+    parser.add_argument('--add_weight_norm',action='store_true', help='Whether to add weight normalization to agent interal llayers')
+    parser.add_argument('--add_layer_norm',action='store_true', help='Whether to add layer normalization to agent internal llayers')
+    parser.add_argument('--add_batch_norm',action='store_true', help='Whether to add batch normalization to agent internal llayers')
     parser.add_argument('--obs_rescale',action='store_true', help='Whether to rescale observation depending on their expected range')
     parser.add_argument('--act_rescale_critic',action='store_true', help='Whether to rescale actions provided to critic (if SAC) to be in range [-1, 1]')
 
@@ -559,9 +562,9 @@ if __name__ == "__main__":
     parser.add_argument('--compression_ratio', type=float,
         help='If e.g. 0.8, the fist layer will be of dimension [input_features_size x (input_features_size*compression_ratio)]', default=-1.0)
     parser.add_argument('--actor_lwidth', type=int, help='Actor network layer width', default=256)
-    parser.add_argument('--critic_lwidth', type=int, help='Critic network layer width', default=512)
+    parser.add_argument('--critic_lwidth', type=int, help='Critic network layer width', default=256)
     parser.add_argument('--actor_n_hlayers', type=int, help='Actor network size', default=2)
-    parser.add_argument('--critic_n_hlayers', type=int, help='Critic network size', default=4)
+    parser.add_argument('--critic_n_hlayers', type=int, help='Critic network size', default=3)
 
     parser.add_argument('--env_type', type=str, help='Name of env to be created',default="HalfCheetah-v5")
 
