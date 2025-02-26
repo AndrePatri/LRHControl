@@ -229,14 +229,16 @@ class SAC(SActorCriticAlgoBase):
         
                 # current q estimates on training batch
                 self._qf1_vals_mean[self._log_it_counter, 0] = qf1_a_values.mean().item()
-                self._qf2_vals_mean[self._log_it_counter, 0] = qf2_a_values.mean().item()
                 self._qf1_vals_std[self._log_it_counter, 0] = qf1_a_values.std().item()
-                self._qf2_vals_std[self._log_it_counter, 0] = qf2_a_values.std().item()
                 self._qf1_vals_max[self._log_it_counter, 0] = qf1_a_values.max().item()
-                self._qf2_vals_max[self._log_it_counter, 0] = qf2_a_values.max().item()
                 self._qf1_vals_min[self._log_it_counter, 0] = qf1_a_values.min().item()
+                self._qf2_vals_mean[self._log_it_counter, 0] = qf2_a_values.mean().item()
+                self._qf2_vals_std[self._log_it_counter, 0] = qf2_a_values.std().item()
+                self._qf2_vals_max[self._log_it_counter, 0] = qf2_a_values.max().item()
                 self._qf2_vals_min[self._log_it_counter, 0] = qf2_a_values.min().item()
-
+                self._min_qft_vals_mean[self._log_it_counter, 0] = min_qf_next_target.mean().item()
+                self._min_qft_vals_std[self._log_it_counter, 0] = min_qf_next_target.std().item()
+        
                 # q losses (~bellman error)
                 self._qf1_loss[self._log_it_counter, 0] = qf1_loss.item()
                 self._qf2_loss[self._log_it_counter, 0] = qf2_loss.item()

@@ -525,14 +525,14 @@ class SActorCriticAlgoBase(ABC):
         self._collection_freq=1
         self._update_freq=8
 
-        self._replay_buffer_size_vec=6*self._task_rand_timeout_ub # cover at least a number of eps            
+        self._replay_buffer_size_vec=3*self._task_rand_timeout_ub # cover at least a number of eps            
         self._replay_buffer_size = self._replay_buffer_size_vec*self._num_envs
         if self._replay_buffer_size_vec < 0: # in case env did not properly define _task_rand_timeout_ub
             self._replay_buffer_size = int(1e6)
             self._replay_buffer_size_vec = self._replay_buffer_size//self._num_envs
             self._replay_buffer_size=self._replay_buffer_size_vec*self._num_envs
 
-        self._batch_size = 1024
+        self._batch_size = 8192
 
         new_transitions_per_batch=self._collection_freq*self._num_envs/self._replay_buffer_size # assumes uniform sampling
         self._utd_ratio=self._update_freq/(new_transitions_per_batch*self._batch_size)
@@ -1015,9 +1015,13 @@ class SActorCriticAlgoBase(ABC):
                     dtype=torch.float32, fill_value=torch.nan, device="cpu")
         self._qf2_vals_mean = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=torch.nan, device="cpu")
+        self._min_qft_vals_mean = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
         self._qf1_vals_std = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=torch.nan, device="cpu")
         self._qf2_vals_std = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
+        self._min_qft_vals_std = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=torch.nan, device="cpu")
         self._qf1_vals_max = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=torch.nan, device="cpu")
@@ -1406,6 +1410,9 @@ class SActorCriticAlgoBase(ABC):
             hf.create_dataset('qf1_vals_min', data=self._qf1_vals_min.numpy())
             hf.create_dataset('qf2_vals_max', data=self._qf2_vals_max.numpy())
             hf.create_dataset('qf2_vals_min', data=self._qf1_vals_min.numpy())
+
+            hf.create_dataset('min_qft_vals_mean', data=self._min_qft_vals_mean.numpy())
+            hf.create_dataset('min_qft_vals_std', data=self._min_qft_vals_std.numpy())
             
             hf.create_dataset('qf1_loss', data=self._qf1_loss.numpy())
             hf.create_dataset('qf2_loss', data=self._qf2_loss.numpy())
@@ -1866,13 +1873,15 @@ class SActorCriticAlgoBase(ABC):
                     self._policy_update_db_data_dict.update({
                         "sac_q_info/qf1_vals_mean": self._qf1_vals_mean[self._log_it_counter, 0],
                         "sac_q_info/qf2_vals_mean": self._qf2_vals_mean[self._log_it_counter, 0],
+                        "sac_q_info/min_qft_vals_mean": self._min_qft_vals_mean[self._log_it_counter, 0],
                         "sac_q_info/qf1_vals_std": self._qf1_vals_std[self._log_it_counter, 0],
                         "sac_q_info/qf2_vals_std": self._qf2_vals_std[self._log_it_counter, 0],
+                        "sac_q_info/min_qft_vals_std": self._min_qft_vals_std[self._log_it_counter, 0],
                         "sac_q_info/qf1_vals_max": self._qf1_vals_max[self._log_it_counter, 0],
                         "sac_q_info/qf2_vals_max": self._qf2_vals_max[self._log_it_counter, 0],
                         "sac_q_info/qf1_vals_min": self._qf1_vals_min[self._log_it_counter, 0],
                         "sac_q_info/qf2_vals_min": self._qf2_vals_min[self._log_it_counter, 0],
-
+                        
                         "sac_actor_info/policy_entropy_mean": self._policy_entropy_mean[self._log_it_counter, 0],
                         "sac_actor_info/policy_entropy_std": self._policy_entropy_std[self._log_it_counter, 0],
                         "sac_actor_info/policy_entropy_max": self._policy_entropy_max[self._log_it_counter, 0],
