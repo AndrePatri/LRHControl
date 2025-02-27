@@ -130,21 +130,34 @@ class LRHCPlotter:
                 self.data[dataset_name]=self.data[dataset_name]/len(datas)
             except:
                 return False
-
+            
         for i in range(len(datas)):
-            n_samples_base=self.data[dataset_name].shape[0]
-            n_samples_incoming=datas[i].shape[0]
 
-            # to merge data we need the same number of samples (runs may be of different length)
-            n_timesteps=n_samples_base if n_samples_base<=n_samples_incoming else n_samples_incoming
+            if not self.data[dataset_name].shape == (): # not scalar
+                n_samples_base=self.data[dataset_name].shape[0]
+                n_samples_incoming=datas[i].shape[0]
 
-            base_data=self.data[dataset_name][0:n_timesteps, :, :]
-            to_be_added=datas[i][:n_timesteps, :, :]
+                # to merge data we need the same number of samples (runs may be of different length)
+                n_timesteps=n_samples_base if n_samples_base<=n_samples_incoming else n_samples_incoming
 
-            if not avrg:
-                self.data[dataset_name]=np.concatenate((base_data,to_be_added), axis=1) # add augmented data
-            else: # compute average
-                self.data[dataset_name]=base_data+to_be_added/len(datas)
+                if self.data[dataset_name].ndim==3:
+                    base_data=self.data[dataset_name][0:n_timesteps, :, :]
+                    to_be_added=datas[i][0:n_timesteps, :, :]
+                elif self.data[dataset_name].ndim==2:
+                    base_data=self.data[dataset_name][0:n_timesteps, :]
+                    to_be_added=datas[i][0:n_timesteps, :]
+                elif self.data[dataset_name].ndim==1:
+                    base_data=self.data[dataset_name][0:n_timesteps]
+                    to_be_added=datas[i][0:n_timesteps]
+                else:
+                    raise Exception("add_datas was call on a dataset of dim which is neither 1, 2, or 3")
+                
+                if not avrg:
+                    self.data[dataset_name]=np.concatenate((base_data,to_be_added), axis=1) # add augmented data
+                else: # compute average
+                    self.data[dataset_name]=base_data+to_be_added/len(datas)
+            else:
+                print(f"Cannot merge scalar dataset'{dataset_name}'.")
 
         return True
     
@@ -321,10 +334,11 @@ class LRHCPlotter:
                 
                 # Flatten and filter NaNs from data and corresponding x values
                 valid_mask = xaxis > 0  # Valid (finite) mask
-                
+                valid_mask = np.logical_and(np.isfinite(data[:, 0]), xaxis[:]>=0)
                 valid_time = xaxis[valid_mask]
                 valid_values = data[valid_mask, :]
-                
+
+                # nan_count = nan_indexes.size
                 # Skip plotting if no valid data exists
                 if valid_values.size == 0:
                     print(f"Data {i+1} contains no valid finite values. Skipping.")
@@ -637,7 +651,11 @@ class LRHCMultiRunPlotter():
 
     def show(self):
         self._final_plotter.show()
-        
+    
+    def create_dataset(self, dataset_name, data: np.ndarray):
+        print(f"Created dataset '{dataset_name}' with shape {data.shape}.")
+        self._final_plotter.create_dataset(dataset_name, data)
+
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser(description="")
@@ -706,8 +724,8 @@ if __name__ == "__main__":
             data=total_simulated_vec_d)
         
         # xlabel=xlabel
-        xlabel="total_simulated_vec_h"
-        # xlabel="n_timesteps_done"
+        # xlabel="total_simulated_vec_h"
+        xlabel="n_timesteps_done"
         xaxis_dataset_name=xlabel
         # plot some data
 
