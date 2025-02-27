@@ -523,7 +523,7 @@ class SActorCriticAlgoBase(ABC):
             custom_args: Dict = {}):
     
         self._collection_freq=1
-        self._update_freq=8
+        self._update_freq=1
 
         self._replay_buffer_size_vec=3*self._task_rand_timeout_ub # cover at least a number of eps            
         self._replay_buffer_size = self._replay_buffer_size_vec*self._num_envs
@@ -537,14 +537,14 @@ class SActorCriticAlgoBase(ABC):
         new_transitions_per_batch=self._collection_freq*self._num_envs/self._replay_buffer_size # assumes uniform sampling
         self._utd_ratio=self._update_freq/(new_transitions_per_batch*self._batch_size)
 
-        self._lr_policy = 5e-4
-        self._lr_q = 5e-4
+        self._lr_policy = 1e-3
+        self._lr_q = 1e-3
 
         self._discount_factor = 0.99
         if "discount_factor" in custom_args:
             self._discount_factor=custom_args["discount_factor"]
 
-        self._smoothing_coeff = 0.05
+        self._smoothing_coeff = 0.005
 
         self._policy_freq = 2
         self._trgt_net_freq = 1
