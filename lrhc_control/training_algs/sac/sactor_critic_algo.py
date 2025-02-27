@@ -544,7 +544,7 @@ class SActorCriticAlgoBase(ABC):
         if "discount_factor" in custom_args:
             self._discount_factor=custom_args["discount_factor"]
 
-        self._smoothing_coeff = 0.005
+        self._smoothing_coeff = 0.01
 
         self._policy_freq = 2
         self._trgt_net_freq = 1
