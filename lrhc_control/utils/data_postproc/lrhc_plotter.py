@@ -487,6 +487,7 @@ class LRHCMultiRunPlotter():
 
         self._n_runs=len(self._hdf5_files)
 
+        self._x_axis_name="n_timesteps_done"
         for i in range(self._n_runs):
             dataset=self._hdf5_files[i]
             verbose=False
@@ -506,11 +507,25 @@ class LRHCMultiRunPlotter():
 
         self._final_plotter=self._single_run_plotters[0] # use first plotter for plotting everything
         self.data=self._final_plotter.data
+
+        self._x_axis_size=0
+        self._last_idx=np.where(self._single_run_plotters[0].data["n_timesteps_done"]>0)[0][-1]
+        for i in range(self._n_runs-1):
+            t_axis=self._single_run_plotters[i+1].data["n_timesteps_done"]
+            last_valid=np.where(t_axis>0)[0][-1]
+            self._last_idx=last_valid if last_valid < self._last_idx else self._last_idx
         for i in range(len(self._dataset_names)-1):
             datas=()
             for j in range(self._n_runs-1):
                 dset_name=self._dataset_names[i]
-                datas+=(self._single_run_plotters[j+1].data[dset_name],)
+                dset=self._single_run_plotters[j+1].data[dset_name]
+                if not self.data[dset_name].shape == (): # not scalar
+                    if dset.ndim < 2:
+                        datas+=(self._single_run_plotters[j+1].data[dset_name][0:self._last_idx],)
+                    else:
+                        datas+=(self._single_run_plotters[j+1].data[dset_name][0:self._last_idx, :],)
+                else:
+                    datas+=(self._single_run_plotters[j+1].data[dset_name],)
 
             ok=self._final_plotter.add_datas(dataset_name=dset_name, datas=datas, avrg=True) # will try to merge data across runs
             # computing the average across runs
@@ -694,11 +709,11 @@ if __name__ == "__main__":
         n_envs=plotter.attributes["n_envs"]
         
         # fix for n_timesteps being 0 over indexes not reached during training
-        where_zero=np.where(plotter.data["n_timesteps_done"]==0)[0] # getting second index (first one
-        where_zero_first=where_zero[0]
-        end=plotter.data["n_timesteps_done"].shape[0]
-        plotter.data["n_timesteps_done"][where_zero_first:end, :]=-1 # set to invalid val
-        # should be the start )
+        # where_zero=np.where(plotter.data["n_timesteps_done"]==0)[0] # getting second index (first one
+        # where_zero_first=where_zero[0]
+        # end=plotter.data["n_timesteps_done"].shape[0]
+        # plotter.data["n_timesteps_done"][where_zero_first:end, :]=-1 # set to invalid val
+        # # should be the start )
         
         substepping_dt=plotter.attributes["substep_dt"]
         action_reps=plotter.attributes["action_repeat"]
