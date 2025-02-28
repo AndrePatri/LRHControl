@@ -113,9 +113,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._add_env_opt(env_opts, "task_track_offset", default=1.0)
         self._add_env_opt(env_opts, "task_track_scale", default=1.5)
         self._add_env_opt(env_opts, "task_track_front_weight", default=1.0)
-        self._add_env_opt(env_opts, "task_track_lat_weight", default=env_opts["task_track_front_weight"]/4.0)
-        self._add_env_opt(env_opts, "task_track_vert_weight", default=env_opts["task_track_front_weight"]/4.0)
-        self._add_env_opt(env_opts, "task_track_omega_weight", default=env_opts["task_track_front_weight"]/4.0)
+        self._add_env_opt(env_opts, "task_track_lat_weight", default=env_opts["task_track_front_weight"]/10.0)
+        self._add_env_opt(env_opts, "task_track_vert_weight", default=env_opts["task_track_front_weight"]/10.0)
+        self._add_env_opt(env_opts, "task_track_omega_weight", default=env_opts["task_track_front_weight"]/10.0)
 
         # task pred tracking
         self._add_env_opt(env_opts, "task_pred_track_offset", default=1.0)
