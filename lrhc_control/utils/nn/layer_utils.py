@@ -18,44 +18,53 @@ def llayer_init(layer,
     uniform_biases: bool = False,
     add_weight_norm: bool = False,
     add_layer_norm: bool = False,
-    add_batch_norm: bool = False):
+    add_batch_norm: bool = False,
+    scale_weight: float = None,
+    scale_bias: float = None):
 
         if add_layer_norm and add_batch_norm:
-            Journal.log(self.__class__.__name__,
+            Journal.log("",
                 "llayer_init",
                 f"Cannot use both layer and batch normalization! Choose one of the two.",
                 LogType.EXCEP,
                 throw_when_excep = True)
 
-        # Move to device and set dtype
-        layer.to(device).type(dtype)
-
-        # Apply weight initialization based on the init_type argument
+        # weights
         if init_type is not None:
             if init_type == "orthogonal":
                 torch.nn.init.orthogonal_(layer.weight, gain=orth_init_gain)
-                torch.nn.init.constant_(layer.bias, bias_const)
             elif init_type == "uniform":
                 k=1/layer.in_features
                 bound=math.sqrt(k)
                 torch.nn.init.uniform_(layer.weight,a=-bound,b=bound)
-                if not uniform_biases:
-                    torch.nn.init.constant_(layer.bias, bias_const)
-                else:
-                    torch.nn.init.uniform_(layer.bias,a=-bound,b=bound)
             elif init_type == "kaiming_normal":
                 torch.nn.init.kaiming_normal_(layer.weight, nonlinearity=nonlinearity, a=a_leaky_relu,mode='fan_in')
-                torch.nn.init.constant_(layer.bias, bias_const)
             elif init_type == "kaiming_uniform":
                 torch.nn.init.kaiming_uniform_(layer.weight, nonlinearity=nonlinearity, a=a_leaky_relu, mode='fan_in')
-                torch.nn.init.constant_(layer.bias, bias_const)
             elif init_type == "default":
                 pass
             else:
                 raise ValueError(f"Unsupported init_type: {init_type}")
+        
+        # biases
+        if not uniform_biases:
+            torch.nn.init.constant_(layer.bias, bias_const)
+        else:
+            torch.nn.init.uniform_(layer.bias,a=-bound,b=bound)
+        
+        # apply optional rescaling
+        with torch.no_grad():
+            if scale_weight is not None:
+                layer.weight *= scale_weight
+            if scale_bias is not None:
+                layer.bias *= scale_bias
 
+        # weights reparametrization
         if add_weight_norm:
             layer = weight_norm(layer)
+
+        # Move to device and set dtype
+        layer.to(device).type(dtype)
 
         # Apply Layer Normalization or Batch Normalization
         processed_layer=[]

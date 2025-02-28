@@ -1,6 +1,7 @@
 import torch 
 import torch.nn as nn
 from torch.distributions.normal import Normal
+import math
 
 from lrhc_control.utils.nn.normalization_utils import RunningNormalizer 
 from lrhc_control.utils.nn.layer_utils import llayer_init 
@@ -375,7 +376,9 @@ class CriticQ(nn.Module):
             dtype=self._torch_dtype,
             add_weight_norm=add_weight_norm,
             add_layer_norm=add_layer_norm,
-            add_batch_norm=add_batch_norm
+            add_batch_norm=add_batch_norm,
+            uniform_biases=False, # constant bias init
+            bias_const=0.0
         )
         layers.extend([nn.LeakyReLU(negative_slope=self._lrelu_slope)])
         
@@ -390,7 +393,9 @@ class CriticQ(nn.Module):
                 dtype=self._torch_dtype,
                 add_weight_norm=add_weight_norm,
                 add_layer_norm=add_layer_norm,
-                add_batch_norm=add_batch_norm
+                add_batch_norm=add_batch_norm,
+                uniform_biases=False, # constant bias init
+                bias_const=0.0
             )
         )
         layers.extend([nn.LeakyReLU(negative_slope=self._lrelu_slope)])
@@ -406,7 +411,9 @@ class CriticQ(nn.Module):
                     dtype=self._torch_dtype,
                     add_weight_norm=add_weight_norm,
                     add_layer_norm=add_layer_norm,
-                    add_batch_norm=add_batch_norm
+                    add_batch_norm=add_batch_norm,
+                    uniform_biases=False, # constant bias init
+                    bias_const=0.0
                 )
             )
             layers.extend([nn.LeakyReLU(negative_slope=self._lrelu_slope)])
@@ -418,6 +425,7 @@ class CriticQ(nn.Module):
                 init_type="uniform",
                 uniform_biases=False, # contact biases
                 bias_const=-0.1, # negative to prevent overestimation
+                scale_weight=1e-2,
                 device=self._torch_device,
                 dtype=self._torch_dtype,
                 add_weight_norm=False,
@@ -517,11 +525,13 @@ class Actor(nn.Module):
                     dtype=self._torch_dtype,
                     add_weight_norm=add_weight_norm,
                     add_layer_norm=add_layer_norm,
-                    add_batch_norm=add_batch_norm)
+                    add_batch_norm=add_batch_norm,
+                    uniform_biases=False, # constant bias init
+                    bias_const=0.0
+                    )
         layers.extend([nn.LeakyReLU(negative_slope=self._lrelu_slope)])
     
         # Hidden layers
-        # first hidden optionally uses _first_hidden_layer_width
         layers.extend(
             llayer_init(nn.Linear(self._first_hidden_layer_width, layer_width), 
                 init_type="kaiming_uniform",
@@ -531,7 +541,9 @@ class Actor(nn.Module):
                 dtype=self._torch_dtype,
                 add_weight_norm=add_weight_norm,
                 add_layer_norm=add_layer_norm,
-                add_batch_norm=add_batch_norm)
+                add_batch_norm=add_batch_norm,
+                uniform_biases=False, # constant bias init
+                bias_const=0.0)
         )
         layers.extend([nn.LeakyReLU(negative_slope=self._lrelu_slope)])
         
@@ -545,7 +557,9 @@ class Actor(nn.Module):
                     dtype=self._torch_dtype,
                     add_weight_norm=add_weight_norm,
                     add_layer_norm=add_layer_norm,
-                    add_batch_norm=add_batch_norm)            
+                    add_batch_norm=add_batch_norm,
+                    uniform_biases=False, # constant bias init
+                    bias_const=0.0)            
             )
             layers.extend([nn.LeakyReLU(negative_slope=self._lrelu_slope)])
         
@@ -555,23 +569,29 @@ class Actor(nn.Module):
         # Mean and log_std layers
         out_fc_mean=llayer_init(nn.Linear(layer_width, self._actions_dim), 
                         init_type="uniform",
-                        uniform_biases=False,
+                        uniform_biases=False, # constant bias init
                         bias_const=0.0,
+                        scale_weight=1e-3, # scaling (output layer)
+                        scale_bias=1.0,
                         device=self._torch_device, 
                         dtype=self._torch_dtype,
                         add_weight_norm=False,
                         add_layer_norm=False,
-                        add_batch_norm=False)
+                        add_batch_norm=False
+                        )
         self.fc_mean = nn.Sequential(*out_fc_mean)
         out_fc_logstd= llayer_init(nn.Linear(layer_width, self._actions_dim), 
                         init_type="uniform",
                         uniform_biases=False,
-                        bias_const=-0.1,
+                        bias_const=math.log(0.5), # a bit of init std to encourage expl
+                        scale_weight=1e-3, # scaling (output layer)
+                        scale_bias=1.0,
                         device=self._torch_device, 
                         dtype=self._torch_dtype,
                         add_weight_norm=False,
                         add_layer_norm=False,
-                        add_batch_norm=False)
+                        add_batch_norm=False,
+                        )
         self.fc_logstd = nn.Sequential(*out_fc_logstd)
 
         # Move all components to the specified device and dtype
