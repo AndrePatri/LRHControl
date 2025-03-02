@@ -40,6 +40,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._add_env_opt(env_opts, "srew_drescaling", 
             False)
         
+        self._add_env_opt(env_opts, "step_thresh", 0) # when step action < thresh, a step is requested
+
         # counters settings
         self._add_env_opt(env_opts, "single_task_ref_per_episode", 
             True # if True, the task ref is constant over the episode (ie
@@ -672,7 +674,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             rhc_latest_contact_ref[:, :] = action_to_be_applied[:, idx:idx+self._n_contacts] >= self._random_thresh_contacts  # keep contact with 
             # probability action_to_be_applied[:, 6:10]
         else: # just use a threshold
-            rhc_latest_contact_ref[:, :] = action_to_be_applied[:, idx:idx+self._n_contacts] > 0
+            rhc_latest_contact_ref[:, :] = action_to_be_applied[:, idx:idx+self._n_contacts] > self._env_opts["step_thresh"]
         # actually apply actions to controller
         
     def _write_rhc_refs(self):
