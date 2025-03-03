@@ -40,7 +40,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._add_env_opt(env_opts, "srew_drescaling", 
             False)
         
-        self._add_env_opt(env_opts, "step_thresh", 0) # when step action < thresh, a step is requested
+        self._add_env_opt(env_opts, "step_thresh", 0.) # when step action < thresh, a step is requested
 
         # counters settings
         self._add_env_opt(env_opts, "single_task_ref_per_episode", 
@@ -115,9 +115,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._add_env_opt(env_opts, "task_track_offset", default=1.0)
         self._add_env_opt(env_opts, "task_track_scale", default=1.5)
         self._add_env_opt(env_opts, "task_track_front_weight", default=1.0)
-        self._add_env_opt(env_opts, "task_track_lat_weight", default=env_opts["task_track_front_weight"]/10.0)
-        self._add_env_opt(env_opts, "task_track_vert_weight", default=env_opts["task_track_front_weight"]/10.0)
-        self._add_env_opt(env_opts, "task_track_omega_weight", default=env_opts["task_track_front_weight"]/10.0)
+        self._add_env_opt(env_opts, "task_track_lat_weight", default=env_opts["task_track_front_weight"]/5.0)
+        self._add_env_opt(env_opts, "task_track_vert_weight", default=env_opts["task_track_front_weight"]/5.0)
+        self._add_env_opt(env_opts, "task_track_omega_weight", default=0.0)
 
         # task pred tracking
         self._add_env_opt(env_opts, "task_pred_track_offset", default=1.0)
@@ -125,12 +125,12 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         # energy penalties
         self._add_env_opt(env_opts, "CoT_offset", default=0.1)
-        self._add_env_opt(env_opts, "CoT_scale", default=5e-4)
+        self._add_env_opt(env_opts, "CoT_scale", default=1.0)
         self._add_env_opt(env_opts, "power_offset", default=0.1)
         self._add_env_opt(env_opts, "power_scale", default=8e-4)
 
         # action rate penalty
-        self._add_env_opt(env_opts, "action_rate_offset", default=0.1)
+        self._add_env_opt(env_opts, "action_rate_offset", default=0.3)
         self._add_env_opt(env_opts, "action_rate_scale", default=2.0)
         self._add_env_opt(env_opts, "action_rate_rew_d_weight", default=0.1)
         self._add_env_opt(env_opts, "action_rate_rew_c_weight", default=1.0)
@@ -983,7 +983,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                 agent_task_ref_base_loc = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu)
                 ref_norm=torch.norm(agent_task_ref_base_loc, dim=1, keepdim=True)
                 CoT=self._cost_of_transport(jnts_vel=jnts_vel,jnts_effort=jnts_effort,v_ref_norm=ref_norm, 
-                    mass_weight=False # inessential scaling
+                    mass_weight=True
                     )
                 idx=self._reward_map["CoT"]
                 sub_rewards[:, idx:(idx+1)] = self._env_opts["CoT_offset"]*(1-self._env_opts["CoT_scale"]*CoT)
