@@ -32,10 +32,11 @@ class FakePosEnvPhaseParam(PhaseParametrizationBaseline):
             timeout_ms: int = 60000,
             env_opts: Dict = {}):
 
-        self._add_env_opt(env_opts, "max_distance", default=5.0) # [m]
-        self._add_env_opt(env_opts, "min_distance", default=0.0) # [m]
+        self._add_env_opt(env_opts, "max_distance", default=10.0) # [m] 
+        self._add_env_opt(env_opts, "min_distance", default=3.0) # [m]
         self._add_env_opt(env_opts, "max_vref", default=0.5) # [m/s]
-        self._add_env_opt(env_opts, "max_dt", default=env_opts["max_distance"]/ env_opts["max_vref"])
+        self._add_env_opt(env_opts, "max_dp", default=5.0) # [m] after this, v ref saturates
+        self._add_env_opt(env_opts, "max_dt", default=env_opts["max_dp"]/ env_opts["max_vref"])
 
         PhaseParametrizationBaseline.__init__(self, 
             namespace=namespace,
@@ -94,17 +95,25 @@ class FakePosEnvPhaseParam(PhaseParametrizationBaseline):
             self._dp_norm[:, :]=self._p_delta_w.norm(dim=1,keepdim=True)+1e-6
             self._dp_versor[:, :]=self._p_delta_w/self._dp_norm
 
+            # apply for vref saturation
+            to_be_saturated=self._dp_norm[:, :]>self._env_opts["max_dp"]
+            self._dp_norm[to_be_saturated.flatten(), :]=self._env_opts["max_dp"]
+
             # we compute the twist refs for the agent depending of the position error
             self._agent_twist_ref_current_w[:, 0:2]=self._dp_norm*self._dp_versor/self._env_opts["max_dt"]
         else:
             self._p_delta_w[env_indxs, :]=self._robot_state.root_state.get(data_type="p",gpu=self._use_gpu)[env_indxs, 0:2] -\
                 self._p_trgt_w[env_indxs, :]
             
+            # apply for vref saturation
+            to_be_saturated=torch.logical_and((self._dp_norm[:, :]>self._env_opts["max_dp"]).flatten(),env_indxs)
+            self._dp_norm[to_be_saturated.flatten(), :]=self._env_opts["max_dp"]
+
             self._dp_norm[env_indxs, :]=self._p_delta_w[env_indxs, :].norm(dim=1,keepdim=True)+1e-6
             self._dp_versor[env_indxs, :]=self._p_delta_w[env_indxs, :]/self._dp_norm[env_indxs, :]
 
-            self._agent_twist_ref_current_w[env_indxs, 0:2]=self._dp_norm[env_indxs, :]*self._dp_versor[env_indxs, :]/self._env_opts["max_dt"]
-
+            self._agent_twist_ref_current_w[env_indxs, 0:2]=self._dp_norm[env_indxs, :]*self._dp_versor[env_indxs, :]/self._env_opts["max_dt"]        
+        
     def _override_refs(self,
             env_indxs: torch.Tensor = None):
         
