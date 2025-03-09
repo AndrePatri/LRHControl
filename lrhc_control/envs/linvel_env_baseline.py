@@ -95,7 +95,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._reward_map={}
 
         self._add_env_opt(env_opts, "add_power_reward", False)
-        self._add_env_opt(env_opts, "add_CoT_reward", False)
+        self._add_env_opt(env_opts, "add_CoT_reward", True)
         self._add_env_opt(env_opts, "add_action_rate_reward", True)
         self._add_env_opt(env_opts, "add_jnt_v_reward", False)
 
@@ -115,9 +115,11 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._add_env_opt(env_opts, "task_track_offset", default=1.0)
         self._add_env_opt(env_opts, "task_track_scale", default=1.5)
         self._add_env_opt(env_opts, "task_track_front_weight", default=1.0)
-        self._add_env_opt(env_opts, "task_track_lat_weight", default=env_opts["task_track_front_weight"]/5.0)
-        self._add_env_opt(env_opts, "task_track_vert_weight", default=env_opts["task_track_front_weight"]/5.0)
-        self._add_env_opt(env_opts, "task_track_omega_weight", default=0.0)
+        self._add_env_opt(env_opts, "task_track_lat_weight", default=env_opts["task_track_front_weight"]/10.0)
+        self._add_env_opt(env_opts, "task_track_vert_weight", default=env_opts["task_track_front_weight"]/10.0)
+        self._add_env_opt(env_opts, "task_track_omega_x_weight", default=0.0)
+        self._add_env_opt(env_opts, "task_track_omega_y_weight", default=0.0)
+        self._add_env_opt(env_opts, "task_track_omega_z_weight", default=1.0)
 
         # task pred tracking
         self._add_env_opt(env_opts, "task_pred_track_offset", default=1.0)
@@ -130,7 +132,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._add_env_opt(env_opts, "power_scale", default=8e-4)
 
         # action rate penalty
-        self._add_env_opt(env_opts, "action_rate_offset", default=0.3)
+        self._add_env_opt(env_opts, "action_rate_offset", default=0.1)
         self._add_env_opt(env_opts, "action_rate_scale", default=2.0)
         self._add_env_opt(env_opts, "action_rate_rew_d_weight", default=0.1)
         self._add_env_opt(env_opts, "action_rate_rew_c_weight", default=1.0)
@@ -340,16 +342,16 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             self._task_err_weights[0, 0] = self._env_opts["task_track_front_weight"] # frontal
             self._task_err_weights[0, 1] = self._env_opts["task_track_lat_weight"] # lateral
             self._task_err_weights[0, 2] = self._env_opts["task_track_vert_weight"] # vertical
-            self._task_err_weights[0, 3] = self._env_opts["task_track_omega_weight"]
-            self._task_err_weights[0, 4] = self._env_opts["task_track_omega_weight"]
-            self._task_err_weights[0, 5] = self._env_opts["task_track_omega_weight"]
+            self._task_err_weights[0, 3] = self._env_opts["task_track_omega_x_weight"]
+            self._task_err_weights[0, 4] = self._env_opts["task_track_omega_y_weight"]
+            self._task_err_weights[0, 5] = self._env_opts["task_track_omega_z_weight"]
         else:
             self._task_err_weights[0, 0] = self._env_opts["task_track_front_weight"]
             self._task_err_weights[0, 1] = self._env_opts["task_track_front_weight"]
             self._task_err_weights[0, 2] = self._env_opts["task_track_front_weight"]
-            self._task_err_weights[0, 3] = self._env_opts["task_track_omega_weight"]
-            self._task_err_weights[0, 4] = self._env_opts["task_track_omega_weight"]
-            self._task_err_weights[0, 5] = self._env_opts["task_track_omega_weight"]
+            self._task_err_weights[0, 3] = self._env_opts["task_track_omega_x_weight"]
+            self._task_err_weights[0, 4] = self._env_opts["task_track_omega_y_weight"]
+            self._task_err_weights[0, 5] = self._env_opts["task_track_omega_z_weight"]
             
         self._task_pred_err_weights = torch.full((1, 6), dtype=self._dtype, device=device,
                             fill_value=0.0) 
@@ -357,16 +359,16 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             self._task_pred_err_weights[0, 0] = self._env_opts["task_track_front_weight"]
             self._task_pred_err_weights[0, 1] = self._env_opts["task_track_lat_weight"]
             self._task_pred_err_weights[0, 2] = self._env_opts["task_track_vert_weight"]
-            self._task_pred_err_weights[0, 3] = self._env_opts["task_track_omega_weight"]
-            self._task_pred_err_weights[0, 4] = self._env_opts["task_track_omega_weight"]
-            self._task_pred_err_weights[0, 5] = self._env_opts["task_track_omega_weight"]
+            self._task_pred_err_weights[0, 3] = self._env_opts["task_track_omega_x_weight"]
+            self._task_pred_err_weights[0, 4] = self._env_opts["task_track_omega_y_weight"]
+            self._task_pred_err_weights[0, 5] = self._env_opts["task_track_omega_z_weight"]
         else:
             self._task_pred_err_weights[0, 0] = self._env_opts["task_track_front_weight"]
             self._task_pred_err_weights[0, 1] = self._env_opts["task_track_front_weight"]
             self._task_pred_err_weights[0, 2] = self._env_opts["task_track_front_weight"]
-            self._task_pred_err_weights[0, 3] = self._env_opts["task_track_omega_weight"]
-            self._task_pred_err_weights[0, 4] = self._env_opts["task_track_omega_weight"]
-            self._task_pred_err_weights[0, 5] = self._env_opts["task_track_omega_weight"]
+            self._task_pred_err_weights[0, 3] = self._env_opts["task_track_omega_x_weight"]
+            self._task_pred_err_weights[0, 4] = self._env_opts["task_track_omega_y_weight"]
+            self._task_pred_err_weights[0, 5] = self._env_opts["task_track_omega_z_weight"]
 
         self._power_penalty_weights = torch.full((1, self._n_jnts), dtype=self._dtype, device=device,
                             fill_value=1.0)
