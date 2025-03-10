@@ -32,8 +32,8 @@ class FakePosEnvPhaseParam(PhaseParametrizationBaseline):
             timeout_ms: int = 60000,
             env_opts: Dict = {}):
 
-        self._add_env_opt(env_opts, "max_distance", default=10.0) # [m] 
-        self._add_env_opt(env_opts, "min_distance", default=3.0) # [m]
+        self._add_env_opt(env_opts, "max_distance", default=5.0) # [m] 
+        self._add_env_opt(env_opts, "min_distance", default=0.0) # [m]
         self._add_env_opt(env_opts, "max_vref", default=0.5) # [m/s]
         self._add_env_opt(env_opts, "max_dp", default=5.0) # [m] after this, v ref saturates
         self._add_env_opt(env_opts, "max_dt", default=env_opts["max_dp"]/ env_opts["max_vref"])
