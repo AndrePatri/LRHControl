@@ -27,8 +27,7 @@ class DemoRunner(AgentRefsFromKeyboard):
         self._demo_opts = opts
 
         self._n_waypoints = 3
-        self._edge_length = 3.0  # [m]
-        self._edge_length = self._edge_length * 4/self._n_waypoints
+        self._edge_length = 2.5  # [m]
         self._edge_max_v_norm = 0.25  # [m/s]
         self._use_stime=False
 
@@ -41,6 +40,7 @@ class DemoRunner(AgentRefsFromKeyboard):
         if "edge_max_v_norm" in self._demo_opts:
             self._edge_max_v_norm = self._demo_opts["edge_max_v_norm"]
 
+        self._edge_length = self._edge_length * 4/self._n_waypoints
         self._edge_dt = self._edge_length / self._edge_max_v_norm
         self._waypoints = np.zeros((2, self._n_waypoints))
 
@@ -162,6 +162,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Set CPU affinity for the script.")
     parser.add_argument('--ns', type=str, help='Namespace to be used for shared memory')
     parser.add_argument('--env_idx', type=int,default=None)
+    parser.add_argument('--n_waypoints', type=int,default=3)
     parser.add_argument('--from_stdin', action='store_true')
     parser.add_argument('--agent_refs_world',action='store_true', 
         help='whether to set the agent ref in world frame (it will be internally adjucted to base frame)')
@@ -174,6 +175,6 @@ if __name__ == "__main__":
                             verbose=True,
                             agent_refs_world=args.agent_refs_world,
                             env_idx=args.env_idx,
-                            opts=args)
+                            opts=vars(args))
 
     keyb_cmds.run(read_from_stdin=args.from_stdin)
