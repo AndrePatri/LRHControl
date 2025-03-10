@@ -12,7 +12,6 @@ from EigenIPC.PyEigenIPC import dtype
 import math
 import numpy as np
 import time
-import matplotlib.pyplot as plt
 
 from typing import Dict
 
@@ -27,9 +26,10 @@ class DemoRunner(AgentRefsFromKeyboard):
 
         self._demo_opts = opts
 
-        self._n_waypoints = 4
-        self._edge_length = 4.0  # [m]
-        self._edge_max_v_norm = 0.35  # [m/s]
+        self._n_waypoints = 3
+        self._edge_length = 3.0  # [m]
+        self._edge_length = self._edge_length * 4/self._n_waypoints
+        self._edge_max_v_norm = 0.25  # [m/s]
         self._use_stime=False
 
         if "use_stime" in self._demo_opts:
@@ -65,8 +65,21 @@ class DemoRunner(AgentRefsFromKeyboard):
     def _write_to_shared_mem(self):
         self.enable_navigation = False
         self._set_waypoint()
-        super()._write_to_shared_mem()
 
+        # always write
+        self.agent_refs.rob_refs.root_state.synch_all(read=True)
+        self._robot_state.root_state.synch_all(read = True, retry = True) # read robot state        
+        
+        robot_p = self._robot_state.root_state.get(data_type="p")[self.cluster_idx_np, :].reshape(-1)
+        robot_p[2]=0.0
+        # self.agent_refs.rob_refs.root_state.set(data_type="p",data=self._current_pos_ref-robot_p,
+        #                                 robot_idxs=self.cluster_idx_np)
+        self.agent_refs.rob_refs.root_state.set(data_type="p",data=self._current_pos_ref,
+                                        robot_idxs=self.cluster_idx_np)
+        self.agent_refs.rob_refs.root_state.synch_retry(row_index=self.cluster_idx, col_index=0, 
+                                    n_rows=1, n_cols=3,
+                                    read=False)
+            
     def _compute_waypoints(self):
         radius = (self._edge_length / (2 * math.sin(math.pi / self._n_waypoints)))
         angles = np.linspace(0, 2 * math.pi, self._n_waypoints, endpoint=False)
@@ -74,6 +87,8 @@ class DemoRunner(AgentRefsFromKeyboard):
         self._waypoints[1, :] = radius * np.sin(angles)
     
     def visualize_waypoints(self):
+        import matplotlib.pyplot as plt
+
         plt.figure(figsize=(6, 6))
         plt.plot(self._waypoints[0, :], self._waypoints[1, :], 'bo-', label='Waypoints')
         plt.plot([self._waypoints[0, -1], self._waypoints[0, 0]], 
@@ -86,18 +101,33 @@ class DemoRunner(AgentRefsFromKeyboard):
         plt.legend()
         plt.show()
 
+    def _close(self):
+        self._update_starting_pos()       
+        self._current_pos_ref[0:2] = self._starting_pos
+        
+        self.agent_refs.rob_refs.root_state.synch_all(read=True)
+        self._robot_state.root_state.synch_all(read = True, retry = True) # read robot state        
+        self.agent_refs.rob_refs.root_state.set(data_type="p",data=self._current_pos_ref,
+                                        robot_idxs=self.cluster_idx_np)
+        self.agent_refs.rob_refs.root_state.synch_retry(row_index=self.cluster_idx, col_index=0, 
+                                    n_rows=1, n_cols=3,
+                                    read=False)
+        super()._close()
+
     def _set_waypoint(self):
         if self.enable_pos:
             elapsed = self._get_time() - self._time_now
             if elapsed >= self._edge_dt:
                 if self._idx >= self._n_waypoints:
                     self._idx=0
-                self._current_pos_ref[0:2] = self._starting_pos + self._waypoints[:, self._idx].reshape(-1)
+                self._current_pos_ref[0:2] = self._starting_pos+self._waypoints[:, self._idx].reshape(-1)
                 self._idx += 1
                 self._time_now = self._get_time()
         else:
             self._idx = 0
             self._update_starting_pos()
+            self._current_pos_ref[0:2] = self._starting_pos
+            self._time_now = -1000000 # first time pos is enabled, set the waypoint right away
 
     def _on_press(self, key):
         super()._on_press(key)
@@ -122,8 +152,7 @@ class DemoRunner(AgentRefsFromKeyboard):
         self._idx = 0
         self._update_starting_pos()
         self._compute_waypoints()  # Compute waypoint trajectory
-        
-        self._time_now=self._get_time()
+        self._time_now=-1000000
             
         super().run(read_from_stdin=read_from_stdin,
             release_timeout=release_timeout)
