@@ -178,6 +178,9 @@ class LRHCPlotter:
             distr_std = None, 
             distr_max = None, 
             distr_min = None,
+            distr_q1 = None,
+            distr_q3 = None,
+            distr_median = None,
             grid_plot: bool = False,
             grid_size: List[int] = None,
             grid_shares_y: bool = True):
@@ -204,6 +207,9 @@ class LRHCPlotter:
         data_distr_std=None
         data_distr_min=None
         data_distr_max=None
+        data_distr_q1=None
+        data_distr_q3=None
+        data_distr_median=None
         if distr_std is not None:
             if isinstance(distr_std, str):
                 data_distr_std=self.data[distr_std]
@@ -213,6 +219,15 @@ class LRHCPlotter:
         if distr_max is not None:
             if isinstance(distr_max, str):
                 data_distr_max=self.data[distr_max]
+        if distr_q1 is not None:
+            if isinstance(distr_q1, str):
+                data_distr_q1=self.data[distr_q1]
+        if distr_q3 is not None:
+            if isinstance(distr_q3, str):
+                data_distr_q3=self.data[distr_q3]
+        if distr_q3 is not None:
+            if isinstance(distr_median, str):
+                data_distr_median=self.data[distr_median]
 
         dataset = self.data[dataset_name]
         n_samples = 1
@@ -266,7 +281,13 @@ class LRHCPlotter:
                     data_distr_max=data_distr_max[:, 0, :]
                 if data_distr_min is not None and data_distr_min.ndim==3:
                     data_distr_min=data_distr_min[:, 0, :]
-                
+                if data_distr_q1 is not None and data_distr_q1.ndim==3:
+                    data_distr_q1=data_distr_q1[:, 0, :]
+                if data_distr_q3 is not None and data_distr_q3.ndim==3:
+                    data_distr_q3=data_distr_q3[:, 0, :]
+                if data_distr_median is not None and data_distr_median.ndim==3:
+                    data_distr_median=data_distr_median[:, 0, :]
+
                 for i in range(len(data_indexes)):
                     idx=data_indexes[i]
                     valid_mask = np.logical_and(np.isfinite(data[:, idx]), xaxis[:]>=0)
@@ -279,21 +300,37 @@ class LRHCPlotter:
                         plt_line, = ax.plot(xaxis[valid_mask], data[valid_mask, idx], 'o', label=label, markersize=marker_size, alpha=alpha)
                     else:
                         plt_line, = ax.plot(xaxis[valid_mask], data[valid_mask, idx], label=label, alpha=alpha)
+                    
+                    median_line=None
+                    if data_distr_median is not None:
+                        color=plt_line.get_color()
+                        median_line=ax.plot(xaxis[valid_mask], data_distr_median[valid_mask, idx], '--', 
+                            color=color, label=label, markersize=marker_size, alpha=alpha)
+
+                    if data_distr_q1 is not None and data_distr_q3 is not None: # add 25% and 75% quartiles
+                        alpha=0.3
+                        ax.fill_between(xaxis[valid_mask], 
+                                data_distr_q1[valid_mask, idx], data_distr_q3[valid_mask, idx],
+                                color=plt_line.get_color(), alpha=alpha, 
+                                label="min/max")
+                        
                     if data_distr_std is not None: # add data distribution std area
                         alpha=0.2
                         ax.fill_between(xaxis[valid_mask], 
                                 data[valid_mask, idx] - data_distr_std[valid_mask, idx], data[valid_mask, idx] + data_distr_std[valid_mask, idx],
                                 color=plt_line.get_color(), alpha=alpha, 
                                 label="± 1 std")
+                                
                     if data_distr_min is not None and data_distr_max is not None: # add min max bounds
-                        alpha=0.2
-                        if data_distr_std is not None:
-                            alpha=0.1 # max min even more transparent
+                        alpha=0.1
                         ax.fill_between(xaxis[valid_mask], 
                                 data_distr_min[valid_mask, idx], data_distr_max[valid_mask, idx],
                                 color=plt_line.get_color(), alpha=alpha, 
                                 label="min/max")
+                        
                     plt_lines.append(plt_line)
+                    if median_line is not None:
+                        plt_lines.append(median_line)
 
                 ax.set_title(f"{titles[0]}")
                 ax.set_xlabel(xlabel)
@@ -350,7 +387,12 @@ class LRHCPlotter:
                     data_distr_max=data_distr_max[:, 0, :]
                 if data_distr_min is not None and data_distr_min.ndim==3:
                     data_distr_min=data_distr_min[:, 0, :]
-                    
+                if data_distr_q1 is not None and data_distr_q1.ndim==3:
+                    data_distr_q1=data_distr_q1[:, 0, :]
+                if data_distr_q3 is not None and data_distr_q3.ndim==3:
+                    data_distr_q3=data_distr_q3[:, 0, :]
+                if data_distr_median is not None and data_distr_median.ndim==3:
+                    data_distr_median=data_distr_median[:, 0, :]
                 i=0
                 for row in range(rows):
                     for col in range(cols):
@@ -372,21 +414,37 @@ class LRHCPlotter:
                             plt_line, = ax.plot(xaxis[valid_mask], data[valid_mask, idx], 'o', label=label, markersize=marker_size, alpha=alpha)
                         else:
                             plt_line, = ax.plot(xaxis[valid_mask], data[valid_mask, idx], label=label, alpha=alpha)
+                        
+                        median_line=None
+                        if data_distr_median is not None:
+                            color=plt_line.get_color()
+                            median_line=ax.plot(xaxis[valid_mask], data_distr_median[valid_mask, idx], '--', 
+                                color=color, label=label, markersize=marker_size, alpha=alpha)
+
+                        if data_distr_q1 is not None and data_distr_q3 is not None: # add 25% and 75% quartiles
+                            alpha=0.5
+                            ax.fill_between(xaxis[valid_mask], 
+                                    data_distr_q1[valid_mask, idx], data_distr_q3[valid_mask, idx],
+                                    color=plt_line.get_color(), alpha=alpha, 
+                                    label="min/max")
+                            
                         if data_distr_std is not None: # add data distribution std area
-                            alpha=0.2
+                            alpha=0.3
                             ax.fill_between(xaxis[valid_mask], 
                                     data[valid_mask, idx] - data_distr_std[valid_mask, idx], data[valid_mask, idx] + data_distr_std[valid_mask, idx],
                                     color=plt_line.get_color(), alpha=alpha, 
                                     label="± 1 std")
+                                    
                         if data_distr_min is not None and data_distr_max is not None: # add min max bounds
-                            alpha=0.2
-                            if data_distr_std is not None:
-                                alpha=0.1 # max min even more transparent
+                            alpha=0.15
                             ax.fill_between(xaxis[valid_mask], 
                                     data_distr_min[valid_mask, idx], data_distr_max[valid_mask, idx],
                                     color=plt_line.get_color(), alpha=alpha, 
                                     label="min/max")
+                        
                         plt_lines.append(plt_line)
+                        if median_line is not None:
+                            plt_lines.append(median_line)
 
                         ax.set_title(f"{titles[i]} ({label})")
                         ax.set_xlabel(xlabel)
@@ -490,7 +548,25 @@ class LRHCPlotter:
         # Store the figure in the list
         if fig is not None:
             self.figures.append(fig)
-
+        
+    def compute_stats(self, dataset_name, stats_dim = 1, name = None):
+        
+        data=self.data[dataset_name]
+        
+        if name is None:
+            name=dataset_name
+        self.data[name+"_median_over_envs"]=np.median(self.data[dataset_name], 
+                                                axis=stats_dim,
+                                                keepdims=True)
+        self.data[name+"_q1_over_envs"]=np.percentile(self.data[dataset_name],
+                                                25, 
+                                                axis=stats_dim,
+                                                keepdims=True)
+        self.data[name+"_q3_over_envs"]=np.percentile(self.data[dataset_name],
+                                                75, 
+                                                axis=stats_dim,
+                                                keepdims=True)
+        
     def show(self):
         """
         Display all stored plots.
@@ -751,7 +827,10 @@ class LRHCMultiRunPlotter():
             data_idxs: List[int] = None,
             distr_std = None, 
             distr_max = None, 
-            distr_min = None):
+            distr_min = None,
+            distr_q1 = None,
+            distr_q3 = None,
+            distr_median = None):
         
         self._final_plotter.plot_data(dataset_name=dataset_name,
             title=title,
@@ -765,7 +844,10 @@ class LRHCMultiRunPlotter():
             data_idxs=data_idxs,
             distr_std=distr_std,
             distr_max=distr_max,
-            distr_min=distr_min)
+            distr_min=distr_min,
+            distr_q1=distr_q1,
+            distr_q3=distr_q3,
+            distr_median=distr_median)
     
     def compose_datasets(self, datasets_list: List[str], name: str):
         self._final_plotter.compose_datasets(datasets_list, name)
@@ -844,12 +926,53 @@ if __name__ == "__main__":
         plotter.create_dataset(dataset_name="total_simulated_vec_d", 
             data=total_simulated_vec_d)
         
+        # add stats which where not logged explicitly
+        plotter.compute_stats(dataset_name="Actions_avrg",
+            stats_dim=1,name="Actions")
+        plotter.compute_stats(dataset_name="AgentTwistRefs_avrg",
+            stats_dim=1,name="AgentTwistRefs")
+        plotter.compute_stats(dataset_name="Obs_avrg",
+            stats_dim=1,name="Obs")
+        plotter.compute_stats(dataset_name="Obs_avrg",
+            stats_dim=1,name="Obs")
+        plotter.compute_stats(dataset_name="Power_avrg",
+            stats_dim=1,name="Power")
+        plotter.compute_stats(dataset_name="RhcContactForces_avrg",
+            stats_dim=1,name="RhcContactForces")
+        plotter.compute_stats(dataset_name="RhcFailIdx_avrg",
+            stats_dim=1,name="RhcFailIdx")
+        plotter.compute_stats(dataset_name="RhcRefsFlag_avrg",
+            stats_dim=1,name="RhcRefsIdx")
+        plotter.compute_stats(dataset_name="SubTerminations_avrg",
+            stats_dim=1,name="SubTerminations")
+        plotter.compute_stats(dataset_name="SubTruncations_avrg",
+            stats_dim=1,name="SubTruncations")
+        plotter.compute_stats(dataset_name="Terminations_avrg",
+            stats_dim=1,name="Terminations")
+        plotter.compute_stats(dataset_name="Truncations_avrg",
+            stats_dim=1,name="Truncations")
+        plotter.compute_stats(dataset_name="TrackingError_avrg",
+            stats_dim=1,name="TrackingError")
+        plotter.compute_stats(dataset_name="TrackingError_avrg",
+            stats_dim=1,name="TrackingError")
+        
+        plotter.compute_stats(dataset_name="sub_rew_avrg",
+                stats_dim=1,name="sub_rew")
+        plotter.compute_stats(dataset_name="tot_rew_avrg",
+                stats_dim=1,name="tot_rew")
+
         plotter.create_dataset(dataset_name="MechPow_avrg", 
             data=plotter.data["Power_avrg"][:, :, 1:2])
         plotter.create_dataset(dataset_name="MechPow_avrg_over_envs", 
             data=plotter.data["Power_avrg_over_envs"][:, :, 1:2])
         plotter.create_dataset(dataset_name="MechPow_std_over_envs", 
             data=plotter.data["Power_std_over_envs"][:, :, 1:2])
+        plotter.create_dataset(dataset_name="MechPow_q1_over_envs", 
+            data=plotter.data["Power_q1_over_envs"][:, :, 1:2])
+        plotter.create_dataset(dataset_name="MechPow_q3_over_envs", 
+            data=plotter.data["Power_q3_over_envs"][:, :, 1:2])
+        plotter.create_dataset(dataset_name="MechPow_median_over_envs", 
+            data=plotter.data["Power_median_over_envs"][:, :, 1:2])
         plotter.create_dataset(dataset_name="MechPow_max_over_envs", 
             data=plotter.data["Power_max_over_envs"][:, :, 1:2])
         plotter.create_dataset(dataset_name="MechPow_min_over_envs", 
@@ -861,6 +984,12 @@ if __name__ == "__main__":
             data=plotter.data["Power_avrg_over_envs"][:, :, 0:1])
         plotter.create_dataset(dataset_name="CoT_std_over_envs", 
             data=plotter.data["Power_std_over_envs"][:, :, 0:1])
+        plotter.create_dataset(dataset_name="CoT_q1_over_envs", 
+            data=plotter.data["Power_q1_over_envs"][:, :, 0:1])
+        plotter.create_dataset(dataset_name="CoT_q3_over_envs", 
+            data=plotter.data["Power_q3_over_envs"][:, :, 0:1])
+        plotter.create_dataset(dataset_name="CoT_median_over_envs", 
+            data=plotter.data["Power_median_over_envs"][:, :, 0:1])
         plotter.create_dataset(dataset_name="CoT_max_over_envs", 
             data=plotter.data["Power_max_over_envs"][:, :, 0:1])
         plotter.create_dataset(dataset_name="CoT_min_over_envs", 
@@ -959,7 +1088,10 @@ if __name__ == "__main__":
             marker_size=marker_size,
             distr_std="tot_rew_std_over_envs",
             distr_max=None, # tot_rew_max_over_envs
-            distr_min=None) # tot_rew_min_over_envs
+            distr_min=None,
+            distr_q1="tot_rew_q1_over_envs",
+            distr_q3="tot_rew_q3_over_envs",
+            distr_median="tot_rew_median_over_envs") # tot_rew_min_over_envs
         
         # sub rewards
 
@@ -967,10 +1099,13 @@ if __name__ == "__main__":
             sub_rew_name=sub_rew_names[i]
             avrg_over_envs_name=sub_rew_name+"_avrg_rew_over_envs"
             std_over_envs_name=sub_rew_name+"_std_rew_over_envs"
+            q1_over_envs_name=sub_rew_name+"_q1_rew_over_envs"
+            q3_over_envs_name=sub_rew_name+"_q3_rew_over_envs"
+            median_over_envs_name=sub_rew_name+"_median_rew_over_envs"
             distr_name=sub_rew_name+"_avrg_rew"
             distr_name_max=sub_rew_name+"_max_rew"
             distr_name_min=sub_rew_name+"_min_rew"
-            
+                        
             plotter.create_dataset(dataset_name=distr_name,
                 data=plotter.data["sub_rew_avrg"][:, :, i:i+1])
             plotter.create_dataset(dataset_name=distr_name_max,
@@ -982,6 +1117,12 @@ if __name__ == "__main__":
                 data=plotter.data["sub_rew_avrg_over_envs"][:, :, i:i+1])
             plotter.create_dataset(dataset_name=std_over_envs_name,
                 data=plotter.data["sub_rew_std_over_envs"][:, :, i:i+1])
+            plotter.create_dataset(dataset_name=q1_over_envs_name,
+                data=plotter.data["sub_rew_q1_over_envs"][:, :, i:i+1])
+            plotter.create_dataset(dataset_name=q3_over_envs_name,
+                data=plotter.data["sub_rew_q3_over_envs"][:, :, i:i+1])
+            plotter.create_dataset(dataset_name=median_over_envs_name,
+                data=plotter.data["sub_rew_median_over_envs"][:, :, i:i+1])
             
             # distribution over envs
             plotter.plot_data(dataset_name=distr_name, title=f"scaled sub returns ({sub_rew_name}) distribution across envs", 
@@ -1003,8 +1144,11 @@ if __name__ == "__main__":
                 use_markers=False,
                 marker_size=marker_size,
                 distr_std=std_over_envs_name,
-                distr_max=None, # tot_rew_max_over_envs
-                distr_min=None) # tot_rew_min_over_envs
+                distr_max=None,
+                distr_min=None,
+                distr_q1=q1_over_envs_name,
+                distr_q3=q3_over_envs_name,
+                distr_median=median_over_envs_name) 
         # plotter.plot_data(dataset_name="tot_rew_avrg_over_envs", title="tot_rew_avrg_over_envs", 
         #     xaxis_dataset_name=xaxis_dataset_name,
         #     xlabel=xlabel)
@@ -1037,14 +1181,20 @@ if __name__ == "__main__":
             ylabel="bool",
             data_labels=sub_trunc_names,
             use_markers=True,
-            marker_size=marker_size)
+            marker_size=marker_size,
+            distr_std=None,
+            distr_max=None, # tot_rew_max_over_envs
+            distr_min=None)
         plotter.plot_data(dataset_name="SubTerminations_avrg_over_envs", title="SubTerminations_avrg_over_envs", 
             xaxis_dataset_name=xaxis_dataset_name,
             xlabel=xlabel,
             ylabel="bool",
             data_labels=sub_term_names,
             use_markers=True,
-            marker_size=marker_size)
+            marker_size=marker_size,
+            distr_std=None,
+            distr_max=None, # tot_rew_max_over_envs
+            distr_min=None)
         
         # rnd
         if "use_rnd" in attributes:
@@ -1079,7 +1229,10 @@ if __name__ == "__main__":
                 marker_size=marker_size,
                 distr_std="CoT_std_over_envs",
                 distr_max=None, # tot_rew_max_over_envs
-                distr_min=None)
+                distr_min=None,
+                distr_q1="CoT_q1_over_envs",
+                distr_q3="CoT_q3_over_envs",
+                distr_median="CoT_median_over_envs")
         plotter.plot_data(dataset_name="CoT_avrg", 
             title=f"CoT distribution", 
             xaxis_dataset_name=xaxis_dataset_name,
@@ -1095,7 +1248,10 @@ if __name__ == "__main__":
                 marker_size=marker_size,
                 distr_std="MechPow_std_over_envs",
                 distr_max=None, # tot_rew_max_over_envs
-                distr_min=None)
+                distr_min=None,
+                distr_q1="MechPow_q1_over_envs",
+                distr_q3="MechPow_q3_over_envs",
+                distr_median="MechPow_median_over_envs")
         plotter.plot_data(dataset_name="MechPow_avrg", 
             title=f"Mechanical power distribution", 
             xaxis_dataset_name=xaxis_dataset_name,
@@ -1109,9 +1265,12 @@ if __name__ == "__main__":
                 data_labels=["Mp", "CoT"],
                 use_markers=False,
                 marker_size=marker_size,
-                distr_std="Power_std_over_envs",
-                distr_max="Power_max_over_envs", # tot_rew_max_over_envs
-                distr_min="Power_min_over_envs",
+                distr_std=None,
+                distr_max=None, # tot_rew_max_over_envs
+                distr_min=None,
+                distr_q1="Power_q1_over_envs",
+                distr_q3="Power_q3_over_envs",
+                distr_median="Power_median_over_envs",
                 grid_plot=True,
                 grid_size=[1, 2],
                 grid_shares_y=False)
@@ -1127,6 +1286,9 @@ if __name__ == "__main__":
                 distr_std="TrackingError_std_over_envs",
                 distr_max=None, # tot_rew_max_over_envs
                 distr_min=None,
+                distr_q1="TrackingError_q1_over_envs",
+                distr_q3="TrackingError_q3_over_envs",
+                distr_median="TrackingError_median_over_envs",
                 grid_plot=True,
                 grid_size=[2, 3])
         
