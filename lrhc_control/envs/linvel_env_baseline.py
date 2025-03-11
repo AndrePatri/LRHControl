@@ -855,7 +855,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # weighted mean-squared error computation 
         task_error = (task_meas-task_ref)
         # add to db metrics
-        self._track_error_db[:, :]=task_error
+        self._track_error_db[:, :]=torch.abs(task_error)
         scaled_error=task_error/scaling
         
         task_wmse = torch.sum(scaled_error*scaled_error*weights, dim=1, keepdim=True)/torch.sum(weights).item()
@@ -865,7 +865,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # weighted DIRECTIONAL mean-squared error computation 
         task_error = (task_meas-task_ref)
         # add to db metrics
-        self._track_error_db[:, :]=task_error
+        self._track_error_db[:, :]=torch.abs(task_error)
         task_error=task_error/scaling
 
         task_ref_xy_linvel=task_ref[:, 0:2]
