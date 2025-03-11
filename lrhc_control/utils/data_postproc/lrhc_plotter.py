@@ -1761,58 +1761,63 @@ if __name__ == "__main__":
             # clock (if any)
             patterns=["clock*"]
             idxs,selected=plotter.get_idx_matching(patterns, obs_names)
-            plotter.plot_data(dataset_name=obs_datasetname, 
-                title=ep_prefix+"clock"+dset_suffix, 
-                xaxis_dataset_name=xaxis_dataset_name,
-                xlabel=xlabel,
-                use_markers=True,
-                marker_size=marker_size,
-                data_labels=selected,
-                data_idxs=idxs)
-            
+            if len(idxs)>0:
+                plotter.plot_data(dataset_name=obs_datasetname, 
+                    title=ep_prefix+"clock"+dset_suffix, 
+                    xaxis_dataset_name=xaxis_dataset_name,
+                    xlabel=xlabel,
+                    use_markers=True,
+                    marker_size=marker_size,
+                    data_labels=selected,
+                    data_idxs=idxs)
+                
             # actions buffer
             patterns=["*_prev_act"]
             idxs,selected=plotter.get_idx_matching(patterns, obs_names)
-            plotter.plot_data(dataset_name=obs_datasetname, 
-                title=ep_prefix+"obs - action buffer - prev cmds"+dset_suffix, 
-                xaxis_dataset_name=xaxis_dataset_name,
-                xlabel=xlabel,
-                use_markers=True,
-                marker_size=marker_size,
-                data_labels=selected,
-                data_idxs=idxs)
+            if len(idxs)>0:
+                plotter.plot_data(dataset_name=obs_datasetname, 
+                    title=ep_prefix+"obs - action buffer - prev cmds"+dset_suffix, 
+                    xaxis_dataset_name=xaxis_dataset_name,
+                    xlabel=xlabel,
+                    use_markers=True,
+                    marker_size=marker_size,
+                    data_labels=selected,
+                    data_idxs=idxs)
             patterns=["*_avrg_act"]
             idxs,selected=plotter.get_idx_matching(patterns, obs_names)
-            plotter.plot_data(dataset_name=obs_datasetname, 
-                title=ep_prefix+"obs - action buffer - mean cmds over window"+dset_suffix, 
-                xaxis_dataset_name=xaxis_dataset_name,
-                xlabel=xlabel,
-                use_markers=True,
-                marker_size=marker_size,
-                data_labels=selected,
-                data_idxs=idxs)
+            if len(idxs)>0:
+                plotter.plot_data(dataset_name=obs_datasetname, 
+                    title=ep_prefix+"obs - action buffer - mean cmds over window"+dset_suffix, 
+                    xaxis_dataset_name=xaxis_dataset_name,
+                    xlabel=xlabel,
+                    use_markers=True,
+                    marker_size=marker_size,
+                    data_labels=selected,
+                    data_idxs=idxs)
             patterns=["*_std_act"]
             idxs,selected=plotter.get_idx_matching(patterns, obs_names)
-            plotter.plot_data(dataset_name=obs_datasetname, 
-                title=ep_prefix+"obs - action buffer "+dset_suffix, 
-                xaxis_dataset_name=xaxis_dataset_name,
-                xlabel=xlabel,
-                use_markers=True,
-                marker_size=marker_size,
-                data_labels=selected,
-                data_idxs=idxs)
+            if len(idxs)>0:
+                plotter.plot_data(dataset_name=obs_datasetname, 
+                    title=ep_prefix+"obs - action buffer "+dset_suffix, 
+                    xaxis_dataset_name=xaxis_dataset_name,
+                    xlabel=xlabel,
+                    use_markers=True,
+                    marker_size=marker_size,
+                    data_labels=selected,
+                    data_idxs=idxs)
 
             patterns=["*_m*_act"]
             idxs,selected=plotter.get_idx_matching(patterns, obs_names)
-            plotter.plot_data(dataset_name=obs_datasetname, 
-                title=ep_prefix+"obs - action buffer - full action history buffer"+dset_suffix, 
-                xaxis_dataset_name=xaxis_dataset_name,
-                xlabel=xlabel,
-                use_markers=True,
-                marker_size=marker_size,
-                data_labels=selected,
-                data_idxs=idxs)
-            
+            if len(idxs)>0:
+                plotter.plot_data(dataset_name=obs_datasetname, 
+                    title=ep_prefix+"obs - action buffer - full action history buffer"+dset_suffix, 
+                    xaxis_dataset_name=xaxis_dataset_name,
+                    xlabel=xlabel,
+                    use_markers=True,
+                    marker_size=marker_size,
+                    data_labels=selected,
+                    data_idxs=idxs)
+                
             # actions
             plotter.plot_data(dataset_name=actions_datasetname, 
                 title=ep_prefix+"actions - all"+dset_suffix, 
@@ -1825,47 +1830,51 @@ if __name__ == "__main__":
             # contact actions
             patterns=["*contact_flag*"]
             idxs,selected=plotter.get_idx_matching(patterns, actions_names)
-            plotter.plot_data(dataset_name=actions_datasetname, 
-                title=ep_prefix+"actions - contact flag actions only"+dset_suffix, 
-                xaxis_dataset_name=xaxis_dataset_name,
-                xlabel=xlabel,
-                use_markers=False,
-                marker_size=marker_size,
-                data_labels=selected,
-                data_idxs=idxs)
+            if len(idxs)>0:
+                plotter.plot_data(dataset_name=actions_datasetname, 
+                    title=ep_prefix+"actions - contact flag actions only"+dset_suffix, 
+                    xaxis_dataset_name=xaxis_dataset_name,
+                    xlabel=xlabel,
+                    use_markers=False,
+                    marker_size=marker_size,
+                    data_labels=selected,
+                    data_idxs=idxs)
             
             patterns=["*phase_freq*"]
             idxs,selected=plotter.get_idx_matching(patterns, actions_names)
-            plotter.plot_data(dataset_name=actions_datasetname, 
-                title=ep_prefix+"actions - step frequency only [flights/mpc_steps]"+dset_suffix, 
-                xaxis_dataset_name=xaxis_dataset_name,
-                xlabel=xlabel,
-                use_markers=False,
-                marker_size=marker_size,
-                data_labels=selected,
-                data_idxs=idxs)
+            if len(idxs)>0:
+                plotter.plot_data(dataset_name=actions_datasetname, 
+                    title=ep_prefix+"actions - step frequency only [flights/mpc_steps]"+dset_suffix, 
+                    xaxis_dataset_name=xaxis_dataset_name,
+                    xlabel=xlabel,
+                    use_markers=False,
+                    marker_size=marker_size,
+                    data_labels=selected,
+                    data_idxs=idxs)
             
             patterns=["*phase_offset*"]
             idxs,selected=plotter.get_idx_matching(patterns, actions_names)
-            plotter.plot_data(dataset_name=actions_datasetname, 
-                title=ep_prefix+"actions - step offset only [mpc_steps]"+dset_suffix, 
-                xaxis_dataset_name=xaxis_dataset_name,
-                xlabel=xlabel,
-                use_markers=False,
-                marker_size=marker_size,
-                data_labels=selected,
-                data_idxs=idxs)
+            if len(idxs)>0:
+                plotter.plot_data(dataset_name=actions_datasetname, 
+                    title=ep_prefix+"actions - step offset only [mpc_steps]"+dset_suffix, 
+                    xaxis_dataset_name=xaxis_dataset_name,
+                    xlabel=xlabel,
+                    use_markers=False,
+                    marker_size=marker_size,
+                    data_labels=selected,
+                    data_idxs=idxs)
 
             patterns=["*flight_*"]
             idxs,selected=plotter.get_idx_matching(patterns, actions_names)
-            plotter.plot_data(dataset_name=actions_datasetname, 
-                title=ep_prefix+"actions - flight params actions only"+dset_suffix, 
-                xaxis_dataset_name=xaxis_dataset_name,
-                xlabel=xlabel,
-                use_markers=False,
-                marker_size=marker_size,
-                data_labels=selected,
-                data_idxs=idxs)
+            if len(idxs)>0:
+                plotter.plot_data(dataset_name=actions_datasetname, 
+                    title=ep_prefix+"actions - flight params actions only"+dset_suffix, 
+                    xaxis_dataset_name=xaxis_dataset_name,
+                    xlabel=xlabel,
+                    use_markers=False,
+                    marker_size=marker_size,
+                    data_labels=selected,
+                    data_idxs=idxs)
 
             # sub terminations
             plotter.plot_data(dataset_name=ep_prefix+"SubTerminations"+dset_suffix, 
