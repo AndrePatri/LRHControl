@@ -177,7 +177,10 @@ class LRHCPlotter:
             data_idxs: List[int] = None,
             distr_std = None, 
             distr_max = None, 
-            distr_min = None):
+            distr_min = None,
+            grid_plot: bool = False,
+            grid_size: List[int] = None,
+            grid_shares_y: bool = True):
         """
         Plot the data based on the number of environments in the dataset.
         
@@ -242,87 +245,190 @@ class LRHCPlotter:
         fig, axes = None, None  # Initialize figure and axes objects
 
         if n_envs == 1:
-            # Time series plot for single environment
-            fig, ax = plt.subplots(figsize=(10, 5))
-            data = dataset[:, 0, :]  # Extract single environment data
-            if data_distr_std is not None and data_distr_std.ndim==3:
-                data_distr_std=data_distr_std[:, 0, :]
-            if data_distr_max is not None and data_distr_max.ndim==3:
-                data_distr_max=data_distr_max[:, 0, :]
-            if data_distr_min is not None and data_distr_min.ndim==3:
-                data_distr_min=data_distr_min[:, 0, :]
-
             data_indexes=list(range(0, n_data)) if data_idxs is None else data_idxs
             labels=[]
             plt_lines=[]
-            
-            for i in range(len(data_indexes)):
-                idx=data_indexes[i]
-                valid_mask = np.logical_and(np.isfinite(data[:, idx]), xaxis[:]>=0)
-                label=f"Data {idx+1}" if data_labels is None else data_labels[i]
-                alpha=data_alphas[i] if data_alphas is not None else 1.0
-                labels.append(label)
-                plt_line=None
-            
-                if use_markers:
-                    plt_line, = ax.plot(xaxis[valid_mask], data[valid_mask, idx], 'o', label=label, markersize=marker_size, alpha=alpha)
+            if isinstance(ylabel, str):
+                ylabels=[ylabel]*len(data_indexes)
+            else:
+                ylabels=ylabel
+            if isinstance(title, str):
+                titles=[title]*len(data_indexes)
+            else:
+                titles=title
+            if not grid_plot:
+                # Time series plot for single environment
+                fig, ax = plt.subplots(figsize=(10, 5))
+                data = dataset[:, 0, :]  # Extract single environment data
+                if data_distr_std is not None and data_distr_std.ndim==3:
+                    data_distr_std=data_distr_std[:, 0, :]
+                if data_distr_max is not None and data_distr_max.ndim==3:
+                    data_distr_max=data_distr_max[:, 0, :]
+                if data_distr_min is not None and data_distr_min.ndim==3:
+                    data_distr_min=data_distr_min[:, 0, :]
+                
+                for i in range(len(data_indexes)):
+                    idx=data_indexes[i]
+                    valid_mask = np.logical_and(np.isfinite(data[:, idx]), xaxis[:]>=0)
+                    label=f"Data {idx+1}" if data_labels is None else data_labels[i]
+                    alpha=data_alphas[i] if data_alphas is not None else 1.0
+                    labels.append(label)
+                    plt_line=None
+                
+                    if use_markers:
+                        plt_line, = ax.plot(xaxis[valid_mask], data[valid_mask, idx], 'o', label=label, markersize=marker_size, alpha=alpha)
+                    else:
+                        plt_line, = ax.plot(xaxis[valid_mask], data[valid_mask, idx], label=label, alpha=alpha)
+                    if data_distr_std is not None: # add data distribution std area
+                        alpha=0.2
+                        ax.fill_between(xaxis[valid_mask], 
+                                data[valid_mask, idx] - data_distr_std[valid_mask, idx], data[valid_mask, idx] + data_distr_std[valid_mask, idx],
+                                color=plt_line.get_color(), alpha=alpha, 
+                                label="± 1 std")
+                    if data_distr_min is not None and data_distr_max is not None: # add min max bounds
+                        alpha=0.2
+                        if data_distr_std is not None:
+                            alpha=0.1 # max min even more transparent
+                        ax.fill_between(xaxis[valid_mask], 
+                                data_distr_min[valid_mask, idx], data_distr_max[valid_mask, idx],
+                                color=plt_line.get_color(), alpha=alpha, 
+                                label="min/max")
+                    plt_lines.append(plt_line)
+
+                ax.set_title(f"{titles[0]}")
+                ax.set_xlabel(xlabel)
+                ax.set_ylabel(ylabels[0])
+                # Create custom legend with lines instead of dots
+                legend_lines = [mlines.Line2D([0], [0], color=ax.get_lines()[i].get_color(), lw=4) for i in range(len(data_indexes))]
+                legend = ax.legend(legend_lines, labels, ncol=2, handlelength=2)
+                # Set pickable property
+                for line in legend_lines:
+                    line.set_picker(True)
+                # legend = ax.legend(ncol=2, markerscale=2)
+
+                legend.set_draggable(True)  # Make the legend draggable
+                
+                ax.grid(True)
+
+                # make legends pickable
+                pickradius=5
+                for legend_line, ax_line in zip(legend.get_lines(), plt_lines):
+                    legend_line.set_picker(pickradius)  # Enable picking on the legend line.
+                    self.map_legend_to_ax[legend_line] = ax_line
+                
+                def on_pick(event):
+                    # On the pick event, find the original line corresponding to the legend
+                    # proxy line, and toggle its visibility.
+                    legend_line = event.artist
+
+                    # Do nothing if the source of the event is not a legend line.
+                    if legend_line not in self.map_legend_to_ax:
+                        return
+
+                    ax_line = self.map_legend_to_ax[legend_line]
+                    visible = not ax_line.get_visible()
+                    ax_line.set_visible(visible)
+                    # Change the alpha on the line in the legend, so we can see what lines
+                    # have been toggled.
+                    legend_line.set_alpha(1.0 if visible else 0.2)
+                    fig.canvas.draw()
+                fig.canvas.mpl_connect('pick_event', on_pick)
+            else:
+        
+                if grid_size is None:
+                    rows = int(np.ceil(np.sqrt(len(data_indexes))))
+                    cols = int(np.ceil(len(data_indexes) / rows))
                 else:
-                    plt_line, = ax.plot(xaxis[valid_mask], data[valid_mask, idx], label=label, alpha=alpha)
-                if data_distr_std is not None: # add data distribution std area
-                    alpha=0.2
-                    ax.fill_between(xaxis[valid_mask], 
-                            data[valid_mask, idx] - data_distr_std[valid_mask, idx], data[valid_mask, idx] + data_distr_std[valid_mask, idx],
-                            color=plt_line.get_color(), alpha=alpha, 
-                            label="± 1 std")
-                if data_distr_min is not None and data_distr_max is not None: # add min max bounds
-                    alpha=0.2
-                    if data_distr_std is not None:
-                        alpha=0.1 # max min even more transparent
-                    ax.fill_between(xaxis[valid_mask], 
-                            data_distr_min[valid_mask, idx], data_distr_max[valid_mask, idx],
-                            color=plt_line.get_color(), alpha=alpha, 
-                            label="min/max")
-                plt_lines.append(plt_line)
+                    rows, cols = grid_size
 
-            ax.set_title(f"{title}")
-            ax.set_xlabel(xlabel)
-            ax.set_ylabel("Value")
-            # Create custom legend with lines instead of dots
-            legend_lines = [mlines.Line2D([0], [0], color=ax.get_lines()[i].get_color(), lw=4) for i in range(len(data_indexes))]
-            legend = ax.legend(legend_lines, labels, ncol=2, handlelength=2)
-            # Set pickable property
-            for line in legend_lines:
-                line.set_picker(True)
-            # legend = ax.legend(ncol=2, markerscale=2)
+                # Time series plot for single environment (grid)
+                fig, axes = plt.subplots(rows, cols, figsize=(5 * cols, 4 * rows), sharex=True, sharey=grid_shares_y)
+                data = dataset[:, 0, :]  # Extract single environment data
+                if data_distr_std is not None and data_distr_std.ndim==3:
+                    data_distr_std=data_distr_std[:, 0, :]
+                if data_distr_max is not None and data_distr_max.ndim==3:
+                    data_distr_max=data_distr_max[:, 0, :]
+                if data_distr_min is not None and data_distr_min.ndim==3:
+                    data_distr_min=data_distr_min[:, 0, :]
+                    
+                i=0
+                for row in range(rows):
+                    for col in range(cols):
+                        if cols == 1 and not rows==1:
+                            ax=axes[row]
+                        if rows == 1 and not cols==1:
+                            ax=axes[col]
+                        if not (rows==1 or cols ==1):
+                            ax=axes[row, col]
 
-            legend.set_draggable(True)  # Make the legend draggable
-            
-            ax.grid(True)
+                        idx=data_indexes[i]
+                        valid_mask = np.logical_and(np.isfinite(data[:, idx]), xaxis[:]>=0)
+                        label=f"Data {idx+1}" if data_labels is None else data_labels[i]
+                        alpha=data_alphas[i] if data_alphas is not None else 1.0
+                        labels.append(label)
+                        plt_line=None
+                    
+                        if use_markers:
+                            plt_line, = ax.plot(xaxis[valid_mask], data[valid_mask, idx], 'o', label=label, markersize=marker_size, alpha=alpha)
+                        else:
+                            plt_line, = ax.plot(xaxis[valid_mask], data[valid_mask, idx], label=label, alpha=alpha)
+                        if data_distr_std is not None: # add data distribution std area
+                            alpha=0.2
+                            ax.fill_between(xaxis[valid_mask], 
+                                    data[valid_mask, idx] - data_distr_std[valid_mask, idx], data[valid_mask, idx] + data_distr_std[valid_mask, idx],
+                                    color=plt_line.get_color(), alpha=alpha, 
+                                    label="± 1 std")
+                        if data_distr_min is not None and data_distr_max is not None: # add min max bounds
+                            alpha=0.2
+                            if data_distr_std is not None:
+                                alpha=0.1 # max min even more transparent
+                            ax.fill_between(xaxis[valid_mask], 
+                                    data_distr_min[valid_mask, idx], data_distr_max[valid_mask, idx],
+                                    color=plt_line.get_color(), alpha=alpha, 
+                                    label="min/max")
+                        plt_lines.append(plt_line)
 
-            # make legends pickable
-            pickradius=5
-            for legend_line, ax_line in zip(legend.get_lines(), plt_lines):
-                legend_line.set_picker(pickradius)  # Enable picking on the legend line.
-                self.map_legend_to_ax[legend_line] = ax_line
-            
-            def on_pick(event):
-                # On the pick event, find the original line corresponding to the legend
-                # proxy line, and toggle its visibility.
-                legend_line = event.artist
+                        ax.set_title(f"{titles[i]} ({label})")
+                        ax.set_xlabel(xlabel)
+                        ax.set_ylabel(ylabels[i])
+                        # Create custom legend with lines instead of dots
+                        legend_lines = [mlines.Line2D([0], [0], color=ax.get_lines()[0].get_color(), lw=4)]
+                        legend = ax.legend(legend_lines, [label], ncol=2, handlelength=2)
+                        # Set pickable property
+                        for line in legend_lines:
+                            line.set_picker(True)
+                        # legend = ax.legend(ncol=2, markerscale=2)
 
-                # Do nothing if the source of the event is not a legend line.
-                if legend_line not in self.map_legend_to_ax:
-                    return
+                        legend.set_draggable(True)  # Make the legend draggable
+                        
+                        ax.grid(True)
 
-                ax_line = self.map_legend_to_ax[legend_line]
-                visible = not ax_line.get_visible()
-                ax_line.set_visible(visible)
-                # Change the alpha on the line in the legend, so we can see what lines
-                # have been toggled.
-                legend_line.set_alpha(1.0 if visible else 0.2)
-                fig.canvas.draw()
-            fig.canvas.mpl_connect('pick_event', on_pick)
-            
+                        i+=1
+
+                        # make legends pickable
+                #         pickradius=5
+                #         for legend_line, ax_line in zip(legend.get_lines(), plt_lines):
+                #             legend_line.set_picker(pickradius)  # Enable picking on the legend line.
+                #             self.map_legend_to_ax[legend_line] = ax_line
+                    
+                #         def on_pick(event):
+                #             # On the pick event, find the original line corresponding to the legend
+                #             # proxy line, and toggle its visibility.
+                #             legend_line = event.artist
+
+                #             # Do nothing if the source of the event is not a legend line.
+                #             if legend_line not in self.map_legend_to_ax:
+                #                 return
+
+                #             ax_line = self.map_legend_to_ax[legend_line]
+                #             visible = not ax_line.get_visible()
+                #             ax_line.set_visible(visible)
+                #             # Change the alpha on the line in the legend, so we can see what lines
+                #             # have been toggled.
+                #             legend_line.set_alpha(1.0 if visible else 0.2)
+                #             fig.canvas.draw()
+
+                # fig.canvas.mpl_connect('pick_event', on_pick)
         else:
             # Heatmap histogram for multiple environments
             fig, axes = plt.subplots(n_data, 1, figsize=(10, 5 * n_data), sharex=True)
@@ -738,6 +844,28 @@ if __name__ == "__main__":
         plotter.create_dataset(dataset_name="total_simulated_vec_d", 
             data=total_simulated_vec_d)
         
+        plotter.create_dataset(dataset_name="MechPow_avrg", 
+            data=plotter.data["Power_avrg"][:, :, 1:2])
+        plotter.create_dataset(dataset_name="MechPow_avrg_over_envs", 
+            data=plotter.data["Power_avrg_over_envs"][:, :, 1:2])
+        plotter.create_dataset(dataset_name="MechPow_std_over_envs", 
+            data=plotter.data["Power_std_over_envs"][:, :, 1:2])
+        plotter.create_dataset(dataset_name="MechPow_max_over_envs", 
+            data=plotter.data["Power_max_over_envs"][:, :, 1:2])
+        plotter.create_dataset(dataset_name="MechPow_min_over_envs", 
+            data=plotter.data["Power_min_over_envs"][:, :, 1:2])
+        
+        plotter.create_dataset(dataset_name="CoT_avrg", 
+            data=plotter.data["Power_avrg"][:, :, 0:1])
+        plotter.create_dataset(dataset_name="CoT_avrg_over_envs", 
+            data=plotter.data["Power_avrg_over_envs"][:, :, 0:1])
+        plotter.create_dataset(dataset_name="CoT_std_over_envs", 
+            data=plotter.data["Power_std_over_envs"][:, :, 0:1])
+        plotter.create_dataset(dataset_name="CoT_max_over_envs", 
+            data=plotter.data["Power_max_over_envs"][:, :, 0:1])
+        plotter.create_dataset(dataset_name="CoT_min_over_envs", 
+            data=plotter.data["Power_min_over_envs"][:, :, 0:1])
+        
         # xlabel=xlabel
         # xlabel="total_simulated_vec_h"
         xlabel="n_timesteps_done"
@@ -754,7 +882,7 @@ if __name__ == "__main__":
             xlabel=xlabel,
             ylabel="bellman error",
             data_labels=["qf1 training loss", "qf1 validation loss"],
-            data_alphas=[0.6, 0.2],
+            data_alphas=[0.9, 0.5],
             use_markers=False,
             marker_size=marker_size)
         plotter.compose_datasets(name="qf2_losses",
@@ -764,7 +892,7 @@ if __name__ == "__main__":
             xlabel=xlabel,
             ylabel="bellman error",
             data_labels=["qf2 training loss", "qf2 validation loss"],
-            data_alphas=[0.6, 0.2],
+            data_alphas=[0.9, 0.5],
             use_markers=False,
             marker_size=marker_size)
         plotter.compose_datasets(name="actor_losses",
@@ -774,7 +902,7 @@ if __name__ == "__main__":
             xlabel=xlabel,
             ylabel="[]",
             data_labels=["training", "validation"],
-            data_alphas=[0.6, 0.2],
+            data_alphas=[0.9, 0.5],
             use_markers=False,
             marker_size=marker_size)
         plotter.compose_datasets(name="alpha_losses",
@@ -797,17 +925,17 @@ if __name__ == "__main__":
             datasets_list=["qf1_vals_max", "qf2_vals_max"])
         plotter.compose_datasets(name="qf_vals_min",
             datasets_list=["qf1_vals_min", "qf2_vals_min"])
-        plotter.plot_data(dataset_name="qf_vals", 
+        plotter.plot_data(dataset_name="qf1_vals_mean", 
             title="Qf mean - std - min/max", 
             xaxis_dataset_name=xaxis_dataset_name,
             xlabel=xlabel,
             ylabel="Q val.",
-            data_labels=["qf1", "qf2"],
+            data_labels=["qf"],
             use_markers=False,
             marker_size=marker_size,
-            distr_std="qf_vals_std",
-            distr_max="qf_vals_max",
-            distr_min="qf_vals_min")
+            distr_std="qf1_vals_std",
+            distr_max="qf1_vals_max",
+            distr_min="qf1_vals_min")
 
         # total reward
 
@@ -837,11 +965,11 @@ if __name__ == "__main__":
 
         for i in range(len(sub_rew_names)):
             sub_rew_name=sub_rew_names[i]
-            avrg_over_envs_name=sub_rew_name+"_avrg_over_envs"
-            std_over_envs_name=sub_rew_name+"_std_over_envs"
-            distr_name=sub_rew_name+"_avrg"
-            distr_name_max=sub_rew_name+"_max"
-            distr_name_min=sub_rew_name+"_min"
+            avrg_over_envs_name=sub_rew_name+"_avrg_rew_over_envs"
+            std_over_envs_name=sub_rew_name+"_std_rew_over_envs"
+            distr_name=sub_rew_name+"_avrg_rew"
+            distr_name_max=sub_rew_name+"_max_rew"
+            distr_name_min=sub_rew_name+"_min_rew"
             
             plotter.create_dataset(dataset_name=distr_name,
                 data=plotter.data["sub_rew_avrg"][:, :, i:i+1])
@@ -859,12 +987,12 @@ if __name__ == "__main__":
             plotter.plot_data(dataset_name=distr_name, title=f"scaled sub returns ({sub_rew_name}) distribution across envs", 
             xaxis_dataset_name=xaxis_dataset_name,
             xlabel=xlabel)
-            plotter.plot_data(dataset_name=distr_name_max, title=f"max rewards ({sub_rew_name}) distribution across envs", 
-                xaxis_dataset_name=xaxis_dataset_name,
-                xlabel=xlabel)
-            plotter.plot_data(dataset_name=distr_name_min, title=f"min rewards ({sub_rew_name}) distribution across envs", 
-                xaxis_dataset_name=xaxis_dataset_name,
-                xlabel=xlabel)
+            # plotter.plot_data(dataset_name=distr_name_max, title=f"max rewards ({sub_rew_name}) distribution across envs", 
+            #     xaxis_dataset_name=xaxis_dataset_name,
+            #     xlabel=xlabel)
+            # plotter.plot_data(dataset_name=distr_name_min, title=f"min rewards ({sub_rew_name}) distribution across envs", 
+            #     xaxis_dataset_name=xaxis_dataset_name,
+            #     xlabel=xlabel)
 
             # average over envs
             plotter.plot_data(dataset_name=avrg_over_envs_name, title=f"scaled sub returns ({sub_rew_name}) average over envs", 
@@ -940,7 +1068,68 @@ if __name__ == "__main__":
                     marker_size=marker_size,
                     data_alphas=[0.3, 0.3],
                     data_labels=["expl_bonus_raw_avrg", "expl_bonus_raw_std"])
-                
+        
+        plotter.plot_data(dataset_name="CoT_avrg_over_envs", 
+                title=f"CoT", 
+                xaxis_dataset_name=xaxis_dataset_name,
+                xlabel=xlabel,
+                ylabel="[]",
+                data_labels="CoT",
+                use_markers=False,
+                marker_size=marker_size,
+                distr_std="CoT_std_over_envs",
+                distr_max=None, # tot_rew_max_over_envs
+                distr_min=None)
+        plotter.plot_data(dataset_name="CoT_avrg", 
+            title=f"CoT distribution", 
+            xaxis_dataset_name=xaxis_dataset_name,
+            xlabel=xlabel) # distribution
+        
+        plotter.plot_data(dataset_name="MechPow_avrg_over_envs", 
+                title=f"Mech. power", 
+                xaxis_dataset_name=xaxis_dataset_name,
+                xlabel=xlabel,
+                ylabel="[]",
+                data_labels="Pow",
+                use_markers=False,
+                marker_size=marker_size,
+                distr_std="MechPow_std_over_envs",
+                distr_max=None, # tot_rew_max_over_envs
+                distr_min=None)
+        plotter.plot_data(dataset_name="MechPow_avrg", 
+            title=f"Mechanical power distribution", 
+            xaxis_dataset_name=xaxis_dataset_name,
+            xlabel=xlabel) # distribution
+        
+        plotter.plot_data(dataset_name="Power_avrg_over_envs", 
+                title=f"Power db data", 
+                xaxis_dataset_name=xaxis_dataset_name,
+                xlabel=xlabel,
+                ylabel=["[W]", "[]"],
+                data_labels=["Mp", "CoT"],
+                use_markers=False,
+                marker_size=marker_size,
+                distr_std="Power_std_over_envs",
+                distr_max="Power_max_over_envs", # tot_rew_max_over_envs
+                distr_min="Power_min_over_envs",
+                grid_plot=True,
+                grid_size=[1, 2],
+                grid_shares_y=False)
+        
+        plotter.plot_data(dataset_name="TrackingError_avrg_over_envs", 
+                title=f"Tracking error", 
+                xaxis_dataset_name=xaxis_dataset_name,
+                xlabel=xlabel,
+                ylabel=["m/s", "m/s", "m/s", "rad/s", "rad/s", "rad/s"],
+                data_labels=["lin_x", "lin_y", "lin_z", "omega_x", "omega_y", "omega_z"],
+                use_markers=False,
+                marker_size=marker_size,
+                distr_std="TrackingError_std_over_envs",
+                distr_max=None, # tot_rew_max_over_envs
+                distr_min=None,
+                grid_plot=True,
+                grid_size=[2, 3])
+        
         if args.running_obs_stats:
             # obs stats
             # gravity vecs
