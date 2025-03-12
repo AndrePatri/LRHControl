@@ -338,7 +338,8 @@ class LRHCPlotter:
 
     def plot_data(self, dataset_name,
             title="Plot",
-            xaxis_dataset_name="", xlabel="Time", 
+            xaxis_dataset_name="", 
+            xlabel="Time", 
             ylabel="Intensity", 
             cmap="plasma", # viridis, 
             use_markers=False,
@@ -354,6 +355,7 @@ class LRHCPlotter:
             distr_median = None,
             grid_plot: bool = False,
             grid_size: List[int] = None,
+            grid_shares_x: bool = True,
             grid_shares_y: bool = True,
             clickable: bool = False):
         """
@@ -416,19 +418,6 @@ class LRHCPlotter:
             print(f"Dataset '{dataset_name}' does not have the expected shape (n_samples x n_envs x n_data).")
             return
 
-        # Handle optional x-axis dataset
-        if xaxis_dataset_name:
-            if xaxis_dataset_name not in self.data:
-                print(f"X-axis dataset '{xaxis_dataset_name}' not loaded. Use 'load_data' first.")
-                return
-            xaxis_data = self.data[xaxis_dataset_name]
-            if xaxis_data.shape != (n_samples, 1):
-                print(f"X-axis dataset '{xaxis_dataset_name}' must have shape (n_samples, 1).")
-                return
-            xaxis = xaxis_data[:, 0]  # Extract as 1D array
-        else:
-            xaxis = np.arange(n_samples)  # Default x-axis is time steps
-
         fig, axes = None, None  # Initialize figure and axes objects
 
         data_indexes=list(range(0, n_data)) if data_idxs is None else data_idxs
@@ -443,6 +432,20 @@ class LRHCPlotter:
             titles=[title]*len(data_indexes)
         else:
             titles=title
+
+        # x axis
+        x_datasets=[]
+        if isinstance(xaxis_dataset_name, str):
+            x_datasets=[xaxis_dataset_name]*len(data_indexes)
+        else:
+            x_datasets=xaxis_dataset_name
+
+        if xlabel is None:
+            xlabel=x_datasets
+        if isinstance(xlabel, str):
+            xlabels=[xlabel]*len(data_indexes)
+        else:
+            xlabels=xlabel
 
         if n_envs == 1:
             
@@ -464,13 +467,24 @@ class LRHCPlotter:
                     data_distr_median=data_distr_median[:, 0, :]
 
                 for i in range(len(data_indexes)):
+                    
                     idx=data_indexes[i]
-                    valid_mask = np.logical_and(np.isfinite(data[:, idx]), xaxis[:]>=0)
                     label=f"Data {idx+1}" if data_labels is None else data_labels[i]
                     alpha=data_alphas[i] if data_alphas is not None else 1.0
                     labels.append(label)
                     plt_line=None
-                
+
+                    x_dataset=x_datasets[i]
+                    if x_dataset not in self.data:
+                        print(f"X-axis dataset '{x_dataset}' for data {label} not loaded. Use 'load_data' first.")
+                        return
+                    xaxis_data = self.data[x_dataset]
+                    if xaxis_data.shape != (n_samples, 1):
+                        print(f"X-axis dataset '{x_dataset}' for data {label} must have shape ({n_samples}, 1).")
+                        return
+                    xaxis = xaxis_data[:, 0]  # Extract as 1D array
+                    
+                    valid_mask = np.logical_and(np.isfinite(data[:, idx]), xaxis[:]>=0)
                     if use_markers:
                         plt_line, = ax.plot(xaxis[valid_mask], data[valid_mask, idx], 'o', label=label, markersize=marker_size, alpha=alpha)
                     else:
@@ -510,7 +524,7 @@ class LRHCPlotter:
                         plt_aux_lines.append(median_line)
 
                 ax.set_title(f"{titles[0]}")
-                ax.set_xlabel(xlabel)
+                ax.set_xlabel(xlabels[0])
                 ax.set_ylabel(ylabels[0])
                 # Create custom legend with lines instead of dots
                 legend_lines = [mlines.Line2D([0], [0], color=plt_lines[i].get_color(), lw=4) for i in range(len(data_indexes))]
@@ -557,7 +571,7 @@ class LRHCPlotter:
                     rows, cols = grid_size
 
                 # Time series plot for single environment (grid)
-                fig, axes = plt.subplots(rows, cols, figsize=(5 * cols, 4 * rows), sharex=True, sharey=grid_shares_y)
+                fig, axes = plt.subplots(rows, cols, figsize=(5 * cols, 4 * rows), sharex=grid_shares_x, sharey=grid_shares_y)
                 data = dataset[:, 0, :]  # Extract single environment data
                 if data_distr_std is not None and data_distr_std.ndim==3:
                     data_distr_std=data_distr_std[:, 0, :]
@@ -580,14 +594,25 @@ class LRHCPlotter:
                             ax=axes[col]
                         if not (rows==1 or cols ==1):
                             ax=axes[row, col]
-
+                        
                         idx=data_indexes[i]
-                        valid_mask = np.logical_and(np.isfinite(data[:, idx]), xaxis[:]>=0)
                         label=f"Data {idx+1}" if data_labels is None else data_labels[i]
                         alpha=data_alphas[i] if data_alphas is not None else 1.0
                         labels.append(label)
                         plt_line=None
-                    
+
+                        x_dataset=x_datasets[i]
+                        if x_dataset not in self.data:
+                            print(f"X-axis dataset '{x_dataset}' for data {label} not loaded. Use 'load_data' first.")
+                            return
+                        xaxis_data = self.data[x_dataset]
+                        if xaxis_data.shape != (n_samples, 1):
+                            print(f"X-axis dataset '{x_dataset}' for data {label} must have shape ({n_samples}, 1).")
+                            return
+                        xaxis = xaxis_data[:, 0]  # Extract as 1D array
+
+
+                        valid_mask = np.logical_and(np.isfinite(data[:, idx]), xaxis[:]>=0)
                         if use_markers:
                             plt_line, = ax.plot(xaxis[valid_mask], data[valid_mask, idx], 'o', label=label, markersize=marker_size, alpha=alpha)
                         else:
@@ -627,7 +652,7 @@ class LRHCPlotter:
                             plt_aux_lines.append(median_line)
 
                         ax.set_title(f"{label}")
-                        ax.set_xlabel(xlabel)
+                        ax.set_xlabel(xlabels[i])
                         ax.set_ylabel(ylabels[i])
                         # Create custom legend with lines instead of dots
                         legend_lines = [mlines.Line2D([0], [0], color=plt_lines[i].get_color(), lw=4)]
@@ -646,11 +671,21 @@ class LRHCPlotter:
                 plt.suptitle(title, y=0.99)
         else:
             # Heatmap histogram for multiple environments
-            fig, axes = plt.subplots(1, n_data, figsize=(6*n_data, 4), sharex=True, sharey=grid_shares_y)
+            fig, axes = plt.subplots(1, n_data, figsize=(6*n_data, 4), sharex=grid_shares_x, sharey=grid_shares_y)
             if n_data == 1:
                 axes = [axes]  # Ensure axes is iterable for n_data = 1
             
             for i in range(n_data):
+                x_dataset=x_datasets[i]
+                if x_dataset not in self.data:
+                    print(f"X-axis dataset '{x_dataset}' for data {label} not loaded. Use 'load_data' first.")
+                    return
+                xaxis_data = self.data[x_dataset]
+                if xaxis_data.shape != (n_samples, 1):
+                    print(f"X-axis dataset '{x_dataset}' for data {label} must have shape ({n_samples}, 1).")
+                    return
+                xaxis = xaxis_data[:, 0]  # Extract as 1D array
+                
                 data = dataset[:, :, i]  # Extract data for all environments
                 label=f"Data {i+1}" if data_labels is None else data_labels[i]
 
@@ -693,8 +728,8 @@ class LRHCPlotter:
                 # Smooth shading for better visualization
                 )
                 axes[i].set_title(f"{label}")
-                axes[i].set_ylabel(ylabel)
-                axes[i].set_xlabel(xlabel)
+                axes[i].set_xlabel(xlabels[i])
+                axes[i].set_ylabel(ylabels[i])
                 axes[i].grid()
                 
                 # Add a colorbar to the plot
@@ -1046,7 +1081,7 @@ if __name__ == "__main__":
         # plot some data
 
         marker_size=1
-        
+            
         plotter.plot_data(dataset_name="qf1_losses", title="qf1 loss", 
             xaxis_dataset_name=xaxis_dataset_name,
             xlabel=xlabel,
@@ -1261,10 +1296,12 @@ if __name__ == "__main__":
         #     xaxis_dataset_name=xaxis_dataset_name,
         #     xlabel=xlabel) # distribution
         
+        xaxis_dataset_name
+
         plotter.plot_data(dataset_name="Power_avrg_over_envs", 
                 title=f"Power db data", 
                 xaxis_dataset_name=xaxis_dataset_name,
-                xlabel=xlabel,
+                xlabel=None,
                 ylabel=["[]", "[W]"],
                 data_labels=["CoT", "Mech.P."],
                 use_markers=False,
