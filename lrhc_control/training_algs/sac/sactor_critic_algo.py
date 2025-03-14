@@ -1267,13 +1267,13 @@ class SActorCriticAlgoBase(ABC):
                             data=sub_rew_full_expl[ep_idx, :, :, :])
                         hf.create_dataset(ep_prefix+'tot_rew_expl', 
                             data=tot_rew_full_expl[ep_idx, :, :, :])
-                        hf.create_dataset('expl_env_selector', data=self._expl_env_selector.numpy())
+                        hf.create_dataset('expl_env_selector', data=self._expl_env_selector.cpu().numpy())
                     if self._env.n_demo_envs() > 0:
                         hf.create_dataset(ep_prefix+'sub_rew_demo', 
                             data=sub_rew_full_demo)
                         hf.create_dataset(ep_prefix+'tot_rew_demo', 
                             data=tot_rew_full_demo[ep_idx, :, :, :])
-                        hf.create_dataset('demo_env_idxs', data=self._env.demo_env_idxs().numpy())
+                        hf.create_dataset('demo_env_idxs', data=self._env.demo_env_idxs().cpu().numpy())
 
                     # dump all custom env data
                     db_data_names = list(self._env.custom_db_data.keys())
