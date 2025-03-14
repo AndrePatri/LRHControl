@@ -1238,6 +1238,9 @@ class LRHCMultiRunPlotter():
         if rows*cols==1:
             axes=[axes]
 
+        plt_lines=[None]*len(data_indexes)
+        for i in range(len(data_indexes)):
+            plt_lines[i]=[None]*self._n_runs
         for i in range(len(data_indexes)):
             # loop over data
             for run in range(self._n_runs):
@@ -1255,7 +1258,7 @@ class LRHCMultiRunPlotter():
                 idx=data_indexes[i]
                 dlabel=f"Data {idx+1}" if data_labels is None else data_labels[i]
                 alpha=data_alphas[i] if data_alphas is not None else 1.0
-                plt_line=None
+
 
                 x_dataset=x_datasets[run]
                 if x_dataset not in self._single_run_plotters[run].data:
@@ -1307,32 +1310,38 @@ class LRHCMultiRunPlotter():
                             color=plt_line.get_color(), alpha=alpha, 
                             label="min/max")
                 
+                plt_lines[i][run]=plt_line
                 if i==0:
                     ax.set_title(f"{self._ablation_attrs[run]}")
 
-                if i==(len(data_indexes)-1):
+                if grid_plot:
+                    # just add x label for last data idx
+                    if i==(len(data_indexes)-1):
+                        ax.set_xlabel(xlabels[i])
+                    if run==(self._n_runs-1):
+                        ax.yaxis.set_label_position("right")
+                        # ax.yaxis.set_label_position("right")
+                        ax.set_ylabel(ylabels[i])
+                    if run==0:
+                        ax.set_ylabel(dlabel, 
+                            fontsize=11)
+                else:
                     ax.set_xlabel(xlabels[i])
-                
-                if run==(self._n_runs-1):
-                    ax.yaxis.set_label_position("right")
-                    # ax.yaxis.set_label_position("right")
                     ax.set_ylabel(ylabels[i])
-                
-                if run==0:
-                    ax.set_ylabel(dlabel+": ", rotation=0, labelpad=20, 
-                        fontsize=11)
 
+                ax.grid(True)
+
+            if i==0 and (not grid_plot):
                 # Create custom legend with lines instead of dots
-                legend_lines = [mlines.Line2D([0], [0], color=plt_line.get_color(), lw=4)]
-                legend = ax.legend(legend_lines, self._ablation_attrs[run], ncol=2, handlelength=2)
+                legend_lines = [mlines.Line2D([0], [0], color=plt_lines[i][run].get_color(), lw=4) for run in range(self._n_runs)]
+                legend = ax.legend(legend_lines, self._ablation_attrs, ncol=1, handlelength=2)
+            
                 # Set pickable property
                 for line in legend_lines:
                     line.set_picker(True)
                 # legend = ax.legend(ncol=2, markerscale=2)
 
                 legend.set_draggable(True)  # Make the legend draggable
-                
-                ax.grid(True)
 
         plt.suptitle(title, y=0.99)
 
@@ -1374,6 +1383,9 @@ if __name__ == "__main__":
     xaxis_dataset_name=args.xdset
     # plot some data
     marker_size=1
+
+    if args.multirun:
+        grid_shares_y=False
 
     if not args.env_db:
         
@@ -1531,7 +1543,7 @@ if __name__ == "__main__":
             distr_q1=None,
             distr_q3=None,
             grid_plot=True,
-            grid_shares_y=True,
+            grid_shares_y=grid_shares_y,
             grid_size=[1, len(plotter.sub_trunc_names)])
         plotter.plot_data(dataset_name="SubTerminations_avrg_over_envs", title="SubTerminations_avrg_over_envs", 
             xaxis_dataset_name=xaxis_dataset_name,
@@ -1547,7 +1559,7 @@ if __name__ == "__main__":
             distr_q1=None,
             distr_q3=None,
             grid_plot=True,
-            grid_shares_y=True,
+            grid_shares_y=grid_shares_y,
             grid_size=[1, len(plotter.sub_term_names)])
         
         # rnd
@@ -1625,7 +1637,7 @@ if __name__ == "__main__":
                 distr_median="Power_median_over_envs",
                 grid_plot=True,
                 grid_size=[1, 2],
-                grid_shares_y=False)
+                grid_shares_y=grid_shares_y)
         
         plotter.plot_data(dataset_name="TrackingError_avrg_over_envs", 
                 title=f"Tracking error", 
@@ -1644,7 +1656,8 @@ if __name__ == "__main__":
                 distr_q3="TrackingError_q3_over_envs",
                 distr_median="TrackingError_median_over_envs",
                 grid_plot=True,
-                grid_size=[2, 3])
+                grid_size=[2, 3],
+                grid_shares_y=grid_shares_y)
         
         # actions stats
         if args.actions_stats:
