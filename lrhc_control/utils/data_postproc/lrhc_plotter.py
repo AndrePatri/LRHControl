@@ -353,6 +353,8 @@ class LRHCPlotter:
             distr_min = None,
             distr_q1 = None,
             distr_q3 = None,
+            distr_p5 = None,
+            distr_p95 = None,
             distr_median = None,
             grid_plot: bool = False,
             grid_size: List[int] = None,
@@ -384,6 +386,8 @@ class LRHCPlotter:
         data_distr_max=None
         data_distr_q1=None
         data_distr_q3=None
+        data_distr_p5=None
+        data_distr_p95=None
         data_distr_median=None
         if distr_std is not None:
             if isinstance(distr_std, str):
@@ -400,6 +404,13 @@ class LRHCPlotter:
         if distr_q3 is not None:
             if isinstance(distr_q3, str):
                 data_distr_q3=self.data[distr_q3]
+        if distr_p5 is not None:
+            if isinstance(distr_p5, str):
+                data_distr_p5=self.data[distr_p5]
+        if distr_p95 is not None:
+            if isinstance(distr_p95, str):
+                data_distr_p95=self.data[distr_p95]
+
         if distr_median is not None:
             if isinstance(distr_median, str):
                 data_distr_median=self.data[distr_median]
@@ -450,23 +461,28 @@ class LRHCPlotter:
 
         if n_envs == 1:
             
+            data = dataset[:, 0, :]  # Extract single environment data
+            if data_distr_std is not None and data_distr_std.ndim==3:
+                data_distr_std=data_distr_std[:, 0, :]
+            if data_distr_max is not None and data_distr_max.ndim==3:
+                data_distr_max=data_distr_max[:, 0, :]
+            if data_distr_min is not None and data_distr_min.ndim==3:
+                data_distr_min=data_distr_min[:, 0, :]
+            if data_distr_q1 is not None and data_distr_q1.ndim==3:
+                data_distr_q1=data_distr_q1[:, 0, :]
+            if data_distr_q3 is not None and data_distr_q3.ndim==3:
+                data_distr_q3=data_distr_q3[:, 0, :]
+            if data_distr_p5 is not None and data_distr_p5.ndim==3:
+                data_distr_p5=data_distr_p5[:, 0, :]
+            if data_distr_p95 is not None and data_distr_p95.ndim==3:
+                data_distr_p95=data_distr_p95[:, 0, :]
+            if data_distr_median is not None and data_distr_median.ndim==3:
+                data_distr_median=data_distr_median[:, 0, :]
+
             if not grid_plot:
                 # Time series plot for single environment
                 fig, ax = plt.subplots(figsize=(10, 5))
-                data = dataset[:, 0, :]  # Extract single environment data
-                if data_distr_std is not None and data_distr_std.ndim==3:
-                    data_distr_std=data_distr_std[:, 0, :]
-                if data_distr_max is not None and data_distr_max.ndim==3:
-                    data_distr_max=data_distr_max[:, 0, :]
-                if data_distr_min is not None and data_distr_min.ndim==3:
-                    data_distr_min=data_distr_min[:, 0, :]
-                if data_distr_q1 is not None and data_distr_q1.ndim==3:
-                    data_distr_q1=data_distr_q1[:, 0, :]
-                if data_distr_q3 is not None and data_distr_q3.ndim==3:
-                    data_distr_q3=data_distr_q3[:, 0, :]
-                if data_distr_median is not None and data_distr_median.ndim==3:
-                    data_distr_median=data_distr_median[:, 0, :]
-
+                
                 for i in range(len(data_indexes)):
                     
                     idx=data_indexes[i]
@@ -505,17 +521,24 @@ class LRHCPlotter:
                         ax.fill_between(xaxis[valid_mask], 
                                 data_distr_q1[valid_mask, idx], data_distr_q3[valid_mask, idx],
                                 color=plt_line.get_color(), alpha=alpha, 
-                                label="min/max")
-                        
+                                label="q1/q3")
+
                     if data_distr_std is not None: # add data distribution std area
                         alpha=0.2
                         ax.fill_between(xaxis[valid_mask], 
                                 data[valid_mask, idx] - data_distr_std[valid_mask, idx], data[valid_mask, idx] + data_distr_std[valid_mask, idx],
                                 color=plt_line.get_color(), alpha=alpha, 
-                                label="± 1 std")
-                                
-                    if data_distr_min is not None and data_distr_max is not None: # add min max bounds
+                                label="std")
+                    
+                    if data_distr_p5 is not None and data_distr_p95 is not None: # add 25% and 75% quartiles
                         alpha=0.1
+                        ax.fill_between(xaxis[valid_mask], 
+                                data_distr_p5[valid_mask, idx], data_distr_p95[valid_mask, idx],
+                                color=plt_line.get_color(), alpha=alpha, 
+                                label="p5/p95")
+                    
+                    if data_distr_min is not None and data_distr_max is not None: # add min max bounds
+                        alpha=0.07
                         ax.fill_between(xaxis[valid_mask], 
                                 data_distr_min[valid_mask, idx], data_distr_max[valid_mask, idx],
                                 color=plt_line.get_color(), alpha=alpha, 
@@ -573,19 +596,7 @@ class LRHCPlotter:
 
                 # Time series plot for single environment (grid)
                 fig, axes = plt.subplots(rows, cols, figsize=(5 * cols, 4 * rows), sharex=grid_shares_x, sharey=grid_shares_y)
-                data = dataset[:, 0, :]  # Extract single environment data
-                if data_distr_std is not None and data_distr_std.ndim==3:
-                    data_distr_std=data_distr_std[:, 0, :]
-                if data_distr_max is not None and data_distr_max.ndim==3:
-                    data_distr_max=data_distr_max[:, 0, :]
-                if data_distr_min is not None and data_distr_min.ndim==3:
-                    data_distr_min=data_distr_min[:, 0, :]
-                if data_distr_q1 is not None and data_distr_q1.ndim==3:
-                    data_distr_q1=data_distr_q1[:, 0, :]
-                if data_distr_q3 is not None and data_distr_q3.ndim==3:
-                    data_distr_q3=data_distr_q3[:, 0, :]
-                if data_distr_median is not None and data_distr_median.ndim==3:
-                    data_distr_median=data_distr_median[:, 0, :]
+                
                 i=0
                 for row in range(rows):
                     for col in range(cols):
@@ -632,23 +643,29 @@ class LRHCPlotter:
                             ax.fill_between(xaxis[valid_mask], 
                                     data_distr_q1[valid_mask, idx], data_distr_q3[valid_mask, idx],
                                     color=plt_line.get_color(), alpha=alpha, 
-                                    label="min/max")
+                                    label="q1/q3")
                             
                         if data_distr_std is not None: # add data distribution std area
                             alpha=0.3
                             ax.fill_between(xaxis[valid_mask], 
                                     data[valid_mask, idx] - data_distr_std[valid_mask, idx], data[valid_mask, idx] + data_distr_std[valid_mask, idx],
                                     color=plt_line.get_color(), alpha=alpha, 
-                                    label="± 1 std")
+                                    label="std")
                                     
+                        if data_distr_p5 is not None and data_distr_p95 is not None: # add 25% and 75% quartiles
+                            alpha=0.1
+                            ax.fill_between(xaxis[valid_mask], 
+                                    data_distr_p5[valid_mask, idx], data_distr_p95[valid_mask, idx],
+                                    color=plt_line.get_color(), alpha=alpha, 
+                                    label="p5/p95")
+                        
                         if data_distr_min is not None and data_distr_max is not None: # add min max bounds
-                            alpha=0.15
+                            alpha=0.07
                             ax.fill_between(xaxis[valid_mask], 
                                     data_distr_min[valid_mask, idx], data_distr_max[valid_mask, idx],
                                     color=plt_line.get_color(), alpha=alpha, 
                                     label="min/max")
-                        
-                        
+                
                         if median_line is not None:
                             plt_aux_lines.append(median_line)
 
@@ -763,6 +780,15 @@ class LRHCPlotter:
                                                 axis=stats_dim,
                                                 keepdims=True)
         
+        self.data[name+"_p5_over_envs"]=np.percentile(self.data[dataset_name],
+                                                5, 
+                                                axis=stats_dim,
+                                                keepdims=True)
+        self.data[name+"_p95_over_envs"]=np.percentile(self.data[dataset_name],
+                                                95, 
+                                                axis=stats_dim,
+                                                keepdims=True)
+
     def show(self):
         """
         Display all stored plots.
@@ -1059,6 +1085,8 @@ class LRHCMultiRunPlotter():
             distr_min = None,
             distr_q1 = None,
             distr_q3 = None,
+            distr_p5 = None,
+            distr_p95 = None,
             distr_median = None,
             grid_plot: bool = False,
             grid_size: List[int] = None,
@@ -1077,6 +1105,8 @@ class LRHCMultiRunPlotter():
         data_distr_max=[]
         data_distr_q1=[]
         data_distr_q3=[]
+        data_distr_p5=[]
+        data_distr_p95=[]
         data_distr_median=[]
         
         for j in range(self._n_runs):
@@ -1092,6 +1122,8 @@ class LRHCMultiRunPlotter():
             data_distr_max.append(None)
             data_distr_q1.append(None)
             data_distr_q3.append(None)
+            data_distr_p5.append(None)
+            data_distr_p95.append(None)
             data_distr_median.append(None)
             if distr_std is not None:
                 if isinstance(distr_std, str):
@@ -1118,6 +1150,16 @@ class LRHCMultiRunPlotter():
                     data_distr_q3[j]=self._single_run_plotters[j].data[distr_q3]
                     if data_distr_q3[j].ndim==3:
                         data_distr_q3[j]=self._single_run_plotters[j].data[distr_q3][:, 0, :]
+            if distr_p5 is not None:
+                if isinstance(distr_p5, str):
+                    data_distr_p5[j]=self._single_run_plotters[j].data[distr_p5]
+                    if data_distr_p5[j].ndim==3:
+                        data_distr_p5[j]=self._single_run_plotters[j].data[distr_p5][:, 0, :]
+            if distr_p95 is not None:
+                if isinstance(distr_p95, str):
+                    data_distr_p95[j]=self._single_run_plotters[j].data[distr_p95]
+                    if data_distr_p95[j].ndim==3:
+                        data_distr_p95[j]=self._single_run_plotters[j].data[distr_p95][:, 0, :]
             if distr_median is not None:
                 if isinstance(distr_median, str):
                     data_distr_median[j]=self._single_run_plotters[j].data[distr_median]
@@ -1228,8 +1270,15 @@ class LRHCMultiRunPlotter():
                     ax.fill_between(xaxis[valid_mask], 
                             data_distr_q1[run][valid_mask, idx], data_distr_q3[run][valid_mask, idx],
                             color=plt_line.get_color(), alpha=alpha, 
-                            label="min/max")
-                    
+                            label="q1/q3")
+                
+                if data_distr_p5[run] is not None and data_distr_p95[run] is not None: # add 25% and 75% quartiles
+                    alpha=0.5
+                    ax.fill_between(xaxis[valid_mask], 
+                            data_distr_p5[run][valid_mask, idx], data_distr_p95[run][valid_mask, idx],
+                            color=plt_line.get_color(), alpha=alpha, 
+                            label="p1/p5")
+
                 if data_distr_std[run] is not None: # add data distribution std area
                     alpha=0.3
                     ax.fill_between(xaxis[valid_mask], 
@@ -1348,7 +1397,7 @@ if __name__ == "__main__":
             marker_size=marker_size)
         
         plotter.plot_data(dataset_name="qf1_vals_mean", 
-            title="Qf mean - std - min/max", 
+            title="Q values stats over tr. batches", 
             xaxis_dataset_name=xaxis_dataset_name,
             xlabel=xlabel,
             ylabel="Q val.",
@@ -1356,8 +1405,8 @@ if __name__ == "__main__":
             use_markers=False,
             marker_size=marker_size,
             distr_std="qf1_vals_std",
-            distr_max="qf1_vals_max",
-            distr_min="qf1_vals_min")
+            distr_max=None,
+            distr_min=None)
         
         # sub rewards
         plotter.plot_data(dataset_name="sub_rew_avrg_over_envs", 
@@ -1373,6 +1422,8 @@ if __name__ == "__main__":
             distr_min=None,
             distr_q1="sub_rew_q1_over_envs",
             distr_q3="sub_rew_q3_over_envs",
+            distr_p5="sub_rew_p5_over_envs",
+            distr_p95="sub_rew_p95_over_envs",
             distr_median="sub_rew_median_over_envs") 
         plotter.plot_data(dataset_name="sub_rew_avrg_over_envs", 
             title=f"scaled sub returns stats over envs", 
@@ -1382,11 +1433,13 @@ if __name__ == "__main__":
             data_labels=plotter.sub_rew_names,
             use_markers=False,
             marker_size=marker_size,
-            distr_std="sub_rew_std_over_envs",
+            distr_std=None,
             distr_max=None,
             distr_min=None,
             distr_q1="sub_rew_q1_over_envs",
             distr_q3="sub_rew_q3_over_envs",
+            distr_p5="sub_rew_p5_over_envs",
+            distr_p95="sub_rew_p95_over_envs",
             distr_median="sub_rew_median_over_envs",
             grid_plot=True,
             grid_shares_y=False,
@@ -1408,11 +1461,13 @@ if __name__ == "__main__":
             data_labels=["tot_rew"],
             use_markers=False,
             marker_size=marker_size,
-            distr_std="tot_rew_std_over_envs",
+            distr_std=None,
             distr_max=None,
             distr_min=None,
             distr_q1="tot_rew_q1_over_envs",
             distr_q3="tot_rew_q3_over_envs",
+            distr_p5="tot_rew_p5_over_envs",
+            distr_p95="tot_rew_p95_over_envs",
             distr_median="tot_rew_median_over_envs") 
         plotter.plot_data(dataset_name="tot_rew_avrg", 
             title=f"scaled return distribution across envs", 
@@ -1536,6 +1591,8 @@ if __name__ == "__main__":
                 distr_std=None,
                 distr_max=None, # tot_rew_max_over_envs
                 distr_min=None,
+                distr_p5="Power_p5_over_envs",
+                distr_p95="Power_p95_over_envs",
                 distr_q1="Power_q1_over_envs",
                 distr_q3="Power_q3_over_envs",
                 distr_median="Power_median_over_envs",
@@ -1551,9 +1608,11 @@ if __name__ == "__main__":
                 data_labels=["lin_x", "lin_y", "lin_z", "omega_x", "omega_y", "omega_z"],
                 use_markers=False,
                 marker_size=marker_size,
-                distr_std="TrackingError_std_over_envs",
+                distr_std=None,
                 distr_max=None, # tot_rew_max_over_envs
                 distr_min=None,
+                distr_p5="TrackingError_p5_over_envs",
+                distr_p95="TrackingError_p95_over_envs",
                 distr_q1="TrackingError_q1_over_envs",
                 distr_q3="TrackingError_q3_over_envs",
                 distr_median="TrackingError_median_over_envs",
@@ -1580,11 +1639,13 @@ if __name__ == "__main__":
                     data_idxs=idxs,
                     use_markers=False,
                     marker_size=marker_size,
-                    distr_std="Actions_std_over_envs",
+                    distr_std=None,
                     distr_max="Actions_max_over_envs",
                     distr_min="Actions_min_over_envs",
                     distr_q1="Actions_q1_over_envs",
                     distr_q3="Actions_q3_over_envs",
+                    distr_p5="Actions_p5_over_envs",
+                    distr_p95="Actions_p95_over_envs",
                     distr_median="Actions_median_over_envs",
                     grid_plot=True,
                     grid_size=[1, len(idxs)])
@@ -1601,11 +1662,13 @@ if __name__ == "__main__":
                     data_idxs=idxs,
                     use_markers=False,
                     marker_size=marker_size,
-                    distr_std="Actions_std_over_envs",
+                    distr_std=None,
                     distr_max="Actions_max_over_envs",
                     distr_min="Actions_min_over_envs",
                     distr_q1="Actions_q1_over_envs",
                     distr_q3="Actions_q3_over_envs",
+                    distr_p5="Actions_p5_over_envs",
+                    distr_p95="Actions_p95_over_envs",
                     distr_median="Actions_median_over_envs",
                     grid_plot=True,
                     grid_size=[1, len(idxs)])
@@ -1622,11 +1685,13 @@ if __name__ == "__main__":
                     data_idxs=idxs,
                     use_markers=False,
                     marker_size=marker_size,
-                    distr_std="Actions_std_over_envs",
+                    distr_std=None,
                     distr_max="Actions_max_over_envs",
                     distr_min="Actions_min_over_envs",
                     distr_q1="Actions_q1_over_envs",
                     distr_q3="Actions_q3_over_envs",
+                    distr_p5="Actions_p5_over_envs",
+                    distr_p95="Actions_p95_over_envs",
                     distr_median="Actions_median_over_envs",
                     grid_plot=True,
                     grid_size=[1, len(idxs)])
@@ -1643,11 +1708,13 @@ if __name__ == "__main__":
                     data_idxs=idxs,
                     use_markers=False,
                     marker_size=marker_size,
-                    distr_std="Actions_std_over_envs",
+                    distr_std=None,
                     distr_max="Actions_max_over_envs",
                     distr_min="Actions_min_over_envs",
                     distr_q1="Actions_q1_over_envs",
                     distr_q3="Actions_q3_over_envs",
+                    distr_p5="Actions_p5_over_envs",
+                    distr_p95="Actions_p95_over_envs",
                     distr_median="Actions_median_over_envs",
                     grid_plot=True,
                     grid_size=[1, len(idxs)])
@@ -1664,11 +1731,13 @@ if __name__ == "__main__":
                     data_idxs=idxs,
                     use_markers=False,
                     marker_size=marker_size,
-                    distr_std="Actions_std_over_envs",
+                    distr_std=None,
                     distr_max="Actions_max_over_envs",
                     distr_min="Actions_min_over_envs",
                     distr_q1="Actions_q1_over_envs",
                     distr_q3="Actions_q3_over_envs",
+                    distr_p5="Actions_p5_over_envs",
+                    distr_p95="Actions_p95_over_envs",
                     distr_median="Actions_median_over_envs",
                     grid_plot=True,
                     grid_size=[1, len(idxs)])
@@ -1685,11 +1754,13 @@ if __name__ == "__main__":
                     data_idxs=idxs,
                     use_markers=False,
                     marker_size=marker_size,
-                    distr_std="Actions_std_over_envs",
+                    distr_std=None,
                     distr_max="Actions_max_over_envs",
                     distr_min="Actions_min_over_envs",
                     distr_q1="Actions_q1_over_envs",
                     distr_q3="Actions_q3_over_envs",
+                    distr_p5="Actions_p5_over_envs",
+                    distr_p95="Actions_p95_over_envs",
                     distr_median="Actions_median_over_envs",
                     grid_plot=True,
                     grid_size=[1, len(idxs)])
@@ -1706,11 +1777,13 @@ if __name__ == "__main__":
                     data_idxs=idxs,
                     use_markers=False,
                     marker_size=marker_size,
-                    distr_std="Actions_std_over_envs",
+                    distr_std=None,
                     distr_max="Actions_max_over_envs",
                     distr_min="Actions_min_over_envs",
                     distr_q1="Actions_q1_over_envs",
                     distr_q3="Actions_q3_over_envs",
+                    distr_p5="Actions_p5_over_envs",
+                    distr_p95="Actions_p95_over_envs",
                     distr_median="Actions_median_over_envs",
                     grid_plot=True,
                     grid_size=[1, len(idxs)])
