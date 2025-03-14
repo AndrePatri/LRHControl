@@ -10,6 +10,7 @@ import math
 import matplotlib.lines as mlines
 import argparse
 from matplotlib.colors import LogNorm
+import matplotlib.ticker as mticker
 
 # Define a custom colormap (this is an example; adjust as needed)
 colors = [
@@ -483,6 +484,10 @@ class LRHCPlotter:
                 # Time series plot for single environment
                 fig, ax = plt.subplots(figsize=(10, 5))
                 
+                # force scientific notation
+                ax.xaxis.set_major_formatter(mticker.ScalarFormatter(useMathText=True))
+                ax.ticklabel_format(style='sci', axis='x', scilimits=(0, 0))  # Force scientific notation
+
                 for i in range(len(data_indexes)):
                     
                     idx=data_indexes[i]
@@ -607,6 +612,10 @@ class LRHCPlotter:
                         if not (rows==1 or cols ==1):
                             ax=axes[row, col]
                         
+                        # force scientific notation
+                        ax.xaxis.set_major_formatter(mticker.ScalarFormatter(useMathText=True))
+                        ax.ticklabel_format(style='sci', axis='x', scilimits=(0, 0))  # Force scientific notation
+
                         idx=data_indexes[i]
                         label=f"Data {idx+1}" if data_labels is None else data_labels[i]
                         alpha=data_alphas[i] if data_alphas is not None else 1.0
@@ -1238,6 +1247,10 @@ class LRHCMultiRunPlotter():
                 else:
                     ax=axes[i]
 
+                # force scientific notation
+                ax.xaxis.set_major_formatter(mticker.ScalarFormatter(useMathText=True))
+                ax.ticklabel_format(style='sci', axis='x', scilimits=(0, 0))  # Force scientific notation
+    
                 idx=data_indexes[i]
                 title=f"Data {idx+1}" if data_labels is None else data_labels[i]
                 alpha=data_alphas[i] if data_alphas is not None else 1.0
@@ -1293,9 +1306,16 @@ class LRHCMultiRunPlotter():
                             color=plt_line.get_color(), alpha=alpha, 
                             label="min/max")
                 
-                ax.set_title(f"{title}")
-                ax.set_xlabel(xlabels[i])
-                ax.set_ylabel(ylabels[i])
+                # ax.set_title(f"{title}")
+                if i==(len(data_indexes)-1):
+                    ax.set_xlabel(xlabels[i])
+                if run==0:
+                    # ax.yaxis.set_label_position("right")
+                    ax.set_ylabel(ylabels[i])
+                
+                if run==(self._n_runs-1):
+                    ax.yaxis.set_label_position("right")
+                    ax.set_ylabel(title)
 
                 # Create custom legend with lines instead of dots
                 legend_lines = [mlines.Line2D([0], [0], color=plt_line.get_color(), lw=4)]
