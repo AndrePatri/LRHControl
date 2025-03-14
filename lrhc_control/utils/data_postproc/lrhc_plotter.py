@@ -881,8 +881,6 @@ class LRHCMultiRunPlotter():
 
     def __init__(self, hdf5_file_path,
             ablation_attrname: str = None):
-        
-        
 
         self._base_path=hdf5_file_path
         self._hdf5_files, self._rnames = self.check_hdf5_files(self._base_path)
@@ -896,13 +894,15 @@ class LRHCMultiRunPlotter():
         self._x_axis_name="n_timesteps_done"
         for i in range(self._n_runs):
             dataset=self._hdf5_files[i]
-            verbose=False
-            self._single_run_plotters.append(LRHCPlotter(hdf5_file_path=dataset, verbose=verbose))
+            print("########################")
+            print(f"Run {self._rnames[i]} ->")
+            self._single_run_plotters.append(LRHCPlotter(hdf5_file_path=dataset, verbose=True))
             self._single_run_datasets.append(self._single_run_plotters[i].list_datasets())
             self._single_run_plotters[i].load_attributes()
             self._single_run_plotters[i].load_data(dataset_names=self._single_run_datasets[i])
             self._single_run_attributes.append(list(self._single_run_plotters[i].list_attributes().keys()))
-        
+            print("########################")
+
         self._check_all_attr_are_there()
         self._check_all_datasets_are_there()
 
