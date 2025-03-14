@@ -1335,7 +1335,6 @@ class LRHCMultiRunPlotter():
                 ax.grid(True)
 
         plt.suptitle(title, y=0.99)
-        fig.subplots_adjust(top=0.98)
 
         # Store the figure in the list
         if fig is not None:
