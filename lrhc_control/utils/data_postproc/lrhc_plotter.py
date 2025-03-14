@@ -62,7 +62,6 @@ class LRHCPlotter:
         self.sub_trunc_names=list(self.attributes["sub_trunc_names"])
         self.sub_term_names=list(self.attributes["sub_term_names"])
         self.sub_rew_names=list(self.attributes["sub_reward_names"])
-
         n_envs=self.attributes["n_envs"]
         substepping_dt=self.attributes["substep_dt"]
         action_reps=self.attributes["action_repeat"]
@@ -970,14 +969,21 @@ class LRHCMultiRunPlotter():
         self._all_lists_equal(self.sub_term_names)
         self._all_lists_equal(self.sub_rew_names)
         
+        # since they matchh, we just use the ones from one dataset
+        self.obs_names=self.obs_names[0]
+        self.action_names=self.action_names[0]
+        self.sub_trunc_names=self.sub_rew_names[0]
+        self.sub_term_names=self.sub_term_names[0]
+        self.sub_rew_names=self.sub_rew_names[0]
+
+        self._ablation_attrs=[]
+        for i in range(self._n_runs):
+                self._ablation_attrs.append(f"ablation {i}")
         if ablation_attrname is not None and (ablation_attrname in self._different_attrs_across_runs):
-            self._ablation_attrs=[]
             for i in range(self._n_runs):
                 self._ablation_attrs.append(ablation_attrname+ \
                             f": {self._different_attrs_across_runs[ablation_attrname][i]}")
-            
-        else:
-            self._ablation_attrs=self._rnames
+                        
 
     def _highlight_attr_val_differences(self):
         
@@ -1202,10 +1208,6 @@ class LRHCMultiRunPlotter():
             ylabels=[ylabel]*len(data_indexes)
         else:
             ylabels=ylabel
-        if isinstance(title, str):
-            titles=[title]*len(data_indexes)
-        else:
-            titles=title
 
         # x axis
         x_datasets=[]
@@ -1236,7 +1238,6 @@ class LRHCMultiRunPlotter():
         if rows*cols==1:
             axes=[axes]
 
-        title_set=False
         for i in range(len(data_indexes)):
             # loop over data
             for run in range(self._n_runs):
@@ -1252,17 +1253,17 @@ class LRHCMultiRunPlotter():
                 ax.ticklabel_format(style='sci', axis='x', scilimits=(0, 0))  # Force scientific notation
     
                 idx=data_indexes[i]
-                title=f"Data {idx+1}" if data_labels is None else data_labels[i]
+                dlabel=f"Data {idx+1}" if data_labels is None else data_labels[i]
                 alpha=data_alphas[i] if data_alphas is not None else 1.0
                 plt_line=None
 
                 x_dataset=x_datasets[run]
                 if x_dataset not in self._single_run_plotters[run].data:
-                    print(f"X-axis dataset '{x_dataset}' for data {title}, run {self._rnames[run]} not loaded. Use 'load_data' first.")
+                    print(f"X-axis dataset '{x_dataset}' for data {dlabel}, run {self._rnames[run]} not loaded. Use 'load_data' first.")
                     return
                 xaxis_data = self._single_run_plotters[run].data[x_dataset]
                 if xaxis_data.shape != (n_samples[run], 1):
-                    print(f"X-axis dataset '{x_dataset}' for data {title}, run {self._rnames[run]} must have shape ({n_samples[run]}, 1) but got {xaxis_data.shape}")
+                    print(f"X-axis dataset '{x_dataset}' for data {dlabel}, run {self._rnames[run]} must have shape ({n_samples[run]}, 1) but got {xaxis_data.shape}")
                     return
                 xaxis = xaxis_data[:, 0]  # Extract as 1D array
 
@@ -1306,16 +1307,20 @@ class LRHCMultiRunPlotter():
                             color=plt_line.get_color(), alpha=alpha, 
                             label="min/max")
                 
-                # ax.set_title(f"{title}")
+                if i==0:
+                    ax.set_title(f"{self._ablation_attrs[run]}")
+
                 if i==(len(data_indexes)-1):
                     ax.set_xlabel(xlabels[i])
-                if run==0:
-                    # ax.yaxis.set_label_position("right")
-                    ax.set_ylabel(ylabels[i])
                 
                 if run==(self._n_runs-1):
                     ax.yaxis.set_label_position("right")
-                    ax.set_ylabel(title)
+                    # ax.yaxis.set_label_position("right")
+                    ax.set_ylabel(ylabels[i])
+                
+                if run==0:
+                    ax.set_ylabel(dlabel+": ", rotation=0, labelpad=20, 
+                        fontsize=11)
 
                 # Create custom legend with lines instead of dots
                 legend_lines = [mlines.Line2D([0], [0], color=plt_line.get_color(), lw=4)]
@@ -1328,6 +1333,9 @@ class LRHCMultiRunPlotter():
                 legend.set_draggable(True)  # Make the legend draggable
                 
                 ax.grid(True)
+
+        plt.suptitle(title, y=0.99)
+        fig.subplots_adjust(top=0.98)
 
         # Store the figure in the list
         if fig is not None:
