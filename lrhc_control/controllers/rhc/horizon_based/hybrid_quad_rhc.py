@@ -778,14 +778,14 @@ class HybridQuadRhc(RHController):
     def _set_is_full(self):
         
         # measurements
-        q_full_root = self.robot_state.root_state.get(data_type="q_full", robot_idxs=self.controller_index).reshape(-1, 1)
-        v_root = self.robot_state.root_state.get(data_type="v", robot_idxs=self.controller_index).reshape(-1, 1)
-        omega = self.robot_state.root_state.get(data_type="omega", robot_idxs=self.controller_index).reshape(-1, 1)
-        a_root = self.robot_state.root_state.get(data_type="a_full", robot_idxs=self.controller_index).reshape(-1, 1)
+        q_full_root = self.robot_state.root_state.get(data_type="q_full", robot_idxs=self.controller_index_np).reshape(-1, 1)
+        v_root = self.robot_state.root_state.get(data_type="v", robot_idxs=self.controller_index_np).reshape(-1, 1)
+        omega = self.robot_state.root_state.get(data_type="omega", robot_idxs=self.controller_index_np).reshape(-1, 1)
+        a_root = self.robot_state.root_state.get(data_type="a_full", robot_idxs=self.controller_index_np).reshape(-1, 1)
         
-        q_jnts = self.robot_state.jnts_state.get(data_type="q", robot_idxs=self.controller_index).reshape(-1, 1)
-        v_jnts = self.robot_state.jnts_state.get(data_type="v", robot_idxs=self.controller_index).reshape(-1, 1)
-        a_jnts = self.robot_state.jnts_state.get(data_type="a", robot_idxs=self.controller_index).reshape(-1, 1)
+        q_jnts = self.robot_state.jnts_state.get(data_type="q", robot_idxs=self.controller_index_np).reshape(-1, 1)
+        v_jnts = self.robot_state.jnts_state.get(data_type="v", robot_idxs=self.controller_index_np).reshape(-1, 1)
+        a_jnts = self.robot_state.jnts_state.get(data_type="a", robot_idxs=self.controller_index_np).reshape(-1, 1)
 
         if (not len(self._continuous_joints)==0): # we need do expand some meas. rev jnts to So2
             self._jnts_q_expanded[self._rev_joints_idxs, :]=q_jnts[self._rev_joints_idxs_red ,:]
