@@ -1704,6 +1704,11 @@ class LRhcTrainingEnvBase(ABC):
             self._obs.update_names()
             self._next_obs.update_names()
 
+            # also update 
+            if "Obs" in self.custom_db_data:
+                db_obs_names=self.custom_db_data["Obs"].data_names()
+                db_obs_names[:]=updated_obs_names
+
     def _check_finite(self, 
                 tensor: torch.Tensor,
                 name: str, 
