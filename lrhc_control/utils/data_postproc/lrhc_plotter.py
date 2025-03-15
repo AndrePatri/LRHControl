@@ -41,8 +41,9 @@ class LRHCPlotter:
 
         self.map_legend_to_ax = {}  # Will map legend lines to original lines.
         
-        if not env_db:
-            self._initialize()
+        self._env_db=env_db
+
+        self._initialize()
     
     def _initialize(self):
         # load env db data
@@ -57,161 +58,162 @@ class LRHCPlotter:
         # print(attributes)
         # print("\n")
 
-        self.obs_names=list(self.attributes["obs_names"])
-        self.action_names=list(self.attributes["action_names"])
-        self.sub_trunc_names=list(self.attributes["sub_trunc_names"])
-        self.sub_term_names=list(self.attributes["sub_term_names"])
-        self.sub_rew_names=list(self.attributes["sub_reward_names"])
-        n_envs=self.attributes["n_envs"]
-        substepping_dt=self.attributes["substep_dt"]
-        action_reps=self.attributes["action_repeat"]
-        env_step_dsec=action_reps*substepping_dt
-        total_simulated_secs=self.data["n_timesteps_done"]*env_step_dsec
-        total_simulated_vec_secs=self.data["n_timesteps_done"]/n_envs
-        total_simulated_h=total_simulated_secs/3600.0
-        total_simulated_vec_h=total_simulated_vec_secs/3600.0
-        total_simulated_d=total_simulated_h/24.0
-        total_simulated_vec_d=total_simulated_vec_h/24.0
+        if not self._env_db:
+            self.obs_names=list(self.attributes["obs_names"])
+            self.action_names=list(self.attributes["action_names"])
+            self.sub_trunc_names=list(self.attributes["sub_trunc_names"])
+            self.sub_term_names=list(self.attributes["sub_term_names"])
+            self.sub_rew_names=list(self.attributes["sub_reward_names"])
+            n_envs=self.attributes["n_envs"]
+            substepping_dt=self.attributes["substep_dt"]
+            action_reps=self.attributes["action_repeat"]
+            env_step_dsec=action_reps*substepping_dt
+            total_simulated_secs=self.data["n_timesteps_done"]*env_step_dsec
+            total_simulated_vec_secs=self.data["n_timesteps_done"]/n_envs
+            total_simulated_h=total_simulated_secs/3600.0
+            total_simulated_vec_h=total_simulated_vec_secs/3600.0
+            total_simulated_d=total_simulated_h/24.0
+            total_simulated_vec_d=total_simulated_vec_h/24.0
 
-        self.create_dataset(dataset_name="total_simulated_secs", 
-            data=total_simulated_secs)
-        self.create_dataset(dataset_name="total_simulated_vec_secs", 
-            data=total_simulated_vec_secs)
-        self.create_dataset(dataset_name="total_simulated_h", 
-            data=total_simulated_h)
-        self.create_dataset(dataset_name="total_simulated_vec_h", 
-            data=total_simulated_vec_h)
-        self.create_dataset(dataset_name="total_simulated_d", 
-            data=total_simulated_d)
-        self.create_dataset(dataset_name="total_simulated_vec_d", 
-            data=total_simulated_vec_d)
-        
-        # add stats which where not logged explicitly
-        self.compute_stats(dataset_name="Actions_avrg",
-            stats_dim=1,name="Actions")
-        self.compute_stats(dataset_name="AgentTwistRefs_avrg",
-            stats_dim=1,name="AgentTwistRefs")
-        self.compute_stats(dataset_name="Obs_avrg",
-            stats_dim=1,name="Obs")
-        self.compute_stats(dataset_name="Obs_avrg",
-            stats_dim=1,name="Obs")
-        self.compute_stats(dataset_name="Power_avrg",
-            stats_dim=1,name="Power")
-        self.compute_stats(dataset_name="RhcContactForces_avrg",
-            stats_dim=1,name="RhcContactForces")
-        self.compute_stats(dataset_name="RhcFailIdx_avrg",
-            stats_dim=1,name="RhcFailIdx")
-        self.compute_stats(dataset_name="RhcRefsFlag_avrg",
-            stats_dim=1,name="RhcRefsIdx")
-        self.compute_stats(dataset_name="SubTerminations_avrg",
-            stats_dim=1,name="SubTerminations")
-        self.compute_stats(dataset_name="SubTruncations_avrg",
-            stats_dim=1,name="SubTruncations")
-        self.compute_stats(dataset_name="Terminations_avrg",
-            stats_dim=1,name="Terminations")
-        self.compute_stats(dataset_name="Truncations_avrg",
-            stats_dim=1,name="Truncations")
-        self.compute_stats(dataset_name="TrackingError_avrg",
-            stats_dim=1,name="TrackingError")
-        self.compute_stats(dataset_name="TrackingError_avrg",
-            stats_dim=1,name="TrackingError")
-        
-        self.compute_stats(dataset_name="sub_rew_avrg",
-                stats_dim=1,name="sub_rew")
-        self.compute_stats(dataset_name="tot_rew_avrg",
-                stats_dim=1,name="tot_rew")
-
-        self.create_dataset(dataset_name="MechPow_avrg", 
-            data=self.data["Power_avrg"][:, :, 1:2])
-        self.create_dataset(dataset_name="MechPow_avrg_over_envs", 
-            data=self.data["Power_avrg_over_envs"][:, :, 1:2])
-        self.create_dataset(dataset_name="MechPow_std_over_envs", 
-            data=self.data["Power_std_over_envs"][:, :, 1:2])
-        self.create_dataset(dataset_name="MechPow_q1_over_envs", 
-            data=self.data["Power_q1_over_envs"][:, :, 1:2])
-        self.create_dataset(dataset_name="MechPow_q3_over_envs", 
-            data=self.data["Power_q3_over_envs"][:, :, 1:2])
-        self.create_dataset(dataset_name="MechPow_median_over_envs", 
-            data=self.data["Power_median_over_envs"][:, :, 1:2])
-        self.create_dataset(dataset_name="MechPow_max_over_envs", 
-            data=self.data["Power_max_over_envs"][:, :, 1:2])
-        self.create_dataset(dataset_name="MechPow_min_over_envs", 
-            data=self.data["Power_min_over_envs"][:, :, 1:2])
-        
-        self.create_dataset(dataset_name="CoT_avrg", 
-            data=self.data["Power_avrg"][:, :, 0:1])
-        self.create_dataset(dataset_name="CoT_avrg_over_envs", 
-            data=self.data["Power_avrg_over_envs"][:, :, 0:1])
-        self.create_dataset(dataset_name="CoT_std_over_envs", 
-            data=self.data["Power_std_over_envs"][:, :, 0:1])
-        self.create_dataset(dataset_name="CoT_q1_over_envs", 
-            data=self.data["Power_q1_over_envs"][:, :, 0:1])
-        self.create_dataset(dataset_name="CoT_q3_over_envs", 
-            data=self.data["Power_q3_over_envs"][:, :, 0:1])
-        self.create_dataset(dataset_name="CoT_median_over_envs", 
-            data=self.data["Power_median_over_envs"][:, :, 0:1])
-        self.create_dataset(dataset_name="CoT_max_over_envs", 
-            data=self.data["Power_max_over_envs"][:, :, 0:1])
-        self.create_dataset(dataset_name="CoT_min_over_envs", 
-            data=self.data["Power_min_over_envs"][:, :, 0:1])
-
-        # losses 
-        compose_ok=self.compose_datasets(name="qf1_losses",
-            datasets_list=["qf1_loss", "qf1_loss_validation"])
-        self.compose_datasets(name="qf2_losses",
-            datasets_list=["qf2_loss", "qf2_loss_validation"])
-        self.compose_datasets(name="actor_losses",
-            datasets_list=["actor_loss", "actor_loss_validation"])
-        self.compose_datasets(name="alpha_losses",
-            datasets_list=["alpha_loss", "alpha_loss_validation"])
-
-        # other training data
-        self.compose_datasets(name="qf_vals",
-            datasets_list=["qf1_vals_mean", "qf2_vals_mean"])
-        self.compose_datasets(name="qf_vals_std",
-            datasets_list=["qf1_vals_std", "qf2_vals_std"])
-        self.compose_datasets(name="qf_vals_max",
-            datasets_list=["qf1_vals_max", "qf2_vals_max"])
-        self.compose_datasets(name="qf_vals_min",
-            datasets_list=["qf1_vals_min", "qf2_vals_min"])
-
-        # handle sub rewards
-        for i in range(len(self.sub_rew_names)):
-            sub_rew_name=self.sub_rew_names[i]
-            avrg_over_envs_name=sub_rew_name+"_avrg_rew_over_envs"
-            std_over_envs_name=sub_rew_name+"_std_rew_over_envs"
-            q1_over_envs_name=sub_rew_name+"_q1_rew_over_envs"
-            q3_over_envs_name=sub_rew_name+"_q3_rew_over_envs"
-            median_over_envs_name=sub_rew_name+"_median_rew_over_envs"
-            distr_name=sub_rew_name+"_avrg_rew"
-            distr_name_max=sub_rew_name+"_max_rew"
-            distr_name_min=sub_rew_name+"_min_rew"
-
-            self.create_dataset(dataset_name=distr_name,
-                data=self.data["sub_rew_avrg"][:, :, i:i+1])
-            self.create_dataset(dataset_name=distr_name_max,
-                data=self.data["sub_rew_max"][:, :, i:i+1])
-            self.create_dataset(dataset_name=distr_name_min,
-                data=self.data["sub_rew_min"][:, :, i:i+1])
+            self.create_dataset(dataset_name="total_simulated_secs", 
+                data=total_simulated_secs)
+            self.create_dataset(dataset_name="total_simulated_vec_secs", 
+                data=total_simulated_vec_secs)
+            self.create_dataset(dataset_name="total_simulated_h", 
+                data=total_simulated_h)
+            self.create_dataset(dataset_name="total_simulated_vec_h", 
+                data=total_simulated_vec_h)
+            self.create_dataset(dataset_name="total_simulated_d", 
+                data=total_simulated_d)
+            self.create_dataset(dataset_name="total_simulated_vec_d", 
+                data=total_simulated_vec_d)
             
-            self.create_dataset(dataset_name=avrg_over_envs_name,
-                data=self.data["sub_rew_avrg_over_envs"][:, :, i:i+1])
-            self.create_dataset(dataset_name=std_over_envs_name,
-                data=self.data["sub_rew_std_over_envs"][:, :, i:i+1])
-            self.create_dataset(dataset_name=q1_over_envs_name,
-                data=self.data["sub_rew_q1_over_envs"][:, :, i:i+1])
-            self.create_dataset(dataset_name=q3_over_envs_name,
-                data=self.data["sub_rew_q3_over_envs"][:, :, i:i+1])
-            self.create_dataset(dataset_name=median_over_envs_name,
-                data=self.data["sub_rew_median_over_envs"][:, :, i:i+1])
+            # add stats which where not logged explicitly
+            self.compute_stats(dataset_name="Actions_avrg",
+                stats_dim=1,name="Actions")
+            self.compute_stats(dataset_name="AgentTwistRefs_avrg",
+                stats_dim=1,name="AgentTwistRefs")
+            self.compute_stats(dataset_name="Obs_avrg",
+                stats_dim=1,name="Obs")
+            self.compute_stats(dataset_name="Obs_avrg",
+                stats_dim=1,name="Obs")
+            self.compute_stats(dataset_name="Power_avrg",
+                stats_dim=1,name="Power")
+            self.compute_stats(dataset_name="RhcContactForces_avrg",
+                stats_dim=1,name="RhcContactForces")
+            self.compute_stats(dataset_name="RhcFailIdx_avrg",
+                stats_dim=1,name="RhcFailIdx")
+            self.compute_stats(dataset_name="RhcRefsFlag_avrg",
+                stats_dim=1,name="RhcRefsIdx")
+            self.compute_stats(dataset_name="SubTerminations_avrg",
+                stats_dim=1,name="SubTerminations")
+            self.compute_stats(dataset_name="SubTruncations_avrg",
+                stats_dim=1,name="SubTruncations")
+            self.compute_stats(dataset_name="Terminations_avrg",
+                stats_dim=1,name="Terminations")
+            self.compute_stats(dataset_name="Truncations_avrg",
+                stats_dim=1,name="Truncations")
+            self.compute_stats(dataset_name="TrackingError_avrg",
+                stats_dim=1,name="TrackingError")
+            self.compute_stats(dataset_name="TrackingError_avrg",
+                stats_dim=1,name="TrackingError")
+            
+            self.compute_stats(dataset_name="sub_rew_avrg",
+                    stats_dim=1,name="sub_rew")
+            self.compute_stats(dataset_name="tot_rew_avrg",
+                    stats_dim=1,name="tot_rew")
 
-        if "use_rnd" in attributes:
-            if attributes["use_rnd"]:
-                self.compose_datasets(name="expl_bonus_proc",
-                    datasets_list=["expl_bonus_proc_avrg", "expl_bonus_proc_std"])
-                self.compose_datasets(name="expl_bonus_raw",
-                    datasets_list=["expl_bonus_raw_avrg", "expl_bonus_raw_std"])
+            self.create_dataset(dataset_name="MechPow_avrg", 
+                data=self.data["Power_avrg"][:, :, 1:2])
+            self.create_dataset(dataset_name="MechPow_avrg_over_envs", 
+                data=self.data["Power_avrg_over_envs"][:, :, 1:2])
+            self.create_dataset(dataset_name="MechPow_std_over_envs", 
+                data=self.data["Power_std_over_envs"][:, :, 1:2])
+            self.create_dataset(dataset_name="MechPow_q1_over_envs", 
+                data=self.data["Power_q1_over_envs"][:, :, 1:2])
+            self.create_dataset(dataset_name="MechPow_q3_over_envs", 
+                data=self.data["Power_q3_over_envs"][:, :, 1:2])
+            self.create_dataset(dataset_name="MechPow_median_over_envs", 
+                data=self.data["Power_median_over_envs"][:, :, 1:2])
+            self.create_dataset(dataset_name="MechPow_max_over_envs", 
+                data=self.data["Power_max_over_envs"][:, :, 1:2])
+            self.create_dataset(dataset_name="MechPow_min_over_envs", 
+                data=self.data["Power_min_over_envs"][:, :, 1:2])
+            
+            self.create_dataset(dataset_name="CoT_avrg", 
+                data=self.data["Power_avrg"][:, :, 0:1])
+            self.create_dataset(dataset_name="CoT_avrg_over_envs", 
+                data=self.data["Power_avrg_over_envs"][:, :, 0:1])
+            self.create_dataset(dataset_name="CoT_std_over_envs", 
+                data=self.data["Power_std_over_envs"][:, :, 0:1])
+            self.create_dataset(dataset_name="CoT_q1_over_envs", 
+                data=self.data["Power_q1_over_envs"][:, :, 0:1])
+            self.create_dataset(dataset_name="CoT_q3_over_envs", 
+                data=self.data["Power_q3_over_envs"][:, :, 0:1])
+            self.create_dataset(dataset_name="CoT_median_over_envs", 
+                data=self.data["Power_median_over_envs"][:, :, 0:1])
+            self.create_dataset(dataset_name="CoT_max_over_envs", 
+                data=self.data["Power_max_over_envs"][:, :, 0:1])
+            self.create_dataset(dataset_name="CoT_min_over_envs", 
+                data=self.data["Power_min_over_envs"][:, :, 0:1])
 
+            # losses 
+            compose_ok=self.compose_datasets(name="qf1_losses",
+                datasets_list=["qf1_loss", "qf1_loss_validation"])
+            self.compose_datasets(name="qf2_losses",
+                datasets_list=["qf2_loss", "qf2_loss_validation"])
+            self.compose_datasets(name="actor_losses",
+                datasets_list=["actor_loss", "actor_loss_validation"])
+            self.compose_datasets(name="alpha_losses",
+                datasets_list=["alpha_loss", "alpha_loss_validation"])
+
+            # other training data
+            self.compose_datasets(name="qf_vals",
+                datasets_list=["qf1_vals_mean", "qf2_vals_mean"])
+            self.compose_datasets(name="qf_vals_std",
+                datasets_list=["qf1_vals_std", "qf2_vals_std"])
+            self.compose_datasets(name="qf_vals_max",
+                datasets_list=["qf1_vals_max", "qf2_vals_max"])
+            self.compose_datasets(name="qf_vals_min",
+                datasets_list=["qf1_vals_min", "qf2_vals_min"])
+
+            # handle sub rewards
+            for i in range(len(self.sub_rew_names)):
+                sub_rew_name=self.sub_rew_names[i]
+                avrg_over_envs_name=sub_rew_name+"_avrg_rew_over_envs"
+                std_over_envs_name=sub_rew_name+"_std_rew_over_envs"
+                q1_over_envs_name=sub_rew_name+"_q1_rew_over_envs"
+                q3_over_envs_name=sub_rew_name+"_q3_rew_over_envs"
+                median_over_envs_name=sub_rew_name+"_median_rew_over_envs"
+                distr_name=sub_rew_name+"_avrg_rew"
+                distr_name_max=sub_rew_name+"_max_rew"
+                distr_name_min=sub_rew_name+"_min_rew"
+
+                self.create_dataset(dataset_name=distr_name,
+                    data=self.data["sub_rew_avrg"][:, :, i:i+1])
+                self.create_dataset(dataset_name=distr_name_max,
+                    data=self.data["sub_rew_max"][:, :, i:i+1])
+                self.create_dataset(dataset_name=distr_name_min,
+                    data=self.data["sub_rew_min"][:, :, i:i+1])
+                
+                self.create_dataset(dataset_name=avrg_over_envs_name,
+                    data=self.data["sub_rew_avrg_over_envs"][:, :, i:i+1])
+                self.create_dataset(dataset_name=std_over_envs_name,
+                    data=self.data["sub_rew_std_over_envs"][:, :, i:i+1])
+                self.create_dataset(dataset_name=q1_over_envs_name,
+                    data=self.data["sub_rew_q1_over_envs"][:, :, i:i+1])
+                self.create_dataset(dataset_name=q3_over_envs_name,
+                    data=self.data["sub_rew_q3_over_envs"][:, :, i:i+1])
+                self.create_dataset(dataset_name=median_over_envs_name,
+                    data=self.data["sub_rew_median_over_envs"][:, :, i:i+1])
+
+            if "use_rnd" in attributes:
+                if attributes["use_rnd"]:
+                    self.compose_datasets(name="expl_bonus_proc",
+                        datasets_list=["expl_bonus_proc_avrg", "expl_bonus_proc_std"])
+                    self.compose_datasets(name="expl_bonus_raw",
+                        datasets_list=["expl_bonus_raw_avrg", "expl_bonus_raw_std"])
+            
     def list_datasets(self):
         """
         Retrieve and return all dataset names available in the HDF5 file.
@@ -447,14 +449,14 @@ class LRHCPlotter:
 
         # x axis
         x_datasets=[]
-        if isinstance(xaxis_dataset_name, str):
+        if isinstance(xaxis_dataset_name, str) or (xaxis_dataset_name is None):
             x_datasets=[xaxis_dataset_name]*len(data_indexes)
         else:
             x_datasets=xaxis_dataset_name
 
         if xlabel is None:
             xlabel=x_datasets
-        if isinstance(xlabel, str):
+        if isinstance(xlabel, str) or (xlabel is None):
             xlabels=[xlabel]*len(data_indexes)
         else:
             xlabels=xlabel
@@ -496,10 +498,15 @@ class LRHCPlotter:
                     plt_line=None
 
                     x_dataset=x_datasets[i]
-                    if x_dataset not in self.data:
-                        print(f"X-axis dataset '{x_dataset}' for data {label} not loaded. Use 'load_data' first.")
-                        return
-                    xaxis_data = self.data[x_dataset]
+                    if x_dataset is not None:
+                        if x_dataset not in self.data:
+                            print(f"X-axis dataset '{x_dataset}' for data {label} not loaded. Use 'load_data' first.")
+                            return
+                        xaxis_data = self.data[x_dataset]
+                    else:
+                        xaxis_data=np.array(list(range(0, n_samples))).reshape(n_samples, 1)
+                        xaxis_data[~np.isfinite(data[:, idx]).flatten(), :]=-1.0
+                    
                     if xaxis_data.shape != (n_samples, 1):
                         print(f"X-axis dataset '{x_dataset}' for data {label} must have shape ({n_samples}, 1).")
                         return
@@ -2158,7 +2165,7 @@ if __name__ == "__main__":
             dset_suffix="_demo"
 
         # load env db data
-        plotter = LRHCPlotter(hdf5_file_path=path)
+        plotter = LRHCPlotter(hdf5_file_path=path, env_db=args.env_db)
         datasets = plotter.list_datasets()
         attributes = plotter.list_attributes()
         plotter.load_data(dataset_names=datasets, env_idx=args.env_idx)
@@ -2182,8 +2189,8 @@ if __name__ == "__main__":
         pow_names=list(plotter.attributes["Power_data_names"])
         track_err_names=list(plotter.attributes["TrackingError_data_names"])
 
-        xlabel="env_step"
         xaxis_dataset_name=None
+        xlabel="env_step"
         marker_size=2
         for ep_idx in range(n_eps):
             ep_prefix=f"ep_{ep_idx}_"
@@ -2200,7 +2207,8 @@ if __name__ == "__main__":
                 use_markers=True,
                 marker_size=marker_size,
                 data_labels=selected,
-                data_idxs=idxs)
+                data_idxs=idxs,
+                clickable=True)
             plotter.plot_data(dataset_name=obs_datasetname, 
                 title=ep_prefix+"obs - gravity vec"+dset_suffix, 
                 xaxis_dataset_name=xaxis_dataset_name,
@@ -2208,7 +2216,8 @@ if __name__ == "__main__":
                 use_markers=True,
                 marker_size=marker_size,
                 data_labels=selected,
-                data_idxs=idxs)
+                data_idxs=idxs,
+                clickable=True)
             
             # joint pos
             patterns=["q_jnt_*"]
@@ -2220,7 +2229,8 @@ if __name__ == "__main__":
                 use_markers=True,
                 marker_size=marker_size,
                 data_labels=selected,
-                data_idxs=idxs)
+                data_idxs=idxs,
+                clickable=True)
         
             # joint vel
             patterns=["v_jnt_*"]
@@ -2232,7 +2242,8 @@ if __name__ == "__main__":
                 use_markers=True,
                 marker_size=marker_size,
                 data_labels=selected,
-                data_idxs=idxs)
+                data_idxs=idxs,
+                clickable=True)
             
             # cmd effort
             patterns=["rhc_cmd_q_*"]
@@ -2244,7 +2255,8 @@ if __name__ == "__main__":
                 use_markers=True,
                 marker_size=marker_size,
                 data_labels=selected,
-                data_idxs=idxs)
+                data_idxs=idxs,
+                clickable=True)
             
             # cmd effort
             patterns=["rhc_cmd_v_*"]
@@ -2268,7 +2280,8 @@ if __name__ == "__main__":
                 use_markers=True,
                 marker_size=marker_size,
                 data_labels=selected,
-                data_idxs=idxs)
+                data_idxs=idxs,
+                clickable=True)
             
             # estimated contact forces
             patterns=["fc_contact*"]
@@ -2280,7 +2293,8 @@ if __name__ == "__main__":
                 use_markers=True,
                 marker_size=marker_size,
                 data_labels=selected,
-                data_idxs=idxs)
+                data_idxs=idxs,
+                clickable=True)
             
             # mpc fail idx
             patterns=["rhc_fail*"]
@@ -2292,7 +2306,8 @@ if __name__ == "__main__":
                 use_markers=True,
                 marker_size=marker_size,
                 data_labels=selected,
-                data_idxs=idxs)
+                data_idxs=idxs,
+                clickable=True)
             
             # rhc flight info
             patterns=["flight_*"]
@@ -2304,7 +2319,8 @@ if __name__ == "__main__":
                 use_markers=True,
                 marker_size=marker_size,
                 data_labels=selected,
-                data_idxs=idxs)
+                data_idxs=idxs,
+                clickable=True)
             
             # linvel
             patterns=["linvel_*_base_loc"]
@@ -2316,7 +2332,8 @@ if __name__ == "__main__":
                 use_markers=True,
                 marker_size=marker_size,
                 data_labels=selected,
-                data_idxs=idxs)
+                data_idxs=idxs,
+                clickable=True)
             
             # omega
             patterns=["omega_*_base_loc"]
@@ -2328,7 +2345,8 @@ if __name__ == "__main__":
                 use_markers=True,
                 marker_size=marker_size,
                 data_labels=selected,
-                data_idxs=idxs)
+                data_idxs=idxs,
+                clickable=True)
 
             # clock (if any)
             patterns=["clock*"]
@@ -2341,7 +2359,8 @@ if __name__ == "__main__":
                     use_markers=True,
                     marker_size=marker_size,
                     data_labels=selected,
-                    data_idxs=idxs)
+                    data_idxs=idxs,
+                    clickable=True)
                 
             # actions buffer
             patterns=["*_prev_act"]
@@ -2354,7 +2373,8 @@ if __name__ == "__main__":
                     use_markers=True,
                     marker_size=marker_size,
                     data_labels=selected,
-                    data_idxs=idxs)
+                    data_idxs=idxs,
+                    clickable=True)
             patterns=["*_avrg_act"]
             idxs,selected=plotter.get_idx_matching(patterns, obs_names)
             if len(idxs)>0:
@@ -2365,7 +2385,8 @@ if __name__ == "__main__":
                     use_markers=True,
                     marker_size=marker_size,
                     data_labels=selected,
-                    data_idxs=idxs)
+                    data_idxs=idxs,
+                    clickable=True)
             patterns=["*_std_act"]
             idxs,selected=plotter.get_idx_matching(patterns, obs_names)
             if len(idxs)>0:
@@ -2376,7 +2397,8 @@ if __name__ == "__main__":
                     use_markers=True,
                     marker_size=marker_size,
                     data_labels=selected,
-                    data_idxs=idxs)
+                    data_idxs=idxs,
+                    clickable=True)
 
             patterns=["*_m*_act"]
             idxs,selected=plotter.get_idx_matching(patterns, obs_names)
@@ -2388,7 +2410,8 @@ if __name__ == "__main__":
                     use_markers=True,
                     marker_size=marker_size,
                     data_labels=selected,
-                    data_idxs=idxs)
+                    data_idxs=idxs,
+                    clickable=True)
                 
             # actions
             plotter.plot_data(dataset_name=actions_datasetname, 
@@ -2398,7 +2421,8 @@ if __name__ == "__main__":
                 use_markers=False,
                 marker_size=marker_size,
                 data_labels=actions_names,
-                data_idxs=None)
+                data_idxs=None,
+                clickable=True)
             # contact actions
             patterns=["*contact_flag*"]
             idxs,selected=plotter.get_idx_matching(patterns, actions_names)
@@ -2410,7 +2434,8 @@ if __name__ == "__main__":
                     use_markers=False,
                     marker_size=marker_size,
                     data_labels=selected,
-                    data_idxs=idxs)
+                    data_idxs=idxs,
+                    clickable=True)
             
             patterns=["*phase_freq*"]
             idxs,selected=plotter.get_idx_matching(patterns, actions_names)
@@ -2422,7 +2447,8 @@ if __name__ == "__main__":
                     use_markers=False,
                     marker_size=marker_size,
                     data_labels=selected,
-                    data_idxs=idxs)
+                    data_idxs=idxs,
+                    clickable=True)
             
             patterns=["*phase_offset*"]
             idxs,selected=plotter.get_idx_matching(patterns, actions_names)
@@ -2434,7 +2460,8 @@ if __name__ == "__main__":
                     use_markers=False,
                     marker_size=marker_size,
                     data_labels=selected,
-                    data_idxs=idxs)
+                    data_idxs=idxs,
+                    clickable=True)
 
             patterns=["*flight_*"]
             idxs,selected=plotter.get_idx_matching(patterns, actions_names)
@@ -2446,7 +2473,8 @@ if __name__ == "__main__":
                     use_markers=False,
                     marker_size=marker_size,
                     data_labels=selected,
-                    data_idxs=idxs)
+                    data_idxs=idxs,
+                    clickable=True)
 
             # sub terminations
             plotter.plot_data(dataset_name=ep_prefix+"SubTerminations"+dset_suffix, 
@@ -2456,7 +2484,8 @@ if __name__ == "__main__":
                 use_markers=True,
                 marker_size=marker_size,
                 data_labels=sub_term_names,
-                data_idxs=None)
+                data_idxs=None,
+                clickable=True)
             
             
             # sub terminations
@@ -2467,7 +2496,8 @@ if __name__ == "__main__":
                 use_markers=True,
                 marker_size=marker_size,
                 data_labels=sub_trunc_names,
-                data_idxs=None)
+                data_idxs=None,
+                clickable=True)
             
             # terminations
             plotter.plot_data(dataset_name=ep_prefix+"Terminations"+dset_suffix, 
@@ -2477,7 +2507,8 @@ if __name__ == "__main__":
                 use_markers=True,
                 marker_size=marker_size,
                 data_labels=["is_terminal"],
-                data_idxs=None)
+                data_idxs=None,
+                clickable=True)
             
             # truncations
             plotter.plot_data(dataset_name=ep_prefix+"Truncations"+dset_suffix, 
@@ -2487,7 +2518,8 @@ if __name__ == "__main__":
                 use_markers=True,
                 marker_size=marker_size,
                 data_labels=["is_truncated"],
-                data_idxs=None)
+                data_idxs=None,
+                clickable=True)
             
             # sub rewards
             plotter.plot_data(dataset_name=ep_prefix+"sub_rew"+dset_suffix, 
@@ -2497,7 +2529,8 @@ if __name__ == "__main__":
                 use_markers=True,
                 marker_size=marker_size,
                 data_labels=sub_reward_names,
-                data_idxs=None)
+                data_idxs=None,
+                clickable=True)
             
             # tot rewards
             plotter.plot_data(dataset_name=ep_prefix+"tot_rew"+dset_suffix, 
@@ -2507,7 +2540,8 @@ if __name__ == "__main__":
                 use_markers=True,
                 marker_size=marker_size,
                 data_labels=["tot_reward"],
-                data_idxs=None)
+                data_idxs=None,
+                clickable=True)
 
             # agent twist refs
             plotter.plot_data(dataset_name=ep_prefix+"AgentTwistRefs"+dset_suffix, 
@@ -2517,7 +2551,8 @@ if __name__ == "__main__":
                 use_markers=True,
                 marker_size=marker_size,
                 data_labels=twist_refs_names,
-                data_idxs=None)
+                data_idxs=None,
+                clickable=True)
 
             # other custom data
 
@@ -2528,7 +2563,8 @@ if __name__ == "__main__":
                 use_markers=True,
                 marker_size=marker_size,
                 data_labels=pow_names,
-                data_idxs=None)
+                data_idxs=None,
+                clickable=True)
             
             plotter.plot_data(dataset_name=ep_prefix+"TrackingError"+dset_suffix, 
                 title=ep_prefix+"TrackingError"+dset_suffix, 
@@ -2538,7 +2574,8 @@ if __name__ == "__main__":
                 use_markers=True,
                 marker_size=marker_size,
                 data_labels=track_err_names,
-                data_idxs=None)
+                data_idxs=None,
+                clickable=True)
 
             patterns=["*z_base_loc"]
             idxs,selected=plotter.get_idx_matching(patterns, contact_forces_names)
@@ -2549,7 +2586,8 @@ if __name__ == "__main__":
                 use_markers=False,
                 marker_size=marker_size,
                 data_labels=selected,
-                data_idxs=idxs)
+                data_idxs=idxs,
+                clickable=True)
             
             plotter.plot_data(dataset_name=ep_prefix+"RhcFailIdx"+dset_suffix, 
                 title=ep_prefix+"Rhc fail idx"+dset_suffix, 
@@ -2558,7 +2596,8 @@ if __name__ == "__main__":
                 use_markers=True,
                 marker_size=marker_size,
                 data_labels="fail_idx",
-                data_idxs=None)
+                data_idxs=None,
+                clickable=True)
             
             plotter.plot_data(dataset_name=ep_prefix+"RhcRefsFlag"+dset_suffix, 
                 title=ep_prefix+"Rhc refs flags"+dset_suffix, 
@@ -2567,7 +2606,8 @@ if __name__ == "__main__":
                 use_markers=True,
                 marker_size=marker_size,
                 data_labels=rhc_refs_names,
-                data_idxs=None)
+                data_idxs=None,
+                clickable=True)
              
             # plotting contact phases
             from lrhc_control.utils.data_postproc.contact_visual import ContactPlotter
