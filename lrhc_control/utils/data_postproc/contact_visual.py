@@ -111,7 +111,7 @@ class ContactPlotter:
             ax.plot(range(self.n_timesteps), self.ref_vel_norm, color="blue", alpha=0.8, linewidth=2)
             ax.plot(range(self.n_timesteps), self.meas_vel_norm, color="red", alpha=0.3, linewidth=2)
             ax.set_ylabel("[m/s]")
-            labels=["ref. velocity norm", "meas. velocity norm"]
+            labels=["ref. velocity norm (base loc)", "est. velocity norm (base loc)"]
             ax.set_xlim(0, self.n_timesteps)
             legend_lines = [mlines.Line2D([0], [0], color=ax.get_lines()[i].get_color(), lw=3) for i in range(len(ax.get_lines()))]
             legend = ax.legend(legend_lines, labels, ncol=1, handlelength=2, loc="upper right")
@@ -132,7 +132,7 @@ class ContactPlotter:
             ax.set_ylabel("[rad]")
             ax.set_yticks([-np.pi, 0, np.pi])  # Define y-axis tick positions
             ax.set_yticklabels([r"$-\pi$", "0", r"$\pi$"])  # Use LaTeX-style π notation
-            labels=["ref. heading", "meas. heading"]
+            labels=["ref. heading (base loc)", "meas. heading (base loc)"]
             ax.set_xlim(0, self.n_timesteps)
 
             legend_lines = [mlines.Line2D([0], [0], color=ax.get_lines()[i].get_color(), lw=3) for i in range(len(ax.get_lines()))]
