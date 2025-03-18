@@ -1224,7 +1224,8 @@ class SActorCriticAlgoBase(ABC):
                 for key, value in self._hyperparameters.items():
                     if value is None:
                         value = "None"
-        
+                    hf.attrs[key] = value
+                    
                 # full training envs
                 sub_rew_full=self._episodic_reward_metrics.get_full_episodic_subrew(env_selector=self._db_env_selector)
                 tot_rew_full=self._episodic_reward_metrics.get_full_episodic_totrew(env_selector=self._db_env_selector)
