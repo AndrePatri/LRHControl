@@ -639,7 +639,8 @@ class LRHCPlotter:
                             ax=axes[col]
                         if not (rows==1 or cols ==1):
                             ax=axes[row, col]
-                        
+                        if rows == 1 and cols==1:
+                            ax=axes
                         # force scientific notation
                         ax.xaxis.set_major_formatter(mticker.ScalarFormatter(useMathText=True))
                         ax.ticklabel_format(style='sci', axis='x', scilimits=(0, 0))  # Force scientific notation
