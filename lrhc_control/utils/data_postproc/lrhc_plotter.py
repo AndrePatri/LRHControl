@@ -1173,7 +1173,7 @@ class LRHCMultiRunPlotter():
             alpha_scale: float = 1.0):
         
         fig, axes = None, None  # Initialize figure and axes objects
-
+            
         n_datas=[]
         n_samples=[]
         n_envs=[]
@@ -1266,6 +1266,7 @@ class LRHCMultiRunPlotter():
             return
             
         data_indexes=list(range(0, n_datas[0])) if data_idxs is None else data_idxs
+
         labels=[]
         if isinstance(ylabel, str):
             ylabels=[ylabel]*len(data_indexes)
@@ -1307,7 +1308,7 @@ class LRHCMultiRunPlotter():
         for i in range(len(data_indexes)):
             # loop over data
             for run in range(self._n_runs):
-                data=datasets[run][:, 0, i] 
+                data=datasets[run][:, 0, data_indexes[i]] 
 
                 if grid_plot:
                     ax=axes[i, run]
