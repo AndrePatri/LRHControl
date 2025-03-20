@@ -23,13 +23,17 @@ colors = [
 custom_cmap = LinearSegmentedColormap.from_list("custom_cmap", colors, N=256)
 
 class LRHCPlotter:
-    def __init__(self, hdf5_file_path, verbose: bool = True, env_db: bool = False):
+    def __init__(self, hdf5_file_path, verbose: bool = True, env_db: bool = False,
+        recompute_mean: bool = False):
         """
         Initialize the LRHCPlotter with the path to the HDF5 file.
         
         Args:
             hdf5_file_path (str): Path to the HDF5 file.
         """
+
+        self._recompute_mean=recompute_mean
+
         self._verbose=verbose
 
         if not os.path.exists(hdf5_file_path):
@@ -46,6 +50,8 @@ class LRHCPlotter:
         self._initialize()
     
     def _initialize(self):
+        recompute_mean=self._recompute_mean
+
         # load env db data
         datasets = self.list_datasets()
         attributes = self.list_attributes()
@@ -90,38 +96,53 @@ class LRHCPlotter:
             
             # add stats which where not logged explicitly
             self.compute_stats(dataset_name="Actions_avrg",
-                stats_dim=1,name="Actions")
+                stats_dim=1,name="Actions",
+                recompute_mean=recompute_mean)
             self.compute_stats(dataset_name="AgentTwistRefs_avrg",
-                stats_dim=1,name="AgentTwistRefs")
+                stats_dim=1,name="AgentTwistRefs",
+                recompute_mean=recompute_mean)
             self.compute_stats(dataset_name="Obs_avrg",
-                stats_dim=1,name="Obs")
+                stats_dim=1,name="Obs",
+                recompute_mean=recompute_mean)
             self.compute_stats(dataset_name="Obs_avrg",
-                stats_dim=1,name="Obs")
+                stats_dim=1,name="Obs",
+                recompute_mean=recompute_mean)
             self.compute_stats(dataset_name="Power_avrg",
-                stats_dim=1,name="Power")
+                stats_dim=1,name="Power",
+                recompute_mean=recompute_mean)
             self.compute_stats(dataset_name="RhcContactForces_avrg",
                 stats_dim=1,name="RhcContactForces")
             self.compute_stats(dataset_name="RhcFailIdx_avrg",
-                stats_dim=1,name="RhcFailIdx")
+                stats_dim=1,name="RhcFailIdx",
+                recompute_mean=recompute_mean)
             self.compute_stats(dataset_name="RhcRefsFlag_avrg",
-                stats_dim=1,name="RhcRefsIdx")
+                stats_dim=1,name="RhcRefsIdx",
+                recompute_mean=recompute_mean)
             self.compute_stats(dataset_name="SubTerminations_avrg",
-                stats_dim=1,name="SubTerminations")
+                stats_dim=1,name="SubTerminations",
+                recompute_mean=recompute_mean)
             self.compute_stats(dataset_name="SubTruncations_avrg",
-                stats_dim=1,name="SubTruncations")
+                stats_dim=1,name="SubTruncations",
+                recompute_mean=recompute_mean)
             self.compute_stats(dataset_name="Terminations_avrg",
-                stats_dim=1,name="Terminations")
+                stats_dim=1,name="Terminations",
+                recompute_mean=recompute_mean)
             self.compute_stats(dataset_name="Truncations_avrg",
-                stats_dim=1,name="Truncations")
+                stats_dim=1,name="Truncations",
+                recompute_mean=recompute_mean)
             self.compute_stats(dataset_name="TrackingError_avrg",
-                stats_dim=1,name="TrackingError")
+                stats_dim=1,name="TrackingError",
+                recompute_mean=recompute_mean)
             self.compute_stats(dataset_name="TrackingError_avrg",
-                stats_dim=1,name="TrackingError")
+                stats_dim=1,name="TrackingError",
+                recompute_mean=recompute_mean)
             
             self.compute_stats(dataset_name="sub_rew_avrg",
-                    stats_dim=1,name="sub_rew")
+                    stats_dim=1,name="sub_rew",
+                recompute_mean=recompute_mean)
             self.compute_stats(dataset_name="tot_rew_avrg",
-                    stats_dim=1,name="tot_rew")
+                    stats_dim=1,name="tot_rew",
+                recompute_mean=recompute_mean)
 
             self.create_dataset(dataset_name="MechPow_avrg", 
                 data=self.data["Power_avrg"][:, :, 1:2])
@@ -362,7 +383,8 @@ class LRHCPlotter:
             grid_size: List[int] = None,
             grid_shares_x: bool = True,
             grid_shares_y: bool = True,
-            clickable: bool = False):
+            clickable: bool = False,
+            alpha_scale: float = 1.0):
         """
         Plot the data based on the number of environments in the dataset.
         
@@ -528,28 +550,28 @@ class LRHCPlotter:
                         plt_aux_lines.append(median_line)
 
                     if data_distr_q1 is not None and data_distr_q3 is not None: # add 25% and 75% quartiles
-                        alpha=0.3
+                        alpha=0.3*alpha_scale
                         ax.fill_between(xaxis[valid_mask], 
                                 data_distr_q1[valid_mask, idx], data_distr_q3[valid_mask, idx],
                                 color=plt_line.get_color(), alpha=alpha, 
                                 label="q1/q3")
 
                     if data_distr_std is not None: # add data distribution std area
-                        alpha=0.2
+                        alpha=0.2*alpha_scale
                         ax.fill_between(xaxis[valid_mask], 
                                 data[valid_mask, idx] - data_distr_std[valid_mask, idx], data[valid_mask, idx] + data_distr_std[valid_mask, idx],
                                 color=plt_line.get_color(), alpha=alpha, 
                                 label="std")
                     
                     if data_distr_p5 is not None and data_distr_p95 is not None: # add 25% and 75% quartiles
-                        alpha=0.1
+                        alpha=0.1*alpha_scale
                         ax.fill_between(xaxis[valid_mask], 
                                 data_distr_p5[valid_mask, idx], data_distr_p95[valid_mask, idx],
                                 color=plt_line.get_color(), alpha=alpha, 
                                 label="p5/p95")
                     
                     if data_distr_min is not None and data_distr_max is not None: # add min max bounds
-                        alpha=0.07
+                        alpha=0.07*alpha_scale
                         ax.fill_between(xaxis[valid_mask], 
                                 data_distr_min[valid_mask, idx], data_distr_max[valid_mask, idx],
                                 color=plt_line.get_color(), alpha=alpha, 
@@ -654,28 +676,28 @@ class LRHCPlotter:
                                 color=color, label=label, markersize=marker_size, alpha=alpha)
 
                         if data_distr_q1 is not None and data_distr_q3 is not None: # add 25% and 75% quartiles
-                            alpha=0.5
+                            alpha=0.5*alpha_scale
                             ax.fill_between(xaxis[valid_mask], 
                                     data_distr_q1[valid_mask, idx], data_distr_q3[valid_mask, idx],
                                     color=plt_line.get_color(), alpha=alpha, 
                                     label="q1/q3")
                             
                         if data_distr_std is not None: # add data distribution std area
-                            alpha=0.3
+                            alpha=0.3*alpha_scale
                             ax.fill_between(xaxis[valid_mask], 
                                     data[valid_mask, idx] - data_distr_std[valid_mask, idx], data[valid_mask, idx] + data_distr_std[valid_mask, idx],
                                     color=plt_line.get_color(), alpha=alpha, 
                                     label="std")
                                     
                         if data_distr_p5 is not None and data_distr_p95 is not None: # add 25% and 75% quartiles
-                            alpha=0.1
+                            alpha=0.1*alpha_scale
                             ax.fill_between(xaxis[valid_mask], 
                                     data_distr_p5[valid_mask, idx], data_distr_p95[valid_mask, idx],
                                     color=plt_line.get_color(), alpha=alpha, 
                                     label="p5/p95")
                         
                         if data_distr_min is not None and data_distr_max is not None: # add min max bounds
-                            alpha=0.07
+                            alpha=0.07*alpha_scale
                             ax.fill_between(xaxis[valid_mask], 
                                     data_distr_min[valid_mask, idx], data_distr_max[valid_mask, idx],
                                     color=plt_line.get_color(), alpha=alpha, 
@@ -777,7 +799,8 @@ class LRHCPlotter:
         if fig is not None:
             self.figures.append(fig)
         
-    def compute_stats(self, dataset_name, stats_dim = 1, name = None):
+    def compute_stats(self, dataset_name, stats_dim = 1, name = None,
+        recompute_mean: bool = False):
         
         data=self.data[dataset_name]
         
@@ -804,6 +827,11 @@ class LRHCPlotter:
                                                 axis=stats_dim,
                                                 keepdims=True)
 
+        if recompute_mean:
+            # also compute mean (overriden if already present)
+            self.data[name+"_avrg_over_envs"]=np.mean(self.data[dataset_name], 
+                                                axis=stats_dim,
+                                                keepdims=True)
     def show(self):
         """
         Display all stored plots.
@@ -892,14 +920,20 @@ class LRHCPlotter:
         print(f"Composed dataset '{name}' created with shape {composed_data.shape}.")
 
         return True
+
 class LRHCMultiRunPlotter():
 
     def __init__(self, hdf5_file_path,
-            ablation_attrname: str = None):
+            ablation_attrname: str = None,
+            fpattern: str = "db_info",
+            recompute_mean: bool = False):
+
+        self._recompute_mean=recompute_mean
 
         self._base_path=hdf5_file_path
-        self._hdf5_files, self._rnames = self.check_hdf5_files(self._base_path)
-        
+        self._hdf5_files, self._rnames = self.check_hdf5_files(self._base_path,pattern=fpattern)
+        self._rnames=[name.replace(fpattern, "") for name in self._rnames]
+
         self._single_run_plotters=[]
         self._single_run_datasets=[]
         self._single_run_attributes=[]
@@ -911,7 +945,7 @@ class LRHCMultiRunPlotter():
             dataset=self._hdf5_files[i]
             print("########################")
             print(f"Run {self._rnames[i]} ->")
-            self._single_run_plotters.append(LRHCPlotter(hdf5_file_path=dataset, verbose=True))
+            self._single_run_plotters.append(LRHCPlotter(hdf5_file_path=dataset, verbose=True, recompute_mean=recompute_mean))
             self._single_run_datasets.append(self._single_run_plotters[i].list_datasets())
             self._single_run_plotters[i].load_attributes()
             self._single_run_plotters[i].load_data(dataset_names=self._single_run_datasets[i])
@@ -926,7 +960,7 @@ class LRHCMultiRunPlotter():
 
         self._highlight_attr_val_differences()
 
-        # self._final_plotter=self._single_run_plotters[0] # use first plotter for plotting everything
+        self._final_plotter=self._single_run_plotters[0] # use first plotter for plotting everything
         # self.data=self._final_plotter.data
 
         # self._x_axis_size=0
@@ -979,7 +1013,7 @@ class LRHCMultiRunPlotter():
         # since they matchh, we just use the ones from one dataset
         self.obs_names=self.obs_names[0]
         self.action_names=self.action_names[0]
-        self.sub_trunc_names=self.sub_rew_names[0]
+        self.sub_trunc_names=self.sub_trunc_names[0]
         self.sub_term_names=self.sub_term_names[0]
         self.sub_rew_names=self.sub_rew_names[0]
 
@@ -1029,24 +1063,44 @@ class LRHCMultiRunPlotter():
                 self.attributes[attr_name]=self._single_run_plotters[0].attributes[attr_name]
 
         print(f"################################")
-                      
-    def check_hdf5_files(self, directory):
+                
+    # def check_hdf5_files(self, directory):
+    #     if not os.path.isdir(directory):
+    #         raise ValueError(f"Error: '{directory}' is not a valid directory.")
+
+    #     # Get a list of all HDF5 files in the directory
+    #     hdf5_files = glob.glob(os.path.join(directory, "*.h5")) + glob.glob(os.path.join(directory, "*.hdf5"))
+    #     file_names = [os.path.splitext(os.path.basename(file))[0] for file in hdf5_files]
+
+    #     # Check if there are no files or just one file, raise an error
+    #     if len(hdf5_files) < 2:
+    #         raise ValueError("Error: Less than two HDF5 files found in the directory.")
+        
+    #     fnames_db_print='\n'.join(file_names)
+    #     print(f"\n[LRHCMultiRunPlotter] Will load runs from datasets: \n {fnames_db_print} \n")
+
+    #     return hdf5_files, file_names
+    
+    def check_hdf5_files(self, directory, pattern="db_info"):
         if not os.path.isdir(directory):
             raise ValueError(f"Error: '{directory}' is not a valid directory.")
 
-        # Get a list of all HDF5 files in the directory
-        hdf5_files = glob.glob(os.path.join(directory, "*.h5")) + glob.glob(os.path.join(directory, "*.hdf5"))
+        # Search for HDF5 files recursively in subdirectories
+        hdf5_files = glob.glob(os.path.join(directory, "**", f"*{pattern}*.h5"), recursive=True) + \
+                     glob.glob(os.path.join(directory, "**", f"*{pattern}*.hdf5"), recursive=True)
+        
+        # Extract filenames without extensions
         file_names = [os.path.splitext(os.path.basename(file))[0] for file in hdf5_files]
 
-        # Check if there are no files or just one file, raise an error
+        # Check if there are at least two matching files
         if len(hdf5_files) < 2:
-            raise ValueError("Error: Less than two HDF5 files found in the directory.")
-        
-        fnames_db_print='\n'.join(file_names)
-        print(f"\n[LRHCMultiRunPlotter] Will load runs from datasets: \n {fnames_db_print} \n")
+            raise ValueError(f"Error: Found only {len(hdf5_files)} HDF5 files matching the pattern '{pattern}'.")
+
+        fnames_db_print = '\n'.join(file_names)
+        print(f"\n[LRHCMultiRunPlotter] Will load runs from datasets: \n{fnames_db_print}\n")
 
         return hdf5_files, file_names
-    
+
     def _check_all_attr_are_there(self):
         
         self._all_lists_equal(self._single_run_attributes)
@@ -1114,7 +1168,8 @@ class LRHCMultiRunPlotter():
             grid_size: List[int] = None,
             grid_shares_x: bool = True,
             grid_shares_y: bool = True,
-            clickable: bool = False):
+            clickable: bool = False,
+            alpha_scale: float = 1.0):
         
         fig, axes = None, None  # Initialize figure and axes objects
 
@@ -1279,39 +1334,39 @@ class LRHCMultiRunPlotter():
 
                 valid_mask = np.logical_and(np.isfinite(data), xaxis[:]>=0)
                 if use_markers:
-                    plt_line, = ax.plot(xaxis[valid_mask], data[valid_mask], 'o', label=self._ablation_attrs[run], markersize=marker_size, alpha=alpha)
+                    plt_line, = ax.plot(xaxis[valid_mask], data[valid_mask], 'o', label=self._ablation_attrs[run], markersize=marker_size, alpha=alpha*alpha_scale)
                 else:
-                    plt_line, = ax.plot(xaxis[valid_mask], data[valid_mask], label=self._ablation_attrs[run], alpha=alpha)
+                    plt_line, = ax.plot(xaxis[valid_mask], data[valid_mask], label=self._ablation_attrs[run], alpha=alpha*alpha_scale)
                 
                 median_line=None
                 if data_distr_median[run] is not None:
                     color=plt_line.get_color()
                     median_line=ax.plot(xaxis[valid_mask], data_distr_median[run][valid_mask, idx], '--', 
-                        color=color, label=self._ablation_attrs[run], markersize=marker_size, alpha=alpha)
+                        color=color, label=self._ablation_attrs[run], markersize=marker_size, alpha=alpha*alpha_scale)
 
                 if data_distr_q1[run] is not None and data_distr_q3[run] is not None: # add 25% and 75% quartiles
-                    alpha=0.5
+                    alpha=0.5*alpha_scale
                     ax.fill_between(xaxis[valid_mask], 
                             data_distr_q1[run][valid_mask, idx], data_distr_q3[run][valid_mask, idx],
                             color=plt_line.get_color(), alpha=alpha, 
                             label="q1/q3")
                 
                 if data_distr_p5[run] is not None and data_distr_p95[run] is not None: # add 25% and 75% quartiles
-                    alpha=0.5
+                    alpha=0.5*alpha_scale
                     ax.fill_between(xaxis[valid_mask], 
                             data_distr_p5[run][valid_mask, idx], data_distr_p95[run][valid_mask, idx],
                             color=plt_line.get_color(), alpha=alpha, 
                             label="p1/p5")
 
                 if data_distr_std[run] is not None: # add data distribution std area
-                    alpha=0.3
+                    alpha=0.3*alpha_scale
                     ax.fill_between(xaxis[valid_mask], 
                             data[valid_mask] - data_distr_std[run][valid_mask, idx], data[valid_mask] + data_distr_std[run][valid_mask, idx],
                             color=plt_line.get_color(), alpha=alpha, 
                             label="± 1 std")
                             
                 if data_distr_min[run] is not None and data_distr_max[run] is not None: # add min max bounds
-                    alpha=0.15
+                    alpha=0.15*alpha_scale
                     ax.fill_between(xaxis[valid_mask], 
                             data_distr_min[run][valid_mask, idx], data_distr_max[run][valid_mask, idx],
                             color=plt_line.get_color(), alpha=alpha, 
@@ -1376,13 +1431,20 @@ if __name__ == "__main__":
     parser.add_argument('--expl',action='store_true', help='whether to plot db data from expl env (if any)')
     parser.add_argument('--demo',action='store_true', help='whether to plot db data from demo env (if any)')
     parser.add_argument('--env_idx',type=int, help='', default=None)
-    parser.add_argument('--data_path',type=str, help='full path to dataset to plot')
+    parser.add_argument('--data_path',type=str, help='full path to dataset to plot it not multirun, otherwise the dir where ablation studies are stored')
     parser.add_argument('--running_obs_stats',action='store_true', help='whether to plot running stats used for obs normalization')
     parser.add_argument('--actions_stats',action='store_true', help='')
     parser.add_argument('--xdset',type=str, help='x dataset to be used for x axis', default="n_timesteps_done")
 
+    parser.add_argument('--recompute_mean',action='store_true', help='whether to recompute mean from distr')
+
     parser.add_argument('--multirun',action='store_true', help='plot comparative results (if env db across envs, otherwise across runs)')
-    parser.add_argument('--ablation_attr',type=str, help='attribute wrt ablation study was run (if multurun)', default=None)
+    parser.add_argument('--ablation_attr',type=str, help='attribute wrt ablation study was run (if multirun)', default=None)
+    parser.add_argument('--file_pattern',action='store_true', help='oss envs,)')
+    parser.add_argument('--alpha_scale',type=float, help='', default=1.0)
+
+    parser.add_argument('--x_axis_start_p',type=float, help='where to start x axis wrt x data (percentage [0, 1])', default=0.0)
+    parser.add_argument('--x_axis_end_p',type=float, help='where to end x axis wrt x data (percentage [0, 1])', default=1.0)
 
     args = parser.parse_args()
 
@@ -1391,6 +1453,9 @@ if __name__ == "__main__":
     # plot some data
     marker_size=1
 
+    alpha_scale=1.0 if not args.multirun else args.alpha_scale
+    
+    grid_shares_y=True
     if args.multirun:
         grid_shares_y=False
 
@@ -1398,11 +1463,13 @@ if __name__ == "__main__":
         
         if args.multirun:
             plotter = LRHCMultiRunPlotter(hdf5_file_path=path,
-                                ablation_attrname=args.ablation_attr)
+                                ablation_attrname=args.ablation_attr,
+                                recompute_mean=args.recompute_mean)
             
         else:
             # load training data
-            plotter = LRHCPlotter(hdf5_file_path=path)
+            plotter = LRHCPlotter(hdf5_file_path=path,
+                                recompute_mean=args.recompute_mean)
         
         xlabel=xaxis_dataset_name
         
@@ -1455,22 +1522,26 @@ if __name__ == "__main__":
             distr_min=None)
         
         # sub rewards
-        plotter.plot_data(dataset_name="sub_rew_avrg_over_envs", 
-            title=f"scaled sub returns stats over envs", 
-            xaxis_dataset_name=xaxis_dataset_name,
-            xlabel=xlabel,
-            ylabel="",
-            data_labels=plotter.sub_rew_names,
-            use_markers=False,
-            marker_size=marker_size,
-            distr_std=None,
-            distr_max=None,
-            distr_min=None,
-            distr_q1="sub_rew_q1_over_envs",
-            distr_q3="sub_rew_q3_over_envs",
-            distr_p5="sub_rew_p5_over_envs",
-            distr_p95="sub_rew_p95_over_envs",
-            distr_median="sub_rew_median_over_envs") 
+        if args.multirun:
+            plotter.plot_data(dataset_name="sub_rew_median_over_envs", 
+                title=f"scaled sub returns stats over envs", 
+                xaxis_dataset_name=xaxis_dataset_name,
+                xlabel=xlabel,
+                ylabel="",
+                data_labels=plotter.sub_rew_names,
+                use_markers=False,
+                marker_size=marker_size,
+                distr_std=None,
+                distr_max=None,
+                distr_min=None,
+                distr_q1=None,
+                distr_q3=None,
+                distr_p5="sub_rew_p5_over_envs",
+                distr_p95="sub_rew_p95_over_envs",
+                distr_median=None,
+                grid_shares_y=False,
+                alpha_scale=alpha_scale,
+                data_alphas=[3.0]*len(plotter.sub_rew_names)) 
         plotter.plot_data(dataset_name="sub_rew_avrg_over_envs", 
             title=f"scaled sub returns stats over envs", 
             xaxis_dataset_name=xaxis_dataset_name,
@@ -1499,22 +1570,25 @@ if __name__ == "__main__":
             grid_shares_y=False)
         
         # tot reward
-        plotter.plot_data(dataset_name="tot_rew_avrg_over_envs", 
-            title=f"scaled return stats over envs", 
-            xaxis_dataset_name=xaxis_dataset_name,
-            xlabel=xlabel,
-            ylabel="",
-            data_labels=["tot_rew"],
-            use_markers=False,
-            marker_size=marker_size,
-            distr_std=None,
-            distr_max=None,
-            distr_min=None,
-            distr_q1="tot_rew_q1_over_envs",
-            distr_q3="tot_rew_q3_over_envs",
-            distr_p5="tot_rew_p5_over_envs",
-            distr_p95="tot_rew_p95_over_envs",
-            distr_median="tot_rew_median_over_envs") 
+        if args.multirun:
+            plotter.plot_data(dataset_name="tot_rew_median_over_envs", 
+                title=f"scaled return stats over envs", 
+                xaxis_dataset_name=xaxis_dataset_name,
+                xlabel=xlabel,
+                ylabel="",
+                data_labels=["tot_rew"],
+                use_markers=False,
+                marker_size=marker_size,
+                distr_std=None,
+                distr_max=None,
+                distr_min=None,
+                distr_q1=None,
+                distr_q3=None,
+                distr_p5="tot_rew_p5_over_envs",
+                distr_p95="tot_rew_p95_over_envs",
+                distr_median=None,
+                alpha_scale=alpha_scale,
+                data_alphas=[3.0]) 
         plotter.plot_data(dataset_name="tot_rew_avrg", 
             title=f"scaled return distribution across envs", 
             xaxis_dataset_name=xaxis_dataset_name,
@@ -1527,12 +1601,14 @@ if __name__ == "__main__":
         plotter.plot_data(dataset_name="env_step_rt_factor", title="env_step_rt_factor", 
             xaxis_dataset_name=xaxis_dataset_name,
             xlabel=xlabel,
+            ylabel="",
             use_markers=True,
             marker_size=marker_size)
         
         plotter.plot_data(dataset_name="ep_tsteps_env_distr", title="ep_tsteps_env_distribution", 
             xaxis_dataset_name=xaxis_dataset_name,
             xlabel=xlabel,
+            ylabel="",
             use_markers=True,
             marker_size=marker_size)
         
@@ -1629,7 +1705,7 @@ if __name__ == "__main__":
         plotter.plot_data(dataset_name="Power_avrg_over_envs", 
                 title=f"Power db data", 
                 xaxis_dataset_name=xaxis_dataset_name,
-                xlabel=None,
+                xlabel=xlabel,
                 ylabel=["[]", "[W]"],
                 data_labels=["CoT", "Mech.P."],
                 use_markers=False,
@@ -1680,7 +1756,7 @@ if __name__ == "__main__":
                 plotter.plot_data(dataset_name="Actions_avrg_over_envs", 
                     title=f"Actions - twist commands", 
                     xaxis_dataset_name=xaxis_dataset_name,
-                    xlabel=None,
+                    xlabel=xlabel,
                     ylabel=ylabels,
                     data_labels=selected,
                     data_idxs=idxs,
@@ -1699,13 +1775,16 @@ if __name__ == "__main__":
             
             patterns=["*contact_flag*"]
             idxs,selected=plotter.get_idx_matching(patterns, plotter.action_names)
+            tmp=[""]*len(selected)
+            for i in range(len(selected)):
+                tmp[i]=f"contact_flag_{i}"
             if len(idxs)>0:
                 plotter.plot_data(dataset_name="Actions_avrg_over_envs", 
                     title=f"Actions - contact flags", 
                     xaxis_dataset_name=xaxis_dataset_name,
-                    xlabel=None,
-                    ylabel=["[m]"]*len(idxs),
-                    data_labels=selected,
+                    xlabel=xlabel,
+                    ylabel=[""]*len(idxs),
+                    data_labels=tmp,
                     data_idxs=idxs,
                     use_markers=False,
                     marker_size=marker_size,
@@ -1726,7 +1805,7 @@ if __name__ == "__main__":
                 plotter.plot_data(dataset_name="Actions_avrg_over_envs", 
                     title=f"Actions - apex heights", 
                     xaxis_dataset_name=xaxis_dataset_name,
-                    xlabel=None,
+                    xlabel=xlabel,
                     ylabel=["[m]"]*len(idxs),
                     data_labels=selected,
                     data_idxs=idxs,
@@ -1749,7 +1828,7 @@ if __name__ == "__main__":
                 plotter.plot_data(dataset_name="Actions_avrg_over_envs", 
                     title=f"Actions - flight lengths", 
                     xaxis_dataset_name=xaxis_dataset_name,
-                    xlabel=None,
+                    xlabel=xlabel,
                     ylabel=["[m]"]*len(idxs),
                     data_labels=selected,
                     data_idxs=idxs,
@@ -1772,7 +1851,7 @@ if __name__ == "__main__":
                 plotter.plot_data(dataset_name="Actions_avrg_over_envs", 
                     title=f"Actions - flight end height", 
                     xaxis_dataset_name=xaxis_dataset_name,
-                    xlabel=None,
+                    xlabel=xlabel,
                     ylabel=["[m]"]*len(idxs),
                     data_labels=selected,
                     data_idxs=idxs,
@@ -1795,7 +1874,7 @@ if __name__ == "__main__":
                 plotter.plot_data(dataset_name="Actions_avrg_over_envs", 
                     title=f"Actions - phase frequency", 
                     xaxis_dataset_name=xaxis_dataset_name,
-                    xlabel=None,
+                    xlabel=xlabel,
                     ylabel=["[flights/mpc_step]"]*len(idxs),
                     data_labels=selected,
                     data_idxs=idxs,
@@ -1818,7 +1897,7 @@ if __name__ == "__main__":
                 plotter.plot_data(dataset_name="Actions_avrg_over_envs", 
                     title=f"Actions - phase offset", 
                     xaxis_dataset_name=xaxis_dataset_name,
-                    xlabel=None,
+                    xlabel=xlabel,
                     ylabel=[""]*len(idxs),
                     data_labels=selected,
                     data_idxs=idxs,
