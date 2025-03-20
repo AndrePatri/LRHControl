@@ -1022,11 +1022,11 @@ class LRHCMultiRunPlotter():
         for i in range(self._n_runs):
                 self._ablation_attrs.append(f"ablation {i}")
         if ablation_attrname is not None and (ablation_attrname in self._different_attrs_across_runs):
+            self._ablation_attrs=[]
             for i in range(self._n_runs):
                 self._ablation_attrs.append(ablation_attrname+ \
                             f": {self._different_attrs_across_runs[ablation_attrname][i]}")
-                        
-
+        
     def _highlight_attr_val_differences(self):
         
         self._attr_values_across_runs={}
