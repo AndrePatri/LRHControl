@@ -580,7 +580,7 @@ class LRHCPlotter:
                     if median_line is not None:
                         plt_aux_lines.append(median_line)
 
-                ax.set_title(f"{titles[0]}")
+                ax.set_title(label)
                 ax.set_xlabel(xlabels[0])
                 ax.set_ylabel(ylabels[0])
                 # Create custom legend with lines instead of dots
