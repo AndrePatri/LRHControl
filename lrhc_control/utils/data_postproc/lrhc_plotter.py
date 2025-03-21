@@ -929,7 +929,14 @@ class LRHCMultiRunPlotter():
             fpattern: str = "db_info",
             recompute_mean: bool = False,
             order_wrt_ablation: bool = True,
-            decreasing: bool = False):
+            decreasing: bool = False,
+            xaxis_start_p: float = 0.0,
+            xaxis_end_p: float = 1.0):
+
+        self._xaxis_start_p=xaxis_start_p
+        self._xaxis_end_p=xaxis_end_p
+        self._xaxis_start_enabled=True if xaxis_start_p>0.0 else False
+        self._xaxis_end_enabled=True if xaxis_end_p>0.0 else False
 
         self._order_wrt_ablation=order_wrt_ablation
         self._decreasing=decreasing
@@ -1339,7 +1346,6 @@ class LRHCMultiRunPlotter():
                 dlabel=f"Data {idx+1}" if data_labels is None else data_labels[i]
                 alpha=data_alphas[i] if data_alphas is not None else 1.0
 
-
                 x_dataset=x_datasets[j]
                 if x_dataset not in self._single_run_plotters[run].data:
                     print(f"X-axis dataset '{x_dataset}' for data {dlabel}, run {self._rnames[run]} not loaded. Use 'load_data' first.")
@@ -1350,17 +1356,25 @@ class LRHCMultiRunPlotter():
                     return
                 xaxis = xaxis_data[:, 0]  # Extract as 1D array
 
-                valid_mask = np.logical_and(np.isfinite(data), xaxis[:]>=0)
+                valid_x=xaxis[:]>0 # hack to allow x axis which have 0 as default value for unfilled data
+                valid_x[0]=True
+
+                valid_mask = np.logical_and(np.isfinite(data), 
+                    valid_x)
+
                 if use_markers:
-                    plt_line, = ax.plot(xaxis[valid_mask], data[valid_mask], 'o', label=self._ablation_attrs[run], markersize=marker_size, alpha=alpha*alpha_scale)
+                    plt_line, = ax.plot(xaxis[valid_mask], data[valid_mask], 'o', 
+                        label="mean", markersize=marker_size, alpha=alpha)
                 else:
-                    plt_line, = ax.plot(xaxis[valid_mask], data[valid_mask], label=self._ablation_attrs[run], alpha=alpha*alpha_scale)
+                    plt_line, = ax.plot(xaxis[valid_mask], data[valid_mask], 
+                        label="mean", alpha=alpha)
                 
                 median_line=None
                 if data_distr_median[j] is not None:
                     color=plt_line.get_color()
                     median_line=ax.plot(xaxis[valid_mask], data_distr_median[j][valid_mask, idx], '--', 
-                        color=color, label=self._ablation_attrs[run], markersize=marker_size, alpha=alpha*alpha_scale)
+                        color=color, 
+                        label="median", alpha=alpha)
 
                 if data_distr_q1[j] is not None and data_distr_q3[j] is not None: # add 25% and 75% quartiles
                     alpha=0.5*alpha_scale
@@ -1412,19 +1426,37 @@ class LRHCMultiRunPlotter():
 
                 ax.grid(True)
 
-            if i==0 and (not grid_plot):
-                # Create custom legend with lines instead of dots
-                legend_lines = [mlines.Line2D([0], [0], color=plt_lines[i][k].get_color(), lw=4) for k in range(self._n_runs)]
-                ablation_remapped=[self._ablation_attrs[self._ablation_attr_idxs[k]] for k in range(self._n_runs)]
-                legend = ax.legend(legend_lines, 
-                    ablation_remapped, ncol=1, handlelength=2)
-            
-                # Set pickable property
-                for line in legend_lines:
-                    line.set_picker(True)
-                # legend = ax.legend(ncol=2, markerscale=2)
+            if i==0:
+                if not grid_plot:
+                    # Create custom legend with lines instead of dots
+                    legend_lines = [mlines.Line2D([0], [0], color=plt_lines[i][k].get_color(), lw=4) for k in range(self._n_runs)]
+                    ablation_remapped=[self._ablation_attrs[self._ablation_attr_idxs[k]] for k in range(self._n_runs)]
+                    legend = ax.legend(legend_lines, 
+                        ablation_remapped, ncol=1, handlelength=2)
+                
+                    # Set pickable property
+                    for line in legend_lines:
+                        line.set_picker(True)
+                    # legend = ax.legend(ncol=2, markerscale=2)
 
-                legend.set_draggable(True)  # Make the legend draggable
+                    legend.set_draggable(True)  # Make the legend draggable
+                else:
+                    leg_names=[]
+                    if data_distr_median[j] is not None:
+                        leg_names.append("median")
+                    if data_distr_q1[j] is not None and data_distr_q3[j] is not None:
+                        leg_names.append("q1")
+                        leg_names.append("q3")
+                    if data_distr_p5[j] is not None and data_distr_p95[j] is not None:
+                        leg_names.append("p5")
+                        leg_names.append("p95")
+                    if data_distr_std[j] is not None:
+                        leg_names.append("std")
+                    if data_distr_min[j] is not None and data_distr_max[j] is not None:
+                        leg_names.append("min")
+                        leg_names.append("max")
+                    legend = ax.legend(ncol=1, handlelength=2)
+                    legend.set_draggable(True)
 
         plt.suptitle(title, y=0.99)
 
@@ -1489,7 +1521,9 @@ if __name__ == "__main__":
                                 ablation_attrname=args.ablation_attr,
                                 recompute_mean=args.recompute_mean,
                                 order_wrt_ablation=args.order_wrt_ablation,
-                                decreasing=args.decreasing)
+                                decreasing=args.decreasing,
+                                xaxis_start_p=args.x_axis_start_p,
+                                xaxis_end_p=args.x_axis_end_p)
             
         else:
             # load training data
@@ -1565,8 +1599,8 @@ if __name__ == "__main__":
                 distr_p95="sub_rew_p95_over_envs",
                 distr_median=None,
                 grid_shares_y=False,
-                alpha_scale=alpha_scale,
-                data_alphas=[3.0]*len(plotter.sub_rew_names)) 
+                alpha_scale=alpha_scale)
+                # data_alphas=[3.0]*len(plotter.sub_rew_names)) 
         plotter.plot_data(dataset_name="sub_rew_avrg_over_envs", 
             title=f"Average sub-rewards over episodes", 
             xaxis_dataset_name=xaxis_dataset_name,
@@ -1612,8 +1646,8 @@ if __name__ == "__main__":
                 distr_p5="tot_rew_p5_over_envs",
                 distr_p95="tot_rew_p95_over_envs",
                 distr_median=None,
-                alpha_scale=alpha_scale,
-                data_alphas=[3.0]) 
+                alpha_scale=alpha_scale)
+                # data_alphas=[3.0]) 
         plotter.plot_data(dataset_name="tot_rew_avrg", 
             title=f"Average total reward distribution across envs", 
             xaxis_dataset_name=xaxis_dataset_name,
