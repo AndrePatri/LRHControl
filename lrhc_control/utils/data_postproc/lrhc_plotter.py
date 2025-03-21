@@ -927,7 +927,12 @@ class LRHCMultiRunPlotter():
     def __init__(self, hdf5_file_path,
             ablation_attrname: str = None,
             fpattern: str = "db_info",
-            recompute_mean: bool = False):
+            recompute_mean: bool = False,
+            order_wrt_ablation: bool = True,
+            decreasing: bool = False):
+
+        self._order_wrt_ablation=order_wrt_ablation
+        self._decreasing=decreasing
 
         self._recompute_mean=recompute_mean
 
@@ -961,35 +966,26 @@ class LRHCMultiRunPlotter():
 
         self._highlight_attr_val_differences()
 
-        self._final_plotter=self._single_run_plotters[0] # use first plotter for plotting everything
-        # self.data=self._final_plotter.data
+        self._ablation_attrs=[]
+        self._ablation_attr_idxs=list(range(0,self._n_runs))
+        for i in range(self._n_runs):
+                self._ablation_attrs.append(f"ablation {i}")
+        if ablation_attrname is not None and (ablation_attrname in self._different_attrs_across_runs):
+            self._ablation_attrs=[]
+            for i in range(self._n_runs):
+                self._ablation_attrs.append(ablation_attrname+ \
+                            f": {self._different_attrs_across_runs[ablation_attrname][i]}")
+            if self._order_wrt_ablation:
+                attrs=self._different_attrs_across_runs[ablation_attrname]
+                _, ordered_attrs, self._ablation_attr_idxs=self._get_ablation_attr_remapping(attrs, increasing=not self._decreasing)
+                print("Reordering runs wrt ablation attr: ")
+                print("Original order")
+                print(self._ablation_attrs)
+                print("New order")
+                print(ordered_attrs)
+                print("Mapping ordered -> original")
+                print(self._ablation_attr_idxs)
 
-        # self._x_axis_size=0
-        # self._last_idx=np.where(self._single_run_plotters[0].data["n_timesteps_done"]>0)[0][-1]
-        # for i in range(self._n_runs-1):
-        #     t_axis=self._single_run_plotters[i+1].data["n_timesteps_done"]
-        #     last_valid=np.where(t_axis>0)[0][-1]
-        #     self._last_idx=last_valid if last_valid < self._last_idx else self._last_idx
-        # for i in range(len(self._dataset_names)-1):
-        #     datas=()
-        #     for j in range(self._n_runs-1):
-        #         dset_name=self._dataset_names[i]
-        #         dset=self._single_run_plotters[j+1].data[dset_name]
-        #         if not self.data[dset_name].shape == (): # not scalar
-        #             if dset.ndim < 2:
-        #                 datas+=(self._single_run_plotters[j+1].data[dset_name][0:self._last_idx],)
-        #             else:
-        #                 datas+=(self._single_run_plotters[j+1].data[dset_name][0:self._last_idx, :],)
-        #         else:
-        #             datas+=(self._single_run_plotters[j+1].data[dset_name],)
-
-        #     ok=self._final_plotter.add_datas(dataset_name=dset_name, datas=datas, avrg=True) # will try to merge data across runs
-        #     # computing the average across runs
-        #     if not ok:
-        #         print(f"Data merge for dataset {dset_name} failed!")
-        #     else:
-        #         print(f"Dataset '{dset_name}' with shape {self.data[dset_name].shape} loaded successfully.")
-        
         self.figures=[]
         self.obs_names=[]
         self.action_names=[]
@@ -999,11 +995,12 @@ class LRHCMultiRunPlotter():
 
         # check if obs actions, truncation etc, ... match
         for i in range(self._n_runs):
-            self.obs_names.append(self._single_run_plotters[i].obs_names)
-            self.action_names.append(self._single_run_plotters[i].action_names)
-            self.sub_trunc_names.append(self._single_run_plotters[i].sub_trunc_names)
-            self.sub_term_names.append(self._single_run_plotters[i].sub_term_names)
-            self.sub_rew_names.append(self._single_run_plotters[i].sub_rew_names)
+            run_idx=self._ablation_attr_idxs[i]
+            self.obs_names.append(self._single_run_plotters[run_idx].obs_names)
+            self.action_names.append(self._single_run_plotters[run_idx].action_names)
+            self.sub_trunc_names.append(self._single_run_plotters[run_idx].sub_trunc_names)
+            self.sub_term_names.append(self._single_run_plotters[run_idx].sub_term_names)
+            self.sub_rew_names.append(self._single_run_plotters[run_idx].sub_rew_names)
 
         self._all_lists_equal(self.obs_names)
         self._all_lists_equal(self.action_names)
@@ -1018,15 +1015,32 @@ class LRHCMultiRunPlotter():
         self.sub_term_names=self.sub_term_names[0]
         self.sub_rew_names=self.sub_rew_names[0]
 
-        self._ablation_attrs=[]
-        for i in range(self._n_runs):
-                self._ablation_attrs.append(f"ablation {i}")
-        if ablation_attrname is not None and (ablation_attrname in self._different_attrs_across_runs):
-            self._ablation_attrs=[]
-            for i in range(self._n_runs):
-                self._ablation_attrs.append(ablation_attrname+ \
-                            f": {self._different_attrs_across_runs[ablation_attrname][i]}")
+        self._final_plotter=self._single_run_plotters[0]
+    
+    def _get_ablation_attr_remapping(self, lst, increasing: bool = True):
+        # Sort the list and keep track of original indices
+        sorted_list = sorted(lst, reverse=not increasing)
         
+        # Create a mapping of value occurrences to indices in the sorted list
+        index_map = {}
+        mapping_list = []
+        
+        for idx, value in enumerate(sorted_list):
+            if value not in index_map:
+                index_map[value] = []
+            index_map[value].append(idx)
+        
+        # Create the mapping list by iterating over the original list
+        for value in lst:
+            mapping_list.append(index_map[value].pop(0))
+        
+        # Create the inverse mapping
+        inverse_mapping = [0] * len(lst)
+        for original_index, mapped_index in enumerate(mapping_list):
+            inverse_mapping[mapped_index] = original_index
+    
+        return mapping_list, sorted_list, inverse_mapping
+
     def _highlight_attr_val_differences(self):
         
         self._attr_values_across_runs={}
@@ -1188,9 +1202,10 @@ class LRHCMultiRunPlotter():
         data_distr_median=[]
         
         for j in range(self._n_runs):
+            run_idx=self._ablation_attr_idxs[j]
             # loop through runs
-            data=self._single_run_plotters[j].data
-            rname=self._rnames[j]
+            data=self._single_run_plotters[run_idx].data
+            rname=self._rnames[run_idx]
             if dataset_name not in data:
                 print(f"Dataset '{dataset_name}' for run {rname} not loaded. Use 'load_data' first.")
                 return
@@ -1205,49 +1220,49 @@ class LRHCMultiRunPlotter():
             data_distr_median.append(None)
             if distr_std is not None:
                 if isinstance(distr_std, str):
-                    data_distr_std[j]=self._single_run_plotters[j].data[distr_std]
+                    data_distr_std[j]=self._single_run_plotters[run_idx].data[distr_std]
                     if data_distr_std[j].ndim==3:
-                        data_distr_std[j]=self._single_run_plotters[j].data[distr_std][:, 0, :]
+                        data_distr_std[j]=self._single_run_plotters[run_idx].data[distr_std][:, 0, :]
             if distr_min is not None:
                 if isinstance(distr_min, str):
-                    data_distr_min[j]=self._single_run_plotters[j].data[distr_min]
+                    data_distr_min[j]=self._single_run_plotters[run_idx].data[distr_min]
                     if data_distr_min[j].ndim==3:
-                        data_distr_min[j]=self._single_run_plotters[j].data[distr_min][:, 0, :]
+                        data_distr_min[j]=self._single_run_plotters[run_idx].data[distr_min][:, 0, :]
             if distr_max is not None:
                 if isinstance(distr_max, str):
-                    data_distr_max[j]=self._single_run_plotters[j].data[distr_max]
+                    data_distr_max[j]=self._single_run_plotters[run_idx].data[distr_max]
                     if data_distr_max[j].ndim==3:
-                        data_distr_max[j]=self._single_run_plotters[j].data[distr_max][:, 0, :]
+                        data_distr_max[j]=self._single_run_plotters[run_idx].data[distr_max][:, 0, :]
             if distr_q1 is not None:
                 if isinstance(distr_q1, str):
-                    data_distr_q1[j]=self._single_run_plotters[j].data[distr_q1]
+                    data_distr_q1[j]=self._single_run_plotters[run_idx].data[distr_q1]
                     if data_distr_q1[j].ndim==3:
-                        data_distr_q1[j]=self._single_run_plotters[j].data[distr_q1][:, 0, :]
+                        data_distr_q1[j]=self._single_run_plotters[run_idx].data[distr_q1][:, 0, :]
             if distr_q3 is not None:
                 if isinstance(distr_q3, str):
-                    data_distr_q3[j]=self._single_run_plotters[j].data[distr_q3]
+                    data_distr_q3[j]=self._single_run_plotters[run_idx].data[distr_q3]
                     if data_distr_q3[j].ndim==3:
-                        data_distr_q3[j]=self._single_run_plotters[j].data[distr_q3][:, 0, :]
+                        data_distr_q3[j]=self._single_run_plotters[run_idx].data[distr_q3][:, 0, :]
             if distr_p5 is not None:
                 if isinstance(distr_p5, str):
-                    data_distr_p5[j]=self._single_run_plotters[j].data[distr_p5]
+                    data_distr_p5[j]=self._single_run_plotters[run_idx].data[distr_p5]
                     if data_distr_p5[j].ndim==3:
-                        data_distr_p5[j]=self._single_run_plotters[j].data[distr_p5][:, 0, :]
+                        data_distr_p5[j]=self._single_run_plotters[run_idx].data[distr_p5][:, 0, :]
             if distr_p95 is not None:
                 if isinstance(distr_p95, str):
-                    data_distr_p95[j]=self._single_run_plotters[j].data[distr_p95]
+                    data_distr_p95[j]=self._single_run_plotters[run_idx].data[distr_p95]
                     if data_distr_p95[j].ndim==3:
-                        data_distr_p95[j]=self._single_run_plotters[j].data[distr_p95][:, 0, :]
+                        data_distr_p95[j]=self._single_run_plotters[run_idx].data[distr_p95][:, 0, :]
             if distr_median is not None:
                 if isinstance(distr_median, str):
-                    data_distr_median[j]=self._single_run_plotters[j].data[distr_median]
+                    data_distr_median[j]=self._single_run_plotters[run_idx].data[distr_median]
                     if data_distr_median[j].ndim==3:
-                        data_distr_median[j]=self._single_run_plotters[j].data[distr_median][:, 0, :]
+                        data_distr_median[j]=self._single_run_plotters[run_idx].data[distr_median][:, 0, :]
 
             n_datas.append(1)
             n_samples.append(1)
             n_envs.append(1)
-            datasets.append(self._single_run_plotters[j].data[dataset_name])
+            datasets.append(self._single_run_plotters[run_idx].data[dataset_name])
             if datasets[j].ndim == 3:
                 n_samples[j], n_envs[j], n_datas[j] = datasets[j].shape
             elif datasets[j].ndim == 2: 
@@ -1307,11 +1322,12 @@ class LRHCMultiRunPlotter():
             plt_lines[i]=[None]*self._n_runs
         for i in range(len(data_indexes)):
             # loop over data
-            for run in range(self._n_runs):
-                data=datasets[run][:, 0, data_indexes[i]] 
+            for j in range(self._n_runs):
+                run=self._ablation_attr_idxs[j]
+                data=datasets[j][:, 0, data_indexes[i]] 
 
                 if grid_plot:
-                    ax=axes[i, run]
+                    ax=axes[i, j]
                 else:
                     ax=axes[i]
 
@@ -1324,13 +1340,13 @@ class LRHCMultiRunPlotter():
                 alpha=data_alphas[i] if data_alphas is not None else 1.0
 
 
-                x_dataset=x_datasets[run]
+                x_dataset=x_datasets[j]
                 if x_dataset not in self._single_run_plotters[run].data:
                     print(f"X-axis dataset '{x_dataset}' for data {dlabel}, run {self._rnames[run]} not loaded. Use 'load_data' first.")
                     return
                 xaxis_data = self._single_run_plotters[run].data[x_dataset]
-                if xaxis_data.shape != (n_samples[run], 1):
-                    print(f"X-axis dataset '{x_dataset}' for data {dlabel}, run {self._rnames[run]} must have shape ({n_samples[run]}, 1) but got {xaxis_data.shape}")
+                if xaxis_data.shape != (n_samples[j], 1):
+                    print(f"X-axis dataset '{x_dataset}' for data {dlabel}, run {self._rnames[run]} must have shape ({n_samples[j]}, 1) but got {xaxis_data.shape}")
                     return
                 xaxis = xaxis_data[:, 0]  # Extract as 1D array
 
@@ -1341,55 +1357,56 @@ class LRHCMultiRunPlotter():
                     plt_line, = ax.plot(xaxis[valid_mask], data[valid_mask], label=self._ablation_attrs[run], alpha=alpha*alpha_scale)
                 
                 median_line=None
-                if data_distr_median[run] is not None:
+                if data_distr_median[j] is not None:
                     color=plt_line.get_color()
-                    median_line=ax.plot(xaxis[valid_mask], data_distr_median[run][valid_mask, idx], '--', 
+                    median_line=ax.plot(xaxis[valid_mask], data_distr_median[j][valid_mask, idx], '--', 
                         color=color, label=self._ablation_attrs[run], markersize=marker_size, alpha=alpha*alpha_scale)
 
-                if data_distr_q1[run] is not None and data_distr_q3[run] is not None: # add 25% and 75% quartiles
+                if data_distr_q1[j] is not None and data_distr_q3[j] is not None: # add 25% and 75% quartiles
                     alpha=0.5*alpha_scale
                     ax.fill_between(xaxis[valid_mask], 
-                            data_distr_q1[run][valid_mask, idx], data_distr_q3[run][valid_mask, idx],
+                            data_distr_q1[j][valid_mask, idx], data_distr_q3[j][valid_mask, idx],
                             color=plt_line.get_color(), alpha=alpha, 
                             label="q1/q3")
                 
-                if data_distr_p5[run] is not None and data_distr_p95[run] is not None: # add 25% and 75% quartiles
+                if data_distr_p5[j] is not None and data_distr_p95[j] is not None: # add 25% and 75% quartiles
                     alpha=0.5*alpha_scale
                     ax.fill_between(xaxis[valid_mask], 
-                            data_distr_p5[run][valid_mask, idx], data_distr_p95[run][valid_mask, idx],
+                            data_distr_p5[j][valid_mask, idx], data_distr_p95[j][valid_mask, idx],
                             color=plt_line.get_color(), alpha=alpha, 
                             label="p1/p5")
 
-                if data_distr_std[run] is not None: # add data distribution std area
+                if data_distr_std[j] is not None: # add data distribution std area
                     alpha=0.3*alpha_scale
                     ax.fill_between(xaxis[valid_mask], 
-                            data[valid_mask] - data_distr_std[run][valid_mask, idx], data[valid_mask] + data_distr_std[run][valid_mask, idx],
+                            data[valid_mask] - data_distr_std[j][valid_mask, idx], data[valid_mask] + data_distr_std[j][valid_mask, idx],
                             color=plt_line.get_color(), alpha=alpha, 
                             label="± 1 std")
                             
-                if data_distr_min[run] is not None and data_distr_max[run] is not None: # add min max bounds
+                if data_distr_min[j] is not None and data_distr_max[j] is not None: # add min max bounds
                     alpha=0.15*alpha_scale
                     ax.fill_between(xaxis[valid_mask], 
-                            data_distr_min[run][valid_mask, idx], data_distr_max[run][valid_mask, idx],
+                            data_distr_min[j][valid_mask, idx], data_distr_max[j][valid_mask, idx],
                             color=plt_line.get_color(), alpha=alpha, 
                             label="min/max")
                 
-                plt_lines[i][run]=plt_line
-                if i==0:
-                    ax.set_title(f"{self._ablation_attrs[run]}")
-
+                plt_lines[i][j]=plt_line
+            
                 if grid_plot:
+                    if i==0:
+                        ax.set_title(f"{self._ablation_attrs[run]}")
                     # just add x label for last data idx
                     if i==(len(data_indexes)-1):
                         ax.set_xlabel(xlabels[i])
-                    if run==(self._n_runs-1):
+                    if j==(self._n_runs-1):
                         ax.yaxis.set_label_position("right")
                         # ax.yaxis.set_label_position("right")
                         ax.set_ylabel(ylabels[i])
-                    if run==0:
+                    if j==0:
                         ax.set_ylabel(dlabel, 
                             fontsize=11)
                 else:
+                    ax.set_title(dlabel)
                     ax.set_xlabel(xlabels[i])
                     ax.set_ylabel(ylabels[i])
 
@@ -1397,8 +1414,10 @@ class LRHCMultiRunPlotter():
 
             if i==0 and (not grid_plot):
                 # Create custom legend with lines instead of dots
-                legend_lines = [mlines.Line2D([0], [0], color=plt_lines[i][run].get_color(), lw=4) for run in range(self._n_runs)]
-                legend = ax.legend(legend_lines, self._ablation_attrs, ncol=1, handlelength=2)
+                legend_lines = [mlines.Line2D([0], [0], color=plt_lines[i][k].get_color(), lw=4) for k in range(self._n_runs)]
+                ablation_remapped=[self._ablation_attrs[self._ablation_attr_idxs[k]] for k in range(self._n_runs)]
+                legend = ax.legend(legend_lines, 
+                    ablation_remapped, ncol=1, handlelength=2)
             
                 # Set pickable property
                 for line in legend_lines:
@@ -1444,6 +1463,8 @@ if __name__ == "__main__":
     parser.add_argument('--ablation_attr',type=str, help='attribute wrt ablation study was run (if multirun)', default=None)
     parser.add_argument('--file_pattern',action='store_true', help='oss envs,)')
     parser.add_argument('--alpha_scale',type=float, help='', default=1.0)
+    parser.add_argument('--order_wrt_ablation',action='store_true', help='whether to order plot wrt ablation param')
+    parser.add_argument('--decreasing',action='store_true', help='order plots wrt ablation param in decreasing order')
 
     parser.add_argument('--x_axis_start_p',type=float, help='where to start x axis wrt x data (percentage [0, 1])', default=0.0)
     parser.add_argument('--x_axis_end_p',type=float, help='where to end x axis wrt x data (percentage [0, 1])', default=1.0)
@@ -1466,7 +1487,9 @@ if __name__ == "__main__":
         if args.multirun:
             plotter = LRHCMultiRunPlotter(hdf5_file_path=path,
                                 ablation_attrname=args.ablation_attr,
-                                recompute_mean=args.recompute_mean)
+                                recompute_mean=args.recompute_mean,
+                                order_wrt_ablation=args.order_wrt_ablation,
+                                decreasing=args.decreasing)
             
         else:
             # load training data
@@ -1526,7 +1549,7 @@ if __name__ == "__main__":
         # sub rewards
         if args.multirun:
             plotter.plot_data(dataset_name="sub_rew_median_over_envs", 
-                title=f"scaled sub returns stats over envs", 
+                title=f"Average sub-rewards over episodes", 
                 xaxis_dataset_name=xaxis_dataset_name,
                 xlabel=xlabel,
                 ylabel="",
@@ -1545,7 +1568,7 @@ if __name__ == "__main__":
                 alpha_scale=alpha_scale,
                 data_alphas=[3.0]*len(plotter.sub_rew_names)) 
         plotter.plot_data(dataset_name="sub_rew_avrg_over_envs", 
-            title=f"scaled sub returns stats over envs", 
+            title=f"Average sub-rewards over episodes", 
             xaxis_dataset_name=xaxis_dataset_name,
             xlabel=xlabel,
             ylabel="",
@@ -1564,7 +1587,7 @@ if __name__ == "__main__":
             grid_shares_y=False,
             grid_size=[1, len(plotter.sub_rew_names)]) 
         plotter.plot_data(dataset_name="sub_rew_avrg", 
-            title=f"scaled sub returns distribution across envs", 
+            title=f"Average reward distribution across envs", 
             xaxis_dataset_name=xaxis_dataset_name,
             xlabel=xlabel,
             ylabel="",
@@ -1574,7 +1597,7 @@ if __name__ == "__main__":
         # tot reward
         if args.multirun:
             plotter.plot_data(dataset_name="tot_rew_median_over_envs", 
-                title=f"scaled return stats over envs", 
+                title=f"Average total reward over episodes", 
                 xaxis_dataset_name=xaxis_dataset_name,
                 xlabel=xlabel,
                 ylabel="",
@@ -1592,7 +1615,7 @@ if __name__ == "__main__":
                 alpha_scale=alpha_scale,
                 data_alphas=[3.0]) 
         plotter.plot_data(dataset_name="tot_rew_avrg", 
-            title=f"scaled return distribution across envs", 
+            title=f"Average total reward distribution across envs", 
             xaxis_dataset_name=xaxis_dataset_name,
             xlabel=xlabel,
             ylabel="",
@@ -1600,7 +1623,7 @@ if __name__ == "__main__":
             grid_shares_y=False)
 
         # env data 
-        plotter.plot_data(dataset_name="env_step_rt_factor", title="env_step_rt_factor", 
+        plotter.plot_data(dataset_name="env_step_rt_factor", title="Experience collection RT factor", 
             xaxis_dataset_name=xaxis_dataset_name,
             xlabel=xlabel,
             ylabel="",
