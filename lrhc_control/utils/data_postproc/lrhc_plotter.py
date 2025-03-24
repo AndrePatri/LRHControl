@@ -1493,7 +1493,7 @@ if __name__ == "__main__":
 
     parser.add_argument('--multirun',action='store_true', help='plot comparative results (if env db across envs, otherwise across runs)')
     parser.add_argument('--ablation_attr',type=str, help='attribute wrt ablation study was run (if multirun)', default=None)
-    parser.add_argument('--file_pattern',action='store_true', help='oss envs,)')
+    parser.add_argument('--file_pattern',type=str, help='will search for run file matching this patter', default="db_info")
     parser.add_argument('--alpha_scale',type=float, help='', default=1.0)
     parser.add_argument('--order_wrt_ablation',action='store_true', help='whether to order plot wrt ablation param')
     parser.add_argument('--decreasing',action='store_true', help='order plots wrt ablation param in decreasing order')
@@ -1523,7 +1523,8 @@ if __name__ == "__main__":
                                 order_wrt_ablation=args.order_wrt_ablation,
                                 decreasing=args.decreasing,
                                 xaxis_start_p=args.x_axis_start_p,
-                                xaxis_end_p=args.x_axis_end_p)
+                                xaxis_end_p=args.x_axis_end_p,
+                                fpattern=args.file_pattern)
             
         else:
             # load training data
