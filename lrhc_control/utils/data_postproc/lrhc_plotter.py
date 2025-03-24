@@ -154,6 +154,10 @@ class LRHCPlotter:
                 data=self.data["Power_q1_over_envs"][:, :, 1:2])
             self.create_dataset(dataset_name="MechPow_q3_over_envs", 
                 data=self.data["Power_q3_over_envs"][:, :, 1:2])
+            self.create_dataset(dataset_name="MechPow_p5_over_envs", 
+                data=self.data["Power_p5_over_envs"][:, :, 1:2])
+            self.create_dataset(dataset_name="MechPow_p95_over_envs", 
+                data=self.data["Power_p95_over_envs"][:, :, 1:2])
             self.create_dataset(dataset_name="MechPow_median_over_envs", 
                 data=self.data["Power_median_over_envs"][:, :, 1:2])
             self.create_dataset(dataset_name="MechPow_max_over_envs", 
@@ -171,6 +175,10 @@ class LRHCPlotter:
                 data=self.data["Power_q1_over_envs"][:, :, 0:1])
             self.create_dataset(dataset_name="CoT_q3_over_envs", 
                 data=self.data["Power_q3_over_envs"][:, :, 0:1])
+            self.create_dataset(dataset_name="CoT_p5_over_envs", 
+                data=self.data["Power_p5_over_envs"][:, :, 0:1])
+            self.create_dataset(dataset_name="CoT_p95_over_envs", 
+                data=self.data["Power_p95_over_envs"][:, :, 0:1])
             self.create_dataset(dataset_name="CoT_median_over_envs", 
                 data=self.data["Power_median_over_envs"][:, :, 0:1])
             self.create_dataset(dataset_name="CoT_max_over_envs", 
@@ -198,7 +206,7 @@ class LRHCPlotter:
             self.compose_datasets(name="qf_vals_min",
                 datasets_list=["qf1_vals_min", "qf2_vals_min"])
 
-            # handle sub rewards
+            # create separate dsets for each sub reward (a bit overkill)
             for i in range(len(self.sub_rew_names)):
                 sub_rew_name=self.sub_rew_names[i]
                 avrg_over_envs_name=sub_rew_name+"_avrg_rew_over_envs"
@@ -1321,8 +1329,14 @@ class LRHCMultiRunPlotter():
         fig, axes = plt.subplots(rows, cols, 
             figsize=(5 * cols, 4 * rows), sharex=grid_shares_x, sharey=grid_shares_y)
         
-        if rows*cols==1:
-            axes=[axes]
+        if grid_plot:
+            if rows*cols==1:
+                axes=np.array([[axes]])
+            if rows == 1:
+                axes=axes.reshape(1, -1)
+        else:
+            if rows*cols==1:
+                axes=np.array([axes])
 
         plt_lines=[None]*len(data_indexes)
         for i in range(len(data_indexes)):
@@ -1661,7 +1675,7 @@ if __name__ == "__main__":
             xaxis_dataset_name=xaxis_dataset_name,
             xlabel=xlabel,
             ylabel="",
-            use_markers=True,
+            use_markers=False,
             marker_size=marker_size)
         
         plotter.plot_data(dataset_name="ep_tsteps_env_distr", title="ep_tsteps_env_distribution", 
@@ -1723,20 +1737,44 @@ if __name__ == "__main__":
                     data_alphas=[0.3, 0.3],
                     data_labels=["expl_bonus_raw_avrg", "expl_bonus_raw_std"])
         
-        # plotter.plot_data(dataset_name="CoT_avrg_over_envs", 
-        #         title=f"CoT", 
-        #         xaxis_dataset_name=xaxis_dataset_name,
-        #         xlabel=xlabel,
-        #         ylabel="[]",
-        #         data_labels="CoT",
-        #         use_markers=False,
-        #         marker_size=marker_size,
-        #         distr_std="CoT_std_over_envs",
-        #         distr_max=None, # tot_rew_max_over_envs
-        #         distr_min=None,
-        #         distr_q1="CoT_q1_over_envs",
-        #         distr_q3="CoT_q3_over_envs",
-        #         distr_median="CoT_median_over_envs")
+        if args.multirun:
+            plotter.plot_data(dataset_name="CoT_median_over_envs", 
+                title=f"Cost of transport", 
+                xaxis_dataset_name=xaxis_dataset_name,
+                xlabel=xlabel,
+                ylabel="",
+                data_labels=["CoT"],
+                use_markers=False,
+                marker_size=marker_size,
+                distr_std=None,
+                distr_max=None,
+                distr_min=None,
+                distr_q1=None,
+                distr_q3=None,
+                distr_p5="CoT_p5_over_envs",
+                distr_p95="CoT_p95_over_envs",
+                distr_median=None,
+                alpha_scale=alpha_scale)
+                # data_alphas=[3.0]) 
+        plotter.plot_data(dataset_name="CoT_avrg_over_envs", 
+                title=f"Cost of transport", 
+                xaxis_dataset_name=xaxis_dataset_name,
+                xlabel=xlabel,
+                ylabel="",
+                use_markers=False,
+                marker_size=marker_size,
+                distr_std=None,
+                distr_max=None, # tot_rew_max_over_envs
+                distr_min=None,
+                distr_p5="CoT_p5_over_envs",
+                distr_p95="CoT_p95_over_envs",
+                distr_q1="CoT_q1_over_envs",
+                distr_q3="CoT_q3_over_envs",
+                distr_median="CoT_median_over_envs",
+                grid_plot=True,
+                grid_size=[1, 2],
+                grid_shares_y=grid_shares_y)
+
         # plotter.plot_data(dataset_name="CoT_avrg", 
         #     title=f"CoT distribution", 
         #     xaxis_dataset_name=xaxis_dataset_name,
@@ -1761,6 +1799,25 @@ if __name__ == "__main__":
         #     xaxis_dataset_name=xaxis_dataset_name,
         #     xlabel=xlabel) # distribution
         
+        if args.multirun:
+            plotter.plot_data(dataset_name="Power_median_over_envs", 
+                title=f"Power db data", 
+                xaxis_dataset_name=xaxis_dataset_name,
+                xlabel=xlabel,
+                ylabel="",
+                data_labels=["CoT", "Mech.P."],
+                use_markers=False,
+                marker_size=marker_size,
+                distr_std=None,
+                distr_max=None,
+                distr_min=None,
+                distr_q1=None,
+                distr_q3=None,
+                distr_p5="Power_p5_over_envs",
+                distr_p95="Power_p95_over_envs",
+                distr_median=None,
+                alpha_scale=alpha_scale,
+                grid_shares_y=False)
         plotter.plot_data(dataset_name="Power_avrg_over_envs", 
                 title=f"Power db data", 
                 xaxis_dataset_name=xaxis_dataset_name,
@@ -1781,6 +1838,26 @@ if __name__ == "__main__":
                 grid_size=[1, 2],
                 grid_shares_y=grid_shares_y)
         
+        if args.multirun:
+            plotter.plot_data(dataset_name="TrackingError_median_over_envs", 
+                title=f"Tracking error", 
+                xaxis_dataset_name=xaxis_dataset_name,
+                xlabel=xlabel,
+                ylabel=["m/s", "m/s", "m/s", "rad/s", "rad/s", "rad/s"],
+                data_labels=["lin_x", "lin_y", "lin_z", "omega_x", "omega_y", "omega_z"],
+                use_markers=False,
+                marker_size=marker_size,
+                distr_std=None,
+                distr_max=None,
+                distr_min=None,
+                distr_q1=None,
+                distr_q3=None,
+                distr_p5="TrackingError_p5_over_envs",
+                distr_p95="TrackingError_p95_over_envs",
+                distr_median=None,
+                alpha_scale=alpha_scale,
+                grid_shares_y=False)
+                # data_alphas=[3.0]) 
         plotter.plot_data(dataset_name="TrackingError_avrg_over_envs", 
                 title=f"Tracking error", 
                 xaxis_dataset_name=xaxis_dataset_name,
@@ -1812,6 +1889,27 @@ if __name__ == "__main__":
             ylabels=["[m/s]"]*len(idxs_lin_v)
             ylabels+=["[rad/s]"]*len(idxs_ang_v)
             if len(idxs_lin_v)>0 and len(idxs_ang_v)>0:
+
+                if args.multirun:
+                    plotter.plot_data(dataset_name="Actions_median_over_envs", 
+                        title=f"Actions - twist commands", 
+                        xaxis_dataset_name=xaxis_dataset_name,
+                        xlabel=xlabel,
+                        ylabel=ylabels,
+                        data_labels=selected,
+                        data_idxs=idxs,
+                        use_markers=False,
+                        marker_size=marker_size,
+                        distr_std=None,
+                        distr_max=None,
+                        distr_min=None,
+                        distr_q1=None,
+                        distr_q3=None,
+                        distr_p5="Actions_p5_over_envs",
+                        distr_p95="Actions_p95_over_envs",
+                        distr_median=None,
+                        alpha_scale=alpha_scale)
+                        # data_alphas=[3.0]) 
                 plotter.plot_data(dataset_name="Actions_avrg_over_envs", 
                     title=f"Actions - twist commands", 
                     xaxis_dataset_name=xaxis_dataset_name,
@@ -1838,6 +1936,26 @@ if __name__ == "__main__":
             for i in range(len(selected)):
                 tmp[i]=f"contact_flag_{i}"
             if len(idxs)>0:
+                if args.multirun:
+                    plotter.plot_data(dataset_name="Actions_median_over_envs", 
+                        title=f"contact flags", 
+                        xaxis_dataset_name=xaxis_dataset_name,
+                        xlabel=xlabel,
+                        ylabel=[""]*len(idxs),
+                        data_labels=tmp,
+                        data_idxs=idxs,
+                        use_markers=False,
+                        marker_size=marker_size,
+                        distr_std=None,
+                        distr_max=None,
+                        distr_min=None,
+                        distr_q1=None,
+                        distr_q3=None,
+                        distr_p5="Actions_p5_over_envs",
+                        distr_p95="Actions_p95_over_envs",
+                        distr_median=None,
+                        alpha_scale=alpha_scale)
+                        # data_alphas=[3.0]) 
                 plotter.plot_data(dataset_name="Actions_avrg_over_envs", 
                     title=f"Actions - contact flags", 
                     xaxis_dataset_name=xaxis_dataset_name,
