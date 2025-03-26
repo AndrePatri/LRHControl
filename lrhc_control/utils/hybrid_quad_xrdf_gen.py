@@ -118,6 +118,7 @@ def get_xrdf_cmds_b2w(urdf_descr_root_path: str = None):
 
         cmds = []
         cmds.append("use_abs_mesh_paths:=true") # use absolute paths for meshes
+        cmds.append("floating_joint:=false")
         cmds.append("root:=" + urdf_descr_root_path)
 
         return cmds
