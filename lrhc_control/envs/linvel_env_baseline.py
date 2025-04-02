@@ -241,7 +241,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._add_env_opt(env_opts, "pof0", default=0.1) # [0, 1] prob of null refs (from bernoulli distr)
         self._add_env_opt(env_opts, "max_linvel_ref", default=0.3) # m/s
         self._add_env_opt(env_opts, "max_angvel_ref", default=0.0) # rad/s
-        if self._env_opts["add_angvel_ref_rand"]:   
+        if env_opts["add_angvel_ref_rand"]:   
             env_opts["max_angvel_ref"]=0.2
 
         # ready to init base class
