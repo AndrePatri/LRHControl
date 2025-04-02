@@ -96,6 +96,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         self._add_env_opt(env_opts, "add_power_reward", False)
         self._add_env_opt(env_opts, "add_CoT_reward", True)
+        self._add_env_opt(env_opts, "use_CoT_wrt_ref", True)
         self._add_env_opt(env_opts, "add_action_rate_reward", True)
         self._add_env_opt(env_opts, "add_jnt_v_reward", False)
 
@@ -827,11 +828,11 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             mech_pow_tot=mech_pow_tot/self._power_penalty_weights_sum
         return mech_pow_tot
 
-    def _cost_of_transport(self, jnts_vel, jnts_effort, v_ref_norm, mass_weight: bool = False):
+    def _cost_of_transport(self, jnts_vel, jnts_effort, v_norm, mass_weight: bool = False):
         drained_mech_pow=self._mech_pow(jnts_vel=jnts_vel,
             jnts_effort=jnts_effort, 
             drained=True)
-        CoT=drained_mech_pow/(v_ref_norm+1e-3)
+        CoT=drained_mech_pow/(v_norm+1e-3)
         if mass_weight:
             robot_weight=self._rhc_robot_weight
             CoT=CoT/robot_weight
@@ -982,14 +983,17 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             jnts_effort = self._robot_state.jnts_state.get(data_type="eff",gpu=self._use_gpu)
 
             if self._env_opts["add_CoT_reward"]:
-                agent_task_ref_base_loc = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu)
-                ref_norm=torch.norm(agent_task_ref_base_loc, dim=1, keepdim=True)
-                CoT=self._cost_of_transport(jnts_vel=jnts_vel,jnts_effort=jnts_effort,v_ref_norm=ref_norm, 
+                if self._env_opt["use_CoT_wrt_ref"]: # uses v ref norm for computing cot
+                    agent_task_ref_base_loc = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu)
+                    v_norm=torch.norm(agent_task_ref_base_loc, dim=1, keepdim=True)
+                else: # uses measured velocity
+                    robot_twist_meas_base_loc = self._robot_state.root_state.get(data_type="twist",gpu=self._use_gpu)
+                    v_norm=torch.norm(robot_twist_meas_base_loc[:,0:3], dim=1, keepdim=True)
+                CoT=self._cost_of_transport(jnts_vel=jnts_vel,jnts_effort=jnts_effort,v_norm=v_norm, 
                     mass_weight=True
                     )
                 idx=self._reward_map["CoT"]
                 sub_rewards[:, idx:(idx+1)] = self._env_opts["CoT_offset"]*(1-self._env_opts["CoT_scale"]*CoT)
-
             if self._env_opts["add_power_reward"]:
                 weighted_mech_power=self._mech_pow(jnts_vel=jnts_vel,jnts_effort=jnts_effort, drained=True)
                 idx=self._reward_map["mech_pow"]
