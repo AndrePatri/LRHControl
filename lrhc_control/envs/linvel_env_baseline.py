@@ -993,7 +993,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             jnts_effort = self._robot_state.jnts_state.get(data_type="eff",gpu=self._use_gpu)
 
             if self._env_opts["add_CoT_reward"]:
-                if self._env_opt["use_CoT_wrt_ref"]: # uses v ref norm for computing cot
+                if self._env_opts["use_CoT_wrt_ref"]: # uses v ref norm for computing cot
                     agent_task_ref_base_loc = self._agent_refs.rob_refs.root_state.get(data_type="twist",gpu=self._use_gpu)
                     v_norm=torch.norm(agent_task_ref_base_loc, dim=1, keepdim=True)
                 else: # uses measured velocity
