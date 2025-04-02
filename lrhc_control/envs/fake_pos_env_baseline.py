@@ -87,7 +87,8 @@ class FakePosEnvBaseline(LinVelTrackBaseline):
                                             gpu=self._use_gpu)
 
     def _compute_twist_ref_w(self, env_indxs: torch.Tensor = None):
-
+        
+        # angular refs are not altered
         if env_indxs is None:
             # we update the position error using the current base position
             self._p_delta_w[:, :]=self._p_trgt_w-\
@@ -102,6 +103,7 @@ class FakePosEnvBaseline(LinVelTrackBaseline):
 
             # we compute the twist refs for the agent depending of the position error
             self._agent_twist_ref_current_w[:, 0:2]=self._dp_norm*self._dp_versor/self._env_opts["max_dt"]
+            self._agent_twist_ref_current_w[:, 2:3]=0 # no vertical vel
         else:
             self._p_delta_w[env_indxs, :]=self._robot_state.root_state.get(data_type="p",gpu=self._use_gpu)[env_indxs, 0:2] -\
                 self._p_trgt_w[env_indxs, :]
@@ -114,7 +116,8 @@ class FakePosEnvBaseline(LinVelTrackBaseline):
             self._dp_versor[env_indxs, :]=self._p_delta_w[env_indxs, :]/self._dp_norm[env_indxs, :]
 
             self._agent_twist_ref_current_w[env_indxs, 0:2]=self._dp_norm[env_indxs, :]*self._dp_versor[env_indxs, :]/self._env_opts["max_dt"]        
-        
+            self._agent_twist_ref_current_w[env_indxs, 2:3]=0 # no vertical vel
+
     def _override_refs(self,
             env_indxs: torch.Tensor = None):
         
@@ -138,6 +141,8 @@ class FakePosEnvBaseline(LinVelTrackBaseline):
 
     def _randomize_task_refs(self,
         env_indxs: torch.Tensor = None):
+
+        LinVelTrackBaseline._randomize_task_refs(self, env_indxs=env_indxs)
 
         # we randomize the reference in world frame
         if env_indxs is None:

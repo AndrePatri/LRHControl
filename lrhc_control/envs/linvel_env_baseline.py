@@ -47,6 +47,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             True # if True, the task ref is constant over the episode (ie
             # episodes are truncated when task is changed) 
             )
+        self._add_env_opt(env_opts, "add_angvel_ref_rand", default=False) # randomize also agular vel ref (just z component)
 
         self._add_env_opt(env_opts, "episode_timeout_lb", 
             1024)
@@ -105,6 +106,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # task tracking
         self._add_env_opt(env_opts, "use_relative_error", default=False) # use relative vel error (wrt current task norm)
         self._add_env_opt(env_opts, "directional_tracking", default=True) # whether to compute tracking error based on reference direction
+        if self._env_opts["add_angvel_ref_rand"]:
+            self._env_opts["directional_tracking"]=False
 
         self._add_env_opt(env_opts, "use_L1_norm", default=True) # whether to use L1 norm for the error (otherwise L2)
         self._add_env_opt(env_opts, "use_exp_track_rew", default=True) # whether to use a reward of the form A*e^(B*x), 
@@ -121,6 +124,10 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._add_env_opt(env_opts, "task_track_omega_x_weight", default=0.0)
         self._add_env_opt(env_opts, "task_track_omega_y_weight", default=0.0)
         self._add_env_opt(env_opts, "task_track_omega_z_weight", default=1.0)
+        if self._env_opts["add_angvel_ref_rand"]:
+            self._env_opts["task_track_omega_x_weight"]=1.0
+            self._env_opts["task_track_omega_y_weight"]=1.0
+            self._env_opts["task_track_omega_z_weight"]=1.0
 
         # task pred tracking
         self._add_env_opt(env_opts, "task_pred_track_offset", default=1.0)
@@ -231,8 +238,11 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             obs_dim+=2
         # Agent task reference
         self._add_env_opt(env_opts, "use_pof0", default=True) # with some prob, references will be null
-        self._add_env_opt(env_opts, "pof0", default=0.01) # [0, 1] prob of null refs (from bernoulli distr)
-        self._add_env_opt(env_opts, "max_ref", default=0.3)
+        self._add_env_opt(env_opts, "pof0", default=0.1) # [0, 1] prob of null refs (from bernoulli distr)
+        self._add_env_opt(env_opts, "max_linvel_ref", default=0.3) # m/s
+        self._add_env_opt(env_opts, "max_angvel_ref", default=0.0) # rad/s
+        if self._env_opts["add_angvel_ref_rand"]:   
+            self._add_env_opt(env_opts, "max_angvel_ref", default=0.2)
 
         # ready to init base class
         self._this_child_path = os.path.abspath(__file__)
@@ -271,19 +281,19 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         
         # task reference parameters (world frame)
         # lin vel
-        self._twist_ref_lb[0, 0] = -self._env_opts["max_ref"]
-        self._twist_ref_lb[0, 1] = -self._env_opts["max_ref"]
+        self._twist_ref_lb[0, 0] = -self._env_opts["max_linvel_ref"]
+        self._twist_ref_lb[0, 1] = -self._env_opts["max_linvel_ref"]
         self._twist_ref_lb[0, 2] = 0.0
-        self._twist_ref_ub[0, 0] = self._env_opts["max_ref"]
-        self._twist_ref_ub[0, 1] = self._env_opts["max_ref"]
+        self._twist_ref_ub[0, 0] = self._env_opts["max_linvel_ref"]
+        self._twist_ref_ub[0, 1] = self._env_opts["max_linvel_ref"]
         self._twist_ref_ub[0, 2] = 0.0
         # angular vel
         self._twist_ref_lb[0, 3] = 0.0
         self._twist_ref_lb[0, 4] = 0.0
-        self._twist_ref_lb[0, 5] = 0.0
+        self._twist_ref_lb[0, 5] = -self._env_opts["max_angvel_ref"]
         self._twist_ref_ub[0, 3] = 0.0
         self._twist_ref_ub[0, 4] = 0.0
-        self._twist_ref_ub[0, 5] = 0.0
+        self._twist_ref_ub[0, 5] = self._env_opts["max_angvel_ref"]
 
         self._twist_ref_offset = (self._twist_ref_ub + self._twist_ref_lb)/2.0
         self._twist_ref_scale = (self._twist_ref_ub - self._twist_ref_lb)/2.0
