@@ -1080,6 +1080,13 @@ class LRHCMultiRunPlotter():
             self._attr_values_across_runs[attr_name].append(attr_value)
             # first run
             for j in range(len(self._single_run_plotters)-1): # for each run
+                if attr_name not in self._single_run_plotters[j+1].attributes: # if the attribute is missing, we add a dummy 
+                    attr_value_dummy="not_found"
+                    if isinstance(attr_value, np.ndarray):
+                        attr_value_dummy=attr_value.copy().fill(np.nan)
+                    if isinstance(attr_value, int):
+                        attr_value_dummy=-42
+                    self._single_run_plotters[j+1].attributes[attr_name]=attr_value_dummy
                 value=self._single_run_plotters[j+1].attributes[attr_name]
                 if isinstance(value, np.ndarray):
                     value=value.tolist()
@@ -1103,7 +1110,60 @@ class LRHCMultiRunPlotter():
     #     file_names = [os.path.splitext(os.path.basename(file))[0] for file in hdf5_files]
 
     #     # Check if there are no files or just one file, raise an error
-    #     if len(hdf5_files) < 2:
+    #     if len(db_print='\n'.join(file_names)
+    #     print(f"\n[LRHCMultiRunPlotter] Will load runs from datasets: \n {fnames_db_print} \n")
+
+    #     return hdf5_files, file_names
+    
+    def check_hdf5_files(self, directory, pattern="db_info"):
+        if not os.path.isdir(directory):
+            raise ValueError(f"Error: '{directory}' is not a valid directory.")
+
+        # Search for HDF5 files recursively in subdirectories
+        hdf5_files = glob.glob(os.path.join(directory, "**", f"*{pattern}*.h5"), recursive=True) + \
+                     glob.glob(os.path.join(directory, "**", f"*{pattern}*.hdf5"), recursive=True)
+        
+        # Extract filenames without extensions
+        file_names = [os.path.splitext(os.path.basename(file))[0] for file in hdf5_files]
+
+        # Check if there are at least two matching files
+        if len(hdf5_files) < 2:
+            raise ValueError(f"Error: Found only {len(hdf5_files)} HDF5 files matching the pattern '{pattern}'.")
+
+        fnames_db_print = '\n'.join(file_names)
+        print(f"\n[LRHCMultiRunPlotter] Will load runs from datasets: \n{fnames_db_print}\n")
+
+        return hdf5_files, file_names
+
+    def _check_all_attr_are_there(self):
+        
+        self._all_lists_equal(self._single_run_attributes, raise_excep=False)
+
+    def _check_all_datasets_are_there(self):
+
+        self._all_lists_equal(self._single_run_datasets)
+
+    def _all_lists_equal(self, lst_of_lsts, raise_excep: bool = True):
+        if not lst_of_lsts:  # Handle empty input
+            raise ValueError("Error: The input list is empty.")
+        
+        # Convert each list to a set
+        first_set = set(lst_of_lsts[0])  # Take the first list as a reference
+        
+        for i, lst in enumerate(lst_of_lsts[1:], start=1):  # Compare with the rest
+            current_set = set(lst)
+            if current_set != first_set:
+                missing_in_current = first_set - current_set
+                extra_in_current = current_set - first_set
+                msg=f"Error: List at index {i} does not match the reference list.\n" + \
+                    f"Missing elements: {missing_in_current}\n" + \
+                    f"Extra elements: {extra_in_current}"
+                if raise_excep:
+                    raise ValueError(msg)
+                else:
+                    print(msg)
+    
+        return True  # All lists are equalhdf5_files) < 2:
     #         raise ValueError("Error: Less than two HDF5 files found in the directory.")
         
     #     fnames_db_print='\n'.join(file_names)
@@ -1133,30 +1193,42 @@ class LRHCMultiRunPlotter():
 
     def _check_all_attr_are_there(self):
         
-        self._all_lists_equal(self._single_run_attributes)
+        self._all_lists_equal(self._single_run_attributes, raise_excep=False, fill_missing=False)
 
     def _check_all_datasets_are_there(self):
 
         self._all_lists_equal(self._single_run_datasets)
 
-    def _all_lists_equal(self, lst_of_lsts):
+    def _all_lists_equal(self, lst_of_lsts, raise_excep: bool = True, fill_missing: bool = False):
         if not lst_of_lsts:  # Handle empty input
             raise ValueError("Error: The input list is empty.")
         
+        from numbers import Number
+
         # Convert each list to a set
         first_set = set(lst_of_lsts[0])  # Take the first list as a reference
-        
+                                                                                
         for i, lst in enumerate(lst_of_lsts[1:], start=1):  # Compare with the rest
             current_set = set(lst)
             if current_set != first_set:
                 missing_in_current = first_set - current_set
                 extra_in_current = current_set - first_set
-                raise ValueError(
-                    f"Error: List at index {i} does not match the reference list.\n"
-                    f"Missing elements: {missing_in_current}\n"
+                msg=f"Error: List at index {i} does not match the reference list.\n" + \
+                    f"Missing elements: {missing_in_current}\n" + \
                     f"Extra elements: {extra_in_current}"
-                )
-    
+                if raise_excep:
+                    raise ValueError(msg)
+                else:
+                    print(msg)
+                    if fill_missing:
+                        for missing in missing_in_current:
+                            if isinstance(missing, str):
+                                lst.append("none")
+                            elif isinstance(missing, Number):
+                                lst.append(float("nan"))
+                            else:
+                                lst.append("none")  # Fallback for unknown types
+
         return True  # All lists are equal
 
     def list_datasets(self):
@@ -1351,7 +1423,7 @@ class LRHCMultiRunPlotter():
                     ax=axes[i, j]
                 else:
                     ax=axes[i]
-
+                
                 # force scientific notation
                 ax.xaxis.set_major_formatter(mticker.ScalarFormatter(useMathText=True))
                 ax.ticklabel_format(style='sci', axis='x', scilimits=(0, 0))  # Force scientific notation
@@ -1440,7 +1512,7 @@ class LRHCMultiRunPlotter():
 
                 ax.grid(True)
 
-            if i==0:
+            if i==(len(data_indexes)-1):
                 if not grid_plot:
                     # Create custom legend with lines instead of dots
                     legend_lines = [mlines.Line2D([0], [0], color=plt_lines[i][k].get_color(), lw=4) for k in range(self._n_runs)]
