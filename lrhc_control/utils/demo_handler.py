@@ -27,7 +27,7 @@ class DemoRunner(AgentRefsFromKeyboard):
         self._demo_opts = opts
 
         self._n_waypoints = 3
-        self._edge_length = 2.5  # [m]
+        self._edge_length = 3.0  # [m]
         self._edge_max_v_norm = 0.25  # [m/s]
         self._use_stime=False
 
