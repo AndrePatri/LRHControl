@@ -4,7 +4,6 @@ from lrhc_control.agents.dummies.dummy import DummyAgent
 from lrhc_control.utils.shared_data.algo_infos import SharedRLAlgorithmInfo, QfVal, QfTrgt
 from lrhc_control.utils.shared_data.training_env import SubReturns, TotReturns
 from lrhc_control.utils.nn.rnd import RNDFull
-from adarl.utils.NoveltyScaler import NoveltyScaler
 
 import torch 
 import torch.optim as optim
@@ -586,6 +585,8 @@ class SActorCriticAlgoBase(ABC):
         self._alpha=0.0
         self._novelty_scaler=None
         if self._use_rnd:
+            from adarl.utils.NoveltyScaler import NoveltyScaler
+
             self._novelty_scaler=NoveltyScaler(th_device=self._torch_device,
                                     bonus_weight=self._rnd_weight,
                                     avg_alpha=self._alpha)
