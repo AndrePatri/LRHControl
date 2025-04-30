@@ -741,17 +741,23 @@ class LRHCPlotter:
             
             for i in range(n_data):
                 x_dataset=x_datasets[i]
-                if x_dataset not in self.data:
-                    print(f"X-axis dataset '{x_dataset}' for data {label} not loaded. Use 'load_data' first.")
-                    return
-                xaxis_data = self.data[x_dataset]
-                if xaxis_data.shape != (n_samples, 1):
-                    print(f"X-axis dataset '{x_dataset}' for data {label} must have shape ({n_samples}, 1).")
-                    return
-                xaxis = xaxis_data[:, 0]  # Extract as 1D array
+                label=f"Data {i+1}" if data_labels is None else data_labels[i]
+
+                # Handle optional x-axis dataset
+                if x_dataset is not None:
+                    if x_dataset not in self.data:
+                        print(f"X-axis dataset '{x_dataset}' for data {label} not loaded. Use 'load_data' first.")
+                        return
+                    xaxis_data = self.data[x_dataset]
+                    if xaxis_data.shape != (n_samples, 1):
+                        print(f"X-axis dataset '{x_dataset}' for data {label} must have shape ({n_samples}, 1).")
+                        return
+                    xaxis = xaxis_data[:, 0]  # Extract as 1D array
+                else:
+                    xaxis = np.arange(n_samples)  # Default x-axis is time steps
                 
                 data = dataset[:, :, i]  # Extract data for all environments
-                label=f"Data {i+1}" if data_labels is None else data_labels[i]
+                
 
                 # Flatten and filter NaNs from data and corresponding x values
                 valid_mask = xaxis > 0  # Valid (finite) mask
