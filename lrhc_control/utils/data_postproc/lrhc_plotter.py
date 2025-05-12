@@ -995,7 +995,7 @@ class LRHCMultiRunPlotter():
             self._ablation_attrs=[]
             for i in range(self._n_runs):
                 self._ablation_attrs.append(ablation_attrname+ \
-                            f": {self._different_attrs_across_runs[ablation_attrname][i]}")
+                            f": {int(self._different_attrs_across_runs[ablation_attrname][i])}")
             if self._order_wrt_ablation:
                 attrs=self._different_attrs_across_runs[ablation_attrname]
                 _, ordered_attrs, self._ablation_attr_idxs=self._get_ablation_attr_remapping(attrs, increasing=not self._decreasing)
@@ -1586,7 +1586,7 @@ if __name__ == "__main__":
     parser.add_argument('--multirun',action='store_true', help='plot comparative results (if env db across envs, otherwise across runs)')
     parser.add_argument('--ablation_attr',type=str, help='attribute wrt ablation study was run (if multirun)', default=None)
     parser.add_argument('--file_pattern',type=str, help='will search for run file matching this patter', default="db_info")
-    parser.add_argument('--alpha_scale',type=float, help='', default=1.0)
+    parser.add_argument('--alpha_scale',type=float, help='', default=0.5)
     parser.add_argument('--order_wrt_ablation',action='store_true', help='whether to order plot wrt ablation param')
     parser.add_argument('--decreasing',action='store_true', help='order plots wrt ablation param in decreasing order')
 
@@ -2946,6 +2946,9 @@ if __name__ == "__main__":
              
             # plotting contact phases
             from lrhc_control.utils.data_postproc.contact_visual import ContactPlotter
+            action_reps=plotter.attributes["action_repeat"]
+            env_step_dsec=action_reps*plotter.attributes["substep_dt"]
+
             patterns=["fc_contact*z*"]
             idxs,selected=plotter.get_idx_matching(patterns, obs_names)
             vertical_contact_f=plotter.data[obs_datasetname][:, :, idxs]
@@ -2960,8 +2963,15 @@ if __name__ == "__main__":
             is_contact=valid_f>=1e-3
             contact_state=np.full_like(valid_f, fill_value=0.0)
             contact_state[is_contact]=1.0
+            patterns=["*contact_flag*"]
+            idxs,selected=plotter.get_idx_matching(patterns, actions_names)
+            contact_flags=plotter.data[actions_datasetname][:, :, idxs][valid_mask, 0, :]
+            
             contact_plotter=ContactPlotter(data=contact_state.T,
-                ref_vel=linvel_ref.T,meas_vel=linvel_meas.T)
+                ref_vel=linvel_ref.T,meas_vel=linvel_meas.T,
+                env_dt=env_step_dsec,
+                contact_flags=contact_flags)
+            
             contact_plotter.plot()
 
     plotter.show() # Display all plots

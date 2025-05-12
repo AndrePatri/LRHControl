@@ -3,7 +3,11 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 
 class ContactPlotter:
-    def __init__(self, data: np.ndarray, ref_vel: np.ndarray = None, meas_vel: np.ndarray = None):
+    def __init__(self, data: np.ndarray, ref_vel: np.ndarray = None, 
+                 meas_vel: np.ndarray = None,
+                 plot_vref_full: bool = False,
+                 env_dt: float = None,
+                 contact_flags: np.ndarray = None):
         """
         Initializes the ContactPlotter with the input data and optional reference data.
         
@@ -11,11 +15,17 @@ class ContactPlotter:
             data (np.ndarray): 2D array of shape (n_contacts, n_timesteps).
            io data over timesteps.
         """
+
+        self.env_dt=env_dt
+
+        self.plot_vref_full=False
         self.data = data
         self.n_contacts, self.n_timesteps = data.shape
         
         self.ref_vel=ref_vel
         self.meas_vel=meas_vel
+
+        self.contact_flags=contact_flags
 
         self.ref_vel_norm=np.linalg.norm(self.ref_vel, axis=0, keepdims=False).reshape(-1)
         self.meas_vel_norm=np.linalg.norm(self.meas_vel, axis=0, keepdims=False).reshape(-1)
@@ -84,7 +94,16 @@ class ContactPlotter:
         )
 
         # Create the plot
-        fig, axes = plt.subplots(4, 1, figsize=(17, 8))
+        if self.plot_vref_full:
+            fig, axes = plt.subplots(4, 1, figsize=(17, 8), sharex=True)
+        else:
+            fig, axes = plt.subplots(3, 1, figsize=(17, 8), sharex=True)
+
+        x_axis=range(self.n_timesteps)
+        x_ub=self.n_timesteps
+        if self.env_dt is not None:
+            x_axis = [t * self.env_dt for t in range(self.n_timesteps)]
+            x_ub=(self.n_timesteps-1)*self.env_dt
 
         # Top plot: Contact phases
         ax = axes[0]
@@ -92,15 +111,19 @@ class ContactPlotter:
         for i, row in enumerate(self.data):
             for j, val in enumerate(row):
                 if val > 0:  # Contact
-                    ax.add_patch(plt.Rectangle((j, i), 1, 0.8, color=clist[i], alpha=0.3))
+                    if self.env_dt is not None:
+                        ax.add_patch(plt.Rectangle((x_axis[j], i), self.env_dt, 0.8, color=clist[i], alpha=0.3))
+                    else:
+                        ax.add_patch(plt.Rectangle((j, i), 1, 0.8, color=clist[i], alpha=0.3))
         
-        ax.set_xlim(0, self.n_timesteps)
+        
+        ax.set_xlim(0, x_ub)
         ax.set_ylim(0, self.n_contacts)
         ax.set_yticks(range(self.n_contacts))
         ax.set_yticklabels([f"Contact {i+1}" for i in range(self.n_contacts)])
         # ax.set_xticks(np.linspace(0, self.n_timesteps, 6))
         # ax.set_xticklabels([f"{t:.1f}s" for t in np.linspace(0, self.n_timesteps / 10, 6)])
-        ax.set_title("Requested contacts over episode")
+        ax.set_title("Contact schedule and twist tracking")
         # ax.grid(True, which='both', linestyle='--', linewidth=0.5)
 
         # Overlay velocity reference
@@ -108,11 +131,11 @@ class ContactPlotter:
             import matplotlib.lines as mlines
 
             ax = axes[1]
-            ax.plot(range(self.n_timesteps), self.ref_vel_norm, color="blue", alpha=0.8, linewidth=2)
-            ax.plot(range(self.n_timesteps), self.meas_vel_norm, color="red", alpha=0.3, linewidth=2)
+            ax.plot(x_axis, self.ref_vel_norm, color="blue", alpha=0.8, linewidth=2)
+            ax.plot(x_axis, self.meas_vel_norm, color="red", alpha=0.3, linewidth=2)
             ax.set_ylabel("[m/s]")
             labels=["ref. velocity norm (base loc)", "est. velocity norm (base loc)"]
-            ax.set_xlim(0, self.n_timesteps)
+            ax.set_xlim(0, x_ub)
             legend_lines = [mlines.Line2D([0], [0], color=ax.get_lines()[i].get_color(), lw=3) for i in range(len(ax.get_lines()))]
             legend = ax.legend(legend_lines, labels, ncol=1, handlelength=2, loc="upper right")
             # Set pickable property
@@ -124,8 +147,8 @@ class ContactPlotter:
             ax.grid()
             
             ax = axes[2]
-            ax.plot(range(self.n_timesteps), self._heading_ref, 'o', color="blue",linewidth=2, alpha=0.5, markersize=4)
-            ax.plot(range(self.n_timesteps), self._heading_meas, 'o', color="red",linewidth=2, alpha=0.3, markersize=3)
+            ax.plot(x_axis, self._heading_ref, 'o', color="blue",linewidth=2, alpha=0.5, markersize=4)
+            ax.plot(x_axis, self._heading_meas, 'o', color="red",linewidth=2, alpha=0.3, markersize=3)
             # Add horizontal dashed lines at -π and π
             ax.axhline(y=-np.pi, color='black', linestyle='dashed', linewidth=2, alpha=0.3)
             ax.axhline(y=np.pi, color='black', linestyle='dashed', linewidth=2, alpha=0.3)
@@ -133,7 +156,7 @@ class ContactPlotter:
             ax.set_yticks([-np.pi, 0, np.pi])  # Define y-axis tick positions
             ax.set_yticklabels([r"$-\pi$", "0", r"$\pi$"])  # Use LaTeX-style π notation
             labels=["ref. heading (base loc)", "meas. heading (base loc)"]
-            ax.set_xlim(0, self.n_timesteps)
+            ax.set_xlim(0, x_ub)
 
             legend_lines = [mlines.Line2D([0], [0], color=ax.get_lines()[i].get_color(), lw=3) for i in range(len(ax.get_lines()))]
             legend = ax.legend(legend_lines, labels, ncol=1, handlelength=2, loc="upper right")
@@ -145,23 +168,24 @@ class ContactPlotter:
             legend.set_draggable(True)  # Make the legend draggable
             ax.grid()
 
-            ax = axes[3]
-            ax.plot(range(self.n_timesteps), self.ref_vel[0, :], '-', color="blue", alpha=0.8, markersize=3, linewidth=2)
-            ax.plot(range(self.n_timesteps), self.ref_vel[1, :], '-', color="red", alpha=0.8, markersize=3, linewidth=2)
-            ax.plot(range(self.n_timesteps), self.ref_vel[2, :], '-', color="green", alpha=0.8, markersize=3, linewidth=2)
-            ax.set_ylabel("[m/s]")
-            labels=["vx ref", "vy ref", "vz ref"]
-            ax.set_xlim(0, self.n_timesteps)
+            if self.plot_vref_full:
+                ax = axes[3]
+                ax.plot(x_axis, self.ref_vel[0, :], '-', color="blue", alpha=0.8, markersize=3, linewidth=2)
+                ax.plot(x_axis, self.ref_vel[1, :], '-', color="red", alpha=0.8, markersize=3, linewidth=2)
+                ax.plot(x_axis, self.ref_vel[2, :], '-', color="green", alpha=0.8, markersize=3, linewidth=2)
+                ax.set_ylabel("[m/s]")
+                labels=["vx ref", "vy ref", "vz ref"]
+                ax.set_xlim(0, x_ub)
             
-            legend_lines = [mlines.Line2D([0], [0], color=ax.get_lines()[i].get_color(), lw=3) for i in range(len(ax.get_lines()))]
-            legend = ax.legend(legend_lines, labels, ncol=1, handlelength=2, loc="upper right")
-            # Set pickable property
-            for line in legend_lines:
-                line.set_picker(True)
-            # legend = ax.legend(ncol=2, markerscale=2)
+                legend_lines = [mlines.Line2D([0], [0], color=ax.get_lines()[i].get_color(), lw=3) for i in range(len(ax.get_lines()))]
+                legend = ax.legend(legend_lines, labels, ncol=1, handlelength=2, loc="upper right")
+                # Set pickable property
+                for line in legend_lines:
+                    line.set_picker(True)
+                # legend = ax.legend(ncol=2, markerscale=2)
 
-            legend.set_draggable(True)  # Make the legend draggable
-            ax.grid()
+                legend.set_draggable(True)  # Make the legend draggable
+                ax.grid()
 
             # ax = axes[4]
             # ax.plot(range(self.n_timesteps), self.meas_vel[0, :], 'o', color="blue", alpha=0.8, markersize=3)
@@ -179,8 +203,10 @@ class ContactPlotter:
 
             # legend.set_draggable(True)  # Make the legend draggable
             # ax.grid()
-
-        ax.set_xlabel("env steps")
+        if self.env_dt is not None:
+            ax.set_xlabel("elapsed time [s]")
+        else:
+            ax.set_xlabel("env steps")
         # Annotate gait types
         # for i, gait in enumerate(unique_gaits):
         #     x_positions = [t for t in range(self.n_timesteps) if gait_types[t] == gait]
@@ -197,7 +223,22 @@ class ContactPlotter:
         #             color="black",
         #             arrowprops=dict(arrowstyle="|-|", color="black", lw=0.5),
         #         )
-       
+
+        if self.contact_flags is not None:
+            fig, axes = plt.subplots(self.n_contacts, 1, figsize=(17, 8), 
+                sharex=True, sharey=True)
+            for i in range(self.n_contacts):
+                ax = axes[i]
+                ax.plot(x_axis, self.contact_flags[:, self.n_contacts-1-i], color=clist[self.n_contacts-1-i], alpha=0.8, linewidth=2)
+                ax.set_xlim(0, x_ub)
+                ax.set_ylim(-1.0, 1.0)
+                ax.grid()
+                if i==0:
+                    ax.set_title("Injection request flags")
+                # ax.set_xticks(np.linspace(0, self.n_timesteps, 6))
+                # ax.set_xticklabels([f"{t:.1f}s" for t in np.linspace(0, self.n_timesteps / 10, 6)])
+                # ax.set_title("Contact flags")
+            
         # # Final adjustments
         # plt.tight_layout()
         # plt.show()
