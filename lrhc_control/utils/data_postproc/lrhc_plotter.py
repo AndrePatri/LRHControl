@@ -1694,7 +1694,7 @@ if __name__ == "__main__":
                 grid_shares_y=False,
                 alpha_scale=alpha_scale)
                 # data_alphas=[3.0]*len(plotter.sub_rew_names)) 
-        plotter.plot_data(dataset_name="sub_rew_avrg_over_envs", 
+        plotter.plot_data(dataset_name="sub_rew_median_over_envs", 
             title=f"Average sub-rewards over episodes", 
             xaxis_dataset_name=xaxis_dataset_name,
             xlabel=xlabel,
@@ -1705,11 +1705,11 @@ if __name__ == "__main__":
             distr_std=None,
             distr_max=None,
             distr_min=None,
-            distr_q1="sub_rew_q1_over_envs",
-            distr_q3="sub_rew_q3_over_envs",
+            distr_q1=None,
+            distr_q3=None,
             distr_p5="sub_rew_p5_over_envs",
             distr_p95="sub_rew_p95_over_envs",
-            distr_median="sub_rew_median_over_envs",
+            distr_median=None,
             grid_plot=True,
             grid_shares_y=False,
             grid_size=[1, len(plotter.sub_rew_names)]) 
@@ -1741,6 +1741,25 @@ if __name__ == "__main__":
                 distr_median=None,
                 alpha_scale=alpha_scale)
                 # data_alphas=[3.0]) 
+        
+        plotter.plot_data(dataset_name="tot_rew_median_over_envs", 
+                title=f"Total reward", 
+                xaxis_dataset_name=xaxis_dataset_name,
+                xlabel=xlabel,
+                ylabel="",
+                data_labels=["total reward"],
+                use_markers=False,
+                marker_size=marker_size,
+                distr_std=None,
+                distr_max=None,
+                distr_min=None,
+                distr_q1="tot_rew_p5_over_envs",
+                distr_q3="tot_rew_p95_over_envs",
+                distr_p5=None,
+                distr_p95=None,
+                distr_median=None,
+                alpha_scale=alpha_scale)
+        
         plotter.plot_data(dataset_name="tot_rew_avrg", 
             title=f"Average total reward distribution across envs", 
             xaxis_dataset_name=xaxis_dataset_name,
@@ -1835,24 +1854,24 @@ if __name__ == "__main__":
                 distr_median=None,
                 alpha_scale=alpha_scale)
                 # data_alphas=[3.0]) 
-        plotter.plot_data(dataset_name="CoT_avrg_over_envs", 
-                title=f"Cost of transport", 
-                xaxis_dataset_name=xaxis_dataset_name,
-                xlabel=xlabel,
-                ylabel="",
-                use_markers=False,
-                marker_size=marker_size,
-                distr_std=None,
-                distr_max=None, # tot_rew_max_over_envs
-                distr_min=None,
-                distr_p5="CoT_p5_over_envs",
-                distr_p95="CoT_p95_over_envs",
-                distr_q1="CoT_q1_over_envs",
-                distr_q3="CoT_q3_over_envs",
-                distr_median="CoT_median_over_envs",
-                grid_plot=True,
-                grid_size=[1, 2],
-                grid_shares_y=grid_shares_y)
+        # plotter.plot_data(dataset_name="CoT_avrg_over_envs", 
+        #         title=f"Cost of transport", 
+        #         xaxis_dataset_name=xaxis_dataset_name,
+        #         xlabel=xlabel,
+        #         ylabel="",
+        #         use_markers=False,
+        #         marker_size=marker_size,
+        #         distr_std=None,
+        #         distr_max=None, # tot_rew_max_over_envs
+        #         distr_min=None,
+        #         distr_p5="CoT_p5_over_envs",
+        #         distr_p95="CoT_p95_over_envs",
+        #         distr_q1="CoT_q1_over_envs",
+        #         distr_q3="CoT_q3_over_envs",
+        #         distr_median="CoT_median_over_envs",
+        #         grid_plot=True,
+        #         grid_size=[1, 2],
+        #         grid_shares_y=grid_shares_y)
 
         # plotter.plot_data(dataset_name="CoT_avrg", 
         #     title=f"CoT distribution", 
@@ -1897,7 +1916,7 @@ if __name__ == "__main__":
                 distr_median=None,
                 alpha_scale=alpha_scale,
                 grid_shares_y=False)
-        plotter.plot_data(dataset_name="Power_avrg_over_envs", 
+        plotter.plot_data(dataset_name="Power_median_over_envs", 
                 title=f"Power db data", 
                 xaxis_dataset_name=xaxis_dataset_name,
                 xlabel=xlabel,
@@ -1908,14 +1927,14 @@ if __name__ == "__main__":
                 distr_std=None,
                 distr_max=None, # tot_rew_max_over_envs
                 distr_min=None,
-                distr_p5="Power_p5_over_envs",
-                distr_p95="Power_p95_over_envs",
-                distr_q1="Power_q1_over_envs",
-                distr_q3="Power_q3_over_envs",
-                distr_median="Power_median_over_envs",
+                distr_p5=None,
+                distr_p95=None,
+                distr_q1="Power_p5_over_envs",
+                distr_q3="Power_p95_over_envs",
+                distr_median=None,
                 grid_plot=True,
                 grid_size=[1, 2],
-                grid_shares_y=grid_shares_y)
+                grid_shares_y=False)
         
         if args.multirun:
             plotter.plot_data(dataset_name="TrackingError_median_over_envs", 
@@ -2512,7 +2531,10 @@ if __name__ == "__main__":
         print(attributes)
         print("\n")
 
-        n_eps=int(plotter.attributes["ep_vec_freq"])
+        n_eps=1
+        if "ep_vec_freq" in plotter.attributes:
+            n_eps=int(plotter.attributes["ep_vec_freq"])
+
         obs_names=list(plotter.attributes["Obs_data_names"])
         actions_names=list(plotter.attributes["Actions_data_names"])
         contact_forces_names=list(plotter.attributes["RhcContactForces_data_names"])
