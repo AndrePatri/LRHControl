@@ -634,32 +634,47 @@ class Actor(nn.Module):
         return (a - self.action_bias)/self.action_scale
 
 if __name__ == "__main__":  
-    
-    device = "cuda"
-    dummy_obs = torch.full(size=(2, 5),dtype=torch.float32,device=device,fill_value=0) 
+    device = "cpu"  # or "cpu"
+    import time
+    obs_dim = 273
+    agent = SACAgent(
+        obs_dim=obs_dim,
+        actions_dim=10,
+        actions_lb=None,
+        actions_ub=None,
+        obs_lb=None,
+        obs_ub=None,
+        rescale_obs=False,
+        norm_obs=True,
+        use_action_rescale_for_critic=True,
+        is_eval=True,
+        compression_ratio=0.6,
+        layer_width_actor=128,
+        layer_width_critic=256,
+        n_hidden_layers_actor=3,
+        n_hidden_layers_critic=3,
+        device=device,
+        dtype=torch.float32,
+        add_weight_norm=True,
+        add_layer_norm=False,
+        add_batch_norm=False
+    )
 
-    sofqn = CriticQ(obs_dim=5,actions_dim=3,
-            device=device,
-            dtype=torch.float32)
-    
-    print("Db prints Q")
-    print(f"N. params: {sofqn.get_n_params()}")
-    
-    dummy_a = torch.full(size=(2, 3),dtype=torch.float32,device=device,fill_value=0)
-    q_v = sofqn.forward(x=dummy_obs,a=dummy_a)
-    print(q_v)
+    n_samples = 10000
+    random_obs = torch.rand((1, obs_dim), dtype=torch.float32, device=device)
 
-    actor = Actor(obs_dim=5,actions_dim=3,
-            actions_lb=[-1.0, -1.0, -1.0],actions_ub=[1.0, 1.0, 1.0],
-            device=device,
-            dtype=torch.float32)
-    
-    # Print the biases of the log_std layer
-    print("Log_std Biases:")
-    print(actor.fc_logstd.bias)  # Access the biases of the log_std layer
+    if device == "cuda":
+        torch.cuda.synchronize()
+    start = time.time()
 
-    print("Db prints Actor")
-    print(f"N. params: {actor.get_n_params()}")
-    output=actor.forward(x=dummy_obs)
-    print(output)
-    print(actor.get_action(x=dummy_obs))
+    for i in range(n_samples):
+        actions, _, mean = agent.get_action(x=random_obs)
+        actions = actions.detach()
+        actions[:, :] = mean.detach()
+
+    if device == "cuda":
+        torch.cuda.synchronize()
+    end = time.time()
+
+    avrg_eval_time = (end - start) / n_samples
+    print(f"Average policy evaluation time on {device}: {avrg_eval_time:.6f} s")
