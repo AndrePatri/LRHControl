@@ -1,8 +1,8 @@
-from lrhc_control.controllers.rhc.lrhc_cluster_client import LRhcClusterClient
+from aug_mpc.controllers.rhc.lrhc_cluster_client import LRhcClusterClient
 
-from lrhc_control.controllers.rhc.horizon_based.hybrid_quad_rhc import HybridQuadRhc
-from lrhc_control.utils.hybrid_quad_xrdf_gen import get_xrdf_cmds_horizon
-from lrhc_control.utils.sys_utils import PathsGetter
+from aug_mpc.controllers.rhc.horizon_based.hybrid_quad_rhc import HybridQuadRhc
+from aug_mpc.utils.hybrid_quad_xrdf_gen import get_xrdf_cmds_horizon
+from aug_mpc.utils.sys_utils import PathsGetter
 
 from typing import List, Dict
 
@@ -11,7 +11,7 @@ class HybridQuadrupedClusterClient(LRhcClusterClient):
     def _import_aux_libs(self):
         super()._import_aux_libs()
         # Import Horizon and related dependencies as global libs
-        from lrhc_control.controllers.rhc.horizon_based.horizon_imports_glob import import_horizon_global
+        from aug_mpc.controllers.rhc.horizon_based.horizon_imports_glob import import_horizon_global
         import_horizon_global()
         
     def __init__(self, 

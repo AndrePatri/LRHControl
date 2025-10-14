@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-from rhcviz.RHCViz import RHCViz
-from rhcviz.utils.sys_utils import PathsGetter
+from mpcviz.MPCViz import MPCViz
+from mpcviz.utils.sys_utils import PathsGetter
 
 import os
 import argparse
@@ -30,13 +30,13 @@ if __name__ == '__main__':
         
     syspaths = PathsGetter()
     
-    rhcviz = RHCViz(urdf_file_path=args.dpath, 
+    mpcviz = MPCViz(urdf_file_path=args.dpath, 
         rviz_config_path=syspaths.DEFAULT_RVIZ_CONFIG_PATH,
         namespace=args.ns, 
-        basename="RHCViz", 
+        basename="MPCViz", 
         rate = 100,
         use_only_collisions=False,
         nodes_perc = args.nodes_perc       
         )
     
-    rhcviz.run()
+    mpcviz.run()

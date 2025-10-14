@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 from torch.distributions.normal import Normal
 
-from lrhc_control.utils.nn.normalization_utils import RunningNormalizer 
+from aug_mpc.utils.nn.normalization_utils import RunningNormalizer 
 
 from typing import List
 

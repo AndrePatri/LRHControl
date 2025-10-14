@@ -1,4 +1,4 @@
-from lrhc_control.training_algs.ppo.actor_critic_algo import ActorCriticAlgoBase
+from aug_mpc.training_algs.ppo.actor_critic_algo import ActorCriticAlgoBase
 
 import torch 
 import torch.nn as nn

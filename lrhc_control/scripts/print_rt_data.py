@@ -1,14 +1,14 @@
-from lrhc_control.utils.shared_data.training_env import Observations, NextObservations
-from lrhc_control.utils.shared_data.training_env import TotRewards
-from lrhc_control.utils.shared_data.training_env import SubRewards
-from lrhc_control.utils.shared_data.training_env import Actions
-from lrhc_control.utils.shared_data.training_env import Terminations, SubTerminations
-from lrhc_control.utils.shared_data.training_env import Truncations, SubTruncations
-from lrhc_control.utils.shared_data.training_env import EpisodesCounter, TaskRandCounter, SafetyRandResetsCounter
+from aug_mpc.utils.shared_data.training_env import Observations, NextObservations
+from aug_mpc.utils.shared_data.training_env import TotRewards
+from aug_mpc.utils.shared_data.training_env import SubRewards
+from aug_mpc.utils.shared_data.training_env import Actions
+from aug_mpc.utils.shared_data.training_env import Terminations, SubTerminations
+from aug_mpc.utils.shared_data.training_env import Truncations, SubTruncations
+from aug_mpc.utils.shared_data.training_env import EpisodesCounter, TaskRandCounter, SafetyRandResetsCounter
 
-from control_cluster_bridge.utilities.shared_data.rhc_data import RobotState
+from mpc_hive.utilities.shared_data.rhc_data import RobotState
 
-from control_cluster_bridge.utilities.shared_data.sim_data import SharedEnvInfo
+from mpc_hive.utilities.shared_data.sim_data import SharedEnvInfo
 
 import time 
 from perf_sleep.pyperfsleep import PerfSleep

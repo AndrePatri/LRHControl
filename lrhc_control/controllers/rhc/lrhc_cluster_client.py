@@ -1,7 +1,7 @@
-from control_cluster_bridge.cluster_client.control_cluster_client import ControlClusterClient
-from lrhc_control.utils.xrdf_gen import generate_srdf, generate_urdf
-from lrhc_control.utils.hybrid_quad_xrdf_gen import get_xrdf_cmds
-from lrhc_control.utils.custom_arg_parsing import extract_custom_xacro_args, merge_xacro_cmds
+from mpc_hive.cluster_client.control_cluster_client import ControlClusterClient
+from aug_mpc.utils.xrdf_gen import generate_srdf, generate_urdf
+from aug_mpc.utils.hybrid_quad_xrdf_gen import get_xrdf_cmds
+from aug_mpc.utils.custom_arg_parsing import extract_custom_xacro_args, merge_xacro_cmds
 
 from EigenIPC.PyEigenIPC import Journal, LogType
 

@@ -1,8 +1,8 @@
-from lrhc_control.agents.actor_critic.ppo import ACAgent
-from lrhc_control.agents.dummies.dummy import DummyAgent
+from aug_mpc.agents.actor_critic.ppo import ACAgent
+from aug_mpc.agents.dummies.dummy import DummyAgent
 
-from lrhc_control.utils.shared_data.algo_infos import SharedRLAlgorithmInfo
-from lrhc_control.utils.shared_data.training_env import SubReturns, TotReturns
+from aug_mpc.utils.shared_data.algo_infos import SharedRLAlgorithmInfo
+from aug_mpc.utils.shared_data.training_env import SubReturns, TotReturns
 
 import torch 
 import torch.optim as optim
@@ -369,7 +369,7 @@ class ActorCriticAlgoBase(ABC):
             if self._remote_db:
                 job_type = "evaluation" if self._eval else "training"
                 wandb.init(
-                    project="LRHControl",
+                    project="AugMPC",
                     group=self._run_name,
                     name=self._unique_id,
                     id=self._unique_id,
@@ -397,7 +397,7 @@ class ActorCriticAlgoBase(ABC):
 
         self._actions_override=None            
         if self._override_agent_actions:
-            from lrhc_control.utils.shared_data.training_env import Actions
+            from aug_mpc.utils.shared_data.training_env import Actions
             self._actions_override = Actions(namespace=ns+"_override",
             n_envs=self._num_envs,
             action_dim=actions.shape[1],

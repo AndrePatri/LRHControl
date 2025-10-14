@@ -1,4 +1,4 @@
-from lrhc_control.training_algs.sac.sactor_critic_algo import SActorCriticAlgoBase
+from aug_mpc.training_algs.sac.sactor_critic_algo import SActorCriticAlgoBase
 
 import torch 
 import torch.nn as nn

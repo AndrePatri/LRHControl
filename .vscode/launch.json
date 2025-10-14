@@ -6,10 +6,10 @@
         "name": "Python Debugger: Current File",
         "type": "debugpy",
         "request": "launch",
-        "program": "lrhc_control/scripts/launch_train_env.py",
+        "program": "aug_mpc/scripts/launch_train_env.py",
         "args": ["--ns", "kyon0", "--run_name", "vsoddedebg", "--drop_dir", "/home/Desktop", "--use_cpu"],
         "console": "integratedTerminal",
-        "pythonPath": "/home/apatrizi/mambaforge/envs/LRHControlMambaEnv/bin/python",  // Update this path
+        "pythonPath": "/home/apatrizi/mambaforge/envs/AugMPCMambaEnv/bin/python",  // Update this path
         "justMyCode": false
     },
 ]

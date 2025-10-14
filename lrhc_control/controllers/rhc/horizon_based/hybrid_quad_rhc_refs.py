@@ -1,7 +1,7 @@
-from lrhc_control.controllers.rhc.horizon_based.gait_manager import GaitManager
-from lrhc_control.controllers.rhc.horizon_based.utils.math_utils import hor2w_frame
+from aug_mpc.controllers.rhc.horizon_based.gait_manager import GaitManager
+from aug_mpc.controllers.rhc.horizon_based.utils.math_utils import hor2w_frame
 
-from control_cluster_bridge.utilities.shared_data.rhc_data import RhcRefs
+from mpc_hive.utilities.shared_data.rhc_data import RhcRefs
 
 from EigenIPC.PyEigenIPC import VLevel
 from EigenIPC.PyEigenIPC import LogType

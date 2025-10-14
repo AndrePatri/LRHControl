@@ -4,7 +4,7 @@ import multiprocessing as mp
 import importlib.util
 import inspect
 
-from lrhc_control.utils.custom_arg_parsing import generate_custom_arg_dict
+from aug_mpc.utils.custom_arg_parsing import generate_custom_arg_dict
 
 from EigenIPC.PyEigenIPC import Journal, LogType
 
@@ -51,7 +51,7 @@ if __name__ == "__main__":
                             help='list of custom arguments data types')
     
     parser.add_argument('--cluster_client_fname', type=str, 
-        default="lrhc_control.controllers.rhc.hybrid_quad_client",
+        default="aug_mpc.controllers.rhc.hybrid_quad_client",
         help="cluster client file import pattern (without extension)")
 
     args = parser.parse_args()

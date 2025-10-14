@@ -5,9 +5,9 @@ from EigenIPC.PyEigenIPC import dtype as eigenipc_dtype, toNumpyDType
 from EigenIPC.PyEigenIPC import Journal
 from EigenIPC.PyEigenIPC import LogType
 
-from control_cluster_bridge.utilities.shared_data.abstractions import SharedDataBase
+from mpc_hive.utilities.shared_data.abstractions import SharedDataBase
 
-from lrhc_control.utils.shared_data.base_data import NamedSharedTWrapper
+from aug_mpc.utils.shared_data.base_data import NamedSharedTWrapper
 
 from typing import Dict, Union, List
 

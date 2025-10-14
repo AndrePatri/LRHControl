@@ -42,7 +42,7 @@ class RosBagDumper():
         self._ns=ns
         self._remap_ns=remap_ns
         if self._remap_ns is None: # allow to publish with different namespace (to allow
-            # support for multiple bags at once and multiple rhcviz instances)
+            # support for multiple bags at once and multiple mpcviz instances)
             self._remap_ns=self._ns
 
         self._srdf_path=None
@@ -91,7 +91,7 @@ class RosBagDumper():
 
         if self._is_training:
             # for detecting when training is finished
-            from lrhc_control.utils.shared_data.algo_infos import SharedRLAlgorithmInfo
+            from aug_mpc.utils.shared_data.algo_infos import SharedRLAlgorithmInfo
             
             self._shared_info=SharedRLAlgorithmInfo(is_server=False,
                         namespace=self._ns, 
@@ -103,11 +103,11 @@ class RosBagDumper():
 
         # bridge from rhc shared data to ROS
         if not self._ros2:
-            from lrhc_control.utils.rhc_viz.rhc2viz import RhcToVizBridge
+            from aug_mpc.utils.rhc_viz.rhc2viz import RhcToVizBridge
             self._bridge = RhcToVizBridge(namespace=self._ns, 
                 remap_ns=self._remap_ns,
                 verbose=self._verbose,
-                rhcviz_basename="RHCViz", 
+                mpcviz_basename="MPCViz", 
                 robot_selector=[0, None],
                 with_agent_refs=self._with_agent_refs,
                 rhc_refs_in_h_frame=self._rhc_refs_in_h_frame,
@@ -121,11 +121,11 @@ class RosBagDumper():
                 install_sighandler=True,
                 with_rhc_internal_data=self._with_rhc_internal_data)
         else:
-            from lrhc_control.utils.rhc_viz.rhc2viz2 import RhcToViz2Bridge
+            from aug_mpc.utils.rhc_viz.rhc2viz2 import RhcToViz2Bridge
             self._bridge = RhcToViz2Bridge(namespace=self._ns, 
                 remap_ns=self._remap_ns,
                 verbose=self._verbose,
-                rhcviz_basename="RHCViz", 
+                mpcviz_basename="MPCViz", 
                 robot_selector=[0, None],
                 with_agent_refs=self._with_agent_refs,
                 rhc_refs_in_h_frame=self._rhc_refs_in_h_frame,
@@ -140,7 +140,7 @@ class RosBagDumper():
                 with_rhc_internal_data=self._with_rhc_internal_data)
 
         # actual process recording bag
-        from control_cluster_bridge.utilities.remote_triggering import RemoteTriggererSrvr
+        from mpc_hive.utilities.remote_triggering import RemoteTriggererSrvr
         self._term_trigger=RemoteTriggererSrvr(namespace=self._remap_ns+f"SharedTerminator",
                                             verbose=self._verbose,
                                             vlevel=VLevel.V2,
@@ -265,7 +265,7 @@ class RosBagDumper():
             shared_drop_dir.close()
         retry_kill=20
         additional_secs=5.0
-        from control_cluster_bridge.utilities.remote_triggering import RemoteTriggererClnt
+        from mpc_hive.utilities.remote_triggering import RemoteTriggererClnt
         
         time.sleep(3.0) # wait a bit in case server side crashed and needs to be recrated
         term_trigger=RemoteTriggererClnt(namespace=namespace+f"SharedTerminator",

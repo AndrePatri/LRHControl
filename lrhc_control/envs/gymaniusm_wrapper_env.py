@@ -1,4 +1,4 @@
-from lrhc_control.utils.wrappers.gymnasium_env import Gymnasium2LRHCEnv
+from aug_mpc.utils.wrappers.gymnasium_env import Gymnasium2LRHCEnv
 import numpy as np
 
 class GymnasiumWrapperEnv(Gymnasium2LRHCEnv):

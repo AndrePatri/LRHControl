@@ -45,13 +45,13 @@ cd "$HOME/training_data"
 
 # Define the topics with the namespace replaced
 TOPICS=(
-    "/RHCViz_${NAMESPACE}_HandShake"
-    "/RHCViz_${NAMESPACE}_hl_refs"
-    "/RHCViz_${NAMESPACE}_rhc_actuated_jointnames"
-    "/RHCViz_${NAMESPACE}_rhc_q"
-    "/RHCViz_${NAMESPACE}_rhc_refs"
-    "/RHCViz_${NAMESPACE}_robot_actuated_jointnames"
-    "/RHCViz_${NAMESPACE}_robot_q"
+    "/MPCViz_${NAMESPACE}_HandShake"
+    "/MPCViz_${NAMESPACE}_hl_refs"
+    "/MPCViz_${NAMESPACE}_rhc_actuated_jointnames"
+    "/MPCViz_${NAMESPACE}_rhc_q"
+    "/MPCViz_${NAMESPACE}_rhc_refs"
+    "/MPCViz_${NAMESPACE}_robot_actuated_jointnames"
+    "/MPCViz_${NAMESPACE}_robot_q"
 )
 
 # Add XBOT topics if the --xbot flag is provided

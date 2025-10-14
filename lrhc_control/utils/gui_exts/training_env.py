@@ -1,22 +1,22 @@
 from PyQt5.QtWidgets import QWidget
 
-from control_cluster_bridge.utilities.debugger_gui.gui_exts import SharedDataWindow
-from control_cluster_bridge.utilities.debugger_gui.plot_utils import RtPlotWindow
-from control_cluster_bridge.utilities.debugger_gui.plot_utils import WidgetUtils
+from mpc_hive.utilities.debugger_gui.gui_exts import SharedDataWindow
+from mpc_hive.utilities.debugger_gui.plot_utils import RtPlotWindow
+from mpc_hive.utilities.debugger_gui.plot_utils import WidgetUtils
 
 from EigenIPC.PyEigenIPC import VLevel
 
-from lrhc_control.utils.shared_data.training_env import SharedTrainingEnvInfo
-from lrhc_control.utils.shared_data.agent_refs import AgentRefs
-from lrhc_control.utils.shared_data.training_env import Observations
-from lrhc_control.utils.shared_data.training_env import Actions
-from lrhc_control.utils.shared_data.training_env import SubRewards
-from lrhc_control.utils.shared_data.training_env import TotRewards
-from lrhc_control.utils.shared_data.training_env import Terminations, SubTerminations
-from lrhc_control.utils.shared_data.training_env import Truncations, SubTruncations
-from lrhc_control.utils.shared_data.training_env import EpisodesCounter
-from lrhc_control.utils.shared_data.algo_infos import SharedRLAlgorithmInfo, QfVal, QfTrgt
-from lrhc_control.utils.shared_data.training_env import SubReturns, TotReturns
+from aug_mpc.utils.shared_data.training_env import SharedTrainingEnvInfo
+from aug_mpc.utils.shared_data.agent_refs import AgentRefs
+from aug_mpc.utils.shared_data.training_env import Observations
+from aug_mpc.utils.shared_data.training_env import Actions
+from aug_mpc.utils.shared_data.training_env import SubRewards
+from aug_mpc.utils.shared_data.training_env import TotRewards
+from aug_mpc.utils.shared_data.training_env import Terminations, SubTerminations
+from aug_mpc.utils.shared_data.training_env import Truncations, SubTruncations
+from aug_mpc.utils.shared_data.training_env import EpisodesCounter
+from aug_mpc.utils.shared_data.algo_infos import SharedRLAlgorithmInfo, QfVal, QfTrgt
+from aug_mpc.utils.shared_data.training_env import SubReturns, TotReturns
 
 import numpy as np
 

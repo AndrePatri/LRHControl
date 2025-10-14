@@ -1,8 +1,8 @@
-from lrhc_control.utils.shared_data.agent_refs import AgentRefs
-from lrhc_control.utils.shared_data.training_env import Actions
-from lrhc_control.utils.keyboard_cmds import AgentRefsFromKeyboard
+from aug_mpc.utils.shared_data.agent_refs import AgentRefs
+from aug_mpc.utils.shared_data.training_env import Actions
+from aug_mpc.utils.keyboard_cmds import AgentRefsFromKeyboard
 
-from control_cluster_bridge.utilities.shared_data.rhc_data import RobotState
+from mpc_hive.utilities.shared_data.rhc_data import RobotState
 
 from EigenIPC.PyEigenIPCExt.wrappers.shared_data_view import SharedTWrapper
 from EigenIPC.PyEigenIPC import VLevel
@@ -52,7 +52,7 @@ class DemoRunner(AgentRefsFromKeyboard):
         self._sim_data=None
         self._simtime_idx = -1
         if self._use_stime:
-            from control_cluster_bridge.utilities.shared_data.sim_data import SharedEnvInfo
+            from mpc_hive.utilities.shared_data.sim_data import SharedEnvInfo
             self._sim_data = SharedEnvInfo(namespace=namespace,
                     is_server=False,
                     safe=False,

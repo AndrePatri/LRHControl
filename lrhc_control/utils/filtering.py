@@ -3,8 +3,8 @@ import torch
 from typing import List
 from enum import Enum
 
-from lrhc_control.utils.urdf_limits_parser import UrdfLimitsParser
-from lrhc_control.utils.jnt_imp_cfg_parser import JntImpConfigParser
+from aug_mpc.utils.urdf_limits_parser import UrdfLimitsParser
+from aug_mpc.utils.jnt_imp_cfg_parser import JntImpConfigParser
 
 import time
 

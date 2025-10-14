@@ -1,6 +1,6 @@
 import argparse
 
-from lrhc_control.utils.bag_dumper import RosBagDumper
+from aug_mpc.utils.bag_dumper import RosBagDumper
 import time 
 
 if __name__ == '__main__':
@@ -12,11 +12,11 @@ if __name__ == '__main__':
     parser.add_argument('--dump_dt_min', type=float, default=60.0, help='wait these min before dumping a new bag')
 
     parser.add_argument('--ns', type=str, help='Namespace to be used for cluster shared memory')
-    parser.add_argument('--remap_ns', type=str, default=None, help='namespace used to remap rhcviz topics')
+    parser.add_argument('--remap_ns', type=str, default=None, help='namespace used to remap mpcviz topics')
     parser.add_argument('--debug', action='store_true', help='Enable debug mode, default is False')
     parser.add_argument('--verbose',action='store_true', help='Enable verbose mode, default is True')
     parser.add_argument('--ros2',action='store_true', help='Use ROS 2')
-    parser.add_argument('--with_agent_refs',action='store_true', help='also forward agent refs to rhcviz')
+    parser.add_argument('--with_agent_refs',action='store_true', help='also forward agent refs to mpcviz')
     parser.add_argument('--rhc_refs_in_h_frame',action='store_true', help='set to true if rhc refs are \
                         specified in the horizontal frame')
     parser.add_argument('--agent_refs_in_h_frame',action='store_true', help='set to true if agent refs are \

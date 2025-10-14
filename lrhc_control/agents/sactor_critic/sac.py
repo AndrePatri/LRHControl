@@ -3,8 +3,8 @@ import torch.nn as nn
 from torch.distributions.normal import Normal
 import math
 
-from lrhc_control.utils.nn.normalization_utils import RunningNormalizer 
-from lrhc_control.utils.nn.layer_utils import llayer_init 
+from aug_mpc.utils.nn.normalization_utils import RunningNormalizer 
+from aug_mpc.utils.nn.layer_utils import llayer_init 
 
 from typing import List
 

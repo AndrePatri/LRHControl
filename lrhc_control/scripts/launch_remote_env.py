@@ -3,11 +3,11 @@ import argparse
 import importlib.util
 import inspect
 
-from lrhc_control.utils.rt_factor import RtFactor
-from lrhc_control.utils.custom_arg_parsing import generate_custom_arg_dict
-from lrhc_control.utils.determinism import deterministic_run
+from aug_mpc.utils.rt_factor import RtFactor
+from aug_mpc.utils.custom_arg_parsing import generate_custom_arg_dict
+from aug_mpc.utils.determinism import deterministic_run
 
-from control_cluster_bridge.utilities.shared_data.sim_data import SharedEnvInfo
+from mpc_hive.utilities.shared_data.sim_data import SharedEnvInfo
 
 from EigenIPC.PyEigenIPC import VLevel
 from EigenIPC.PyEigenIPC import Journal, LogType
@@ -66,7 +66,7 @@ if __name__ == '__main__':
                             help='list of custom arguments data types')
     
     parser.add_argument('--env_fname', type=str, 
-        default="lrhcontrolenvs.envs.isaac_env",
+        default="aug_mpc_envs.envs.isaac_env",
         help="env file import pattern (without extension)")
     
     args = parser.parse_args()

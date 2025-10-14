@@ -3,10 +3,10 @@ import os
 
 from EigenIPC.PyEigenIPC import VLevel, LogType, Journal
 
-from lrhc_control.utils.gait_scheduler import QuadrupedGaitPatternGenerator, GaitScheduler
-from lrhc_control.utils.signal_smoother import ExponentialSignalSmoother
+from aug_mpc.utils.gait_scheduler import QuadrupedGaitPatternGenerator, GaitScheduler
+from aug_mpc.utils.signal_smoother import ExponentialSignalSmoother
 
-from lrhc_control.envs.fake_pos_env_variable_flights import FakePosEnvVariableFlights
+from aug_mpc.envs.fake_pos_env_variable_flights import FakePosEnvVariableFlights
 from typing import Dict
 
 class FakePosEnvVariableFlightsWithDemo(FakePosEnvVariableFlights):

@@ -1,12 +1,12 @@
-from lrhc_control.utils.shared_data.training_env import Observations, NextObservations
-from lrhc_control.utils.shared_data.training_env import TotRewards
-from lrhc_control.utils.shared_data.training_env import Actions
-from lrhc_control.utils.shared_data.training_env import Terminations
-from lrhc_control.utils.shared_data.training_env import Truncations
+from aug_mpc.utils.shared_data.training_env import Observations, NextObservations
+from aug_mpc.utils.shared_data.training_env import TotRewards
+from aug_mpc.utils.shared_data.training_env import Actions
+from aug_mpc.utils.shared_data.training_env import Terminations
+from aug_mpc.utils.shared_data.training_env import Truncations
 
-from lrhc_control.utils.episodic_rewards import EpisodicRewards
+from aug_mpc.utils.episodic_rewards import EpisodicRewards
 
-from lrhc_control.utils.determinism import deterministic_run
+from aug_mpc.utils.determinism import deterministic_run
 
 from EigenIPC.PyEigenIPC import VLevel
 from EigenIPC.PyEigenIPC import LogType
@@ -17,7 +17,7 @@ import torch
 import numpy  as np
 
 import gymnasium as gym
-from lrhc_control.utils.wrappers.env_transform_utils import DtypeObservation
+from aug_mpc.utils.wrappers.env_transform_utils import DtypeObservation
 
 import os
 
@@ -523,8 +523,8 @@ class Gymnasium2LRHCEnv():
 
 if __name__ == "__main__":  
 
-    from lrhc_control.training_algs.sac.sac import SAC
-    from lrhc_control.training_algs.ppo.ppo import PPO
+    from aug_mpc.training_algs.sac.sac import SAC
+    from aug_mpc.training_algs.ppo.ppo import PPO
 
     import argparse,os
 

@@ -1,4 +1,4 @@
-from control_cluster_bridge.cluster_server.control_cluster_server import ControlClusterServer
+from mpc_hive.cluster_server.control_cluster_server import ControlClusterServer
 from typing import List
 from EigenIPC.PyEigenIPC import VLevel
 

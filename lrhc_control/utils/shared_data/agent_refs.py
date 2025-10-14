@@ -1,5 +1,5 @@
-from control_cluster_bridge.utilities.shared_data.abstractions import SharedDataBase
-from control_cluster_bridge.utilities.shared_data.rhc_data import FullRobState
+from mpc_hive.utilities.shared_data.abstractions import SharedDataBase
+from mpc_hive.utilities.shared_data.rhc_data import FullRobState
 
 from EigenIPC.PyEigenIPC import VLevel
 

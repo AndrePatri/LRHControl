@@ -2967,7 +2967,7 @@ if __name__ == "__main__":
                 clickable=True)
              
             # plotting contact phases
-            from lrhc_control.utils.data_postproc.contact_visual import ContactPlotter
+            from aug_mpc.utils.data_postproc.contact_visual import ContactPlotter
             action_reps=plotter.attributes["action_repeat"]
             env_step_dsec=action_reps*plotter.attributes["substep_dt"]
 

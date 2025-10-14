@@ -3,12 +3,12 @@ import os
 
 from EigenIPC.PyEigenIPC import VLevel, LogType, Journal
 
-from control_cluster_bridge.utilities.math_utils_torch import base2world_frame, w2hor_frame
+from mpc_hive.utilities.math_utils_torch import base2world_frame, w2hor_frame
 
-from lrhc_control.utils.gait_scheduler import QuadrupedGaitPatternGenerator, GaitScheduler
-from lrhc_control.utils.signal_smoother import ExponentialSignalSmoother
+from aug_mpc.utils.gait_scheduler import QuadrupedGaitPatternGenerator, GaitScheduler
+from aug_mpc.utils.signal_smoother import ExponentialSignalSmoother
 
-from lrhc_control.envs.linvel_env_baseline import LinVelTrackBaseline
+from aug_mpc.envs.linvel_env_baseline import LinVelTrackBaseline
 
 from typing import Dict
 

@@ -1,9 +1,9 @@
-from lrhc_control.agents.sactor_critic.sac import SACAgent
-from lrhc_control.agents.dummies.dummy import DummyAgent
+from aug_mpc.agents.sactor_critic.sac import SACAgent
+from aug_mpc.agents.dummies.dummy import DummyAgent
 
-from lrhc_control.utils.shared_data.algo_infos import SharedRLAlgorithmInfo, QfVal, QfTrgt
-from lrhc_control.utils.shared_data.training_env import SubReturns, TotReturns
-from lrhc_control.utils.nn.rnd import RNDFull
+from aug_mpc.utils.shared_data.algo_infos import SharedRLAlgorithmInfo, QfVal, QfTrgt
+from aug_mpc.utils.shared_data.training_env import SubReturns, TotReturns
+from aug_mpc.utils.nn.rnd import RNDFull
 
 import torch 
 import torch.optim as optim
@@ -483,7 +483,7 @@ class SActorCriticAlgoBase(ABC):
         
         self._actions_override=None            
         if self._override_agent_actions:
-            from lrhc_control.utils.shared_data.training_env import Actions
+            from aug_mpc.utils.shared_data.training_env import Actions
             self._actions_override = Actions(namespace=ns+"_override",
             n_envs=self._num_envs,
             action_dim=actions.shape[1],

@@ -1,5 +1,5 @@
-from lrhc_control.utils.keyboard_cmds import AgentRefsFromKeyboard
-from lrhc_control.utils.keyboard_cmds import AgentActionsFromKeyboard
+from aug_mpc.utils.keyboard_cmds import AgentRefsFromKeyboard
+from aug_mpc.utils.keyboard_cmds import AgentActionsFromKeyboard
 
 import argparse
 

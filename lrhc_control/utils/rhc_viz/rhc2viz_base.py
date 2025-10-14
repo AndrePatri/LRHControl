@@ -1,18 +1,18 @@
 from abc import ABC, abstractmethod
 
-from rhcviz.utils.namings import NamingConventions
-from rhcviz.utils.string_list_encoding import StringArray
+from mpcviz.utils.namings import NamingConventions
+from mpcviz.utils.string_list_encoding import StringArray
 
-from lrhc_control.controllers.rhc.horizon_based.utils.math_utils import hor2w_frame,base2world_frame
+from aug_mpc.controllers.rhc.horizon_based.utils.math_utils import hor2w_frame,base2world_frame
 
-from control_cluster_bridge.utilities.shared_data.rhc_data import RobotState
-from control_cluster_bridge.utilities.shared_data.rhc_data import RhcRefs
-from control_cluster_bridge.utilities.shared_data.rhc_data import RhcCmds
-from control_cluster_bridge.utilities.shared_data.rhc_data import RhcInternal
-from control_cluster_bridge.utilities.shared_data.sim_data import SharedEnvInfo
+from mpc_hive.utilities.shared_data.rhc_data import RobotState
+from mpc_hive.utilities.shared_data.rhc_data import RhcRefs
+from mpc_hive.utilities.shared_data.rhc_data import RhcCmds
+from mpc_hive.utilities.shared_data.rhc_data import RhcInternal
+from mpc_hive.utilities.shared_data.sim_data import SharedEnvInfo
 
-from lrhc_control.utils.shared_data.agent_refs import AgentRefs
-from control_cluster_bridge.utilities.homing import RobotHomer
+from aug_mpc.utils.shared_data.agent_refs import AgentRefs
+from mpc_hive.utilities.homing import RobotHomer
 import numpy as np
 
 from EigenIPC.PyEigenIPC import dtype
@@ -39,7 +39,7 @@ class RhcToVizBridgeBase(ABC):
             remap_ns: str = None,
             verbose = False,
             vlevel: VLevel = VLevel.V1,
-            rhcviz_basename = "RHCViz",
+            mpcviz_basename = "MPCViz",
             robot_selector: List = [0, None],
             with_agent_refs = False,
             rhc_refs_in_h_frame: bool = False,
@@ -87,8 +87,8 @@ class RhcToVizBridgeBase(ABC):
         if self._remap_namespace is None: # allow publishing with different namespace
             self._remap_namespace=self.namespace
         # ros stuff
-        self.ros_names = NamingConventions() # rhcviz naming conventions
-        self.rhcviz_basename = rhcviz_basename 
+        self.ros_names = NamingConventions() # mpcviz naming conventions
+        self.mpcviz_basename = mpcviz_basename 
         
         self.cluster_size = None
         self.jnt_names_robot = None

@@ -10,7 +10,7 @@ if __name__ == '__main__':
     parser.add_argument('--debug', action='store_true', help='Enable debug mode, default is False')
     parser.add_argument('--verbose',action='store_true', help='Enable verbose mode, default is True')
     parser.add_argument('--ros2',action='store_true', help='Use ROS 2')
-    parser.add_argument('--with_agent_refs',action='store_true', help='also forward agent refs to rhcviz')
+    parser.add_argument('--with_agent_refs',action='store_true', help='also forward agent refs to mpcviz')
     parser.add_argument('--rhc_refs_in_h_frame',action='store_true', help='set to true if rhc refs are \
                         specified in the horizontal frame')
     parser.add_argument('--agent_refs_in_h_frame',action='store_true', help='set to true if agent refs are \
@@ -32,11 +32,11 @@ if __name__ == '__main__':
 
     bridge = None
     if not args.ros2: 
-        from lrhc_control.utils.rhc_viz.rhc2viz import RhcToVizBridge
+        from aug_mpc.utils.rhc_viz.rhc2viz import RhcToVizBridge
 
         bridge = RhcToVizBridge(namespace=args.ns, 
                         verbose=verbose,
-                        rhcviz_basename="RHCViz", 
+                        mpcviz_basename="MPCViz", 
                         robot_selector=[0, None],
                         with_agent_refs=args.with_agent_refs,
                         rhc_refs_in_h_frame=args.rhc_refs_in_h_frame,
@@ -50,11 +50,11 @@ if __name__ == '__main__':
                         with_rhc_internal_data=not args.no_rhc_internal)
     else:
 
-        from lrhc_control.utils.rhc_viz.rhc2viz2 import RhcToViz2Bridge
+        from aug_mpc.utils.rhc_viz.rhc2viz2 import RhcToViz2Bridge
 
         bridge = RhcToViz2Bridge(namespace=args.ns, 
                         verbose=verbose,
-                        rhcviz_basename="RHCViz", 
+                        mpcviz_basename="MPCViz", 
                         robot_selector=[0, None],
                         with_agent_refs=args.with_agent_refs,
                         rhc_refs_in_h_frame=args.rhc_refs_in_h_frame,

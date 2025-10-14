@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from lrhc_control.utils.nn.normalization_utils import RunningNormalizer 
+from aug_mpc.utils.nn.normalization_utils import RunningNormalizer 
 
 class RNDFull(nn.Module):
     def __init__(self, input_dim: int, output_dim: int, 

@@ -1,5 +1,5 @@
 package:
-  name: lrhc_control 
+  name: aug_mpc 
   version: 0.2.0  
 
 source:
@@ -13,7 +13,7 @@ requirements:
     - python=3.10
 
 about:
-  home: https://github.com/AndrePatri/LRHControl
+  home: https://github.com/AndrePatri/AugMPC
   license: MIT
   summary: Learning-based Receding Horizon Control
 

@@ -1,36 +1,36 @@
 import torch
 import math
-from lrhc_control.utils.math_utils import quaternion_to_angular_velocity, quaternion_difference
+from aug_mpc.utils.math_utils import quaternion_to_angular_velocity, quaternion_difference
 
-from control_cluster_bridge.utilities.shared_data.rhc_data import RobotState
-from control_cluster_bridge.utilities.shared_data.rhc_data import RhcCmds, RhcPred
-from control_cluster_bridge.utilities.shared_data.rhc_data import RhcRefs
-from control_cluster_bridge.utilities.shared_data.rhc_data import RhcStatus
-from control_cluster_bridge.utilities.shared_data.sim_data import SharedEnvInfo
-from control_cluster_bridge.utilities.shared_data.cluster_data import SharedClusterInfo
+from mpc_hive.utilities.shared_data.rhc_data import RobotState
+from mpc_hive.utilities.shared_data.rhc_data import RhcCmds, RhcPred
+from mpc_hive.utilities.shared_data.rhc_data import RhcRefs
+from mpc_hive.utilities.shared_data.rhc_data import RhcStatus
+from mpc_hive.utilities.shared_data.sim_data import SharedEnvInfo
+from mpc_hive.utilities.shared_data.cluster_data import SharedClusterInfo
 
-from lrhc_control.utils.shared_data.remote_stepping import RemoteStepperSrvr
-from lrhc_control.utils.shared_data.remote_stepping import RemoteResetSrvr
-from lrhc_control.utils.shared_data.remote_stepping import RemoteResetRequest
+from aug_mpc.utils.shared_data.remote_stepping import RemoteStepperSrvr
+from aug_mpc.utils.shared_data.remote_stepping import RemoteResetSrvr
+from aug_mpc.utils.shared_data.remote_stepping import RemoteResetRequest
 
-from lrhc_control.utils.shared_data.agent_refs import AgentRefs
-from lrhc_control.utils.shared_data.training_env import SharedTrainingEnvInfo
+from aug_mpc.utils.shared_data.agent_refs import AgentRefs
+from aug_mpc.utils.shared_data.training_env import SharedTrainingEnvInfo
 
-from lrhc_control.utils.shared_data.training_env import Observations, NextObservations
-from lrhc_control.utils.shared_data.training_env import TotRewards
-from lrhc_control.utils.shared_data.training_env import SubRewards
-from lrhc_control.utils.shared_data.training_env import Actions
-from lrhc_control.utils.shared_data.training_env import Terminations, SubTerminations
-from lrhc_control.utils.shared_data.training_env import Truncations, SubTruncations
-from lrhc_control.utils.shared_data.training_env import EpisodesCounter,TaskRandCounter,SafetyRandResetsCounter,RandomTruncCounter,SubStepAbsCounter
+from aug_mpc.utils.shared_data.training_env import Observations, NextObservations
+from aug_mpc.utils.shared_data.training_env import TotRewards
+from aug_mpc.utils.shared_data.training_env import SubRewards
+from aug_mpc.utils.shared_data.training_env import Actions
+from aug_mpc.utils.shared_data.training_env import Terminations, SubTerminations
+from aug_mpc.utils.shared_data.training_env import Truncations, SubTruncations
+from aug_mpc.utils.shared_data.training_env import EpisodesCounter,TaskRandCounter,SafetyRandResetsCounter,RandomTruncCounter,SubStepAbsCounter
 
-from lrhc_control.utils.episodic_rewards import EpisodicRewards
-from lrhc_control.utils.episodic_data import EpisodicData
-from lrhc_control.utils.episodic_data import MemBuffer
-from lrhc_control.utils.signal_smoother import ExponentialSignalSmoother
-from lrhc_control.utils.math_utils import check_capsize
+from aug_mpc.utils.episodic_rewards import EpisodicRewards
+from aug_mpc.utils.episodic_data import EpisodicData
+from aug_mpc.utils.episodic_data import MemBuffer
+from aug_mpc.utils.signal_smoother import ExponentialSignalSmoother
+from aug_mpc.utils.math_utils import check_capsize
 
-from control_cluster_bridge.utilities.math_utils_torch import world2base_frame, base2world_frame, w2hor_frame
+from mpc_hive.utilities.math_utils_torch import world2base_frame, base2world_frame, w2hor_frame
 
 from EigenIPC.PyEigenIPC import VLevel
 from EigenIPC.PyEigenIPC import LogType
@@ -342,7 +342,7 @@ class LRhcTrainingEnvBase(ABC):
         return self._action_repeat
     
     def get_file_paths(self):
-        from lrhc_control.utils.sys_utils import PathsGetter
+        from aug_mpc.utils.sys_utils import PathsGetter
         path_getter = PathsGetter()
         base_paths = []
         base_paths.append(self._get_this_file_path())

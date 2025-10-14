@@ -4,7 +4,7 @@ from EigenIPC.PyEigenIPC import LogType, VLevel
 
 import os
 
-from lrhc_control.envs.linvel_env_baseline import LinVelTrackBaseline
+from aug_mpc.envs.linvel_env_baseline import LinVelTrackBaseline
 
 from typing import Dict
 class NoActionEnvBaseline(LinVelTrackBaseline):

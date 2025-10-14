@@ -1,7 +1,7 @@
-from lrhc_control.utils.shared_data.algo_infos import SharedRLAlgorithmInfo, QfVal, QfTrgt
-from lrhc_control.utils.shared_data.training_env import SubReturns, TotReturns
+from aug_mpc.utils.shared_data.algo_infos import SharedRLAlgorithmInfo, QfVal, QfTrgt
+from aug_mpc.utils.shared_data.training_env import SubReturns, TotReturns
 
-from lrhc_control.agents.dummies.dummy import DummyAgent
+from aug_mpc.agents.dummies.dummy import DummyAgent
 
 import torch 
 import torch.optim as optim
@@ -121,7 +121,7 @@ class DummyTestAlgoBase(ABC):
         self._override_agent_actions=custom_args["override_agent_actions"]
         self._actions_override=None
         if self._override_agent_actions:
-            from lrhc_control.utils.shared_data.training_env import Actions
+            from aug_mpc.utils.shared_data.training_env import Actions
             actions = self._env.get_actions()
             self._actions_override = Actions(namespace=ns+"_override",
             n_envs=self._num_envs,
@@ -174,7 +174,7 @@ class DummyTestAlgoBase(ABC):
                 job_type = "dummy"
                 full_run_config={**self._hyperparameters,**self._env.env_opts()}
                 wandb.init(
-                    project="LRHControl",
+                    project="AugMPC",
                     group=self._run_name,
                     name=self._unique_id,
                     id=self._unique_id,

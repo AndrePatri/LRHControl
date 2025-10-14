@@ -3,7 +3,7 @@ requires = ["flit_core >=2,<4"]
 build-backend = "flit_core.buildapi"
 
 [project]
-name = "lrhc_control"
+name = "aug_mpc"
 version = "0.1.0"
 description = ""
 authors = [{name = "AndrePatri", email = "andreapatrizi1b6e6@gmail.com"}]

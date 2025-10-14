@@ -5,4 +5,4 @@
 </h2>
 
 Main package of the [IBRIDO](https://github.com/AndrePatri/IBRIDO) software ecosystem for Reinforcement Learning-based Model Predictive Control (RL-MPC) with legged robots.
-The name LRHControl is a legacy name which was meant to stand for "Learning-based Receding Horizon Control".
+The name AugMPC is a legacy name which was meant to stand for "Learning-based Receding Horizon Control".

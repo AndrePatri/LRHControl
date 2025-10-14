@@ -1,11 +1,11 @@
 import torch
 
 from EigenIPC.PyEigenIPC import LogType, VLevel
-from control_cluster_bridge.utilities.math_utils_torch import w2hor_frame
+from mpc_hive.utilities.math_utils_torch import w2hor_frame
 
 import os
 
-from lrhc_control.envs.linvel_env_baseline import LinVelTrackBaseline
+from aug_mpc.envs.linvel_env_baseline import LinVelTrackBaseline
 
 from typing import Dict
 class RandomSteppingEnvBaseline(LinVelTrackBaseline):

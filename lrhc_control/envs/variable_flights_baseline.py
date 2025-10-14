@@ -1,8 +1,8 @@
-from lrhc_control.utils.sys_utils import PathsGetter
-from lrhc_control.envs.linvel_env_baseline import LinVelTrackBaseline
+from aug_mpc.utils.sys_utils import PathsGetter
+from aug_mpc.envs.linvel_env_baseline import LinVelTrackBaseline
 
-from control_cluster_bridge.utilities.shared_data.rhc_data import RobotState, RhcStatus
-from control_cluster_bridge.utilities.math_utils_torch import world2base_frame, base2world_frame, w2hor_frame
+from mpc_hive.utilities.shared_data.rhc_data import RobotState, RhcStatus
+from mpc_hive.utilities.math_utils_torch import world2base_frame, base2world_frame, w2hor_frame
 
 import torch
 
@@ -10,11 +10,11 @@ from EigenIPC.PyEigenIPC import VLevel
 from EigenIPC.PyEigenIPC import LogType
 
 import os
-from lrhc_control.utils.episodic_data import EpisodicData
-from lrhc_control.utils.signal_smoother import ExponentialSignalSmoother
+from aug_mpc.utils.episodic_data import EpisodicData
+from aug_mpc.utils.signal_smoother import ExponentialSignalSmoother
 import math
 
-from lrhc_control.utils.math_utils import check_capsize
+from aug_mpc.utils.math_utils import check_capsize
 
 from typing import Dict
 

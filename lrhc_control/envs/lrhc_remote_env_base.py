@@ -1,17 +1,17 @@
-from lrhc_control.controllers.rhc.lrhc_cluster_server import LRhcClusterServer
-from lrhc_control.utils.shared_data.remote_stepping import RemoteStepperClnt
-from lrhc_control.utils.shared_data.remote_stepping import RemoteResetClnt
-from lrhc_control.utils.shared_data.remote_stepping import RemoteResetRequest
-from lrhc_control.utils.jnt_imp_control_base import JntImpCntrlBase
-from lrhc_control.utils.hybrid_quad_xrdf_gen import get_xrdf_cmds
-from lrhc_control.utils.xrdf_gen import generate_srdf, generate_urdf
-from lrhc_control.utils.math_utils import quaternion_difference
-from lrhc_control.utils.custom_arg_parsing import extract_custom_xacro_args, merge_xacro_cmds
+from aug_mpc.controllers.rhc.lrhc_cluster_server import LRhcClusterServer
+from aug_mpc.utils.shared_data.remote_stepping import RemoteStepperClnt
+from aug_mpc.utils.shared_data.remote_stepping import RemoteResetClnt
+from aug_mpc.utils.shared_data.remote_stepping import RemoteResetRequest
+from aug_mpc.utils.jnt_imp_control_base import JntImpCntrlBase
+from aug_mpc.utils.hybrid_quad_xrdf_gen import get_xrdf_cmds
+from aug_mpc.utils.xrdf_gen import generate_srdf, generate_urdf
+from aug_mpc.utils.math_utils import quaternion_difference
+from aug_mpc.utils.custom_arg_parsing import extract_custom_xacro_args, merge_xacro_cmds
 
-from lrhc_control.utils.filtering import FirstOrderFilter
+from aug_mpc.utils.filtering import FirstOrderFilter
 
-from control_cluster_bridge.utilities.homing import RobotHomer
-from control_cluster_bridge.utilities.shared_data.jnt_imp_control import JntImpCntrlData
+from mpc_hive.utilities.homing import RobotHomer
+from mpc_hive.utilities.shared_data.jnt_imp_control import JntImpCntrlData
 
 from EigenIPC.PyEigenIPC import VLevel, Journal, LogType
 

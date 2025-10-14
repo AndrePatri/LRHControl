@@ -74,13 +74,13 @@ class PeriodicRosbagRecorder(Node):
         """Fetch topic metadata using the `ros2 topic info` command."""
         topics = [
             f"/clock",
-            f"/RHCViz_{self.namespace}_HandShake",
-            f"/RHCViz_{self.namespace}_hl_refs",
-            f"/RHCViz_{self.namespace}_rhc_actuated_jointnames",
-            f"/RHCViz_{self.namespace}_rhc_q",
-            f"/RHCViz_{self.namespace}_rhc_refs",
-            f"/RHCViz_{self.namespace}_robot_actuated_jointnames",
-            f"/RHCViz_{self.namespace}_robot_q",
+            f"/MPCViz_{self.namespace}_HandShake",
+            f"/MPCViz_{self.namespace}_hl_refs",
+            f"/MPCViz_{self.namespace}_rhc_actuated_jointnames",
+            f"/MPCViz_{self.namespace}_rhc_q",
+            f"/MPCViz_{self.namespace}_rhc_refs",
+            f"/MPCViz_{self.namespace}_robot_actuated_jointnames",
+            f"/MPCViz_{self.namespace}_robot_q",
         ]
 
         self.topics_with_types = {}

@@ -1,8 +1,8 @@
-from lrhc_control.utils.shared_data.agent_refs import AgentRefs
-from lrhc_control.utils.shared_data.training_env import Actions
+from aug_mpc.utils.shared_data.agent_refs import AgentRefs
+from aug_mpc.utils.shared_data.training_env import Actions
 
-from control_cluster_bridge.utilities.shared_data.rhc_data import RobotState
-from control_cluster_bridge.utilities.math_utils import world2base_frame_twist
+from mpc_hive.utilities.shared_data.rhc_data import RobotState
+from mpc_hive.utilities.math_utils import world2base_frame_twist
 
 from EigenIPC.PyEigenIPCExt.wrappers.shared_data_view import SharedTWrapper
 from EigenIPC.PyEigenIPC import VLevel
@@ -476,7 +476,7 @@ class AgentRefsFromKeyboard:
         self.agent_refs.run()
         
         if read_from_stdin:
-            from control_cluster_bridge.utilities.keyboard_listener_stdin import KeyListenerStdin
+            from mpc_hive.utilities.keyboard_listener_stdin import KeyListenerStdin
 
             with KeyListenerStdin(on_press=self._on_press, 
                 on_release=self._on_release, 
@@ -1162,7 +1162,7 @@ class AgentActionsFromKeyboard:
 
         self._read_from_stdin=read_from_stdin
         if self._read_from_stdin:
-            from control_cluster_bridge.utilities.keyboard_listener_stdin import KeyListenerStdin
+            from mpc_hive.utilities.keyboard_listener_stdin import KeyListenerStdin
             import time
 
             with KeyListenerStdin(on_press=self._on_press, 

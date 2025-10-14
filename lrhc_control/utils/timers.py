@@ -1,6 +1,6 @@
 
 import torch
-from lrhc_control.utils.shared_data.training_env import SimpleCounters
+from aug_mpc.utils.shared_data.training_env import SimpleCounters
 
 class PeriodicTimer():
 

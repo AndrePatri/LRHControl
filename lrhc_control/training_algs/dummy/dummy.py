@@ -1,4 +1,4 @@
-from lrhc_control.training_algs.dummy.dummy_test_algo_base import DummyTestAlgoBase
+from aug_mpc.training_algs.dummy.dummy_test_algo_base import DummyTestAlgoBase
 
 import torch 
 import torch.nn as nn

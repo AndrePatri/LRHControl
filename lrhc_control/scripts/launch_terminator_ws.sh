@@ -13,7 +13,7 @@ MAMBAENVNAME="KyonRLSteppingIsaac2023.1.0"
 # Array of directories
 directories=(
     "$HOME/RL_ws/hhcm/src/KyonRLStepping"
-    "$HOME/RL_ws/hhcm/src/CoClusterBridge"
+    "$HOME/RL_ws/hhcm/src/MPCHive"
     "$HOME/RL_ws/hhcm/src/OmniRoboGym"
     "$HOME/RL_ws/hhcm/src/horizon"
     "$HOME/RL_ws/hhcm/build/horizon"

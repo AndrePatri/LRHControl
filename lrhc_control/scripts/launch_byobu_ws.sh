@@ -8,14 +8,14 @@ export QT_IM_MODULE=ibus
 SLEEP_FOR=0.1
 BYOBU_WS_NAME="RlWorkspace"
 WS_ROOT="$HOME/RL_ws/hhcm"
-WORKING_DIR="$WS_ROOT/src/LRHControl/lrhc_control/scripts"
-MAMBAENVNAME="LRHControlMambaEnv"
+WORKING_DIR="$WS_ROOT/src/AugMPC/aug_mpc/scripts"
+MAMBAENVNAME="AugMPCMambaEnv"
 N_FILES=14336 # to allow more open files
 
 # Array of directories
 directories=(
-    "$WS_ROOT/src/LRHControl"
-    "$WS_ROOT/src/CoClusterBridge"
+    "$WS_ROOT/src/AugMPC"
+    "$WS_ROOT/src/MPCHive"
     "$WS_ROOT/src/OmniRoboGym"
     "$WS_ROOT/src/SharsorIPCpp"
     "$WS_ROOT/src/horizon"
@@ -175,7 +175,7 @@ execute_command "cd ${WORKING_DIR}"
 execute_command "source /opt/ros/humble/setup.bash"
 source_mamba_env
 clear_terminal
-prepare_command "reset && python3 launch_rhcviz.py --ns {} --dpath {} --nodes_perc 10 --cores {}"
+prepare_command "reset && python3 launch_mpcviz.py --ns {} --dpath {} --nodes_perc 10 --cores {}"
 
 # tab2
 new_tab

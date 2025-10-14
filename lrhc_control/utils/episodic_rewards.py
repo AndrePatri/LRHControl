@@ -1,4 +1,4 @@
-from lrhc_control.utils.episodic_data import EpisodicData
+from aug_mpc.utils.episodic_data import EpisodicData
 import torch
 from typing import List
 

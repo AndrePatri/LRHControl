@@ -1,4 +1,4 @@
-from control_cluster_bridge.utilities.keyboard_cmds import RefsFromKeyboard
+from mpc_hive.utilities.keyboard_cmds import RefsFromKeyboard
 
 import argparse
 
@@ -12,7 +12,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     
-    from control_cluster_bridge.utilities.shared_data.rhc_data import RhcRefs
+    from mpc_hive.utilities.shared_data.rhc_data import RhcRefs
     from EigenIPC.PyEigenIPC import VLevel
 
     shared_refs= RhcRefs(namespace=args.ns,

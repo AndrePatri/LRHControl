@@ -1,7 +1,7 @@
-from lrhc_control.utils.determinism import deterministic_run
+from aug_mpc.utils.determinism import deterministic_run
 
-from control_cluster_bridge.utilities.shared_data.sim_data import SharedEnvInfo
-from control_cluster_bridge.utilities.shared_data.cluster_data import SharedClusterInfo
+from mpc_hive.utilities.shared_data.sim_data import SharedEnvInfo
+from mpc_hive.utilities.shared_data.cluster_data import SharedClusterInfo
 
 from EigenIPC.PyEigenIPC import VLevel, Journal, LogType
 from EigenIPC.PyEigenIPC import StringTensorServer
@@ -118,7 +118,7 @@ if __name__ == "__main__":
     env_path=""
     env_module=None
     if (not args.eval) or (args.override_env):
-        env_path = f"lrhc_control.envs.{env_fname}"
+        env_path = f"aug_mpc.envs.{env_fname}"
         env_module = importlib.import_module(env_path)
     else:
         if args.mpath is None:
@@ -185,21 +185,21 @@ if __name__ == "__main__":
     algo=None
     if not args.dummy:
         if args.sac:
-            from lrhc_control.training_algs.sac.sac import SAC
+            from aug_mpc.training_algs.sac.sac import SAC
 
             algo = SAC(env=env, 
                 debug=args.db, 
                 remote_db=args.rmdb,
                 seed=args.seed)
         else:
-            from lrhc_control.training_algs.ppo.ppo import PPO
+            from aug_mpc.training_algs.ppo.ppo import PPO
 
             algo = PPO(env=env, 
                 debug=args.db, 
                 remote_db=args.rmdb,
                 seed=args.seed)
     else:
-        from lrhc_control.training_algs.dummy.dummy import Dummy
+        from aug_mpc.training_algs.dummy.dummy import Dummy
 
         algo=Dummy(env=env, 
                 debug=args.db, 
