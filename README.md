@@ -4,5 +4,4 @@
 
 </h2>
 
-Main package of the [IBRIDO](https://github.com/AndrePatri/IBRIDO) software ecosystem for Reinforcement Learning-based Model Predictive Control (RL-MPC) with legged robots.
-The name AugMPC is a legacy name which was meant to stand for "Learning-based Receding Horizon Control".
+Main package of the [IBRIDO](https://github.com/AndrePatri/IBRIDO) software ecosystem for Reinforcement Learning-augmented Model Predictive Control with legged (and hybrid) robots.
