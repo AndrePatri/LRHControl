@@ -175,7 +175,7 @@ execute_command "cd ${WORKING_DIR}"
 execute_command "source /opt/ros/humble/setup.bash"
 source_mamba_env
 clear_terminal
-prepare_command "reset && python3 launch_mpcviz.py --ns {} --dpath {} --nodes_perc 10 --cores {}"
+prepare_command "reset && python3 launch_mpc_viz.py --ns {} --dpath {} --nodes_perc 10 --cores {}"
 
 # tab2
 new_tab

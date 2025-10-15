@@ -5,40 +5,40 @@ from std_msgs.msg import Float64MultiArray
 from std_msgs.msg import String
 from rosgraph_msgs.msg import Clock
 
-from mpcviz.utils.handshake import MPCVizHandshake
+from mpc_viz.utils.handshake import MPCVizHandshake
 
 class RhcToVizBridge(RhcToVizBridgeBase):
 
     def _init_ros_pubs(self, id: str):
         
-        self.node=rospy.init_node(self.mpcviz_basename + "_" + self._remap_namespace+f"_{id}")
+        self.node=rospy.init_node(self.mpc_viz_basename + "_" + self._remap_namespace+f"_{id}")
 
-        self.rhc_q_pub = rospy.Publisher(self.ros_names.rhc_q_topicname(basename=self.mpcviz_basename, 
+        self.rhc_q_pub = rospy.Publisher(self.ros_names.rhc_q_topicname(basename=self.mpc_viz_basename, 
                                             namespace=self._remap_namespace),
                             Float64MultiArray, 
                             queue_size=10)
         
-        self.rhc_refs_pub = rospy.Publisher(self.ros_names.rhc_refs_topicname(basename=self.mpcviz_basename, 
+        self.rhc_refs_pub = rospy.Publisher(self.ros_names.rhc_refs_topicname(basename=self.mpc_viz_basename, 
                                             namespace=self._remap_namespace),
                             Float64MultiArray, 
                             queue_size=10)
         if self._with_agent_refs:
-            self.hl_refs_pub = rospy.Publisher(self.ros_names.hl_refs_topicname(basename=self.mpcviz_basename, 
+            self.hl_refs_pub = rospy.Publisher(self.ros_names.hl_refs_topicname(basename=self.mpc_viz_basename, 
                                             namespace=self._remap_namespace),
                             Float64MultiArray, 
                             queue_size=10)
             
-        self.robot_q_pub = rospy.Publisher(self.ros_names.robot_q_topicname(basename=self.mpcviz_basename, 
+        self.robot_q_pub = rospy.Publisher(self.ros_names.robot_q_topicname(basename=self.mpc_viz_basename, 
                                             namespace=self._remap_namespace), 
                             Float64MultiArray, 
                             queue_size=10)
         
-        self.robot_jntnames_pub = rospy.Publisher(self.ros_names.robot_jntnames(basename=self.mpcviz_basename, 
+        self.robot_jntnames_pub = rospy.Publisher(self.ros_names.robot_jntnames(basename=self.mpc_viz_basename, 
                                             namespace=self._remap_namespace),
                             String, 
                             queue_size=10)       
 
-        self.rhc_jntnames_pub = rospy.Publisher(self.ros_names.rhc_jntnames(basename=self.mpcviz_basename, 
+        self.rhc_jntnames_pub = rospy.Publisher(self.ros_names.rhc_jntnames(basename=self.mpc_viz_basename, 
                                             namespace=self._remap_namespace),
                             String, 
                             queue_size=10)  
@@ -48,7 +48,7 @@ class RhcToVizBridge(RhcToVizBridgeBase):
                                 Clock, 
                                 queue_size=10)
         
-        self.handshaker = MPCVizHandshake(handshake_topic=self.ros_names.handshake_topicname(basename=self.mpcviz_basename, 
+        self.handshaker = MPCVizHandshake(handshake_topic=self.ros_names.handshake_topicname(basename=self.mpc_viz_basename, 
                     namespace=self._remap_namespace),
                 is_server=True)
     

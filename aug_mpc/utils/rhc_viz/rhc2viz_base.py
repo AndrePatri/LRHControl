@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
-from mpcviz.utils.namings import NamingConventions
-from mpcviz.utils.string_list_encoding import StringArray
+from mpc_viz.utils.namings import NamingConventions
+from mpc_viz.utils.string_list_encoding import StringArray
 
 from aug_mpc.controllers.rhc.horizon_based.utils.math_utils import hor2w_frame,base2world_frame
 
@@ -39,7 +39,7 @@ class RhcToVizBridgeBase(ABC):
             remap_ns: str = None,
             verbose = False,
             vlevel: VLevel = VLevel.V1,
-            mpcviz_basename = "MPCViz",
+            mpc_viz_basename = "MPCViz",
             robot_selector: List = [0, None],
             with_agent_refs = False,
             rhc_refs_in_h_frame: bool = False,
@@ -87,8 +87,8 @@ class RhcToVizBridgeBase(ABC):
         if self._remap_namespace is None: # allow publishing with different namespace
             self._remap_namespace=self.namespace
         # ros stuff
-        self.ros_names = NamingConventions() # mpcviz naming conventions
-        self.mpcviz_basename = mpcviz_basename 
+        self.ros_names = NamingConventions() # mpc_viznaming conventions
+        self.mpc_viz_basename = mpc_viz_basename 
         
         self.cluster_size = None
         self.jnt_names_robot = None

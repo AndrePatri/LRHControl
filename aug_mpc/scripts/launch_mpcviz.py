@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-from mpcviz.MPCViz import MPCViz
-from mpcviz.utils.sys_utils import PathsGetter
+from mpc_viz.MPCViz import MPCViz
+from mpc_viz.utils.sys_utils import PathsGetter
 
 import os
 import argparse
@@ -30,7 +30,7 @@ if __name__ == '__main__':
         
     syspaths = PathsGetter()
     
-    mpcviz = MPCViz(urdf_file_path=args.dpath, 
+    mpc_viz= MPCViz(urdf_file_path=args.dpath, 
         rviz_config_path=syspaths.DEFAULT_RVIZ_CONFIG_PATH,
         namespace=args.ns, 
         basename="MPCViz", 
@@ -39,4 +39,4 @@ if __name__ == '__main__':
         nodes_perc = args.nodes_perc       
         )
     
-    mpcviz.run()
+    mpc_viz.run()

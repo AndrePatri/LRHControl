@@ -42,7 +42,7 @@ class RosBagDumper():
         self._ns=ns
         self._remap_ns=remap_ns
         if self._remap_ns is None: # allow to publish with different namespace (to allow
-            # support for multiple bags at once and multiple mpcviz instances)
+            # support for multiple bags at once and multiple mpc_vizinstances)
             self._remap_ns=self._ns
 
         self._srdf_path=None
@@ -107,7 +107,7 @@ class RosBagDumper():
             self._bridge = RhcToVizBridge(namespace=self._ns, 
                 remap_ns=self._remap_ns,
                 verbose=self._verbose,
-                mpcviz_basename="MPCViz", 
+                mpc_viz_basename="MPCViz", 
                 robot_selector=[0, None],
                 with_agent_refs=self._with_agent_refs,
                 rhc_refs_in_h_frame=self._rhc_refs_in_h_frame,
@@ -125,7 +125,7 @@ class RosBagDumper():
             self._bridge = RhcToViz2Bridge(namespace=self._ns, 
                 remap_ns=self._remap_ns,
                 verbose=self._verbose,
-                mpcviz_basename="MPCViz", 
+                mpc_viz_basename="MPCViz", 
                 robot_selector=[0, None],
                 with_agent_refs=self._with_agent_refs,
                 rhc_refs_in_h_frame=self._rhc_refs_in_h_frame,
