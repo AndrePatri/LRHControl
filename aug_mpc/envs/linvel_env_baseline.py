@@ -97,7 +97,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         self._add_env_opt(env_opts, "add_power_reward", False)
         self._add_env_opt(env_opts, "add_CoT_reward", True)
-        self._add_env_opt(env_opts, "use_CoT_wrt_ref", True)
+        self._add_env_opt(env_opts, "use_CoT_wrt_ref", False)
         self._add_env_opt(env_opts, "add_action_rate_reward", True)
         self._add_env_opt(env_opts, "add_jnt_v_reward", False)
 
@@ -135,7 +135,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
 
         # energy penalties
         self._add_env_opt(env_opts, "CoT_offset", default=0.1)
-        self._add_env_opt(env_opts, "CoT_scale", default=1.0)
+        self._add_env_opt(env_opts, "CoT_scale", default=0.1)
         self._add_env_opt(env_opts, "power_offset", default=0.1)
         self._add_env_opt(env_opts, "power_scale", default=8e-4)
 
@@ -842,7 +842,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         drained_mech_pow=self._mech_pow(jnts_vel=jnts_vel,
             jnts_effort=jnts_effort, 
             drained=True)
-        CoT=drained_mech_pow/(v_norm+1e-3)
+        CoT=drained_mech_pow/(v_norm+1e-2)
         if mass_weight:
             robot_weight=self._rhc_robot_weight
             CoT=CoT/robot_weight
