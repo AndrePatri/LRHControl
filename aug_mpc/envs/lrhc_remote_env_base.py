@@ -1063,6 +1063,10 @@ class LRhcEnvBase(ABC):
                 eff_ref=actions.jnts_state.get(data_type="eff", gpu=self._use_gpu)[active_controllers, :],
                 robot_indxs=active_controllers)            
     
+    def _jnt_imp_reset_overrride(self, robot_name:str):
+        # to be overriden
+        pass
+    
     def _apply_cmds_to_jnt_imp_control(self, robot_name:str):
 
         self._jnt_imp_controllers[robot_name].apply_cmds()
@@ -1166,6 +1170,7 @@ class LRhcEnvBase(ABC):
         # self._write_state_to_jnt_imp(robot_name=robot_name)
         # actually applies reset commands to the articulation
         self._write_state_to_jnt_imp(robot_name=robot_name)
+        self._jnt_imp_reset_overrride(robot_name=robot_name)
         self._apply_cmds_to_jnt_imp_control(robot_name=robot_name)
 
     def _synch_default_root_states(self,
@@ -1250,11 +1255,6 @@ class LRhcEnvBase(ABC):
         urdf_descr_root_path = '/'.join(parts[:-2])
         cmds = get_xrdf_cmds(urdf_descr_root_path=urdf_descr_root_path) 
         return cmds
-    
-    def _reset_jnt_imp_control_gains(self,
-        robot_name: str, 
-        env_indxs: torch.Tensor = None):
-        pass
 
     @abstractmethod
     def current_tstep(self) -> int:
