@@ -377,7 +377,7 @@ class LRhcEnvBase(ABC):
             self._homing=robot_homing.repeat(self._num_envs, 1)
 
             self._jnts_q_default[robot_name] = self._homing
-            self._set_jnts_homing(robot_name=robot_name)
+            self._set_jnts_to_homing(robot_name=robot_name)
             self._set_root_to_defconfig(robot_name=robot_name)
             self._reset_sim()
             self._init_safe_cluster_actions(robot_name=robot_name)
@@ -1066,7 +1066,7 @@ class LRhcEnvBase(ABC):
     def _jnt_imp_reset_overrride(self, robot_name:str):
         # to be overriden
         pass
-    
+
     def _apply_cmds_to_jnt_imp_control(self, robot_name:str):
 
         self._jnt_imp_controllers[robot_name].apply_cmds()
@@ -1327,7 +1327,7 @@ class LRhcEnvBase(ABC):
         pass
     
     @abstractmethod
-    def _set_jnts_homing(self, robot_name: str):
+    def _set_jnts_to_homing(self, robot_name: str):
         pass
 
     @abstractmethod
