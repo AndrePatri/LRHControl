@@ -154,19 +154,23 @@ class GaitManager:
                     f"Running in open loop, but no contact pos task found. Aborting.",
                     LogType.EXCEP,
                     throw_when_excep=True)
-            if (not self._zvel_task_found) and (not self._is_open_loop):
-                Journal.log(self.__class__.__name__,
-                    "_init_contact_timelines",
-                    f"Running in closed loop, but contact vel task not found. Aborting",
-                    LogType.EXCEP,
-                    throw_when_excep=True)
+            # if (not self._zvel_task_found) and (not self._is_open_loop):
+            #     Journal.log(self.__class__.__name__,
+            #         "_init_contact_timelines",
+            #         f"Running in closed loop, but contact vel task not found. Aborting",
+            #         LogType.EXCEP,
+            #         throw_when_excep=True)
             
             self._ref_trjs[contact]=None
             self._ref_vtrjs[contact]=None
-            if self._is_open_loop: # we use pos trajectory
+            if self._zpos_task_found: # we use pos trajectory
                 self._ref_trjs[contact]=np.zeros(shape=[7, self.task_interface.prb.getNNodes()])
                 init_z_foot = self._fk_contacts[contact](q=self._q0)['ee_pos'].elements()[2]
-                self._ref_trjs[contact][2, :] = np.atleast_2d(init_z_foot)
+                if self._is_open_loop:
+                    self._ref_trjs[contact][2, :] = np.atleast_2d(init_z_foot)
+                else:
+                    self._ref_trjs[contact][2, :] = 0.0 # place foot at ground level initially ()
+                    
                 self._flight_phases[contact].addItemReference(self.task_interface.getTask(f'z_{contact}'), 
                     self._ref_trjs[contact][2, 0:1], 
                     nodes=list(range(0, flight_phase_short_duration)))
