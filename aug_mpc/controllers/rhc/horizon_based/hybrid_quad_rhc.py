@@ -858,7 +858,7 @@ class HybridQuadRhc(RHController):
         if not self._custom_opts["estimate_v_root"]:
             v_root[:, :]=self._get_root_twist_from_sol(node_idx=1)[:, 0:3].reshape(-1, 1)
             # override v jnts with the ones from controller
-            v_jnts[:, :]=self._get_jnt_v_from_sol(node_idx=1).reshape(-1, 1)
+            # v_jnts[:, :]=self._get_jnt_v_from_sol(node_idx=1).reshape(-1, 1)
         # root_twist_from_rhc=self._get_root_twist_from_sol(node_idx=1)
         # root_v_from_rhc=root_twist_from_rhc[:, 0:3].reshape(-1, 1)
         # root_omega_from_rhc=root_twist_from_rhc[:, 3:6].reshape(-1, 1)
