@@ -92,7 +92,8 @@ class HybridQuadRhc(RHController):
             "estimate_v_root": False, # when adaptive_is or closed_partial, estimate vbase
             "alpha_from_outside": False, # alpha set ext. from shared memory
             "alpha_half": 1.0, 
-            "only_vel_wheels": True # whether wheels (if present) are just vel controlled
+            "only_vel_wheels": True, # whether wheels (if present) are just vel controlled
+            "use_jnt_v_feedback": False
             }
         
         self._custom_opts.update(custom_opts)
@@ -858,6 +859,8 @@ class HybridQuadRhc(RHController):
         if not self._custom_opts["estimate_v_root"]:
             v_root[:, :]=self._get_root_twist_from_sol(node_idx=1)[:, 0:3].reshape(-1, 1)
             # override v jnts with the ones from controller
+            if not self._custom_opts["use_jnt_v_feedback"]:
+                v_jnts[:, :]=self._get_jnt_v_from_sol(node_idx=1).reshape(-1, 1)
             # v_jnts[:, :]=self._get_jnt_v_from_sol(node_idx=1).reshape(-1, 1)
         # root_twist_from_rhc=self._get_root_twist_from_sol(node_idx=1)
         # root_v_from_rhc=root_twist_from_rhc[:, 0:3].reshape(-1, 1)
