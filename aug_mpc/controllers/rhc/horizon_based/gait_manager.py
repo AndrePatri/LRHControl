@@ -297,7 +297,8 @@ class GaitManager:
             # inject pos traj if pos mode
             if self._ref_trjs[contact_name] is not None:
                 # recompute trajectory online (just needed if using pos traj)
-                starting_pos=self._fk_contacts[contact_name](q=robot_q)['ee_pos'].elements()[2]
+                starting_pos=self._fk_contacts[contact_name](q=robot_q)['ee_pos'].elements()[2] # compute foot traj
+                # starting_pos=0.0
                 self._ref_trjs[contact_name][2, 0:self._flight_durations[contact_name]]=np.atleast_2d(self._tg.from_derivatives(self._flight_durations[contact_name], 
                                                                         p_start=starting_pos, 
                                                                         p_goal=starting_pos+self._dhs[contact_name], 
