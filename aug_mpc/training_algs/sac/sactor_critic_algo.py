@@ -215,6 +215,7 @@ class SActorCriticAlgoBase(ABC):
             verbose: bool = False,
             drop_dir_name: str = None,
             eval: bool = False,
+            resume: bool = False,
             model_path: str = None,
             n_eval_timesteps: int = None,
             comment: str = "",
@@ -239,10 +240,21 @@ class SActorCriticAlgoBase(ABC):
             self._full_env_db=custom_args["full_env_db"]
         
         self._eval = eval
+        self._resume=resume
+        if self._eval and self._resume: 
+            Journal.log("launch_train_env.py",
+                "setup",
+                f"Cannot set both eval and resume to true. Exiting.",
+                LogType.EXCEP,
+                throw_when_excep = True)
+        
         self._load_qf=False
         if self._eval:
             if "load_qf" in custom_args:
                 self._load_qf=custom_args["load_qf"]
+        if self._resume:
+            self._load_qf=True # must load qf when resuming
+            self._eval=False
         try:
             self._det_eval=custom_args["det_eval"]
         except:
@@ -262,6 +274,7 @@ class SActorCriticAlgoBase(ABC):
             self._validate=False
             self._load_qf=False
             self._det_eval=False
+            self._resume=False
 
         self._run_name = run_name
         from datetime import datetime
@@ -354,7 +367,7 @@ class SActorCriticAlgoBase(ABC):
                     No jnt remapping will be available and a randomly init agent will be used."
                 Journal.log(self.__class__.__name__,
                     "setup",
-                    f"No model path provided in eval mode! Was this intentional? No jnt remapping will be avaial",
+                    msg,
                     LogType.WARN,
                     throw_when_excep = True)
             if  n_eval_timesteps is None:
@@ -372,6 +385,17 @@ class SActorCriticAlgoBase(ABC):
             self._init_params(tot_tsteps=n_eval_timesteps,
                 custom_args=custom_args)
         else:
+            if self._resume:
+                if model_path is None:
+                    msg = f"No model path provided in resume mode! Please provide a valid checkpoint path."
+                    Journal.log(self.__class__.__name__,
+                        "setup",
+                        msg,
+                        LogType.EXCEP,
+                        throw_when_excep = True)
+            self._model_path = model_path
+            if self._model_path is not None:
+                self._load_model(self._model_path) # load model from checkpoint (including q functions and running normalizers)
             self._init_params(tot_tsteps=tot_tsteps,
                 custom_args=custom_args)
         
@@ -838,6 +862,7 @@ class SActorCriticAlgoBase(ABC):
             LogType.INFO,
             throw_when_excep = True)
         
+        # init counters
         self._step_counter = 0
         self._vec_transition_counter = 0
         self._update_counter = 0
@@ -1483,7 +1508,8 @@ class SActorCriticAlgoBase(ABC):
             LogType.INFO,
             throw_when_excep = True)
         model_dict=torch.load(model_path, 
-                    map_location=self._torch_device)
+                    map_location=self._torch_device,
+                    weights_only=False) 
         
         observed_joints=self._env.get_observed_joints()
         if not ("observed_jnts" in model_dict):
@@ -1496,7 +1522,9 @@ class SActorCriticAlgoBase(ABC):
             self._check_observed_joints(observed_joints,required_joints)
 
         self._agent.load_state_dict(model_dict)
-        self._switch_training_mode(False)
+
+        if self._eval:
+            self._switch_training_mode(False)
 
     def _check_observed_joints(self,
             observed_joints,

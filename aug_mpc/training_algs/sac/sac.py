@@ -32,7 +32,8 @@ class SAC(SActorCriticAlgoBase):
         # either terminated or truncated. CRUCIAL: we need to clone, 
         # otherwise obs is a view and will be overridden in the call to step
         # with next_obs!!!
-        if self._vec_transition_counter > self._warmstart_vectimesteps:
+        if self._vec_transition_counter > self._warmstart_vectimesteps or \
+            self._resume: # collect actions from policy only always if resume, or after warmstart end
             actions, _, _ = self._agent.get_action(x=obs)
             actions = actions.detach()
             if self._n_expl_envs>0 and self._time_to_randomize_actions():
@@ -41,7 +42,7 @@ class SAC(SActorCriticAlgoBase):
                 # eps timelines)
                 self._perturb_some_actions(actions=actions)
                 
-        else:
+        else: # collect random actions during warmstart if not resume
             actions = self._sample_random_actions()
         
         # perform a step of the (vectorized) env and retrieve trajectory
@@ -123,7 +124,7 @@ class SAC(SActorCriticAlgoBase):
         
         # training phase
         if self._vec_transition_counter > self._warmstart_vectimesteps:
-                
+            
             self._switch_training_mode(train=True)
 
             obs,actions,next_obs,rewards,next_terminal = self._sample(size=self._batch_size) # sample
@@ -169,7 +170,7 @@ class SAC(SActorCriticAlgoBase):
                 qf2_next_target = self._agent.get_qf2t_val(next_obs, next_action)
                 min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - self._alpha * next_log_pi
                 next_q_value = rewards.flatten() + (1 - next_terminal.flatten()) * self._discount_factor * (min_qf_next_target).view(-1)
-
+            
             qf1_a_values = self._agent.get_qf1_val(obs, actions).view(-1)
             qf2_a_values = self._agent.get_qf2_val(obs, actions).view(-1)
             qf1_loss = F.mse_loss(qf1_a_values, next_q_value)

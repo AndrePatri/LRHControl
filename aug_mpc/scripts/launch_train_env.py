@@ -79,10 +79,12 @@ if __name__ == "__main__":
 
     parser.add_argument('--eval',action='store_true', help='Whether to perform an evaluation run')
     parser.add_argument('--n_eval_timesteps', type=int, help='Total number of timesteps to be evaluated', default=int(1e6))
-    parser.add_argument('--mpath', type=str, help='Model path to be used for policy evaluation', default=None)
-    parser.add_argument('--mname', type=str, help='Model name', default=None)
     parser.add_argument('--det_eval',action='store_true', help='Whether to perform a deterministic eval (only action mean is used). Only valid if --eval.')
     parser.add_argument('--allow_expl_during_eval',action='store_true', help='Whether to allow expl envs during evaluation (useful to tune exploration)')
+    
+    parser.add_argument('--resume',action='store_true', help='Resume a previous training using a checkpoint')
+    parser.add_argument('--mpath', type=str, help='Model path to be used for policy evaluation', default=None)
+    parser.add_argument('--mname', type=str, help='Model name', default=None)
     parser.add_argument('--override_env',action='store_true', help='Whether to override env when running evaluation')
     
     parser.add_argument('--anomaly_detect',action='store_true', help='Whether to enable anomaly detection (useful for debug)')
@@ -102,6 +104,13 @@ if __name__ == "__main__":
     args = parser.parse_args()
     args_dict = vars(args)
 
+    if args.eval and args.resume:
+        Journal.log("launch_train_env.py",
+            "",
+            f"Cannot set both --eval and --resume flags. Exiting.",
+            LogType.EXCEP,
+            throw_when_excep = True)
+
     deterministic_run(seed=args.seed, torch_det_algos=False)
 
     anomaly_detect=False
@@ -117,7 +126,8 @@ if __name__ == "__main__":
     env_classname = args.env_classname
     env_path=""
     env_module=None
-    if (not args.eval) or (args.override_env):
+    if (not args.eval and not args.resume) or (args.override_env):
+        # if starting a fresh traning or overriding env, load from a fresh env from aug_mpc
         env_path = f"aug_mpc.envs.{env_fname}"
         env_module = importlib.import_module(env_path)
     else:
@@ -144,6 +154,8 @@ if __name__ == "__main__":
         exit()
 
     env_type="training" if not args.eval else "evaluation"
+    if args.resume:
+        env_type="resumed_training"
     Journal.log("launch_train_env.py",
         "",
         f"loading {env_type} env {env_classname} from {env_path}",
@@ -218,6 +230,7 @@ if __name__ == "__main__":
         custom_args=custom_args,
         comment=args.comment,
         eval=args.eval,
+        resume=args.resume,
         model_path=mpath_full,
         n_eval_timesteps=args.n_eval_timesteps,
         dump_checkpoints=args.dump_checkpoints,
