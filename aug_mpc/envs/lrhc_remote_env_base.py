@@ -275,17 +275,22 @@ class LRhcEnvBase(ABC):
         
         self._setup()
 
+        self._exit_request=False
         signal.signal(signal.SIGINT, self.signal_handler)   
+
 
     def signal_handler(self, sig, frame):
         Journal.log(self.__class__.__name__,
             "signal_handler",
             "received SIGINT -> cleaning up",
             LogType.WARN)
-        self.close()
+        self._exit_request=True
     
     def __del__(self):
         self.close()
+    
+    def is_closed(self):
+        return self._closed
     
     def close(self) -> None:
         if not self._closed:
@@ -456,20 +461,27 @@ class LRhcEnvBase(ABC):
         self._setup_done=True
 
     def step(self) -> bool:
-        success=True
 
-        if self._debug:
-            self._pre_step_db()
-            self._env_timer=time.perf_counter()
-            self._step_world()
-            self.debug_data["time_to_step_world"] = \
-                time.perf_counter() - self._env_timer
-            self._post_world_step_db()
-        else:
-            self._pre_step()
-            self._step_world()
-            self._post_world_step()
+        success=False
 
+        if self._exit_request:
+            self.close()
+            
+        if self.is_running() and (not self.is_closed()):
+            if self._debug:
+                self._pre_step_db()
+                self._env_timer=time.perf_counter()
+                self._step_world()
+                self.debug_data["time_to_step_world"] = \
+                    time.perf_counter() - self._env_timer
+                self._post_world_step_db()
+                success=True
+            else:
+                self._pre_step()
+                self._step_world()
+                self._post_world_step()
+                success=True
+        
         return success
     
     def render(self, mode:str="human") -> None:
@@ -1265,7 +1277,7 @@ class LRhcEnvBase(ABC):
         pass
     
     @abstractmethod
-    def _is_running(self) -> bool:
+    def is_running(self) -> bool:
         pass
     
     @abstractmethod

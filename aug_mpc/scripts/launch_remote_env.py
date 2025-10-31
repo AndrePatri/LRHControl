@@ -154,11 +154,15 @@ if __name__ == '__main__':
     rt_factor = RtFactor(dt_nom=env.physics_dt(),
                 window_size=100)
     
-    while env._is_running():
+    while True:
         
         if rt_factor.reset_due():
             rt_factor.reset()
-        env.step() 
+
+        step_ok=env.step() 
+
+        if not step_ok:
+            break
 
         rt_factor.update()
 
