@@ -47,7 +47,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             True # if True, the task ref is constant over the episode (ie
             # episodes are truncated when task is changed) 
             )
-        self._add_env_opt(env_opts, "add_angvel_ref_rand", default=False) # randomize also agular vel ref (just z component)
+        self._add_env_opt(env_opts, "add_angvel_ref_rand", default=True) # randomize also agular vel ref (just z component)
 
         self._add_env_opt(env_opts, "episode_timeout_lb", 
             1024)
@@ -106,8 +106,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # task tracking
         self._add_env_opt(env_opts, "use_relative_error", default=False) # use relative vel error (wrt current task norm)
         self._add_env_opt(env_opts, "directional_tracking", default=True) # whether to compute tracking error based on reference direction
-        if env_opts["add_angvel_ref_rand"]:
-            env_opts["directional_tracking"]=False
+        # if env_opts["add_angvel_ref_rand"]:
+        #     env_opts["directional_tracking"]=False
 
         self._add_env_opt(env_opts, "use_L1_norm", default=True) # whether to use L1 norm for the error (otherwise L2)
         self._add_env_opt(env_opts, "use_exp_track_rew", default=True) # whether to use a reward of the form A*e^(B*x), 
@@ -124,10 +124,10 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._add_env_opt(env_opts, "task_track_omega_x_weight", default=0.0)
         self._add_env_opt(env_opts, "task_track_omega_y_weight", default=0.0)
         self._add_env_opt(env_opts, "task_track_omega_z_weight", default=1.0)
-        if env_opts["add_angvel_ref_rand"]:
-            env_opts["task_track_omega_x_weight"]=1.0
-            env_opts["task_track_omega_y_weight"]=1.0
-            env_opts["task_track_omega_z_weight"]=1.0
+        # if env_opts["add_angvel_ref_rand"]:
+        #     env_opts["task_track_omega_x_weight"]=0.0
+        #     env_opts["task_track_omega_y_weight"]=0.0
+        #     env_opts["task_track_omega_z_weight"]=1.0
 
         # task pred tracking
         self._add_env_opt(env_opts, "task_pred_track_offset", default=1.0)
