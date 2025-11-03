@@ -334,15 +334,28 @@ class AgentRefsFromKeyboard:
                 LogType.INFO,
                 throw_when_excep = True)
 
-        if self.enable_omega_roll:
-            self._update_navigation(nav_type="twist_roll",
+        if key == "9" and self.enable_omega:
+            if self.enable_omega_roll:
+                self._update_navigation(nav_type="twist_roll",
                                 increment = True)
-        if self.enable_omega_pitch:
-            self._update_navigation(nav_type="twist_pitch",
-                                increment = True)
-        if self.enable_omega_yaw:
-            self._update_navigation(nav_type="twist_yaw",
-                                increment = True)
+            if self.enable_omega_pitch:
+                self._update_navigation(nav_type="twist_pitch",
+                                    increment = True)
+            if self.enable_omega_yaw:
+                self._update_navigation(nav_type="twist_yaw",
+                                    increment = True)
+        if key == "3" and self.enable_omega:
+            if self.enable_omega_roll:
+                self._update_navigation(nav_type="twist_roll",
+                                    increment = False)
+            if self.enable_omega_pitch:
+                self._update_navigation(nav_type="twist_pitch",
+                                    increment = False)
+            if self.enable_omega_yaw:
+                self._update_navigation(nav_type="twist_yaw",
+                                    increment = False)
+            
+        
         
     def _set_linvel(self,
                 key):

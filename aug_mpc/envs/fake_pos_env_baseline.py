@@ -130,9 +130,14 @@ class FakePosEnvBaseline(LinVelTrackBaseline):
         agent_p_ref_current=self._agent_refs.rob_refs.root_state.get(data_type="p",
                 gpu=self._use_gpu)
         
+        agent_yaw_omega_ref_current=self._agent_refs.rob_refs.root_state.get(data_type="omega",
+                gpu=self._use_gpu)
+        
         # self._p_trgt_w[:, :]=self._robot_state.root_state.get(data_type="p",gpu=self._use_gpu)[:, 0:2] + \
         #     agent_p_ref_current[:, 0:2]
-        self._p_trgt_w[:, :]=agent_p_ref_current[:, 0:2]
+        self._p_trgt_w[:, :]=agent_p_ref_current[:, 0:2] # set p target target from shared mem
+
+        self._agent_twist_ref_current_w[:, 5:6]=agent_yaw_omega_ref_current[:, 2:3] # set yaw ang. vel target from shared mem
     
     def _debug_agent_refs(self):
         if self._use_gpu:
