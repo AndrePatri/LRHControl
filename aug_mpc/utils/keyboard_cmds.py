@@ -274,7 +274,7 @@ class AgentRefsFromKeyboard:
                                         n_rows=1, n_cols=3,
                                         read=False)
             
-        if self.enable_navigation: # twist
+        if self.enable_omega: # twist
             if self._agent_refs_world:
                 # ref was set in world frame -> we need to move it in base frame before setting it to the agent
                 robot_q = self._robot_state.root_state.get(data_type="q")[self.cluster_idx_np, :].reshape(1, -1)
@@ -334,34 +334,23 @@ class AgentRefsFromKeyboard:
                 LogType.INFO,
                 throw_when_excep = True)
 
-        if key == "9":
-            if self.enable_omega_roll:
-                self._update_navigation(nav_type="twist_roll",
-                                    increment = True)
-            if self.enable_omega_pitch:
-                self._update_navigation(nav_type="twist_pitch",
-                                    increment = True)
-            if self.enable_omega_yaw:
-                self._update_navigation(nav_type="twist_yaw",
-                                    increment = True)
-        if key == "3":
-            if self.enable_omega_roll:
-                self._update_navigation(nav_type="twist_roll",
-                                    increment = False)
-            if self.enable_omega_pitch:
-                self._update_navigation(nav_type="twist_pitch",
-                                    increment = False)
-            if self.enable_omega_yaw:
-                self._update_navigation(nav_type="twist_yaw",
-                                    increment = False)
+        if self.enable_omega_roll:
+            self._update_navigation(nav_type="twist_roll",
+                                increment = True)
+        if self.enable_omega_pitch:
+            self._update_navigation(nav_type="twist_pitch",
+                                increment = True)
+        if self.enable_omega_yaw:
+            self._update_navigation(nav_type="twist_yaw",
+                                increment = True)
         
-    def _set_navigation(self,
+    def _set_linvel(self,
                 key):
         if key == "n":
             self.enable_navigation = not self.enable_navigation
             info = f"High level navigation enabled: {self.enable_navigation}"
             Journal.log(self.__class__.__name__,
-                "_set_navigation",
+                "_set_linvel",
                 info,
                 LogType.INFO,
                 throw_when_excep = True)
@@ -441,7 +430,7 @@ class AgentRefsFromKeyboard:
             if hasattr(key, 'char'):
                 key=key.char
 
-        self._set_navigation(key)
+        self._set_linvel(key)
         self._set_omega(key)
         self._set_position(key)
 
