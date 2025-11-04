@@ -238,7 +238,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             obs_dim+=2
         # Agent task reference
         self._add_env_opt(env_opts, "use_pof0", default=True) # with some prob, references will be null
-        self._add_env_opt(env_opts, "pof0", default=0.1) # [0, 1] prob of null refs (from bernoulli distr)
+        self._add_env_opt(env_opts, "pof0", default=0.05) # [0, 1] prob of both linvel and omega refs being null(from bernoulli distr)
         self._add_env_opt(env_opts, "max_linvel_ref", default=0.3) # m/s
         self._add_env_opt(env_opts, "max_angvel_ref", default=0.0) # rad/s
         if env_opts["add_angvel_ref_rand"]:   
@@ -508,9 +508,13 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # aux data
         self._task_err_scaling = torch.zeros((self._n_envs, 1),dtype=self._dtype,device=device)
 
+        if self._env_opts["add_angvel_ref_rand"]: #  linvel and angvel pof0 are independent events, we want to set the prob of both beings 0
+            # if also randomizing the angular velocity
+            self._env_opts["pof0"]=math.sqrt(self._env_opts["pof0"]) # correction for individual bernoulli probs
         self._pof1_b = torch.full(size=(self._n_envs,1),dtype=self._dtype,device=device,fill_value=1-self._env_opts["pof0"])
-        self._bernoulli_coeffs = self._pof1_b.clone()
-        self._bernoulli_coeffs[:, :] = 1.0
+        self._bernoulli_coeffs_linvel = self._pof1_b.clone()
+        self._bernoulli_coeffs_linvel[:, :] = 1.0
+        self._bernoulli_coeffs_omega = self._bernoulli_coeffs_linvel.clone()
 
         # smoothing
         self._track_rew_smoother=None
@@ -1023,17 +1027,20 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # computation)
         
         if self._env_opts["use_pof0"]: # sample from bernoulli distribution
-            torch.bernoulli(input=self._pof1_b,out=self._bernoulli_coeffs) # by default bernoulli_coeffs are 1 if not self._env_opts["use_pof0"]
+            torch.bernoulli(input=self._pof1_b,out=self._bernoulli_coeffs_linvel) # by default bernoulli_coeffs are 1 if not self._env_opts["use_pof0"]
+            torch.bernoulli(input=self._pof1_b,out=self._bernoulli_coeffs_omega)
         if env_indxs is None:
             random_uniform=torch.full_like(self._agent_twist_ref_current_w, fill_value=0.0)
             torch.nn.init.uniform_(random_uniform, a=-1, b=1)
             self._agent_twist_ref_current_w[:, :] = random_uniform*self._twist_ref_scale + self._twist_ref_offset
-            self._agent_twist_ref_current_w[:, :] = self._agent_twist_ref_current_w*self._bernoulli_coeffs
+            self._agent_twist_ref_current_w[:, 0:3] = self._agent_twist_ref_current_w[:, 0:3]*self._bernoulli_coeffs_linvel # linvel
+            self._agent_twist_ref_current_w[:, 3:6] = self._agent_twist_ref_current_w[:, 3:6]*self._bernoulli_coeffs_omega # omega
         else:
             random_uniform=torch.full_like(self._agent_twist_ref_current_w[env_indxs, :], fill_value=0.0)
             torch.nn.init.uniform_(random_uniform, a=-1, b=1)
             self._agent_twist_ref_current_w[env_indxs, :] = random_uniform * self._twist_ref_scale + self._twist_ref_offset
-            self._agent_twist_ref_current_w[env_indxs, :] = self._agent_twist_ref_current_w[env_indxs, :]*self._bernoulli_coeffs[env_indxs, :]
+            self._agent_twist_ref_current_w[env_indxs, 0:3] = self._agent_twist_ref_current_w[env_indxs, 0:3]*self._bernoulli_coeffs_linvel[env_indxs, :]
+            self._agent_twist_ref_current_w[env_indxs, 3:6] = self._agent_twist_ref_current_w[env_indxs, 3:6]*self._bernoulli_coeffs_omega[env_indxs, :] # omega
 
     def _get_obs_names(self):
 
