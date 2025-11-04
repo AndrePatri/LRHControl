@@ -359,7 +359,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         else:
             self._task_err_weights[0, 0] = self._env_opts["task_track_front_weight"]
             self._task_err_weights[0, 1] = self._env_opts["task_track_front_weight"]
-            self._task_err_weights[0, 2] = self._env_opts["task_track_front_weight"]
+            self._task_err_weights[0, 2] = 0.1*self._env_opts["task_track_front_weight"]
             self._task_err_weights[0, 3] = self._env_opts["task_track_omega_x_weight"]
             self._task_err_weights[0, 4] = self._env_opts["task_track_omega_y_weight"]
             self._task_err_weights[0, 5] = self._env_opts["task_track_omega_z_weight"]
@@ -376,7 +376,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         else:
             self._task_pred_err_weights[0, 0] = self._env_opts["task_track_front_weight"]
             self._task_pred_err_weights[0, 1] = self._env_opts["task_track_front_weight"]
-            self._task_pred_err_weights[0, 2] = self._env_opts["task_track_front_weight"]
+            self._task_pred_err_weights[0, 2] = 0.1*self._env_opts["task_track_front_weight"]
             self._task_pred_err_weights[0, 3] = self._env_opts["task_track_omega_x_weight"]
             self._task_pred_err_weights[0, 4] = self._env_opts["task_track_omega_y_weight"]
             self._task_pred_err_weights[0, 5] = self._env_opts["task_track_omega_z_weight"]
