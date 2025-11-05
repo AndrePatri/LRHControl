@@ -706,6 +706,27 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._rhc_refs.contact_flags.synch_all(read=False, retry=True)
         self._rhc_refs.rob_refs.contact_pos.synch_all(read=False, retry=True)
     
+    def _override_refs(self,
+            env_indxs: torch.Tensor = None):
+        
+        # runs at every post_step
+        self._agent_refs.rob_refs.root_state.synch_all(read=True,retry=True) # first read from mem
+        if self._use_gpu:
+            # copies latest refs to GPU 
+            self._agent_refs.rob_refs.root_state.synch_mirror(from_gpu=False,non_blocking=False) 
+
+        agent_linvel_ref_current=self._agent_refs.rob_refs.root_state.get(data_type="v",
+                gpu=self._use_gpu)
+        
+        agent_yaw_omega_ref_current=self._agent_refs.rob_refs.root_state.get(data_type="omega",
+                gpu=self._use_gpu)
+        
+        # self._p_trgt_w[:, :]=self._robot_state.root_state.get(data_type="p",gpu=self._use_gpu)[:, 0:2] + \
+        #     agent_p_ref_current[:, 0:2]
+        self._agent_twist_ref_current_w[:, 0:3]=agent_linvel_ref_current # set linvel target
+        
+        self._agent_twist_ref_current_w[:, 5:6]=agent_yaw_omega_ref_current[:, 2:3] # set yaw ang. vel target from shared mem
+
     def _fill_substep_obs(self,
             obs: torch.Tensor):
 
