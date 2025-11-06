@@ -56,4 +56,4 @@ if __name__ == "__main__":
                                 agent_refs_world=args.agent_refs_world,
                                 env_idx=args.env_idx)
             
-            joy_cmds.run(args.connect, args.topic, args.poll_interval, args.on_message)
+            joy_cmds.run(args.connect, args.topic, args.poll_interval)
