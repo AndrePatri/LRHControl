@@ -154,6 +154,8 @@ class LRhcEnvBase(ABC):
                 LogType.EXCEP,
                 throw_when_excep = True)
         
+        self._remote_exit_flag=None
+
         self._name=name
         self._num_envs=num_envs
         self._debug=debug
@@ -462,7 +464,6 @@ class LRhcEnvBase(ABC):
             # startup config (usually lower)
             control_cluster.trigger_solution()
         
-        self._remote_exit_flag=None
         if self._env_opts["add_remote_exit_flag"]:
             self._remote_exit_flag=SharedTWrapper(namespace = self._robot_names[0],# use first robot as name
                 basename = "IbridoRemoteEnvExitFlag",

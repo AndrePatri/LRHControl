@@ -12,6 +12,7 @@ import math
 import time
 import numpy as np
 
+from typing import Optional, Callable, Any
 class AgentRefsFromJoy:
 
     def __init__(self, 
@@ -518,35 +519,89 @@ class AgentRefsFromJoy:
                                     n_rows=1, n_cols=6,
                                     read=False)
               
-    def run(self, connect, topic, poll_interval ):
+    # def run(self, connect, topic, poll_interval ):
 
-        info = f"Ready. Starting to listen for commands..."
+    #     info = f"Ready. Starting to listen for commands..."
 
-        def on_message(payload):
-            pass
+    #     def on_message(payload):
+    #         pass
         
+    #     Journal.log(self.__class__.__name__,
+    #         "run",
+    #         info,
+    #         LogType.INFO,
+    #         throw_when_excep = True)
+                
+    #     import time
+
+    #     self.agent_refs.run()
+        
+    #     from mpc_hive.utilities.joy.joy_zmq_listener import JoyListenerZMQ
+
+    #     joy_listener=JoyListenerZMQ(connect=connect, topic=topic, poll_interval=poll_interval, on_message=on_message)
+    #     joy_listener.start()
+
+    #     try:
+    #         while not joy_listener.done:
+    #             self._synch(joy_listener) # set refs
+    #             self._write_to_shared_mem() # write refs
+    #             time.sleep(0.01)
+    #     except KeyboardInterrupt:
+    #         print("[AgentRefsFromJoy][run]: Exiting...")
+    #     finally:
+    #         joy_listener.stop()
+
+    def run(self, connect, topic, poll_interval, callback: Optional[Callable[[Any, Any], None]] = None, callback_arg: Any = None):
+        """
+        Run loop for AgentRefsFromJoy with optional external callback.
+
+        The callback signature is callback(joy_listener, callback_arg). The callback is NOT
+        expected to return any value; it may set external flags (e.g. via callback_arg).
+        """
+        info = f"Ready. Starting to listen for commands..."
         Journal.log(self.__class__.__name__,
-            "run",
-            info,
-            LogType.INFO,
-            throw_when_excep = True)
+                    "run",
+                    info,
+                    LogType.INFO,
+                    throw_when_excep = True)
                 
         import time
 
-        self.agent_refs.run()
+        # ensure agent_refs is running before starting listener
+        try:
+            self.agent_refs.run()
+        except Exception:
+            # agent_refs may already be running or fail; continue
+            pass
         
         from mpc_hive.utilities.joy.joy_zmq_listener import JoyListenerZMQ
 
-        joy_listener=JoyListenerZMQ(connect=connect, topic=topic, poll_interval=poll_interval, on_message=on_message)
+        joy_listener=JoyListenerZMQ(connect=connect, topic=topic, poll_interval=poll_interval, on_message=None)
         joy_listener.start()
 
         try:
             while not joy_listener.done:
+                # call external callback (if provided). Defensive: do not rely on return value.
+                try:
+                    if callback is not None:
+                        callback(joy_listener, callback_arg)
+                except Exception as e:
+                    Journal.log(self.__class__.__name__, "run", f"Callback error: {e}", LogType.WARNING, throw_when_excep=False)
+
+                # synchronization and writes
                 self._synch(joy_listener) # set refs
                 self._write_to_shared_mem() # write refs
-                time.sleep(0.01)
+
+                time.sleep(poll_interval)
         except KeyboardInterrupt:
             print("[AgentRefsFromJoy][run]: Exiting...")
         finally:
-            joy_listener.stop()
+            try:
+                joy_listener.stop()
+            except Exception:
+                pass
+            try:
+                self._close()
+            except Exception:
+                pass
 
