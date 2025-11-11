@@ -50,7 +50,7 @@ class AgentRefsFromJoy:
         self._heading=0.0
         self.agent_refs = None
 
-        self._max_vxy_magn=1.0 # [m/s]
+        self._max_vxy_magn=0.8 # [m/s]
         self._max_vz_magn=0.0
         self._max_pitch_rate=0.0 # [rad/s]
         self._max_roll_rate=0.0 # [rad/s]
@@ -366,14 +366,109 @@ class AgentRefsFromJoy:
 
             # angular rates: clip as before
             
-            
-    def _set_position(self,joy):
+    def _set_position(self, joy):
+        """
+        Incrementally update self._current_pos_ref[0:2] using the right stick (sticks[2], sticks[3]).
+        - When enable_pos is False: reset current pos ref to robot's current position (as before).
+        - When enable_pos is True: disable linear velocity, and increment position by v * dt,
+        where v = stick_value * self._max_vxy_magn and dt is time since last update.
+        - Z (index 2) is left unchanged.
+        """
+        now = time.time()
 
-        # enable_pos managed by _check_and_toggle
-        if not self.enable_pos: # reset
-            robot_p = self._robot_state.root_state.get(data_type="p")[self.cluster_idx_np, :].reshape(-1)
-            robot_p[2]=0.0
-            self._current_pos_ref[:]=robot_p
+        # If enable_pos toggled off -> reset position to robot's current position (same behavior you had)
+        if not self.enable_pos:
+            # reset
+            try:
+                robot_p = self._robot_state.root_state.get(data_type="p")[self.cluster_idx_np, :].reshape(-1)
+                robot_p[2] = 0.0
+                self._current_pos_ref[:] = robot_p
+            except Exception:
+                # fallback: do nothing if we can't read robot state
+                pass
+
+            # clear last update timestamp so next enable starts fresh
+            if hasattr(self, "_last_pos_update_time"):
+                delattr(self, "_last_pos_update_time")
+            return
+
+        # If we are here, enable_pos is True
+        # Ensure linear velocity is disabled while position control is active
+        if self.enable_linvel:
+            self.enable_linvel = False
+            # zero linear twist components to avoid conflicts
+            try:
+                self._current_twist_ref_world[0:3] = 0.0
+            except Exception:
+                pass
+
+        # read right stick (expected layout: sticks = [left_x,left_y,right_x,right_y])
+        try:
+            rx = float(joy.sticks[3]) 
+            ry = -float(joy.sticks[2])
+        except Exception:
+            rx, ry = 0.0, 0.0
+
+        # deadzone: ignore small noise near center
+        if np.hypot(rx, ry) < self.dxy:
+            # no change to target position
+            # update last timestamp so dt doesn't accumulate large value next time
+            self._last_pos_update_time = now
+            return
+
+        # determine dt since last update (safety: clamp dt to a sane maximum)
+        last = getattr(self, "_last_pos_update_time", None)
+        if last is None:
+            dt = 0.0
+        else:
+            dt = now - last
+        # avoid huge dt (e.g., if paused); cap to 0.1s so a long pause won't teleport target
+        dt = float(np.clip(dt, 0.0, 0.1))
+        # store timestamp for next round
+        self._last_pos_update_time = now
+
+        if dt <= 0.0:
+            # nothing to integrate yet (first call after enabling)
+            return
+
+        # compute desired velocity in world frame from stick
+        # stick in [-1,1], so full deflection -> max velocity self._max_vxy_magn (m/s)
+        vx = np.clip(rx, -1.0, 1.0) * float(self._max_vxy_magn)
+        vy = np.clip(ry, -1.0, 1.0) * float(self._max_vxy_magn)
+
+        # delta position = v * dt
+        dx = vx * dt
+        dy = vy * dt
+
+        # apply delta to current reference (world frame)
+        try:
+            # Ensure _current_pos_ref exists and is length >= 2
+            if self._current_pos_ref is None or len(self._current_pos_ref) < 2:
+                # attempt to initialize from robot state
+                try:
+                    robot_p = self._robot_state.root_state.get(data_type="p")[self.cluster_idx_np, :].reshape(-1)
+                    robot_p[2] = 0.0
+                    self._current_pos_ref = robot_p
+                except Exception:
+                    # give up if we can't
+                    return
+
+            # Increment x,y. Note: user requested z should not change.
+            self._current_pos_ref[0] += dx
+            self._current_pos_ref[1] += dy
+
+            # Optionally clamp huge jumps (defensive): limit per-call displacement by dpos if desired
+            # If you prefer a fixed stepping (dpos) instead of velocity scaling, replace above with:
+            #   self._current_pos_ref[0] += np.clip(rx, -1, 1) * self.dpos
+            #   self._current_pos_ref[1] += np.clip(ry, -1, 1) * self.dpos
+
+            # Ensure z unchanged
+            if len(self._current_pos_ref) > 2:
+                # keep whatever z was (or zero)
+                self._current_pos_ref[2] = float(self._current_pos_ref[2])
+        except Exception:
+            # swallow exceptions to keep loop robust
+            pass
 
     def _write_to_shared_mem(self):
 
@@ -392,11 +487,12 @@ class AgentRefsFromJoy:
                                         read=False)
             
         if self._agent_refs_world:
+            
+            robot_q = self._robot_state.root_state.get(data_type="q")[self.cluster_idx_np, :].reshape(1, -1)
 
             if self.enable_omega:
                 # ref was set in world frame -> we need to move it in base frame before setting it to the agent
-                robot_q = self._robot_state.root_state.get(data_type="q")[self.cluster_idx_np, :].reshape(1, -1)
-
+                
                 # rotate only omega
                 world2base_frame_twist(t_w=self._current_twist_ref_world.reshape(1, -1), 
                     q_b=robot_q, 
@@ -405,7 +501,13 @@ class AgentRefsFromJoy:
                     linvel=False # linvel in base
                     )
             if self.enable_linvel:
-                self._current_twist_ref_base[:, 0:3]=self._current_twist_ref_world.reshape(1, -1)[:, 0:3]
+                world2base_frame_twist(t_w=self._current_twist_ref_world.reshape(1, -1), 
+                    q_b=robot_q, 
+                    t_out=self._current_twist_ref_base,
+                    omega=False, # keep omega ref in world frame
+                    linvel=True # linvel in base
+                    )
+                # self._current_twist_ref_base[:, 0:3]=self._current_twist_ref_world.reshape(1, -1)[:, 0:3]
 
         else:
             self._current_twist_ref_base[:, :]=self._current_twist_ref_world.reshape(1, -1)
