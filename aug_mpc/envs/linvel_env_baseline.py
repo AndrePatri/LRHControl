@@ -511,10 +511,12 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         if self._env_opts["add_angvel_ref_rand"]: #  linvel and angvel pof0 are independent events, we want to set the prob of both beings 0
             # if also randomizing the angular velocity
             self._env_opts["pof0"]=math.sqrt(self._env_opts["pof0"]) # correction for individual bernoulli probs
-        self._pof1_b = torch.full(size=(self._n_envs,1),dtype=self._dtype,device=device,fill_value=1-self._env_opts["pof0"])
-        self._bernoulli_coeffs_linvel = self._pof1_b.clone()
+        self._pof1_b_linvel= torch.full(size=(self._n_envs,1),dtype=self._dtype,device=device,fill_value=1-self._env_opts["pof0"])
+        self._pof1_b_omega = torch.full(size=(self._n_envs,1),dtype=self._dtype,device=device,fill_value=1-self._env_opts["pof0"])
+        self._bernoulli_coeffs_linvel = self._pof1_b_linvel.clone()
         self._bernoulli_coeffs_linvel[:, :] = 1.0
-        self._bernoulli_coeffs_omega = self._bernoulli_coeffs_linvel.clone()
+        self._bernoulli_coeffs_omega = self._pof1_b_omega.clone()
+        self._bernoulli_coeffs_omega[:, :] = 1.0
 
         # smoothing
         self._track_rew_smoother=None
@@ -1048,8 +1050,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # computation)
         
         if self._env_opts["use_pof0"]: # sample from bernoulli distribution
-            torch.bernoulli(input=self._pof1_b,out=self._bernoulli_coeffs_linvel) # by default bernoulli_coeffs are 1 if not self._env_opts["use_pof0"]
-            torch.bernoulli(input=self._pof1_b,out=self._bernoulli_coeffs_omega)
+            torch.bernoulli(input=self._pof1_b_linvel,out=self._bernoulli_coeffs_linvel) # by default bernoulli_coeffs are 1 if not self._env_opts["use_pof0"]
+            torch.bernoulli(input=self._pof1_b_omega,out=self._bernoulli_coeffs_omega)
         if env_indxs is None:
             random_uniform=torch.full_like(self._agent_twist_ref_current_w, fill_value=0.0)
             torch.nn.init.uniform_(random_uniform, a=-1, b=1)
@@ -1062,7 +1064,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             self._agent_twist_ref_current_w[env_indxs, :] = random_uniform * self._twist_ref_scale + self._twist_ref_offset
             self._agent_twist_ref_current_w[env_indxs, 0:3] = self._agent_twist_ref_current_w[env_indxs, 0:3]*self._bernoulli_coeffs_linvel[env_indxs, :]
             self._agent_twist_ref_current_w[env_indxs, 3:6] = self._agent_twist_ref_current_w[env_indxs, 3:6]*self._bernoulli_coeffs_omega[env_indxs, :] # omega
-
+    
     def _get_obs_names(self):
 
         obs_names = [""] * self.obs_dim()
