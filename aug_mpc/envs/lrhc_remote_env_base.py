@@ -13,7 +13,8 @@ from aug_mpc.utils.filtering import FirstOrderFilter
 from mpc_hive.utilities.homing import RobotHomer
 from mpc_hive.utilities.shared_data.jnt_imp_control import JntImpCntrlData
 
-from EigenIPC.PyEigenIPC import VLevel, Journal, LogType
+from EigenIPC.PyEigenIPC import VLevel, Journal, LogType, dtype
+from EigenIPC.PyEigenIPCExt.wrappers.shared_data_view import SharedTWrapper
 
 from typing import List, Union, Dict, TypeVar
 
@@ -169,6 +170,8 @@ class LRhcEnvBase(ABC):
         self._env_opts["filter_jnt_vel"]=False
         self._env_opts["filter_cutoff_freq"]=10.0 # [Hz]
         self._env_opts["filter_sampling_rate"]=100 # rate at which state is filtered [Hz]
+        self._env_opts["add_remote_exit_flag"]=False # add shared data server to trigger a remote exit
+
         self._filter_step_ssteps_freq=None
 
         self._env_opts.update(env_opts)
@@ -278,7 +281,6 @@ class LRhcEnvBase(ABC):
         self._exit_request=False
         signal.signal(signal.SIGINT, self.signal_handler)   
 
-
     def signal_handler(self, sig, frame):
         Journal.log(self.__class__.__name__,
             "signal_handler",
@@ -306,6 +308,8 @@ class LRhcEnvBase(ABC):
                     jnt_imp_shared_data=self._jnt_imp_cntrl_shared_data[self._robot_names[i]]
                     if jnt_imp_shared_data is not None:
                         jnt_imp_shared_data.close()
+            if self._remote_exit_flag is not None:
+                self._remote_exit_flag.close()
             self._close()
             self._closed=True
     
@@ -457,12 +461,32 @@ class LRhcEnvBase(ABC):
             self._set_startup_jnt_imp_gains(robot_name=robot_name) # set gains to
             # startup config (usually lower)
             control_cluster.trigger_solution()
-            
+        
+        self._remote_exit_flag=None
+        if self._env_opts["add_remote_exit_flag"]:
+            self._remote_exit_flag=SharedTWrapper(namespace = self._robot_names[0],# use first robot as name
+                basename = "IbridoRemoteEnvExitFlag",
+                is_server = True, 
+                n_rows = 1, 
+                n_cols = 1, 
+                verbose = True, 
+                vlevel = self._vlevel,
+                safe = False,
+                dtype=dtype.Bool,
+                force_reconnection=True,
+                fill_value = False)
+            self._remote_exit_flag.run()
+
         self._setup_done=True
 
     def step(self) -> bool:
 
         success=False
+
+        if self._remote_exit_flag is not None:
+            # check for exit request
+            self._remote_exit_flag.synch_all(read=True, retry = False)
+            self._exit_request=bool(self._remote_exit_flag.get_numpy_mirror()[0, 0].item())
 
         if self._exit_request:
             self.close()
