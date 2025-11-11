@@ -54,7 +54,7 @@ class AgentRefsFromJoy:
         self._max_vz_magn=0.0
         self._max_pitch_rate=0.0 # [rad/s]
         self._max_roll_rate=0.0 # [rad/s]
-        self._max_yaw_rate=0.8 # [rad/s]
+        self._max_yaw_rate=0.4 # [rad/s]
 
         self.cluster_idx = -1
         self.cluster_idx_np = np.array(self.cluster_idx)

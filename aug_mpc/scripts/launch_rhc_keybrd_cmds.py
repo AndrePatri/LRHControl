@@ -1,30 +1,64 @@
-from mpc_hive.utilities.keyboard_cmds import RefsFromKeyboard
-
 import argparse
 
-if __name__ == "__main__":  
+if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(description="Set CPU affinity for the script.")
-    parser.add_argument('--ns', type=str, help='Namespace to be used for shared memory')
+    parser = argparse.ArgumentParser(description="Run keyboard or joystick refs writer.")
+    parser.add_argument('--ns', type=str, required=True, help='Namespace to be used for shared memory')
     parser.add_argument('--cmapping', type=str, help='contact mapping to, respectively, keys 7 9 1 and 3', default="0;1;2;3")
-    parser.add_argument('--env_idx', type=int,default=None)
-    parser.add_argument('--from_stdin', action='store_true')
+    parser.add_argument('--env_idx', type=int, default=None)
+    parser.add_argument('--from_stdin', action='store_true',
+                        help='If set and running keyboard mode, read key events from stdin-based listener')
+    # New joystick options:
+    parser.add_argument('--joy', action='store_true', help='Run in joystick mode (RefsFromJoy)')
+    parser.add_argument('--connect', type=str, default='localhost:5556', help='JoyListenerZMQ connect address (host:port)')
+    parser.add_argument('--topic', type=str, default='joy', help='ZeroMQ topic for joystick messages')
+    parser.add_argument('--poll-interval', type=float, default=0.01, help='Joy listener poll interval (s)')
+    parser.add_argument('--hold-time', type=float, default=0.15, help='Hold time for toggles (seconds) when using joystick')
 
     args = parser.parse_args()
-    
+
     from mpc_hive.utilities.shared_data.rhc_data import RhcRefs
     from EigenIPC.PyEigenIPC import VLevel
 
-    shared_refs= RhcRefs(namespace=args.ns,
-        is_server=False, 
-        safe=False, 
-        verbose=True,
-        vlevel=VLevel.V2)
+    # create shared refs (same for both modes)
+    shared_refs = RhcRefs(namespace=args.ns,
+                          is_server=False,
+                          safe=False,
+                          verbose=True,
+                          vlevel=VLevel.V2)
 
-    keyb_cmds = RefsFromKeyboard(namespace=args.ns, 
-                            shared_refs=shared_refs,
-                            verbose=True,
-                            contact_mapping=args.cmapping,
-                            env_idx=args.env_idx)
+    # import both classes (assumes they are available at these paths)
+    from mpc_hive.utilities.keyboard_cmds import RefsFromKeyboard
+    from mpc_hive.utilities.joy_cmds import RefsFromJoy
 
-    keyb_cmds.run(read_from_stdin=args.from_stdin)
+    # instantiate the appropriate controller
+    if args.joy:
+        # joystick-driven
+        joy_cmds = RefsFromJoy(namespace=args.ns,
+                               verbose=True,
+                               agent_refs_world=True,
+                               env_idx=args.env_idx,
+                               hold_time=args.hold_time,
+                               shared_refs=shared_refs)
+        # apply contact mapping (parsed from string)
+        # Parse mapping like "0;1;3;2"
+        try:
+            parsed = [int(x) for x in args.cmapping.strip().split(';') if x != '']
+            if len(parsed) == 4:
+                joy_cmds._contact_mapping = parsed
+        except Exception:
+            # keep default if parse fails
+            pass
+
+        # run listener (will block until interrupted)
+        joy_cmds.run(connect=args.connect, topic=args.topic, poll_interval=args.poll_interval)
+
+    else:
+        # keyboard-driven (original behavior)
+        keyb_cmds = RefsFromKeyboard(namespace=args.ns,
+                                     shared_refs=shared_refs,
+                                     verbose=True,
+                                     contact_mapping=args.cmapping,
+                                     env_idx=args.env_idx)
+
+        keyb_cmds.run(read_from_stdin=args.from_stdin)
