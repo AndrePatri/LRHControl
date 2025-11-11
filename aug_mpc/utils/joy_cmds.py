@@ -303,7 +303,7 @@ class AgentRefsFromJoy:
 
         # read left stick horizontal axis (left_x)
         try:
-            lx = float(joy.sticks[0])
+            lx = float(-joy.sticks[0])
         except Exception:
             lx = 0.0
 
