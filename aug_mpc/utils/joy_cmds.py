@@ -502,13 +502,13 @@ class AgentRefsFromJoy:
                     linvel=False # linvel in base
                     )
             if self.enable_linvel:
-                world2base_frame_twist(t_w=self._current_twist_ref_world.reshape(1, -1), 
-                    q_b=robot_q, 
-                    t_out=self._current_twist_ref_base,
-                    omega=False, # keep omega ref in world frame
-                    linvel=True # linvel in base
-                    )
-                # self._current_twist_ref_base[:, 0:3]=self._current_twist_ref_world.reshape(1, -1)[:, 0:3]
+                # world2base_frame_twist(t_w=self._current_twist_ref_world.reshape(1, -1), 
+                #     q_b=robot_q, 
+                #     t_out=self._current_twist_ref_base,
+                #     omega=False, # keep omega ref in world frame
+                #     linvel=True # linvel in base
+                #     )
+                self._current_twist_ref_base[:, 0:3]=self._current_twist_ref_world.reshape(1, -1)[:, 0:3]
 
         else:
             self._current_twist_ref_base[:, :]=self._current_twist_ref_world.reshape(1, -1)
