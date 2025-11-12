@@ -16,14 +16,16 @@ import signal
 
 algo = None  # global to make it accessible by signal handler
 exit_request=False
+dummy_step_exit_req=False
 
 def handle_sigint(signum, frame):
-    global exit_request
+    global exit_request, dummy_step_exit_req
     Journal.log("launch_train_env.py",
         "",
         f"Received sigint. Will stop training.",
         LogType.WARN)
     exit_request=True
+    dummy_step_exit_req=True # in case dummy_step_loop was used
     
 # Function to dynamically import a module from a specific file path
 def import_env_module(env_path):
@@ -31,6 +33,15 @@ def import_env_module(env_path):
     env_module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(env_module)
     return env_module
+
+def dummy_step_loop(env):
+    global dummy_step_exit_req
+    while True:
+        if dummy_step_exit_req: 
+            return True
+        step_ok=env.step(action=env.safe_action) # not a busy loop because of MPC in the step
+        if not step_ok:
+            return False
 
 if __name__ == "__main__":  
 
@@ -101,6 +112,8 @@ if __name__ == "__main__":
     parser.add_argument('--override_agent_actions',action='store_true', help='Whether to override agent actions with custom ones from shared mem (useful for db)')
     parser.add_argument('--override_agent_refs',action='store_true', help='Whether to override automatically generated agent refs (useful for debug)')
     
+    parser.add_argument('--step_while_setup',action='store_true', help='Continue stepping env with default actions while setting up agent, etc..')
+
     args = parser.parse_args()
     args_dict = vars(args)
 
@@ -152,6 +165,14 @@ if __name__ == "__main__":
             env_opts=args_dict)
     if not env.is_ready(): # something went wrong
         exit()
+    
+    dummy_step_thread = None
+    if args.step_while_setup:
+        import threading
+        # spawn step thread (we don't true parallelization, thread is fine)
+        # start the dummy stepping in a separate thread so setup can continue concurrently
+        dummy_step_thread = threading.Thread(target=dummy_step_loop, args=(env,), daemon=True)
+        dummy_step_thread.start()
 
     env_type="training" if not args.eval else "evaluation"
     if args.resume:
@@ -236,7 +257,7 @@ if __name__ == "__main__":
         dump_checkpoints=args.dump_checkpoints,
         norm_obs=args.obs_norm,
         rescale_obs=args.obs_rescale)
-
+    
     full_drop_dir=algo.drop_dir()
     shared_drop_dir = StringTensorServer(length=1, 
         basename="SharedTrainingDropDir", 
@@ -253,7 +274,18 @@ if __name__ == "__main__":
             continue
         else:
             break
-    
+        
+    if args.step_while_setup:
+        # stop dummy step thread and give algo authority on step
+        dummy_step_exit_req=True
+        # wait for thread to join
+        if dummy_step_thread is not None:
+            dummy_step_thread.join()
+        Journal.log("launch_train_env.py",
+            "",
+            f"Dummy env step thread joined. Moving step authority to algo.",
+            LogType.INFO)
+
     eval=args.eval
     if args.override_agent_actions:
         eval=True

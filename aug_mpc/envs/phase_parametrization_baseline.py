@@ -115,8 +115,8 @@ class PhaseParametrizationBaseline(LinVelTrackBaseline):
             self._actions_ub[:, idx:(idx+self._n_contacts)]=0.3
             self._is_continuous_actions[idx:(idx+self._n_contacts)]=True
 
-        self._default_action[:, :] = (self._actions_ub+self._actions_lb)/2.0
-        # self._default_action[:, ~self._is_continuous_actions] = 1.0
+        self.default_action[:, :] = (self._actions_ub+self._actions_lb)/2.0
+        # self.default_action[:, ~self._is_continuous_actions] = 1.0
     
     def _set_rhc_refs(self):
         

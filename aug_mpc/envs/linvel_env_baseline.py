@@ -79,8 +79,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         
         self._add_env_opt(env_opts, "vec_ep_freq_metrics_db", 1) # n eps over which debug metrics are reported
         self._add_env_opt(env_opts, "demo_envs_perc", 0.0)
-        self._add_env_opt(env_opts, "max_cmd_v", 1.5) # maximum cmd v for lin v actions (single component)
-        self._add_env_opt(env_opts, "max_cmd_omega", 0.8) # maximum cmd v for omega v actions (single component)
+        self._add_env_opt(env_opts, "max_cmd_v", 1.0) # maximum cmd v for lin v actions (single component)
+        self._add_env_opt(env_opts, "max_cmd_omega", 0.5) # maximum cmd v for omega v actions (single component)
 
         # action smoothing
         self._add_env_opt(env_opts, "use_action_smoothing", False)
@@ -415,9 +415,13 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                 self._actions_lb[:, idx:idx+self._n_contacts] = -1.0 
                 self._actions_ub[:, idx:idx+self._n_contacts] = 1.0 
         
-        self._default_action[:, :] = (self._actions_ub+self._actions_lb)/2.0
-        # self._default_action[:, ~self._is_continuous_actions] = 1.0
-            
+        self.default_action[:, :] = (self._actions_ub+self._actions_lb)/2.0
+        # self.default_action[:, ~self._is_continuous_actions] = 1.0
+        self.safe_action[:, :] = self.default_action
+        if "contact_flag_start" in self._actions_map: # safe actions for contacts is 1 (keep contact)
+            idx=self._actions_map["contact_flag_start"]
+            self.safe_action[:, idx:idx+self._n_contacts] = 1.0
+
         # assign obs bounds (useful if not using automatic obs normalization)
         obs_names=self._get_obs_names()
         obs_patterns=["gn",

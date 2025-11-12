@@ -102,8 +102,8 @@ class VariableFlightsBaseline(LinVelTrackBaseline):
             self._is_continuous_actions[idx:(idx+self._n_contacts)]=True
 
         # redefine default actions
-        self._default_action[:, :] = (self._actions_ub+self._actions_lb)/2.0
-        # self._default_action[:, ~self._is_continuous_actions] = 1.0
+        self.default_action[:, :] = (self._actions_ub+self._actions_lb)/2.0
+        # self.default_action[:, ~self._is_continuous_actions] = 1.0
 
     def _set_rhc_refs(self):
         LinVelTrackBaseline._set_rhc_refs(self)
