@@ -121,9 +121,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._add_env_opt(env_opts, "task_track_front_weight", default=1.0)
         self._add_env_opt(env_opts, "task_track_lat_weight", default=env_opts["task_track_front_weight"]/10.0)
         self._add_env_opt(env_opts, "task_track_vert_weight", default=env_opts["task_track_front_weight"]/10.0)
-        self._add_env_opt(env_opts, "task_track_omega_x_weight", default=0.0)
-        self._add_env_opt(env_opts, "task_track_omega_y_weight", default=0.0)
         self._add_env_opt(env_opts, "task_track_omega_z_weight", default=1.0)
+        self._add_env_opt(env_opts, "task_track_omega_x_weight", default=0.1)
+        self._add_env_opt(env_opts, "task_track_omega_y_weight", default=0.1)
         # if env_opts["add_angvel_ref_rand"]:
         #     env_opts["task_track_omega_x_weight"]=0.0
         #     env_opts["task_track_omega_y_weight"]=0.0
@@ -238,7 +238,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             obs_dim+=2
         # Agent task reference
         self._add_env_opt(env_opts, "use_pof0", default=True) # with some prob, references will be null
-        self._add_env_opt(env_opts, "pof0", default=0.05) # [0, 1] prob of both linvel and omega refs being null(from bernoulli distr)
+        self._add_env_opt(env_opts, "pof0_linvel", default=0.2) # [0, 1] prob of both linvel and omega refs being null(from bernoulli distr)
+        self._add_env_opt(env_opts, "pof0_omega", default=0.2) # [0, 1] prob of both linvel and omega refs being null(from bernoulli distr)
         self._add_env_opt(env_opts, "max_linvel_ref", default=0.3) # m/s
         self._add_env_opt(env_opts, "max_angvel_ref", default=0.0) # rad/s
         if env_opts["add_angvel_ref_rand"]:   
@@ -515,8 +516,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         if self._env_opts["add_angvel_ref_rand"]: #  linvel and angvel pof0 are independent events, we want to set the prob of both beings 0
             # if also randomizing the angular velocity
             self._env_opts["pof0"]=math.sqrt(self._env_opts["pof0"]) # correction for individual bernoulli probs
-        self._pof1_b_linvel= torch.full(size=(self._n_envs,1),dtype=self._dtype,device=device,fill_value=1-self._env_opts["pof0"])
-        self._pof1_b_omega = torch.full(size=(self._n_envs,1),dtype=self._dtype,device=device,fill_value=1-self._env_opts["pof0"])
+        self._pof1_b_linvel= torch.full(size=(self._n_envs,1),dtype=self._dtype,device=device,fill_value=1-self._env_opts["pof0_linvel"])
+        self._pof1_b_omega = torch.full(size=(self._n_envs,1),dtype=self._dtype,device=device,fill_value=1-self._env_opts["pof0_omega"])
         self._bernoulli_coeffs_linvel = self._pof1_b_linvel.clone()
         self._bernoulli_coeffs_linvel[:, :] = 1.0
         self._bernoulli_coeffs_omega = self._pof1_b_omega.clone()
