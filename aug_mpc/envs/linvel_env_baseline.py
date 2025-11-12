@@ -513,9 +513,6 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         # aux data
         self._task_err_scaling = torch.zeros((self._n_envs, 1),dtype=self._dtype,device=device)
 
-        if self._env_opts["add_angvel_ref_rand"]: #  linvel and angvel pof0 are independent events, we want to set the prob of both beings 0
-            # if also randomizing the angular velocity
-            self._env_opts["pof0"]=math.sqrt(self._env_opts["pof0"]) # correction for individual bernoulli probs
         self._pof1_b_linvel= torch.full(size=(self._n_envs,1),dtype=self._dtype,device=device,fill_value=1-self._env_opts["pof0_linvel"])
         self._pof1_b_omega = torch.full(size=(self._n_envs,1),dtype=self._dtype,device=device,fill_value=1-self._env_opts["pof0_omega"])
         self._bernoulli_coeffs_linvel = self._pof1_b_linvel.clone()

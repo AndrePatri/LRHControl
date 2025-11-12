@@ -40,7 +40,7 @@ if __name__ == "__main__":
         joy_cmds = RefsFromJoy(namespace=args.ns,
                                shared_refs=shared_refs,
                                verbose=True,
-                               agent_refs_world=True,
+                               agent_refs_world=False,
                                env_idx=args.env_idx,
                                hold_time=args.hold_time)
 
