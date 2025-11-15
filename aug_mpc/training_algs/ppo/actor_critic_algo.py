@@ -184,6 +184,7 @@ class ActorCriticAlgoBase(ABC):
             verbose: bool = False,
             drop_dir_name: str = None,
             eval: bool = False,
+            resume: bool = False,
             model_path: str = None,
             n_eval_timesteps: int = None,
             comment: str = "",
@@ -208,6 +209,13 @@ class ActorCriticAlgoBase(ABC):
             self._full_env_db=custom_args["full_env_db"]
 
         self._eval = eval
+        self._resume=resume
+        if self._eval and self._resume: 
+            Journal.log(self.__class__.__name__,
+                "setup",
+                f"Cannot set both eval and resume to true. Exiting.",
+                LogType.EXCEP,
+                throw_when_excep = True)
 
         self._override_agent_actions=False
         if "override_agent_actions" in custom_args:
@@ -221,6 +229,7 @@ class ActorCriticAlgoBase(ABC):
                 throw_when_excep = True)
             self._eval=True
             self._det_eval=False
+            self._resume=False
 
         self._run_name = run_name
         from datetime import datetime
@@ -328,6 +337,19 @@ class ActorCriticAlgoBase(ABC):
             self._init_params(tot_tsteps=n_eval_timesteps,
                 custom_args=custom_args)
         else:
+            if self._resume:
+                if model_path is None:
+                    msg = f"No model path provided in resume mode! Please provide a valid checkpoint path."
+                    Journal.log(self.__class__.__name__,
+                        "setup",
+                        msg,
+                        LogType.EXCEP,
+                        throw_when_excep = True)
+            self._model_path = model_path
+            if self._model_path is not None:
+                self._load_model(self._model_path) # load model from checkpoint (including q functions and running normalizers)
+            self._init_params(tot_tsteps=tot_tsteps,
+                custom_args=custom_args)
             self._init_params(tot_tsteps=tot_tsteps,
                 custom_args=custom_args)
         

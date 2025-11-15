@@ -242,7 +242,7 @@ class SActorCriticAlgoBase(ABC):
         self._eval = eval
         self._resume=resume
         if self._eval and self._resume: 
-            Journal.log("launch_train_env.py",
+            Journal.log(self.__class__.__name__,
                 "setup",
                 f"Cannot set both eval and resume to true. Exiting.",
                 LogType.EXCEP,

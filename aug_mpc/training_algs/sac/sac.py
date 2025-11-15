@@ -33,7 +33,7 @@ class SAC(SActorCriticAlgoBase):
         # otherwise obs is a view and will be overridden in the call to step
         # with next_obs!!!
         if self._vec_transition_counter > self._warmstart_vectimesteps or \
-            self._resume: # collect actions from policy only always if resume, or after warmstart end
+            self._resume: # collect actions from policy always if resume, or after warmstart end
             actions, _, _ = self._agent.get_action(x=obs)
             actions = actions.detach()
             if self._n_expl_envs>0 and self._time_to_randomize_actions():
