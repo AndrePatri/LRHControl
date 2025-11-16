@@ -131,8 +131,8 @@ class ACAgent(nn.Module):
                     n_hidden_layers=self._n_hidden_layers_critic,
                     out_std=out_std_critic,
                     add_weight_norm=add_weight_norm,
-                    add_layer_norm=self._add_layer_norm,
-                    add_batch_norm=self._add_batch_norm)
+                    add_layer_norm=add_layer_norm,
+                    add_batch_norm=add_batch_norm)
 
         self.actor = Actor(obs_dim=obs_dim,
                             actions_dim=actions_dim,
@@ -143,8 +143,8 @@ class ACAgent(nn.Module):
                             layer_width=self._layer_width_actor,
                             n_hidden_layers=self._n_hidden_layers_actor,
                             add_weight_norm=add_weight_norm,
-                            add_layer_norm=self._add_layer_norm,
-                            add_batch_norm=self._add_batch_norm,
+                            add_layer_norm=add_layer_norm,
+                            add_batch_norm=add_batch_norm,
                             out_std=out_std_actor)
 
         self.obs_running_norm = None
