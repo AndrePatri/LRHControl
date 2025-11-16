@@ -1,4 +1,3 @@
-
 import torch 
 import torch.nn as nn
 from torch.distributions.normal import Normal
@@ -156,7 +155,9 @@ class ACAgent(nn.Module):
             self.obs_running_norm.type(dtype) # ensuring correct dtype for whole module
         
         if self._use_torch_compile:
-            self.critic = torch.compile(self.critic)
+            # compile critic only if it exists (not created when is_eval=True)
+            if hasattr(self, "critic"):
+                self.critic = torch.compile(self.critic)
             self.actor = torch.compile(self.actor)
 
         msg=f"Created PPO agent with actor [{self._layer_width_actor}, {self._n_hidden_layers_actor}]\
@@ -280,7 +281,7 @@ class CriticV(nn.Module):
             add_layer_norm=add_layer_norm,
             add_batch_norm=add_batch_norm
         )
-        layers.extend(nn.Tanh())
+        layers.extend([nn.Tanh()])
         
         # Hidden layers
         layers.extend(
@@ -294,7 +295,7 @@ class CriticV(nn.Module):
                 add_batch_norm=add_batch_norm
             )
         )
-        layers.extend(nn.Tanh())
+        layers.extend([nn.Tanh()])
 
         for _ in range(n_hidden_layers - 1):
             layers.extend(
@@ -309,7 +310,7 @@ class CriticV(nn.Module):
                     add_batch_norm=add_batch_norm
                 )
             )
-            layers.extend(nn.Tanh())
+            layers.extend([nn.Tanh()])
 
         # Output layer
         layers.extend(
@@ -327,7 +328,8 @@ class CriticV(nn.Module):
 
         # Creating the full sequential network
         self._v_net = nn.Sequential(*layers)
-        self._v_net.to(self._torch_device).type(self._torch_dtype)
+        # move module to device and dtype
+        self._v_net.to(device=self._torch_device, dtype=self._torch_dtype)
 
     def get_n_params(self):
         return sum(p.numel() for p in self.parameters())
@@ -408,7 +410,7 @@ class Actor(nn.Module):
                         device=self._torch_device, 
                         dtype=self._torch_dtype,
                         add_weight_norm=add_weight_norm)
-            layers.extend(nn.Tanh())
+            layers.extend([nn.Tanh()])
         
             # Hidden layers
             # first hidden optionally uses _first_hidden_layer_width
@@ -419,7 +421,7 @@ class Actor(nn.Module):
                     dtype=self._torch_dtype,
                     add_weight_norm=add_weight_norm)
             )
-            layers.extend(nn.Tanh())
+            layers.extend([nn.Tanh()])
             
             for _ in range(n_hidden_layers - 1):
                 layers.extend(
@@ -429,7 +431,7 @@ class Actor(nn.Module):
                         dtype=self._torch_dtype,
                         add_weight_norm=add_weight_norm),
                 )
-                layers.extend(nn.Tanh())
+                layers.extend([nn.Tanh()])
             
             # Output layer
             layers.extend(
@@ -469,4 +471,3 @@ class Actor(nn.Module):
                     action = action_mean
             
             return action, probs.log_prob(action).sum(1), probs.entropy().sum(1)
-            
