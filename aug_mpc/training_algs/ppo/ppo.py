@@ -61,31 +61,32 @@ class PPO(ActorCriticAlgoBase):
         
         return env_step_ok
     
-    def _collect_eval_rollout(self):
+    def _collect_eval_transition(self):
         
-        # experience collection 
+        # experience collection
         self._switch_training_mode(train=False)
 
-        # collect data from current policy over a number of timesteps
-        for transition in range(self._rollout_vec_timesteps):
+        obs = self._env.get_obs(clone=True) # also accounts for resets when envs are 
+        # either terminated or truncated. CRUCIAL: we need to clone, 
+        # otherwise obs is be a view and will be overridden in the call to step
+        # with next_obs!!!
+
+        if not self._override_agent_actions:
+            actions, _, _ = self._agent.get_action(obs, only_mean=(self._eval and self._det_eval)) 
+            actions = actions.detach() 
             
-            obs = self._env.get_obs(clone=True) # also accounts for resets when envs are 
-            # either terminated or truncated. CRUCIAL: we need to clone, 
-            # otherwise obs is a view and will be overridden in the call to step
-            # with next_obs!!!
+        else:
 
-            # sample actions from latest policy (actor) and state value from latest value function (critic)
-            action, logprob, _ = self._agent.get_action(obs, only_mean=(self._eval and self._det_eval)) 
-            action = action.detach() 
-            logprob = logprob.detach()
+            self._actions_override.synch_all(read=True,retry=True) # read from CPU
+            # write on GPU
+            if self._use_gpu:
+                self._actions_override.synch_mirror(from_gpu=False,non_blocking=True)
+            actions=self._actions_override.get_torch_mirror(gpu=self._use_gpu)
 
-            # perform a step of the (vectorized) env and retrieve trajectory
-            env_step_ok = self._env.step(action)
-
-            if not env_step_ok:
-                return False
+        # perform a step of the (vectorized) env and retrieve trajectory
+        env_step_ok = self._env.step(actions)
         
-        return True
+        return env_step_ok
 
     def _compute_returns(self):
 
