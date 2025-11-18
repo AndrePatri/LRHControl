@@ -45,6 +45,7 @@ if __name__ == '__main__':
                         sim_time_trgt=args.stime_trgt,
                         srdf_homing_file_path=args.srdf_path,
                         abort_wallmin=args.abort_wallmin, 
+                        update_dt=update_dt,
                         pub_stime=args.pub_stime,
                         install_sighandler=True,
                         with_rhc_internal_data=not args.no_rhc_internal)
