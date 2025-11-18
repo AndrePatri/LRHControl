@@ -6,7 +6,7 @@ from mpc_hive.utilities.shared_data.cluster_data import SharedClusterInfo
 from EigenIPC.PyEigenIPC import VLevel, Journal, LogType
 from EigenIPC.PyEigenIPC import StringTensorServer
 
-import os, argparse
+import os, argparse, sys, types, inspect
 
 from perf_sleep.pyperfsleep import PerfSleep
 
@@ -28,11 +28,70 @@ def handle_sigint(signum, frame):
     dummy_step_exit_req=True # in case dummy_step_loop was used
     
 # Function to dynamically import a module from a specific file path
-def import_env_module(env_path):
+# def import_env_module(env_path):
+#     spec = importlib.util.spec_from_file_location("env_module", env_path)
+#     env_module = importlib.util.module_from_spec(spec)
+#     spec.loader.exec_module(env_module)
+#     return env_module
+
+def import_env_module(env_path, local_env_root: str = None):
+    """
+    env_path: full path to the child env .py file to exec
+    local_env_root: directory where local copies of aug_mpc.envs modules live
+    """
+    if local_env_root is not None:
+        local_env_root = os.path.abspath(local_env_root)
+        # override aug_mpc.envs package to point to the local_env_root
+        pkg_name = "aug_mpc.envs"
+        if pkg_name not in sys.modules:
+            mod = types.ModuleType(pkg_name)
+            mod.__path__ = [local_env_root]  # tell Python to look here first
+            sys.modules[pkg_name] = mod
+        else:
+            existing = getattr(sys.modules[pkg_name], "__path__", None)
+            if existing is None:
+                sys.modules[pkg_name].__path__ = [local_env_root]
+            elif local_env_root not in existing:
+                existing.insert(0, local_env_root)
+
+    # load the module as usual
     spec = importlib.util.spec_from_file_location("env_module", env_path)
     env_module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(env_module)
     return env_module
+
+def log_env_hierarchy(env_class, env_path, env_type="training"):
+    """
+    Logs the env class, its file, and full inheritance hierarchy with file paths.
+    env_class: the child env class
+    env_path: file path where the child class was loaded from
+    env_type: string label, e.g., "training", "evaluation", "resumed_training"
+    """
+    def get_bases_recursive(cls):
+        """Recursively get all base classes with their file paths."""
+        info = []
+        for base in cls.__bases__:
+            try:
+                file = inspect.getfile(base)
+            except TypeError:
+                file = "built-in or unknown"
+            info.append(f"{base.__name__} (from {file})")
+            # Recurse unless it's object
+            if base is not object:
+                info.extend(get_bases_recursive(base))
+        return info
+
+    hierarchy_info = get_bases_recursive(env_class)
+    hierarchy_str = " -> ".join(hierarchy_info) if hierarchy_info else "No parents"
+
+    Journal.log(
+        "launch_train_env.py",
+        "",
+        f"loading {env_type} env {env_class.__name__} (from {env_path}) "
+        f"with hierarchy: {hierarchy_str}",
+        LogType.INFO,
+        throw_when_excep=True
+    )
 
 def dummy_step_loop(env):
     global dummy_step_exit_req
@@ -150,11 +209,16 @@ if __name__ == "__main__":
                 f"no mpath provided! Cannot load env. Either provide a mpath or run with --override_env",
                 LogType.EXCEP,
                 throw_when_excep = True)
-    
-        env_path=os.path.join(args.mpath, env_fname+".py")
-        env_module=import_env_module(env_path)
+
+        env_path = os.path.join(args.mpath, env_fname + ".py")
+        env_module = import_env_module(env_path, local_env_root=args.mpath)
        
     EnvClass = getattr(env_module, env_classname)
+    env_type = "training" if not args.eval else "evaluation"
+    if args.resume:
+        env_type = "resumed_training"
+    log_env_hierarchy(EnvClass, env_path, env_type) # db print of env class
+    
     env = EnvClass(namespace=args.ns,
             verbose=True,
             vlevel=VLevel.V2,
@@ -173,16 +237,7 @@ if __name__ == "__main__":
         # start the dummy stepping in a separate thread so setup can continue concurrently
         dummy_step_thread = threading.Thread(target=dummy_step_loop, args=(env,), daemon=True)
         dummy_step_thread.start()
-
-    env_type="training" if not args.eval else "evaluation"
-    if args.resume:
-        env_type="resumed_training"
-    Journal.log("launch_train_env.py",
-        "",
-        f"loading {env_type} env {env_classname} from {env_path}",
-        LogType.INFO,
-        throw_when_excep = True)
-
+    
     # getting some sim info for debugging
     sim_data = {}
     sim_info_shared = SharedEnvInfo(namespace=args.ns,

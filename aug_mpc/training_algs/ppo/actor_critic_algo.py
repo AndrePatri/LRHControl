@@ -125,7 +125,7 @@ class ActorCriticAlgoBase(ABC):
             if not rollout_ok:
                 return False
             self._vec_transition_counter+=self._rollout_vec_timesteps
-            self._rollout_t = time.perf_counter()
+            self._collection_t = time.perf_counter()
             
             # update batch normalization
             self._update_batch_norm(bsize=self._bnorm_bsize)
@@ -151,11 +151,11 @@ class ActorCriticAlgoBase(ABC):
 
         self._start_time = time.perf_counter()
 
-        rollout_ok = self._collect_eval_rollout()
-        if not rollout_ok:
+        if not self._collect_eval_transition():
             return False
+        self._vec_transition_counter+=1
 
-        self._rollout_t = time.perf_counter()
+        self._collection_t = time.perf_counter()
 
         self._post_step()
 
@@ -166,7 +166,7 @@ class ActorCriticAlgoBase(ABC):
         pass
     
     @abstractmethod
-    def _collect_eval_rollout(self):
+    def _collect_eval_transition(self):
         pass
 
     @abstractmethod
@@ -603,7 +603,7 @@ class ActorCriticAlgoBase(ABC):
         # rollout phase
         self._rollout_dt = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
-        self._rollout_t = -1.0
+        self._collection_t = -1.0
 
         self._env_step_fps = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=0.0, device="cpu")
@@ -1176,9 +1176,9 @@ class ActorCriticAlgoBase(ABC):
     def _post_step(self):
 
         self._rollout_dt[self._log_it_counter] += \
-            self._rollout_t -self._start_time
+            self._collection_t -self._start_time
         self._batch_norm_update_dt[self._log_it_counter] += \
-            (self._bnorm_t-self._rollout_t)
+            (self._bnorm_t-self._collection_t)
         self._gae_dt[self._log_it_counter] += \
             self._gae_t - self._bnorm_t
         self._policy_update_dt[self._log_it_counter] += \
