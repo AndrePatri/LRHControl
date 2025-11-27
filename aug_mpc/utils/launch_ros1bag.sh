@@ -52,6 +52,7 @@ TOPICS=(
     "/MPCViz_${NAMESPACE}_rhc_actuated_jointnames"
     "/MPCViz_${NAMESPACE}_rhc_q"
     "/MPCViz_${NAMESPACE}_rhc_refs"
+    "/MPCViz_${NAMESPACE}_rhc_contacts"
     "/MPCViz_${NAMESPACE}_robot_actuated_jointnames"
     "/MPCViz_${NAMESPACE}_robot_q"
 )
