@@ -39,6 +39,8 @@ if __name__ == "__main__":
 
     parser.add_argument('--no_mp_fork',action='store_true', help='whether to multiprocess with forkserver context')
 
+    parser.add_argument('--set_affinity',action='store_true', help='set affinity to a core for each controller')
+
     parser.add_argument('--comment', type=str, help='Any useful comment associated with this run', default="")
     parser.add_argument('--timeout_ms', type=int, help='connection timeout after which the script self-terminates', default=60000)
     parser.add_argument('--codegen_override_dir', type=str, help='Path to base dir where codegen is to be loaded', default="")
@@ -86,7 +88,8 @@ if __name__ == "__main__":
             base_dump_dir=args.dmpdir,
             timeout_ms=args.timeout_ms,
             custom_opts=custom_opts,
-            codegen_override=args.codegen_override_dir)
+            codegen_override=args.codegen_override_dir,
+            set_affinity=args.set_affinity)
         cluster_client.run()
         
     else:

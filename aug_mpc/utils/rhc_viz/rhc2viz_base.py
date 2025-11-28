@@ -49,7 +49,7 @@ class RhcToVizBridgeBase(ABC):
             srdf_homing_file_path: str = None,
             abort_wallmin: float = 5.0,
             use_static_idx: bool = True,
-            update_dt: float = 0.1,
+            update_dt: float = 0.05,
             pub_stime: float = True,
             install_sighandler: bool = False,
             with_rhc_internal_data: bool = True):
@@ -93,6 +93,7 @@ class RhcToVizBridgeBase(ABC):
         self.cluster_size = None
         self.jnt_names_robot = None
         self.jnt_names_rhc = None
+        self.contact_names_rhc = None
 
         self.rhc_internal_clients = None
         self.robot_state = None
@@ -197,6 +198,7 @@ class RhcToVizBridgeBase(ABC):
         if self._with_agent_refs:
             self.hl_refs_pub = None
         self.robot_q_pub = None
+        self.mpc_contact_pub = None
         self.robot_jntnames_pub = None  
         self.rhc_jntnames_pub = None 
         self.simtime_pub=None
@@ -245,7 +247,8 @@ class RhcToVizBridgeBase(ABC):
         self.rhc_cmds.set_q_remapping(q_remapping=[1, 2, 3, 0]) # remapping from w, i, j, k
         # to rviz and horizon's conventions (i, k, k, w)
         self.rhc_cmds.run()
-
+        self.contact_names_rhc = self.rhc_cmds.contact_names()
+    
         if self._with_agent_refs:
             self.agent_refs = AgentRefs(namespace=self.namespace,
                                 is_server=False,
@@ -259,7 +262,7 @@ class RhcToVizBridgeBase(ABC):
 
         self.cluster_size = self.robot_state.n_robots()
         self.jnt_names_robot = self.robot_state.jnt_names()
-            
+        
         self._check_selector()
 
         # env selector
@@ -572,6 +575,9 @@ class RhcToVizBridgeBase(ABC):
                     t_out=agent_ref_twist_w)
                 hl_refs = np.concatenate((hl_ref_pose, agent_ref_twist_w.flatten()), axis=0)
 
+        # contact data
+        rhc_contacts=self.rhc_cmds.contact_wrenches.get(data_type="f",robot_idxs=self._current_index)
+
         # publish rhc q
         if not self._contains_nan(rhc_q):
             self.rhc_q_pub.publish(Float64MultiArray(data=rhc_q))
@@ -601,6 +607,13 @@ class RhcToVizBridgeBase(ABC):
                 self._sporadic_log(calling_methd="_publish", 
                             msg="high-level refs data contains some NaN. That data will not be published")
 
+        # contact data
+        if not self._contains_nan(rhc_contacts):
+            self.mpc_contact_pub.publish(Float64MultiArray(data=rhc_contacts))
+        else:
+            self._sporadic_log(calling_methd="_publish", 
+                            msg="mpc contact data contains some NaN. That data will not be published")
+            
     @abstractmethod
     def _init_ros_pubs(self, id: str):
         pass

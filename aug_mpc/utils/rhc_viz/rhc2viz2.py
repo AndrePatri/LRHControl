@@ -49,6 +49,11 @@ class RhcToViz2Bridge(RhcToVizBridgeBase):
                                                                     namespace=self._remap_namespace),
                                             qos_profile=self._qos_settings)
         
+        self.mpc_contact_pub = self.node.create_publisher(Float64MultiArray, 
+                                            self.ros_names.rhc_contacts_topicname(basename=self.mpc_viz_basename, 
+                                                                    namespace=self._remap_namespace),
+                                            qos_profile=self._qos_settings)
+        
         self.robot_jntnames_pub = self.node.create_publisher(String, 
                                             self.ros_names.robot_jntnames(basename=self.mpc_viz_basename, 
                                                                 namespace=self._remap_namespace),

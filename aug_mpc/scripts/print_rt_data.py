@@ -6,7 +6,7 @@ from aug_mpc.utils.shared_data.training_env import Terminations, SubTerminations
 from aug_mpc.utils.shared_data.training_env import Truncations, SubTruncations
 from aug_mpc.utils.shared_data.training_env import EpisodesCounter, TaskRandCounter, SafetyRandResetsCounter
 
-from mpc_hive.utilities.shared_data.rhc_data import RobotState
+from mpc_hive.utilities.shared_data.rhc_data import RobotState, RhcRefs
 
 from mpc_hive.utilities.shared_data.sim_data import SharedEnvInfo
 
@@ -39,6 +39,7 @@ if __name__ == "__main__":
     parser.add_argument('--obs_names', nargs='+', default=None,
                         help='')
     parser.add_argument('--robot_state', action="store_true", help='')
+    parser.add_argument('--mpc_finfo', action="store_true", help='')
     parser.add_argument('--with_obs', action="store_true", help='')
     parser.add_argument('--with_actions', action="store_true", help='')
     parser.add_argument('--with_rew', action="store_true", help='')
@@ -66,6 +67,15 @@ if __name__ == "__main__":
                     with_gpu_mirror=False)
         robot_state.run()
     
+    if args.mpc_finfo:
+        rhc_refs=RhcRefs(namespace=namespace,
+                    is_server=False,
+                    with_gpu_mirror=False, 
+                    safe=False,
+                    verbose=True,
+                    vlevel=VLevel.V2)
+        rhc_refs.run()
+
     sim_data = None
     if args.with_sinfo:
         sim_data = SharedEnvInfo(namespace=namespace,
@@ -123,12 +133,7 @@ if __name__ == "__main__":
                     with_gpu_mirror=False)
         trunc.run()
         term.run()
-        if sub_trunc is not None:
-            sub_trunc.run()
-            sub_trunc_names = sub_trunc.col_names()
-        if sub_term is not None:
-            sub_term.run()
-            sub_term_names = sub_term.col_names()
+        
         sub_trunc = None
         sub_term = None
         if args.with_sub_t:
@@ -142,6 +147,13 @@ if __name__ == "__main__":
                             verbose=True,
                             vlevel=VLevel.V2,
                             with_gpu_mirror=False)
+        
+        if sub_trunc is not None:
+            sub_trunc.run()
+            sub_trunc_names = sub_trunc.col_names()
+        if sub_term is not None:
+            sub_term.run()
+            sub_term_names = sub_term.col_names()
 
     if sim_data is not None:
         sim_data.run()
@@ -192,6 +204,13 @@ if __name__ == "__main__":
                 v=robot_state.root_state.get(data_type="v")[idx:idx+env_range, :]
                 gn=robot_state.root_state.get(data_type="gn")[idx:idx+env_range, :]
 
+            if args.mpc_finfo:
+                rhc_refs.flight_info.synch_all(read=True, retry=True)
+                rhc_refs.flight_settings.synch_all(read=True, retry=True)
+                len=rhc_refs.flight_settings.get(data_type="len", robot_idxs=idx).flatten()
+                apex_dpos=rhc_refs.flight_settings.get(data_type="apex_dpos", robot_idxs=idx).flatten()
+                end_dpos=rhc_refs.flight_settings.get(data_type="end_dpos", robot_idxs=idx).flatten()
+
             if args.with_obs:
                 obs.synch_all(read=True, retry=True)
             # next_obs.synch_all(read=True, retry=True)
@@ -221,6 +240,15 @@ if __name__ == "__main__":
                 print(v)
                 print("\n gn:")
                 print(gn)
+
+            if args.mpc_finfo:
+                print("\n flight info:")
+                print("\n len:")
+                print(len)
+                print("\n apex_dpos:")
+                print(apex_dpos)
+                print("\n end_dpos:")
+                print(end_dpos)
 
             if args.with_obs:
                 print("\nobservations:")

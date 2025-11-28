@@ -33,6 +33,11 @@ class RhcToVizBridge(RhcToVizBridgeBase):
                             Float64MultiArray, 
                             queue_size=10)
         
+        self.mpc_contact_pub = rospy.Publisher(self.ros_names.rhc_contacts_topicname(basename=self.mpc_viz_basename, 
+                                            namespace=self._remap_namespace), 
+                            Float64MultiArray, 
+                            queue_size=10)
+        
         self.robot_jntnames_pub = rospy.Publisher(self.ros_names.robot_jntnames(basename=self.mpc_viz_basename, 
                                             namespace=self._remap_namespace),
                             String, 
