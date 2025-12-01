@@ -1,6 +1,6 @@
 <!-- <h2 align="center" style="text-decoration: none;"> <img src="https://img.shields.io/badge/License-GPLv2-purple.svg" alt="License"> -->
 
-![icon.svg](docs/images/logo.svg)
+![icon.svg](docs/images/logo_new.svg)
 
 </h2>
 
