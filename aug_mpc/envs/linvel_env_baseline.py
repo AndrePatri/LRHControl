@@ -54,9 +54,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._add_env_opt(env_opts, "episode_timeout_ub", 
             1024)
         self._add_env_opt(env_opts, "n_steps_task_rand_lb", 
-            256)
+            512)
         self._add_env_opt(env_opts, "n_steps_task_rand_ub", 
-            256)
+            512)
         self._add_env_opt(env_opts, "use_random_safety_reset", 
             True)
         self._add_env_opt(env_opts, "random_reset_freq", 
@@ -238,8 +238,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             obs_dim+=2
         # Agent task reference
         self._add_env_opt(env_opts, "use_pof0", default=True) # with some prob, references will be null
-        self._add_env_opt(env_opts, "pof0_linvel", default=0.2) # [0, 1] prob of both linvel and omega refs being null(from bernoulli distr)
-        self._add_env_opt(env_opts, "pof0_omega", default=0.2) # [0, 1] prob of both linvel and omega refs being null(from bernoulli distr)
+        self._add_env_opt(env_opts, "pof0_linvel", default=0.3) # [0, 1] prob of both linvel and omega refs being null(from bernoulli distr)
+        self._add_env_opt(env_opts, "pof0_omega", default=0.3) # [0, 1] prob of both linvel and omega refs being null(from bernoulli distr)
         self._add_env_opt(env_opts, "max_linvel_ref", default=0.3) # m/s
         self._add_env_opt(env_opts, "max_angvel_ref", default=0.0) # rad/s
         if env_opts["add_angvel_ref_rand"]:   
