@@ -175,6 +175,7 @@ class LRhcEnvBase(ABC):
         self._env_opts["add_remote_exit_flag"]=False # add shared data server to trigger a remote exit
         self._env_opts["enable_height_shared_data"]=False
         self._env_opts["height_shared_grid"]=None
+        self._env_opts["height_shared_resolution"]=None
 
         self._filter_step_ssteps_freq=None
 
@@ -277,6 +278,7 @@ class LRhcEnvBase(ABC):
 
         self._enable_height_shared = self._env_opts["enable_height_shared_data"]
         self._height_shared_grid = self._env_opts["height_shared_grid"]
+        self._height_shared_resolution = self._env_opts["height_shared_resolution"]
 
         self._pre_setup() # child's method
 
@@ -358,7 +360,8 @@ class LRhcEnvBase(ABC):
                         force_reconnection=self._force_reconnection,
                         timeout_ms=self._timeout,
                         enable_height_sensor=self._enable_height_shared,
-                        height_grid_size=self._height_shared_grid)
+                        height_grid_size=self._height_shared_grid,
+                        height_grid_resolution=self._height_shared_resolution)
             self.cluster_servers[robot_name].run()
             self.debug_data["cluster_sol_time"][robot_name] = np.nan
             self.debug_data["cluster_state_update_dt"][robot_name] = np.nan

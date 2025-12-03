@@ -19,7 +19,8 @@ class LRhcClusterServer(ControlClusterServer):
             force_reconnection: bool = True,
             timeout_ms: int = 60000,
             enable_height_sensor: bool = False,
-            height_grid_size: int = None):
+            height_grid_size: int = None,
+            height_grid_resolution: float = None):
 
         self.robot_name = robot_name
                 
@@ -38,4 +39,5 @@ class LRhcClusterServer(ControlClusterServer):
             force_reconnection=force_reconnection,
             timeout_ms=timeout_ms,
             enable_height_sensor=enable_height_sensor,
-            height_grid_size=height_grid_size)
+            height_grid_size=height_grid_size,
+            height_grid_resolution=height_grid_resolution)

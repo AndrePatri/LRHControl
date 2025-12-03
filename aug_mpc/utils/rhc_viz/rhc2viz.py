@@ -4,6 +4,7 @@ import rospy
 from std_msgs.msg import Float64MultiArray
 from std_msgs.msg import String
 from rosgraph_msgs.msg import Clock
+from visualization_msgs.msg import Marker
 
 from mpc_viz.utils.handshake import MPCVizHandshake
 
@@ -53,6 +54,11 @@ class RhcToVizBridge(RhcToVizBridgeBase):
                                 Clock, 
                                 queue_size=10)
         
+        if self._show_heightmap:
+            self.heightmap_pub = rospy.Publisher(self._heightmap_topic,
+                                Marker,
+                                queue_size=1)
+
         self.handshaker = MPCVizHandshake(handshake_topic=self.ros_names.handshake_topicname(basename=self.mpc_viz_basename, 
                     namespace=self._remap_namespace),
                 is_server=True)

@@ -4,6 +4,7 @@ import rclpy
 from std_msgs.msg import Float64MultiArray
 from std_msgs.msg import String
 from rosgraph_msgs.msg import Clock
+from visualization_msgs.msg import Marker
 # from rclpy.node import Node
 from rclpy.qos import ReliabilityPolicy, DurabilityPolicy, HistoryPolicy, LivelinessPolicy
 from rclpy.qos import QoSProfile
@@ -69,6 +70,11 @@ class RhcToViz2Bridge(RhcToVizBridgeBase):
                                                 "clock",
                                                 qos_profile=self._qos_settings)
         
+        if self._show_heightmap:
+            self.heightmap_pub = self.node.create_publisher(Marker,
+                                                self._heightmap_topic,
+                                                qos_profile=self._qos_settings)
+
         self.handshaker = MPCVizHandshake(handshake_topic=self.ros_names.handshake_topicname(basename=self.mpc_viz_basename, 
                                                                                 namespace=self._remap_namespace),
                                 node=self.node,

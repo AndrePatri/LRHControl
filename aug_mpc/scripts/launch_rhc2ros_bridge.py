@@ -21,6 +21,7 @@ if __name__ == '__main__':
     parser.add_argument('--abort_wallmin', type=float, default=5.0, help='abort bridge if no response wihtin this timeout')
     parser.add_argument('--pub_stime',action='store_true', help='whether to publish /clock')
     parser.add_argument('--no_rhc_internal',action='store_true', help='if set, no data over the mpcs horizons will be bridged')
+    parser.add_argument('--show_heightmap',action='store_true', help='if set, publishes heightmap markers')
 
     args = parser.parse_args()
 
@@ -48,6 +49,7 @@ if __name__ == '__main__':
                         update_dt=update_dt,
                         pub_stime=args.pub_stime,
                         install_sighandler=True,
+                        show_heightmap=args.show_heightmap,
                         with_rhc_internal_data=not args.no_rhc_internal)
     else:
 
@@ -67,10 +69,9 @@ if __name__ == '__main__':
                         update_dt=update_dt, 
                         pub_stime=args.pub_stime,
                         install_sighandler=False,
+                        show_heightmap=args.show_heightmap,
                         with_rhc_internal_data=not args.no_rhc_internal)
 
     bridge.run()
 
     bridge.close()
-
-

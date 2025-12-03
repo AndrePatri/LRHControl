@@ -30,6 +30,8 @@ import time
 from std_msgs.msg import Float64MultiArray
 from std_msgs.msg import String
 from rosgraph_msgs.msg import Clock
+from visualization_msgs.msg import Marker
+from geometry_msgs.msg import Point
 
 import signal
 class RhcToVizBridgeBase(ABC):
@@ -52,7 +54,8 @@ class RhcToVizBridgeBase(ABC):
             update_dt: float = 0.05,
             pub_stime: float = True,
             install_sighandler: bool = False,
-            with_rhc_internal_data: bool = True):
+            with_rhc_internal_data: bool = True,
+            show_heightmap: bool = False):
             
         self._with_rhc_internal_data = with_rhc_internal_data
         
@@ -77,6 +80,7 @@ class RhcToVizBridgeBase(ABC):
         self._robot_selector = robot_selector
 
         self._with_agent_refs = with_agent_refs
+        self._show_heightmap = show_heightmap
 
         self.verbose = verbose
         self.vlevel = vlevel
@@ -100,6 +104,10 @@ class RhcToVizBridgeBase(ABC):
         self.rhc_refs = None
         self.agent_refs = None
         self._sim_data = None
+        self.heightmap_pub = None
+        self._heightmap_topic = self.ros_names.heightmap_topicname(basename=self.mpc_viz_basename,
+                                            namespace=self._remap_namespace)
+        self._moving_robot_fname = "moving_frame_robot"
 
         self._update_counter = 0
         self._print_frequency = 100
@@ -224,7 +232,8 @@ class RhcToVizBridgeBase(ABC):
                                 with_gpu_mirror=False,
                                 safe=False,
                                 verbose=self.verbose,
-                                vlevel=self.vlevel)
+                                vlevel=self.vlevel,
+                                enable_height_sensor=self._show_heightmap)
         self.robot_state.set_q_remapping(q_remapping=[1, 2, 3, 0]) # remapping from w, i, j, k
         self.robot_state.run()
         # to rviz conventions (i, k, k, w)
@@ -613,7 +622,9 @@ class RhcToVizBridgeBase(ABC):
         else:
             self._sporadic_log(calling_methd="_publish", 
                             msg="mpc contact data contains some NaN. That data will not be published")
-            
+        if self._show_heightmap and self.heightmap_pub is not None:
+            self._publish_heightmap()
+
     @abstractmethod
     def _init_ros_pubs(self, id: str):
         pass
@@ -621,3 +632,66 @@ class RhcToVizBridgeBase(ABC):
     @abstractmethod
     def pub_stime(self, stime: float):
         pass
+
+    def _quat_to_rotmat(self, q):
+        # q assumed [x,y,z,w]
+        x, y, z, w = q
+        ww, xx, yy, zz = w*w, x*x, y*y, z*z
+        wx, wy, wz = w*x, w*y, w*z
+        xy, xz, yz = x*y, x*z, y*z
+        return np.array([
+            [ww + xx - yy - zz, 2*(xy - wz),     2*(xz + wy)],
+            [2*(xy + wz),       ww - xx + yy - zz, 2*(yz - wx)],
+            [2*(xz - wy),       2*(yz + wx),     ww - xx - yy + zz]
+        ])
+
+    def _publish_heightmap(self):
+        hs = getattr(self.robot_state, "height_sensor", None)
+        if hs is None:
+            return
+        h_all = hs.get(gpu=False)
+        if h_all is None or h_all.shape[0] <= self._current_index:
+            return
+        grid_size = hs.grid_size
+        res = getattr(hs, "resolution", None)
+        if grid_size is None or res is None:
+            return
+        heights = h_all[self._current_index, :].reshape(grid_size, grid_size)
+        if np.isnan(heights).any():
+            return
+
+        coords = (np.arange(grid_size) - (grid_size - 1) / 2.0) * res
+        gx, gy = np.meshgrid(coords, coords)
+        offsets = np.stack([gx.reshape(-1), gy.reshape(-1)], axis=1)
+
+        base_pose = self.robot_state.root_state.get(data_type="q_full", robot_idxs=self._current_index)
+        base_pos = np.asarray(base_pose[0:3], dtype=float)
+        base_q = np.asarray(base_pose[3:7], dtype=float)
+        rot = self._quat_to_rotmat(base_q)
+        rot_xy = rot[0:2, 0:2]
+
+        world_xy = offsets @ rot_xy.T
+        world_xy[:, 0] += base_pos[0]
+        world_xy[:, 1] += base_pos[1]
+        world_z = heights.reshape(-1)
+
+        marker = Marker()
+        marker.header.frame_id = f"{self.ros_names.robot_state_tf_pref(basename=self.mpc_viz_basename, namespace=self._remap_namespace)}/{self._moving_robot_fname}"
+        marker.header.stamp = self._ros_clock.clock
+        marker.type = Marker.SPHERE_LIST
+        marker.action = Marker.ADD
+        scale = max(res * 0.6, 1e-3)
+        marker.scale.x = scale
+        marker.scale.y = scale
+        marker.scale.z = scale
+        marker.color.r = 0.3
+        marker.color.g = 0.6
+        marker.color.b = 1.0
+        marker.color.a = 0.8
+        for i in range(world_xy.shape[0]):
+            p = Point()
+            p.x = float(world_xy[i, 0])
+            p.y = float(world_xy[i, 1])
+            p.z = float(world_z[i])
+            marker.points.append(p)
+        self.heightmap_pub.publish(marker)
