@@ -44,6 +44,7 @@ if __name__ == "__main__":
     parser.add_argument('--with_actions', action="store_true", help='')
     parser.add_argument('--with_rew', action="store_true", help='')
     parser.add_argument('--with_tr', action="store_true", help='')
+    parser.add_argument('--print_heightmap', action="store_true", help='Print heightmap data from RobotState')
 
     args = parser.parse_args()
 
@@ -61,10 +62,11 @@ if __name__ == "__main__":
     if args.dtype == "double":
         dtype=eigenipc_dtype.Double
     
-    if args.robot_state:
+    if args.robot_state or args.print_heightmap:
         robot_state= RobotState(namespace=namespace,is_server=False,verbose=True, 
                     vlevel=VLevel.V2,safe=False,
-                    with_gpu_mirror=False)
+                    with_gpu_mirror=False,
+                    enable_height_sensor=args.print_heightmap)
         robot_state.run()
     
     if args.mpc_finfo:
@@ -198,11 +200,14 @@ if __name__ == "__main__":
                 sim_time=sim_data_read[simtime_idx].item()
                 sim_rt_factor=sim_data_read[rt_factor_idx].item() 
             
-            if args.robot_state:
+            if args.robot_state or args.print_heightmap:
                 robot_state.synch_from_shared_mem()
-                p=robot_state.root_state.get(data_type="p")[idx:idx+env_range, :]
-                v=robot_state.root_state.get(data_type="v")[idx:idx+env_range, :]
-                gn=robot_state.root_state.get(data_type="gn")[idx:idx+env_range, :]
+                if args.robot_state:
+                    p=robot_state.root_state.get(data_type="p")[idx:idx+env_range, :]
+                    v=robot_state.root_state.get(data_type="v")[idx:idx+env_range, :]
+                    gn=robot_state.root_state.get(data_type="gn")[idx:idx+env_range, :]
+                if args.print_heightmap:
+                    robot_state.height_sensor.synch_all(read=True, retry=True)
 
             if args.mpc_finfo:
                 rhc_refs.flight_info.synch_all(read=True, retry=True)
@@ -240,6 +245,14 @@ if __name__ == "__main__":
                 print(v)
                 print("\n gn:")
                 print(gn)
+
+            if args.print_heightmap:
+                h_raw = robot_state.height_sensor.get(gpu=False)
+                gs = robot_state.height_sensor.grid_shape()[0]
+                h = h_raw[idx:idx+env_range, :].reshape(gs, gs)
+                print("\nheightmap:")
+                print(h)
+            
 
             if args.mpc_finfo:
                 print("\n flight info:")

@@ -173,6 +173,8 @@ class LRhcEnvBase(ABC):
         self._env_opts["filter_cutoff_freq"]=10.0 # [Hz]
         self._env_opts["filter_sampling_rate"]=100 # rate at which state is filtered [Hz]
         self._env_opts["add_remote_exit_flag"]=False # add shared data server to trigger a remote exit
+        self._env_opts["enable_height_shared_data"]=False
+        self._env_opts["height_shared_grid"]=None
 
         self._filter_step_ssteps_freq=None
 
@@ -273,6 +275,9 @@ class LRhcEnvBase(ABC):
 
         self._parse_env_opts()
 
+        self._enable_height_shared = self._env_opts["enable_height_shared_data"]
+        self._height_shared_grid = self._env_opts["height_shared_grid"]
+
         self._pre_setup() # child's method
 
         self._init_world() # after this point all info from sim or robot is 
@@ -351,7 +356,9 @@ class LRhcEnvBase(ABC):
                         robot_name=robot_name,
                         use_gpu=self._use_gpu,
                         force_reconnection=self._force_reconnection,
-                        timeout_ms=self._timeout)
+                        timeout_ms=self._timeout,
+                        enable_height_sensor=self._enable_height_shared,
+                        height_grid_size=self._height_shared_grid)
             self.cluster_servers[robot_name].run()
             self.debug_data["cluster_sol_time"][robot_name] = np.nan
             self.debug_data["cluster_state_update_dt"][robot_name] = np.nan
@@ -601,6 +608,15 @@ class LRhcEnvBase(ABC):
             data_type="v", robot_idxs = env_indxs, gpu=self._use_gpu) 
         rhc_state.jnts_state.set(data=self.jnts_eff(robot_name=robot_name, env_idxs=env_indxs), 
             data_type="eff", robot_idxs = env_indxs, gpu=self._use_gpu) 
+
+        # height map
+        if self._enable_height_shared and hasattr(rhc_state, "height_sensor") and rhc_state.height_sensor is not None:
+            if hasattr(self, "_height_imgs") and robot_name in self._height_imgs:
+                hdata = self._height_imgs[robot_name]
+                if env_indxs is not None:
+                    hdata = hdata[env_indxs]
+                flat = hdata.reshape(hdata.shape[0], -1)
+                rhc_state.height_sensor.set(data=flat, data_type=None, robot_idxs=env_indxs, gpu=self._use_gpu)
         
         # Updating contact state for selected contact links
         self._update_contact_state(robot_name=robot_name, env_indxs=env_indxs)

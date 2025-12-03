@@ -17,7 +17,9 @@ class LRhcClusterServer(ControlClusterServer):
             debug: bool = False,
             use_gpu: bool = True,
             force_reconnection: bool = True,
-            timeout_ms: int = 60000):
+            timeout_ms: int = 60000,
+            enable_height_sensor: bool = False,
+            height_grid_size: int = None):
 
         self.robot_name = robot_name
                 
@@ -34,4 +36,6 @@ class LRhcClusterServer(ControlClusterServer):
             debug=debug,
             use_gpu=use_gpu,
             force_reconnection=force_reconnection,
-            timeout_ms=timeout_ms)
+            timeout_ms=timeout_ms,
+            enable_height_sensor=enable_height_sensor,
+            height_grid_size=height_grid_size)
