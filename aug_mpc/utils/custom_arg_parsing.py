@@ -18,7 +18,7 @@ def generate_custom_arg_dict(args: argparse.Namespace):
     custom_opt = {}
     if args.custom_args_names and args.custom_args_vals and args.custom_args_dtype:
         if not (len(args.custom_args_names) == len(args.custom_args_vals) == len(args.custom_args_dtype)):
-            Journal.log("launch_control_cluster.py",
+            Journal.log("generate_custom_arg_dict",
                 "",
                 f"custom_args_names, custom_args_vals, and custom_args_dtype lengths do not match!",
                 LogType.EXCEP,
