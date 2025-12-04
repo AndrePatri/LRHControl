@@ -137,6 +137,10 @@ class GaitSchedulingEnv(FakePosEnvWithDemo):
             liftoff_walk = torch.logical_and(liftoff_walk, self._walk_init_mask[walk_idxs].unsqueeze(1))
             contact_flag_walk = torch.ones_like(is_contact_walk, dtype=self._dtype)
             contact_flag_walk[liftoff_walk] = -1.0
+            # safety guard: never trigger too many pulses in one step
+            walk_pulses = (contact_flag_walk == -1).sum(dim=1, keepdim=True)
+            if (walk_pulses > 2).any():
+                contact_flag_walk[walk_pulses > 2] = 1.0
             agent_action[self._demo_envs_idxs, 6:10] = contact_flag_walk
             self._prev_contact_walk = is_contact_walk.detach().clone()
             self._walk_init_mask[walk_idxs] = True
@@ -150,6 +154,9 @@ class GaitSchedulingEnv(FakePosEnvWithDemo):
                 liftoff_trot = torch.logical_and(liftoff_trot, self._trot_init_mask[idxs].unsqueeze(1))
                 contact_flag_trot = torch.ones_like(is_contact_trot, dtype=self._dtype)
                 contact_flag_trot[liftoff_trot] = -1.0
+                trot_pulses = (contact_flag_trot == -1).sum(dim=1, keepdim=True)
+                if (trot_pulses > 2).any():
+                    contact_flag_trot[trot_pulses > 2] = 1.0
                 agent_action[fast_and_demo, 6:10] = contact_flag_trot
                 self._prev_contact_trot[idxs, :] = is_contact_trot.detach().clone()
                 self._trot_init_mask[idxs] = True
