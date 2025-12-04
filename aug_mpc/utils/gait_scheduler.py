@@ -8,7 +8,9 @@ class QuadrupedGaitPatternGenerator:
         leg_order: List[str] = None,
         ):
         self._n_phases = 4 
-        self._phase_period = phase_period
+        # Interpret phase_period as the interval between successive lift-off commands
+        # (diagonal pair for trot, each leg for walk). Internally we expand to full gait cycle.
+        self._phase_interval = phase_period
         if leg_order is None:
             leg_order = ["FL", "FR", "BL", "BR"]
         if len(leg_order) != 4:
@@ -33,28 +35,27 @@ class QuadrupedGaitPatternGenerator:
 
     def _trot(self) -> Dict[str, Union[float, List[float]]]:
 
-        # leg order: FL, FR, BL, BR
-        phase_offset = [0.0, self._phase_period / 2, self._phase_period / 2, 0.0]  # Diagonal pairs (FL+BR) vs (FR+BL)
-        flight_length=self._phase_period / 4
-        t_star = 3/4*self._phase_period-flight_length/2
-        phase_thresh = [np.sin(2*np.pi/self._phase_period*t_star)] * self._n_phases
-        
+        # leg order: FL, FR, BL, BR; full cycle is two diagonal events
+        full_period = self._phase_interval * 2
+        phase_offset = [0.0, full_period / 2, full_period / 2, 0.0]  # Diagonal pairs (FL+BR) vs (FR+BL)
+        phase_thresh = [0.0] * self._n_phases  # simple 50% duty
+
         return {
             "n_phases": self._n_phases,
-            "phase_period": self._phase_period,
+            "phase_period": full_period,
             "phase_offset": phase_offset,
             "phase_thresh": phase_thresh
         }
 
     def _walk(self) -> Dict[str, Union[float, List[float]]]:
         # leg order: FL, FR, BL, BR
-        phase_offset = [0.0, self._phase_period / 4, self._phase_period / 2, 3 * self._phase_period / 4]  # Sequential phases
-        flight_length=self._phase_period / 16
-        t_star = 3/4*self._phase_period-flight_length/2
-        phase_thresh = [np.sin(2*np.pi/self._phase_period*t_star)] * self._n_phases
+        # full cycle is four sequential events
+        full_period = self._phase_interval * 4
+        phase_offset = [0.0, full_period / 4, full_period / 2, 3 * full_period / 4]  # Sequential phases
+        phase_thresh = [0.0] * self._n_phases  # simple 50% duty
         return {
             "n_phases": self._n_phases,
-            "phase_period": self._phase_period,
+            "phase_period": full_period,
             "phase_offset": phase_offset,
             "phase_thresh": phase_thresh
         }
@@ -74,24 +75,26 @@ class QuadrupedGaitPatternGenerator:
 
     def _pace(self) -> Dict[str, Union[float, List[float]]]:
         # leg order: FL, FR, BL, BR (lateral pairs FL+BL, FR+BR)
-        phase_offset = [0.0, 0.0, self._phase_period / 2, self._phase_period / 2]
-        phase_thresh = [0.0] * self._n_phases
+        full_period = self._phase_interval * 2
+        phase_offset = [0.0, 0.0, full_period / 2, full_period / 2]
+        phase_thresh = [0.0] * self._n_phases  # 50% duty
         
         return {
             "n_phases": self._n_phases,
-            "phase_period": self._phase_period,
+            "phase_period": full_period,
             "phase_offset": phase_offset,
             "phase_thresh": phase_thresh
         }
 
     def _canter(self) -> Dict[str, Union[float, List[float]]]:
         # leg order: FL, FR, BL, BR
-        phase_offset = [0.0, self._phase_period / 3, 2 * self._phase_period / 3, self._phase_period]  # Alternating phases
+        full_period = self._phase_interval * 4
+        phase_offset = [0.0, full_period / 3, 2 * full_period / 3, full_period]  # Alternating phases
         phase_thresh = [0.0] * self._n_phases
         
         return {
             "n_phases": self._n_phases,
-            "phase_period": self._phase_period,
+            "phase_period": full_period,
             "phase_offset": phase_offset,
             "phase_thresh": phase_thresh
         }
@@ -130,18 +133,10 @@ class GaitScheduler:
                                          device=self._device)
         
         # Process self._phase_period
-        if isinstance(phase_period, float):
-            self._phase_period = torch.full((1, self._n_phases),
-                                            dtype=self._torch_dtype,
-                                            device=self._device, 
-                                            fill_value=phase_period)
-        elif isinstance(phase_period, list):
-            assert len(phase_period) == self._n_phases, "Phase period list length must match n_phases"
-            self._phase_period = torch.tensor(phase_period, 
-                                               dtype=self._torch_dtype,
-                                               device=self._device).unsqueeze(0)
-        else:
-            raise TypeError("phase_period must be a float or a list of floats")
+        self._phase_period = self._to_period_tensor(phase_period)
+        # adaptive period bounds (optional)
+        self._period_min = None
+        self._period_max = None
 
         # Process phase_offset
         if isinstance(phase_offset, float):
@@ -172,6 +167,37 @@ class GaitScheduler:
             raise TypeError("phase_thresh must be a float or a list of floats")
 
         self.reset()
+    
+    def set_period_bounds(self, period_min: float, period_max: float):
+        """Optionally set adaptive period bounds (per env uses same bounds)."""
+        self._period_min = period_min
+        self._period_max = period_max
+
+    def adapt_period(self, period: torch.Tensor):
+        """Update per-env period (expects shape (n_envs, 1) or (n_envs, n_phases))."""
+        if period is None:
+            return
+        if period.dim() == 1:
+            period = period.unsqueeze(1)
+        if period.shape[1] == 1:
+            period = period.expand(-1, self._n_phases)
+        if period.shape[0] == 1 and period.shape[0] != self._n_envs:
+            period = period.expand(self._n_envs, -1)
+        self._phase_period = period.to(self._device, dtype=self._torch_dtype)
+
+    def _to_period_tensor(self, period):
+        if isinstance(period, float):
+            return torch.full((1, self._n_phases),
+                              dtype=self._torch_dtype,
+                              device=self._device,
+                              fill_value=period)
+        elif isinstance(period, list):
+            assert len(period) == self._n_phases, "Phase period list length must match n_phases"
+            return torch.tensor(period,
+                                dtype=self._torch_dtype,
+                                device=self._device).unsqueeze(0)
+        else:
+            raise TypeError("phase_period must be a float or a list of floats")
         
     def reset(self, 
         to_be_reset: torch.Tensor = None):
