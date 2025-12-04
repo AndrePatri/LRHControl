@@ -99,7 +99,7 @@ class LRhcTrainingEnvBase(ABC):
         self._substep_dt=1.0 # dt [s] between each substep
 
         self._env_opts={}
-        self._env_opts.update(env_opts)
+        self._env_opts.update(env_opts)   
         self._process_env_opts()
 
         self._robot_state = None
@@ -144,6 +144,9 @@ class LRhcTrainingEnvBase(ABC):
         
         self._timeout = timeout_ms
     
+        self._height_grid_size = None
+        self._height_flat_dim = 0
+
         self._attach_to_shared_mem()
 
         self._init_obs(obs_dim)
@@ -175,6 +178,14 @@ class LRhcTrainingEnvBase(ABC):
 
         self._ready=self._init_step()
 
+    def _add_env_opt(self,
+        opts: Dict,
+        name: str,
+        default):
+
+        if not name in opts:
+            opts[name]=default
+
     def _process_env_opts(self, ):
 
         self._check_for_env_opts("episode_timeout_lb", int)
@@ -203,7 +214,9 @@ class LRhcTrainingEnvBase(ABC):
         self._check_for_env_opts("use_action_smoothing", bool)
         self._check_for_env_opts("smoothing_horizon_c", float)
         self._check_for_env_opts("smoothing_horizon_d", float)
-        
+
+        self._check_for_env_opts("add_heightmap_obs", bool)
+
         # parse action repeat opt + get some sim information
         if self._env_opts["action_repeat"] <=0: 
             self._env_opts["action_repeat"] = 1
@@ -1361,7 +1374,8 @@ class LRhcTrainingEnvBase(ABC):
                                 verbose=self._verbose,
                                 vlevel=self._vlevel,
                                 with_gpu_mirror=self._use_gpu,
-                                with_torch_view=True)
+                                with_torch_view=True,
+                                enable_height_sensor=self._env_opts["add_heightmap_obs"])
         
         self._rhc_cmds = RhcCmds(namespace=self._namespace,
                                 is_server=False, 
@@ -1413,6 +1427,11 @@ class LRhcTrainingEnvBase(ABC):
         rhc_horizons=self._rhc_status.rhc_static_info.get("horizons",gpu=self._use_gpu)
         rhc_nnodes=self._rhc_status.rhc_static_info.get("nnodes",gpu=self._use_gpu)
         rhc_dts=self._rhc_status.rhc_static_info.get("dts",gpu=self._use_gpu)
+
+        # height sensor metadata (client side)
+        if self._env_opts["add_heightmap_obs"]:
+            self._height_grid_size = self._robot_state.height_sensor.grid_size
+            self._height_flat_dim = self._robot_state.height_sensor.n_cols
         rhc_ncontacts=self._rhc_status.rhc_static_info.get("ncontacts",gpu=self._use_gpu)
         robot_mass=self._rhc_status.rhc_static_info.get("robot_mass",gpu=self._use_gpu)
         pred_node_idxs_rhc=self._rhc_status.rhc_static_info.get("pred_node_idx",gpu=self._use_gpu)
@@ -1593,6 +1612,8 @@ class LRhcTrainingEnvBase(ABC):
         self._rhc_status.rhc_nodes_constr_viol.synch_all(read = True, retry = True)
         self._rhc_status.rhc_fcn.synch_all(read = True, retry = True)
         self._rhc_status.rhc_fail_idx.synch_all(read = True, retry = True)
+        if self._env_opts["add_heightmap_obs"]:
+            self._robot_state.height_sensor.synch_all(read=True, retry=True)
         if gpu:
             # copies data to "mirror" on GPU --> we can do it non-blocking since
             # in this direction it should be safe
@@ -1616,6 +1637,8 @@ class LRhcTrainingEnvBase(ABC):
             self._rhc_status.rhc_nodes_constr_viol.synch_mirror(from_gpu=False,non_blocking=True)
             self._rhc_status.rhc_fcn.synch_mirror(from_gpu=False,non_blocking=True)
             self._rhc_status.rhc_fail_idx.synch_mirror(from_gpu=False,non_blocking=True)
+            if self._env_opts["add_heightmap_obs"]:
+                self._robot_state.height_sensor.synch_mirror(from_gpu=False, non_blocking=True)
             torch.cuda.synchronize() # ensuring that all the streams on the GPU are completed \
             # before the CPU continues execution
     

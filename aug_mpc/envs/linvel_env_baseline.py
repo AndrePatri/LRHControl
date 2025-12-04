@@ -174,6 +174,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             # time-dependent)
             self._add_env_opt(env_opts, "add_periodic_clock_to_obs", default=False) 
 
+        self._add_env_opt(env_opts, "add_heightmap_obs", default=True)         
+
         # temporarily creating robot state client to get some data
         robot_state_tmp = RobotState(namespace=namespace,
                                 is_server=False, 
@@ -181,7 +183,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                                 verbose=verbose,
                                 vlevel=vlevel,
                                 with_gpu_mirror=False,
-                                with_torch_view=False)
+                                with_torch_view=False,
+                                enable_height_sensor=env_opts["add_heightmap_obs"])
         robot_state_tmp.run()
         rhc_status_tmp = RhcStatus(is_server=False,
                         namespace=namespace, 
@@ -203,6 +206,12 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         self._n_contacts = len(self._contact_names)
         self._flight_info_size=rhc_refs_tmp.flight_info.n_cols
         self._flight_setting_size=rhc_refs_tmp.flight_settings.n_cols
+        # height sensor metadata (if present)
+        self._height_grid_size = None
+        self._height_flat_dim = 0
+        if env_opts["add_heightmap_obs"]:
+            self._height_grid_size = robot_state_tmp.height_sensor.grid_size
+            self._height_flat_dim = robot_state_tmp.height_sensor.n_cols
 
         robot_state_tmp.close()
         rhc_status_tmp.close()
@@ -236,6 +245,8 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             obs_dim+=actions_dim # it's better to also add the smoothed actions as obs
         if env_opts["add_periodic_clock_to_obs"]:
             obs_dim+=2
+        if env_opts["add_heightmap_obs"]:
+            obs_dim+=self._height_flat_dim
         # Agent task reference
         self._add_env_opt(env_opts, "use_pof0", default=True) # with some prob, references will be null
         self._add_env_opt(env_opts, "pof0_linvel", default=0.3) # [0, 1] prob of both linvel and omega refs being null(from bernoulli distr)
@@ -260,14 +271,6 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                     override_agent_refs=override_agent_refs,
                     timeout_ms=timeout_ms,
                     env_opts=env_opts)
-    
-    def _add_env_opt(self,
-            opts: Dict,
-            name: str,
-            default):
-
-        if not name in opts:
-            opts[name]=default
 
     def _custom_post_init(self):
 
@@ -814,6 +817,9 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
         if self._env_opts["add_periodic_clock_to_obs"]:
             obs[:, next_idx:(next_idx+2)]=self._periodic_clock.get()
             next_idx+=2
+        if self._env_opts["add_heightmap_obs"]:
+            hm = self._robot_state.height_sensor.get(gpu=self._use_gpu)
+            obs[:, self._obs_map["heightmap"]:(self._obs_map["heightmap"]+self._height_flat_dim)] = hm
 
     def _get_custom_db_data(self, 
             episode_finished,
@@ -838,7 +844,7 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
                 new_data=self._track_error_db, 
                 ep_finished=episode_finished,
                 ignore_ep_end=ignore_ep_end)
-    
+
     # reward functions
     def _action_rate(self):
         continuous_actions=self._is_continuous_actions
@@ -1214,6 +1220,13 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
             obs_names[next_idx] = "clock_cos"
             obs_names[next_idx+1] = "clock_sin"
             next_idx+=2
+        if self._env_opts["add_heightmap_obs"] and self._height_grid_size is not None:
+            self._obs_map["heightmap"]=next_idx
+            gs = self._height_grid_size
+            for r in range(gs):
+                for c in range(gs):
+                    obs_names[next_idx] = f"height_r{r}_c{c}"
+                    next_idx += 1
 
         return obs_names
 
@@ -1320,4 +1333,3 @@ class LinVelTrackBaseline(LRhcTrainingEnvBase):
     def _set_jnts_blacklist_pattern(self):
         # used to exclude pos measurement from wheels
         self._jnt_q_blacklist_patterns=["wheel"]
-
