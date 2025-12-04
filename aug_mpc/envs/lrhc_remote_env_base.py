@@ -178,10 +178,6 @@ class LRhcEnvBase(ABC):
         self._env_opts["height_sensor_resolution"]=0.16
         self._env_opts["height_sensor_pixels"]=10
 
-        self._enable_height_shared = self._env_opts["enable_height_sensor"]
-        self._height_sensor_pixels = self._env_opts["height_sensor_pixels"]
-        self._height_sensor_resolution = self._env_opts["h
-eight_shared_resolution"]
         self._filter_step_ssteps_freq=None
 
         self._env_opts.update(env_opts)
