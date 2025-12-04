@@ -7,7 +7,6 @@ from mpc_hive.utilities.shared_data.rhc_data import RhcCmds, RhcPred
 from mpc_hive.utilities.shared_data.rhc_data import RhcRefs
 from mpc_hive.utilities.shared_data.rhc_data import RhcStatus
 from mpc_hive.utilities.shared_data.sim_data import SharedEnvInfo
-from mpc_hive.utilities.shared_data.cluster_data import SharedClusterInfo
 
 from aug_mpc.utils.shared_data.remote_stepping import RemoteStepperSrvr
 from aug_mpc.utils.shared_data.remote_stepping import RemoteResetSrvr
@@ -30,7 +29,7 @@ from aug_mpc.utils.episodic_data import MemBuffer
 from aug_mpc.utils.signal_smoother import ExponentialSignalSmoother
 from aug_mpc.utils.math_utils import check_capsize
 
-from mpc_hive.utilities.math_utils_torch import world2base_frame, base2world_frame, w2hor_frame
+from mpc_hive.utilities.math_utils_torch import world2base_frame
 
 from EigenIPC.PyEigenIPC import VLevel
 from EigenIPC.PyEigenIPC import LogType

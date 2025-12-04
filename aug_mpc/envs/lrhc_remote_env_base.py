@@ -173,9 +173,10 @@ class LRhcEnvBase(ABC):
         self._env_opts["filter_cutoff_freq"]=10.0 # [Hz]
         self._env_opts["filter_sampling_rate"]=100 # rate at which state is filtered [Hz]
         self._env_opts["add_remote_exit_flag"]=False # add shared data server to trigger a remote exit
+
         self._env_opts["enable_height_sensor"]=False
-        self._env_opts["height_shared_grid"]=None
-        self._env_opts["height_shared_resolution"]=None
+        self._env_opts["height_sensor_resolution"]=0.16
+        self._env_opts["height_sensor_pixels"]=10
 
         self._filter_step_ssteps_freq=None
 
@@ -273,10 +274,6 @@ class LRhcEnvBase(ABC):
 
         self._root_pos_offsets = {} 
         self._root_q_offsets = {} 
-
-        self._env_opts["enable_height_sensor"]=False
-        self._env_opts["height_sensor_resolution"]=0.16
-        self._env_opts["height_sensor_pixels"]=10
 
         self._parse_env_opts()
 
@@ -617,13 +614,12 @@ class LRhcEnvBase(ABC):
             data_type="eff", robot_idxs = env_indxs, gpu=self._use_gpu) 
 
         # height map
-        if self._enable_height_shared and hasattr(rhc_state, "height_sensor") and rhc_state.height_sensor is not None:
-            if hasattr(self, "_height_imgs") and robot_name in self._height_imgs:
-                hdata = self._height_imgs[robot_name]
-                if env_indxs is not None:
-                    hdata = hdata[env_indxs]
-                flat = hdata.reshape(hdata.shape[0], -1)
-                rhc_state.height_sensor.set(data=flat, data_type=None, robot_idxs=env_indxs, gpu=self._use_gpu)
+        if self._enable_height_shared:
+            hdata = self._height_imgs[robot_name]
+            if env_indxs is not None:
+                hdata = hdata[env_indxs]
+            flat = hdata.reshape(hdata.shape[0], -1)
+            rhc_state.height_sensor.set(data=flat, data_type=None, robot_idxs=env_indxs, gpu=self._use_gpu)
         
         # Updating contact state for selected contact links
         self._update_contact_state(robot_name=robot_name, env_indxs=env_indxs)
