@@ -33,11 +33,11 @@ class FakePosEnvWithDemo(FakePosEnvBaseline):
             0.08)
 
         self._add_env_opt(env_opts, "stopping_thresh", 
-            0.01)
+            0.05)
         self._add_env_opt(env_opts, "walk_to_trot_thresh", 
-            0.5)
+            0.3)
         self._add_env_opt(env_opts, "walk_to_trot_thresh_omega", 
-            0.5)
+            0.3)
         self._add_env_opt(env_opts, "phase_period_walk", 
             2.5)
         self._add_env_opt(env_opts, "phase_period_trot", 
