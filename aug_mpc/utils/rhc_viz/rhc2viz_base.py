@@ -660,27 +660,25 @@ class RhcToVizBridgeBase(ABC):
         if np.isnan(heights).any():
             return
 
-        coords = (np.arange(grid_size) - (grid_size - 1) / 2.0) * res
+        coords = (np.arange(grid_size) - (grid_size / 2.0) + 0.5) * res
         gx, gy = np.meshgrid(coords, coords)
         offsets = np.stack([gx.reshape(-1), gy.reshape(-1)], axis=1)
 
         base_pose = self.robot_state.root_state.get(data_type="q_full", robot_idxs=self._current_index)
-        base_pos = np.asarray(base_pose[0:3], dtype=float)
+        # publish in base frame: xy grid offsets, z as absolute height so marker frame can sit on ground
+        # rotate grid by robot yaw so it aligns with base heading, then keep marker in moving-frame
         base_q = np.asarray(base_pose[3:7], dtype=float)
         rot = self._quat_to_rotmat(base_q)
-        rot_xy = rot[0:2, 0:2]
-
-        world_xy = offsets @ rot_xy.T
-        world_xy[:, 0] += base_pos[0]
-        world_xy[:, 1] += base_pos[1]
-        world_z = heights.reshape(-1)
+        yaw_rot = rot[0:2, 0:2]
+        rel_xy = offsets @ yaw_rot.T
+        rel_z = heights.reshape(-1)
 
         marker = Marker()
         marker.header.frame_id = f"{self.ros_names.robot_state_tf_pref(basename=self.mpc_viz_basename, namespace=self._remap_namespace)}/{self._moving_robot_fname}"
         marker.header.stamp = self._ros_clock.clock
         marker.type = Marker.SPHERE_LIST
         marker.action = Marker.ADD
-        scale = max(res * 0.6, 1e-3)
+        scale = max(res * 0.3, 1e-3)
         marker.scale.x = scale
         marker.scale.y = scale
         marker.scale.z = scale
@@ -688,10 +686,10 @@ class RhcToVizBridgeBase(ABC):
         marker.color.g = 0.6
         marker.color.b = 1.0
         marker.color.a = 0.8
-        for i in range(world_xy.shape[0]):
+        for i in range(rel_xy.shape[0]):
             p = Point()
-            p.x = float(world_xy[i, 0])
-            p.y = float(world_xy[i, 1])
-            p.z = float(world_z[i])
+            p.x = float(rel_xy[i, 0])
+            p.y = float(rel_xy[i, 1])
+            p.z = float(rel_z[i])
             marker.points.append(p)
         self.heightmap_pub.publish(marker)
