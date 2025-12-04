@@ -5,9 +5,15 @@ from typing import List, Union, Dict
 class QuadrupedGaitPatternGenerator:
     def __init__(self, 
         phase_period: float = 1.0,
+        leg_order: List[str] = None,
         ):
         self._n_phases = 4 
         self._phase_period = phase_period
+        if leg_order is None:
+            leg_order = ["FL", "FR", "BL", "BR"]
+        if len(leg_order) != 4:
+            raise ValueError("leg_order must have 4 entries (one per leg).")
+        self._leg_order = leg_order
         
         self.patterns = {
             "trot": self._trot,
@@ -21,11 +27,14 @@ class QuadrupedGaitPatternGenerator:
     def get_params(self, name: str) -> Dict[str, Union[float, List[float]]]:
         if name not in self.patterns:
             raise ValueError(f"Gait pattern '{name}' not recognized. Available patterns are {list(self.patterns.keys())}.")
-        return self.patterns[name]()
+        params = self.patterns[name]()
+        params["leg_order"] = self._leg_order
+        return params
 
     def _trot(self) -> Dict[str, Union[float, List[float]]]:
 
-        phase_offset = [self._phase_period / 2, 0.0, 0.0, self._phase_period / 2]  # Diagonally opposite phases
+        # leg order: FL, FR, BL, BR
+        phase_offset = [0.0, self._phase_period / 2, self._phase_period / 2, 0.0]  # Diagonal pairs (FL+BR) vs (FR+BL)
         flight_length=self._phase_period / 4
         t_star = 3/4*self._phase_period-flight_length/2
         phase_thresh = [np.sin(2*np.pi/self._phase_period*t_star)] * self._n_phases
@@ -38,9 +47,8 @@ class QuadrupedGaitPatternGenerator:
         }
 
     def _walk(self) -> Dict[str, Union[float, List[float]]]:
-        
+        # leg order: FL, FR, BL, BR
         phase_offset = [0.0, self._phase_period / 4, self._phase_period / 2, 3 * self._phase_period / 4]  # Sequential phases
-        # phase_thresh = [np.cos(3 * np.pi / 4)] * self._n_phases
         flight_length=self._phase_period / 16
         t_star = 3/4*self._phase_period-flight_length/2
         phase_thresh = [np.sin(2*np.pi/self._phase_period*t_star)] * self._n_phases
@@ -65,8 +73,8 @@ class QuadrupedGaitPatternGenerator:
     #     }
 
     def _pace(self) -> Dict[str, Union[float, List[float]]]:
-        
-        phase_offset = [0.0, self._phase_period / 2, 0.0, self._phase_period / 2]  # Lateral pairs in phase
+        # leg order: FL, FR, BL, BR (lateral pairs FL+BL, FR+BR)
+        phase_offset = [0.0, 0.0, self._phase_period / 2, self._phase_period / 2]
         phase_thresh = [0.0] * self._n_phases
         
         return {
@@ -77,7 +85,7 @@ class QuadrupedGaitPatternGenerator:
         }
 
     def _canter(self) -> Dict[str, Union[float, List[float]]]:
-       
+        # leg order: FL, FR, BL, BR
         phase_offset = [0.0, self._phase_period / 3, 2 * self._phase_period / 3, self._phase_period]  # Alternating phases
         phase_thresh = [0.0] * self._n_phases
         
@@ -128,7 +136,7 @@ class GaitScheduler:
                                             device=self._device, 
                                             fill_value=phase_period)
         elif isinstance(phase_period, list):
-            assert len(self._phase_period) == self._n_phases, "Phase period list length must match n_phases"
+            assert len(phase_period) == self._n_phases, "Phase period list length must match n_phases"
             self._phase_period = torch.tensor(phase_period, 
                                                dtype=self._torch_dtype,
                                                device=self._device).unsqueeze(0)
@@ -177,8 +185,9 @@ class GaitScheduler:
     def step(self):
         # Calculate the phase signal
         
-        self._signal[:, :] = \
-            torch.sin((self._steps_counter*self._update_dt+self._phase_offset)*2*self._pi/self._phase_period)
+        # wrap phase time modulo phase_period to avoid long-run drift
+        phase_time = (self._steps_counter*self._update_dt + self._phase_offset) % self._phase_period
+        self._signal[:, :] = torch.sin(phase_time*2*self._pi/self._phase_period)
         
         # Increment step counter
         self._steps_counter += 1

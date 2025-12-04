@@ -100,6 +100,7 @@ class DummyTestAlgoBase(ABC):
             verbose: bool = False,
             drop_dir_name: str = None,
             eval: bool = True,
+            resume: bool = False,
             load_qf: bool = False,
             model_path: str = None,
             n_eval_timesteps: int = None,

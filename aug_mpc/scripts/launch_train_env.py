@@ -135,7 +135,7 @@ if __name__ == "__main__":
     parser.add_argument('--use_period_resets',action='store_true', help='')
 
     parser.add_argument('--sac',action='store_true', help='Use SAC, otherwise PPO, unless dummy is set')
-    parser.add_argument('--dummy',action='store_true', help='Use dummy agent')
+    parser.add_argument('--dummy',action='store_true', help='Use dummy agent (useful for testing demo environments)')
 
     parser.add_argument('--dump_checkpoints',action='store_true', help='Whether to dump model checkpoints during training')
 

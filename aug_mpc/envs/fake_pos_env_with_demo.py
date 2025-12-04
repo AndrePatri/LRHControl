@@ -42,6 +42,8 @@ class FakePosEnvWithDemo(FakePosEnvBaseline):
             2.5)
         self._add_env_opt(env_opts, "phase_period_trot", 
             2.0)
+        self._add_env_opt(env_opts, "leg_ordering",
+            ["FL", "FR", "BL", "BR"])
             
         # kyon no wheels
         # env_opts["stopping_thresh"]=0.01
@@ -59,10 +61,10 @@ class FakePosEnvWithDemo(FakePosEnvBaseline):
 
         # # centauro no wheels
         env_opts["stopping_thresh"]=0.01
-        env_opts["walk_to_trot_thresh"]=0.5
-        env_opts["walk_to_trot_thresh_omega"]=0.5
-        env_opts["phase_period_walk"]=3.5
-        env_opts["phase_period_trot"]=2.0
+        env_opts["walk_to_trot_thresh"]=0.1
+        env_opts["walk_to_trot_thresh_omega"]=0.2
+        env_opts["phase_period_walk"]=2.0
+        env_opts["phase_period_trot"]=1.2
 
         # # centauro with wheels
         # env_opts["stopping_thresh"]=0.01
@@ -125,12 +127,15 @@ class FakePosEnvWithDemo(FakePosEnvBaseline):
     def _init_gait_schedulers(self):
         
         update_dt_walk = self._substep_dt*self._action_repeat
-        self._pattern_gen_walk = QuadrupedGaitPatternGenerator(phase_period=self._env_opts["phase_period_walk"])
+        self._pattern_gen_walk = QuadrupedGaitPatternGenerator(
+            phase_period=self._env_opts["phase_period_walk"],
+            leg_order=self._env_opts["leg_ordering"])
         gait_params_walk = self._pattern_gen_walk.get_params("walk")
         n_phases = gait_params_walk["n_phases"]
         phase_period = gait_params_walk["phase_period"]
         phase_offset = gait_params_walk["phase_offset"]
         phase_thresh = gait_params_walk["phase_thresh"]
+
         self._gait_scheduler_walk = GaitScheduler(
             n_phases=n_phases,
             n_envs=self._n_demo_envs,
@@ -143,7 +148,9 @@ class FakePosEnvWithDemo(FakePosEnvBaseline):
         )
 
         update_dt_trot = self._substep_dt*self._action_repeat
-        self._pattern_gen_trot = QuadrupedGaitPatternGenerator(phase_period=self._env_opts["phase_period_trot"])
+        self._pattern_gen_trot = QuadrupedGaitPatternGenerator(
+            phase_period=self._env_opts["phase_period_trot"],
+            leg_order=self._env_opts["leg_ordering"])
         gait_params_trot = self._pattern_gen_trot.get_params("trot")
         n_phases = gait_params_trot["n_phases"]
         phase_period = gait_params_trot["phase_period"]
