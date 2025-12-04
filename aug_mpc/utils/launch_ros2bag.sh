@@ -53,6 +53,7 @@ TOPICS=(
     "/MPCViz_${NAMESPACE}_rhc_contacts"
     "/MPCViz_${NAMESPACE}_robot_actuated_jointnames"
     "/MPCViz_${NAMESPACE}_robot_q"
+    "/MPCViz_${NAMESPACE}_heightmap"
 )
 
 # Add XBOT topics if the --xbot flag is provided

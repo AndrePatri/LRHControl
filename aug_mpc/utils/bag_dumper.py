@@ -29,13 +29,15 @@ class RosBagDumper():
             use_static_idx: bool = True,
             pub_stime: bool = True,
             add_xbot_topics: bool = False,
-            with_rhc_internal_data: bool = True):
+            with_rhc_internal_data: bool = True,
+            show_heightmap: bool = False):
         
         self._with_rhc_internal_data=with_rhc_internal_data
 
         self._closed=False
         
         self._pub_stime=pub_stime
+        self._show_heightmap=show_heightmap
 
         self._add_xbot_topics=add_xbot_topics
 
@@ -119,7 +121,8 @@ class RosBagDumper():
                 use_static_idx=self._use_static_idx,
                 pub_stime=self._pub_stime,
                 install_sighandler=True,
-                with_rhc_internal_data=self._with_rhc_internal_data)
+                with_rhc_internal_data=self._with_rhc_internal_data,
+                show_heightmap=self._show_heightmap)
         else:
             from aug_mpc.utils.rhc_viz.rhc2viz2 import RhcToViz2Bridge
             self._bridge = RhcToViz2Bridge(namespace=self._ns, 
@@ -137,7 +140,8 @@ class RosBagDumper():
                 use_static_idx=self._use_static_idx,
                 pub_stime=self._pub_stime,
                 install_sighandler=False,
-                with_rhc_internal_data=self._with_rhc_internal_data)
+                with_rhc_internal_data=self._with_rhc_internal_data,
+                show_heightmap=self._show_heightmap)
 
         # actual process recording bag
         from mpc_hive.utilities.remote_triggering import RemoteTriggererSrvr
@@ -384,13 +388,25 @@ class RosBagDumper():
         bag_data[:, 1] = True
         bag_data[:, 2] = False
         self._bag_req.synch_all(read=False,retry=True)
-        self._term_trigger.trigger() # triggering process termination and joining
-        if not self._term_trigger.wait_ack_from(1, 
-                self._timeout_ms):
+        try:
+            self._term_trigger.trigger() # triggering process termination and joining
+        except:
+            Journal.log(self.__class__.__name__,
+                "_stop_bag_recording",
+                f"Failed to trigger process termination!",
+                LogType.WARN)
+            pass
+        join_ok=False
+        try:
+            join_ok=self._term_trigger.wait_ack_from(1, 
+                    self._timeout_ms)
+        except:
+            pass
+        if not join_ok:
             Journal.log(self.__class__.__name__,
                 "_stop_bag_recording",
                 f"Didn't receive ack!",
-                LogType.EXCEP,
+                LogType.WARN,
                 throw_when_excep = True)
         
         

@@ -31,6 +31,7 @@ if __name__ == '__main__':
     parser.add_argument('--pub_stime', action='store_true', help='Whether to publish sim time for ros')
     parser.add_argument('--xbot', action='store_true', help='Whether to add xbot topics to bag')
     parser.add_argument('--no_rhc_internal',action='store_true', help='if set, no data over the mpcs horizons will be bridged')
+    parser.add_argument('--show_heightmap', action='store_true', help='Publish heightmap markers if available')
 
     args = parser.parse_args()
     if args.is_training:
@@ -56,6 +57,7 @@ if __name__ == '__main__':
             agent_refs_in_h_frame=args.agent_refs_in_h_frame,
             pub_stime=args.pub_stime,
             add_xbot_topics=args.xbot,
+            show_heightmap=args.show_heightmap,
             with_rhc_internal_data=not args.no_rhc_internal)
     bag_dumper.run()
     bag_dumper.close()
