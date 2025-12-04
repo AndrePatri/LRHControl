@@ -178,6 +178,10 @@ class LRhcEnvBase(ABC):
         self._env_opts["height_sensor_resolution"]=0.16
         self._env_opts["height_sensor_pixels"]=10
 
+        self._enable_height_shared = self._env_opts["enable_height_sensor"]
+        self._height_sensor_pixels = self._env_opts["height_sensor_pixels"]
+        self._height_sensor_resolution = self._env_opts["h
+eight_shared_resolution"]
         self._filter_step_ssteps_freq=None
 
         self._env_opts.update(env_opts)
@@ -278,8 +282,8 @@ class LRhcEnvBase(ABC):
         self._parse_env_opts()
 
         self._enable_height_shared = self._env_opts["enable_height_sensor"]
-        self._height_shared_grid = self._env_opts["height_shared_grid"]
-        self._height_shared_resolution = self._env_opts["height_shared_resolution"]
+        self._height_sensor_resolution = self._env_opts["height_sensor_resolution"]
+        self._height_sensor_pixels = self._env_opts["height_sensor_pixels"]
 
         self._pre_setup() # child's method
 
@@ -361,8 +365,8 @@ class LRhcEnvBase(ABC):
                         force_reconnection=self._force_reconnection,
                         timeout_ms=self._timeout,
                         enable_height_sensor=self._enable_height_shared,
-                        height_grid_size=self._height_shared_grid,
-                        height_grid_resolution=self._height_shared_resolution)
+                        height_grid_size=self._height_sensor_pixels,
+                        height_grid_resolution=self._height_sensor_resolution)
             self.cluster_servers[robot_name].run()
             self.debug_data["cluster_sol_time"][robot_name] = np.nan
             self.debug_data["cluster_state_update_dt"][robot_name] = np.nan
