@@ -33,7 +33,7 @@ class VariableFlightsBaseline(LinVelTrackBaseline):
 
         self._add_env_opt(env_opts, "control_flength", default=False) 
         self._add_env_opt(env_opts, "control_fapex", default=True) 
-        self._add_env_opt(env_opts, "control_fend", default=False) 
+        self._add_env_opt(env_opts, "control_fend", default=True) 
         
         self._add_env_opt(env_opts, "flength_min", default=5) # substeps
 
@@ -91,14 +91,14 @@ class VariableFlightsBaseline(LinVelTrackBaseline):
         # flight params (apex)
         if self._env_opts["control_fapex"]:
             idx=self._actions_map["flight_apex_start"]
-            self._actions_lb[:, idx:(idx+self._n_contacts)]=0.0
-            self._actions_ub[:, idx:(idx+self._n_contacts)]=0.3
+            self._actions_lb[:, idx:(idx+self._n_contacts)]=0.05
+            self._actions_ub[:, idx:(idx+self._n_contacts)]=0.4
             self._is_continuous_actions[idx:(idx+self._n_contacts)]=True
         # flight params (end)
         if self._env_opts["control_fend"]:
             idx=self._actions_map["flight_end_start"]
             self._actions_lb[:, idx:(idx+self._n_contacts)]=0.0
-            self._actions_ub[:, idx:(idx+self._n_contacts)]=0.3
+            self._actions_ub[:, idx:(idx+self._n_contacts)]=0.4
             self._is_continuous_actions[idx:(idx+self._n_contacts)]=True
 
         # redefine default actions

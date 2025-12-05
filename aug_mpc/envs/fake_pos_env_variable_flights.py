@@ -34,7 +34,7 @@ class FakePosEnvVariableFlights(VariableFlightsBaseline):
 
         self._add_env_opt(env_opts, "max_distance", default=5.0) # [m] 
         self._add_env_opt(env_opts, "min_distance", default=0.0) # [m]
-        self._add_env_opt(env_opts, "max_vref", default=0.5) # [m/s]
+        self._add_env_opt(env_opts, "max_vref", default=1.0) # [m/s]
         self._add_env_opt(env_opts, "max_dp", default=5.0) # [m] after this, v ref saturates
         self._add_env_opt(env_opts, "max_dt", default=env_opts["max_dp"]/ env_opts["max_vref"])
 
@@ -86,7 +86,8 @@ class FakePosEnvVariableFlights(VariableFlightsBaseline):
                                             gpu=self._use_gpu)
 
     def _compute_twist_ref_w(self, env_indxs: torch.Tensor = None):
-
+        
+        # angular refs are not altered
         if env_indxs is None:
             # we update the position error using the current base position
             self._p_delta_w[:, :]=self._p_trgt_w-\
@@ -101,6 +102,11 @@ class FakePosEnvVariableFlights(VariableFlightsBaseline):
 
             # we compute the twist refs for the agent depending of the position error
             self._agent_twist_ref_current_w[:, 0:2]=self._dp_norm*self._dp_versor/self._env_opts["max_dt"]
+            self._agent_twist_ref_current_w[:, 2:3]=0 # no vertical vel
+
+            # apply pof0 using last value of bernoully coeffs
+            self._agent_twist_ref_current_w[:, 0:3] = self._agent_twist_ref_current_w[:, 0:3]*self._bernoulli_coeffs_linvel # linvel
+            self._agent_twist_ref_current_w[:, 3:6] = self._agent_twist_ref_current_w[:, 3:6]*self._bernoulli_coeffs_omega # omega
         else:
             self._p_delta_w[env_indxs, :]=self._robot_state.root_state.get(data_type="p",gpu=self._use_gpu)[env_indxs, 0:2] -\
                 self._p_trgt_w[env_indxs, :]
@@ -113,7 +119,12 @@ class FakePosEnvVariableFlights(VariableFlightsBaseline):
             self._dp_versor[env_indxs, :]=self._p_delta_w[env_indxs, :]/self._dp_norm[env_indxs, :]
 
             self._agent_twist_ref_current_w[env_indxs, 0:2]=self._dp_norm[env_indxs, :]*self._dp_versor[env_indxs, :]/self._env_opts["max_dt"]        
-        
+            self._agent_twist_ref_current_w[env_indxs, 2:3]=0 # no vertical vel
+
+            # apply pof0 using last value of bernoully coeffs
+            self._agent_twist_ref_current_w[env_indxs, 0:3] = self._agent_twist_ref_current_w[env_indxs, 0:3]*self._bernoulli_coeffs_linvel[env_indxs, :]
+            self._agent_twist_ref_current_w[env_indxs, 3:6] = self._agent_twist_ref_current_w[env_indxs, 3:6]*self._bernoulli_coeffs_omega[env_indxs, :] # omega
+
     def _override_refs(self,
             env_indxs: torch.Tensor = None):
         
@@ -126,9 +137,14 @@ class FakePosEnvVariableFlights(VariableFlightsBaseline):
         agent_p_ref_current=self._agent_refs.rob_refs.root_state.get(data_type="p",
                 gpu=self._use_gpu)
         
+        agent_yaw_omega_ref_current=self._agent_refs.rob_refs.root_state.get(data_type="omega",
+                gpu=self._use_gpu)
+        
         # self._p_trgt_w[:, :]=self._robot_state.root_state.get(data_type="p",gpu=self._use_gpu)[:, 0:2] + \
         #     agent_p_ref_current[:, 0:2]
-        self._p_trgt_w[:, :]=agent_p_ref_current[:, 0:2]
+        self._p_trgt_w[:, :]=agent_p_ref_current[:, 0:2] # set p target target from shared mem
+
+        self._agent_twist_ref_current_w[:, 5:6]=agent_yaw_omega_ref_current[:, 2:3] # set yaw ang. vel target from shared mem
     
     def _debug_agent_refs(self):
         if self._use_gpu:
@@ -138,7 +154,7 @@ class FakePosEnvVariableFlights(VariableFlightsBaseline):
     def _randomize_task_refs(self,
         env_indxs: torch.Tensor = None):
 
-        # we randomize the reference in world frame
+        # we randomize the target position/omega in world frame
         if env_indxs is None:
             self._trgt_d.uniform_(self._env_opts["min_distance"], self._env_opts["max_distance"])
             self._trgt_theta.uniform_(0.0, 2*torch.pi)
@@ -146,8 +162,19 @@ class FakePosEnvVariableFlights(VariableFlightsBaseline):
             self._p_trgt_w[:, :]=self._robot_state.root_state.get(data_type="p",gpu=self._use_gpu)[:, 0:2] +\
                 torch.cat((self._trgt_d*torch.cos(self._trgt_theta)
                            ,self._trgt_d*torch.sin(self._trgt_theta)), dim=1)
+            
+            # randomize just omega
+            random_uniform=torch.full_like(self._agent_twist_ref_current_w[:, 3:6], fill_value=0.0)
+            torch.nn.init.uniform_(random_uniform, a=-1, b=1)
+            self._agent_twist_ref_current_w[:, 3:6] = random_uniform*self._twist_ref_scale[:, 3:6] + self._twist_ref_offset[:, 3:6]
+
+            # sample for all envs pof0
+            if self._env_opts["use_pof0"]: # sample from bernoulli distribution and update coefficients
+                torch.bernoulli(input=self._pof1_b_linvel,out=self._bernoulli_coeffs_linvel) # by default bernoulli_coeffs are 1 if not self._env_opts["use_pof0"]
+                torch.bernoulli(input=self._pof1_b_omega,out=self._bernoulli_coeffs_omega)
                            
         else:
+
             if env_indxs.any():
                 integer_idxs=torch.nonzero(env_indxs).flatten()
                 
@@ -163,6 +190,18 @@ class FakePosEnvVariableFlights(VariableFlightsBaseline):
                     self._trgt_d[integer_idxs, :]*torch.cos(self._trgt_theta[integer_idxs, :])
                 self._p_trgt_w[integer_idxs, 1:2]=self._robot_state.root_state.get(data_type="p",gpu=self._use_gpu)[integer_idxs, 1:2] +\
                     self._trgt_d[integer_idxs, :]*torch.sin(self._trgt_theta[integer_idxs, :])
-        
-        self._compute_twist_ref_w(env_indxs=env_indxs)
+
+                # randomize just omega
+                random_uniform=torch.full_like(self._agent_twist_ref_current_w[env_indxs, 3:6], fill_value=0.0)
+                torch.nn.init.uniform_(random_uniform, a=-1, b=1)
+                self._agent_twist_ref_current_w[env_indxs, 3:6] = random_uniform*self._twist_ref_scale[:, 3:6] + self._twist_ref_offset[:, 3:6]
+
+                # sample for all envs pof0, then reset to 1 for envs which are not to be randomized
+                if self._env_opts["use_pof0"]: # sample from bernoulli distribution and update coefficients
+                    torch.bernoulli(input=self._pof1_b_linvel,out=self._bernoulli_coeffs_linvel) # by default bernoulli_coeffs are 1 if not self._env_opts["use_pof0"]
+                    torch.bernoulli(input=self._pof1_b_omega,out=self._bernoulli_coeffs_omega)
+                    self._bernoulli_coeffs_linvel[~env_indxs, :]=1
+                    self._bernoulli_coeffs_omega[~env_indxs, :]=1
+
+        self._compute_twist_ref_w(env_indxs=env_indxs) # update linear vel twist refs based on pos error
 
