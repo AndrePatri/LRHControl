@@ -32,7 +32,7 @@ def main():
         with_torch_view=False,
     )
     rs.run()
-    jnt_names = getattr(rs.jnts_state, "jnt_names", None) or rs.jnts_state.jnt_names
+    jnt_names = rs.jnts_state.jnt_names
 
     pub = RhcMeshcatPublisher(
         urdf_path=args.urdf_path,
