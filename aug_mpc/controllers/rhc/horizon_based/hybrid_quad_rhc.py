@@ -83,7 +83,6 @@ class HybridQuadRhc(RHController):
         
         self._custom_opts={"replace_continuous_joints": False,
             "use_force_feedback": False,
-            "fixed_flights": True,
             "lin_a_feedback": False,
             "is_open_loop": self._open_loop, # fully open (just for db)
             "fully_closed": False, # closed loop with full feedback (just for db)
@@ -514,7 +513,6 @@ class HybridQuadRhc(RHController):
             verbose=self._verbose,
             vlevel=VLevel.V2,
             use_force_feedback=self._custom_opts["use_force_feedback"],
-            use_fixed_flights=self._custom_opts["fixed_flights"],
             optimize_mem=True)
         
         rhc_refs.run()

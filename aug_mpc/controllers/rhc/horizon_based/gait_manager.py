@@ -87,10 +87,7 @@ class GaitManager:
 
         self.task_interfacemeline_names = []
         
-        if self._custom_opts["fixed_flights"]:
-            self._init_contact_timelines()  
-        else:
-            self._init_contact_timelines()
+        self._init_contact_timelines()  
         
         self._reset_contact_timelines()
 

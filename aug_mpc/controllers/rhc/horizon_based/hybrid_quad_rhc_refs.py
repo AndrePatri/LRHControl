@@ -22,7 +22,6 @@ class HybridQuadRhcRefs(RhcRefs):
             vlevel: bool = VLevel.V2,
             safe: bool = True,
             use_force_feedback: bool = False,
-            use_fixed_flights: bool = False,
             optimize_mem: bool = False):
         
         self.robot_index = robot_index_shm
@@ -35,7 +34,6 @@ class HybridQuadRhcRefs(RhcRefs):
         self._verbose = verbose
 
         self._use_force_feedback=use_force_feedback
-        self._use_fixed_flights=use_fixed_flights
 
         if optimize_mem:
             super().__init__( 
