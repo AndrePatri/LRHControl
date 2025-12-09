@@ -92,18 +92,30 @@ class VariableFlightsBaseline(LinVelTrackBaseline):
         if self._env_opts["control_fapex"]:
             idx=self._actions_map["flight_apex_start"]
             self._actions_lb[:, idx:(idx+self._n_contacts)]=0.05
-            self._actions_ub[:, idx:(idx+self._n_contacts)]=0.4
+            self._actions_ub[:, idx:(idx+self._n_contacts)]=0.2
             self._is_continuous_actions[idx:(idx+self._n_contacts)]=True
         # flight params (end)
         if self._env_opts["control_fend"]:
             idx=self._actions_map["flight_end_start"]
             self._actions_lb[:, idx:(idx+self._n_contacts)]=0.0
-            self._actions_ub[:, idx:(idx+self._n_contacts)]=0.4
+            self._actions_ub[:, idx:(idx+self._n_contacts)]=0.2
             self._is_continuous_actions[idx:(idx+self._n_contacts)]=True
 
         # redefine default actions
         self.default_action[:, :] = (self._actions_ub+self._actions_lb)/2.0
         # self.default_action[:, ~self._is_continuous_actions] = 1.0
+
+        if self._env_opts["control_flength"]:
+            idx=self._actions_map["flight_len_start"]
+            self.safe_action[:, idx:(idx+self._n_contacts)]=(self._env_opts["flength_max"]+self._env_opts["flength_min"])/3.0
+
+        if self._env_opts["control_fapex"]:
+            idx=self._actions_map["flight_apex_start"]
+            self.safe_action[:, idx:(idx+self._n_contacts)]=0.1
+
+        if self._env_opts["control_fend"]:
+            idx=self._actions_map["flight_end_start"]
+            self.safe_action[:, idx:(idx+self._n_contacts)]=0.0
 
     def _set_rhc_refs(self):
         LinVelTrackBaseline._set_rhc_refs(self)
