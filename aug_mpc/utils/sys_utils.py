@@ -19,11 +19,11 @@ class PathsGetter:
         
         self.REMOTENVPATH = os.path.join(self.PACKAGE_ROOT_DIR, 
                                     'envs',
-                                    'lrhc_remote_env_base.py')
+                                    'world_interface_base.py')
         
         self.SCRIPTSPATHS = [os.path.join(self.PACKAGE_ROOT_DIR, 
                                     'scripts', 
-                                    'launch_remote_env.py'),
+                                    'launch_world_interface.py'),
                             os.path.join(self.PACKAGE_ROOT_DIR, 
                                     'scripts', 
                                     'launch_train_env.py'),

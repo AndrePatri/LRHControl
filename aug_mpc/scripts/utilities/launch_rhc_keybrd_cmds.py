@@ -79,7 +79,7 @@ if __name__ == "__main__":
                 # menu button is back_start_home[2] per mapping
                 exit_pressed = bool(cur_back_start_home[2])
                 if exit_pressed and (safety_flag_wrapper is not None):
-                    Journal.log("launch_rhc_keybrd_cmds", "[]", "triggering remote exit flag", LogType.WARN)
+                    Journal.log("utilities/launch_rhc_keybrd_cmds", "[]", "triggering remote exit flag", LogType.WARN)
                     mirror = safety_flag_wrapper.get_numpy_mirror()
                     mirror.flat[0] = True
                     safety_flag_wrapper.synch_all(read=False, retry=True)

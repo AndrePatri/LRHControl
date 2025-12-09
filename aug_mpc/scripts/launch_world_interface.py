@@ -125,7 +125,7 @@ if __name__ == '__main__':
         Env = getattr(env_module, cluster_classname)
     else:
         class_list_str = ", ".join(classes_in_module)
-        Journal.log("launch_remote_env.py",
+        Journal.log("launch_world_interface.py",
             "",
             f"Found more than one class in env file {args.env_fname}. Found: {class_list_str}",
             LogType.EXCEP,

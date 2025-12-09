@@ -42,7 +42,7 @@ from abc import abstractmethod, ABC
 import os
 from typing import List, Dict
 
-class LRhcTrainingEnvBase(ABC):
+class AugMPCTrainingEnvBase(ABC):
 
     """Base class for a remote training environment tailored to Learning-based Receding Horizon Control"""
 

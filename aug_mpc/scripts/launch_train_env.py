@@ -166,8 +166,8 @@ if __name__ == "__main__":
     parser.add_argument('--actor_n_hlayers', type=int, help='Actor network size', default=3)
     parser.add_argument('--critic_n_hlayers', type=int, help='Critic network size', default=4)
 
-    parser.add_argument('--env_fname', type=str, default="linvel_env_baseline", help='Training env file name (without extension)')
-    parser.add_argument('--env_classname', type=str, default="LinVelTrackBaseline", help='Training env class name')
+    parser.add_argument('--env_fname', type=str, default="twist_tracking_env", help='Training env file name (without extension)')
+    parser.add_argument('--env_classname', type=str, default="TwistTrackingEnv", help='Training env class name')
     parser.add_argument('--override_agent_actions',action='store_true', help='Whether to override agent actions with custom ones from shared mem (useful for db)')
     parser.add_argument('--override_agent_refs',action='store_true', help='Whether to override automatically generated agent refs (useful for debug)')
     
@@ -200,7 +200,7 @@ if __name__ == "__main__":
     env_module=None
     if (not args.eval and not args.resume) or (args.override_env):
         # if starting a fresh traning or overriding env, load from a fresh env from aug_mpc
-        env_path = f"aug_mpc.envs.{env_fname}"
+        env_path = f"aug_mpc_env.training_envs.{env_fname}"
         env_module = importlib.import_module(env_path)
     else:
         if args.mpath is None:

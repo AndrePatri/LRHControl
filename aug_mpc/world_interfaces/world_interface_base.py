@@ -29,7 +29,7 @@ from abc import ABC, abstractmethod
 
 JntImpCntrlChild = TypeVar('JntImpCntrlChild', bound='JntImpCntrlBase')
 
-class LRhcEnvBase(ABC):
+class AugMPCWorldInterfaceBase(ABC):
 
     def __init__(self,
                 robot_names: List[str],
@@ -39,7 +39,7 @@ class LRhcEnvBase(ABC):
                 n_contacts: List[int],
                 cluster_dt: List[float],
                 use_remote_stepping: List[bool],
-                name: str = "LRhcEnvBase",
+                name: str = "AugMPCWorldInterfaceBase",
                 num_envs: int = 1,
                 debug = False,
                 verbose: bool = False,
