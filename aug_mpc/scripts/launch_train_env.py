@@ -200,7 +200,7 @@ if __name__ == "__main__":
     env_module=None
     if (not args.eval and not args.resume) or (args.override_env):
         # if starting a fresh traning or overriding env, load from a fresh env from aug_mpc
-        env_path = f"aug_mpc_env.training_envs.{env_fname}"
+        env_path = f"aug_mpc_envs.training_envs.{env_fname}"
         env_module = importlib.import_module(env_path)
     else:
         if args.mpath is None:
