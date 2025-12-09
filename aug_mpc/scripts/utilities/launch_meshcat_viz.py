@@ -22,7 +22,7 @@ def parse_args():
     parser.add_argument("--mesh_dir", type=str, default=None, help="Meshes root (optional)")
     parser.add_argument("--base_link", type=str, default="base_link", help="Base link name")
 
-    # New, explicit endpoints
+    # Explicit endpoints
     parser.add_argument("--zmq-host", type=str, default="127.0.0.1",
                         help="Meshcat ZMQ host (client connect)")
     parser.add_argument("--zmq-port", type=int, default=6000,
@@ -32,9 +32,9 @@ def parse_args():
     parser.add_argument("--web-port", type=int, default=7000,
                         help="Meshcat web port (browser)")
 
-    # New: actual web bind address (can be 0.0.0.0 for LAN access)
+    # Actual web bind address (can be 0.0.0.0 for LAN access)
     parser.add_argument("--web-bind", type=str, default=None,
-                        help="Web server bind address (use 0.0.0.0 for LAN access; default: web-host)")
+                        help="Web server bind address (use 0.0.0.0 for LAN; default: web-host)")
 
     # Backward-compat flags (mapped below)
     parser.add_argument("--host", type=str, default=None,
@@ -90,9 +90,9 @@ def main():
         base_link_name=args.base_link,
         zmq_host=args.zmq_host,
         zmq_port=args.zmq_port,
-        web_host=args.web_host,      # advertised URL host for printing
+        web_host=args.web_host,       # advertised URL host for printing
         web_port=args.web_port,
-        web_bind_host=args.web_bind, # actual bind address for the web server (can be 0.0.0.0)
+        web_bind_host=args.web_bind,  # actual bind address for the web server (can be 0.0.0.0)
         visualize_collisions=args.show_collisions,
         robot_joint_names=jnt_names,
     )
@@ -114,7 +114,7 @@ def main():
 
             base_p = rs.root_state.get(data_type="p", gpu=False)[args.env_idx, :3]
             base_q = rs.root_state.get(data_type="q", gpu=False)[args.env_idx, :4]  # wxyz
-            jpos = rs.jnts_state.get(data_type="q", gpu=False)[args.env_idx, :]
+            jpos  = rs.jnts_state.get(data_type="q", gpu=False)[args.env_idx, :]
 
             pub.display(np.asarray(base_p), np.asarray(base_q), np.asarray(jpos))
             time.sleep(dt)
