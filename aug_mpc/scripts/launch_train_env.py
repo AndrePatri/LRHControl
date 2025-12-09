@@ -37,12 +37,12 @@ def handle_sigint(signum, frame):
 def import_env_module(env_path, local_env_root: str = None):
     """
     env_path: full path to the child env .py file to exec
-    local_env_root: directory where local copies of aug_mpc.envs modules live
+    local_env_root: directory where local copies of aug_mpc_envs.training_envs modules live
     """
     if local_env_root is not None:
         local_env_root = os.path.abspath(local_env_root)
-        # override aug_mpc.envs package to point to the local_env_root
-        pkg_name = "aug_mpc.envs"
+        # override aug_mpc_envs.training_envs package to point to the local_env_root
+        pkg_name = "aug_mpc_envs.training_envs"
         if pkg_name not in sys.modules:
             mod = types.ModuleType(pkg_name)
             mod.__path__ = [local_env_root]  # tell Python to look here first

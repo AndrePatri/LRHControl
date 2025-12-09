@@ -364,14 +364,14 @@ class AugMPCTrainingEnvBase(ABC):
 
         from EigenIPC.PyEigenIPC import StringTensorClient
         from perf_sleep.pyperfsleep import PerfSleep
-        shared_rhc_sahred_files = StringTensorClient(
+        shared_rhc_shared_files = StringTensorClient(
             basename="SharedRhcFilesDropDir", 
             name_space=self._namespace,
             verbose=self._verbose, 
             vlevel=VLevel.V2)
-        shared_rhc_sahred_files.run()
-        shared_rhc_files_vals=[""]*shared_rhc_sahred_files.length()
-        while not shared_rhc_sahred_files.read_vec(shared_rhc_files_vals, 0):
+        shared_rhc_shared_files.run()
+        shared_rhc_files_vals=[""]*shared_rhc_shared_files.length()
+        while not shared_rhc_shared_files.read_vec(shared_rhc_files_vals, 0):
             nsecs =  1000000000 # 1 sec
             PerfSleep.thread_sleep(nsecs) # we just keep it alive
         rhc_list=[]

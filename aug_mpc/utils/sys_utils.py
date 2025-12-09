@@ -18,7 +18,7 @@ class PathsGetter:
                                     'rhc')
         
         self.REMOTENVPATH = os.path.join(self.PACKAGE_ROOT_DIR, 
-                                    'envs',
+                                    'world_interfaces',
                                     'world_interface_base.py')
         
         self.SCRIPTSPATHS = [os.path.join(self.PACKAGE_ROOT_DIR, 
