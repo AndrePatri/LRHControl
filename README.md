@@ -42,10 +42,10 @@ Reinforcement Learning-Augmented Model Predictive Control *at scale* for legged 
 AugMPC’s is essentially made of three main components:
 
 1. **World interface** – Implements `AugMPCWorldInterfaceBase`. It connects to Isaac Sim, xbot2, or hardware, publishes robot states, and triggers MPCHive controllers via shared memory. Optional remote stepping lets the training loop decide when the simulator should advance.
-2. **MPC cluster** – Uses [MPCHive]()'s `ControlClusterServer/Client` to spawn multiple receding-horizon controllers (see `aug_mpc.controllers`). Each controller reads robot states, solves its MPC problem and writes predictions and commands back to shared memory.
+2. **MPC cluster** – Uses [MPCHive](https://github.com/AndrePatri/MPCViz)'s `ControlClusterServer/Client` to spawn multiple receding-horizon controllers (see `aug_mpc.controllers`). Each controller reads robot states, solves its MPC problem and writes predictions and commands back to shared memory.
 3. **Training environment + RL algorithm** – An `AugMPCTrainingEnvBase` derivative defines the MDP at hand (observations, actions, rewards, terminations, trucations), which is then used by the training executable (SAC is the default, PPO supported).
 
-Specific implentations of world interfaces and training environments are available at [AugMPCEnvs]().
+Specific implentations of world interfaces and training environments are available at [AugMPCEnvs](https://github.com/AndrePatri/AugMPCEnvs).
 
 ## Repository layout
 
