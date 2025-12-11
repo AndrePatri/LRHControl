@@ -390,8 +390,9 @@ class ActorCriticAlgoBase(ABC):
         if (self._debug):
             if self._remote_db:
                 job_type = "evaluation" if self._eval else "training"
+                project="IBRIDO-ablations"
                 wandb.init(
-                    project="AugMPC",
+                    project=project,
                     group=self._run_name,
                     name=self._unique_id,
                     id=self._unique_id,
