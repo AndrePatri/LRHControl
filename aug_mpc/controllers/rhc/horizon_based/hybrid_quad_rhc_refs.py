@@ -106,24 +106,24 @@ class HybridQuadRhcRefs(RhcRefs):
         
         # set some defaults from gait manager
         for i in range(self.n_contacts()):
-            self.flight_settings.set(data=self.gait_manager.get_flight_duration(contact_name=contact_names[i]),
-                data_type="len",
+            self.flight_settings_req.set(data=self.gait_manager.get_flight_duration(contact_name=contact_names[i]),
+                data_type="len_remain",
                 robot_idxs=self.robot_index_np_view,
                 contact_idx=i)
-            self.flight_settings.set(data=self.gait_manager.get_step_apexdh(contact_name=contact_names[i]),
+            self.flight_settings_req.set(data=self.gait_manager.get_step_apexdh(contact_name=contact_names[i]),
                 data_type="apex_dpos",
                 robot_idxs=self.robot_index_np_view,
                 contact_idx=i)
-            self.flight_settings.set(data=self.gait_manager.get_step_enddh(contact_name=contact_names[i]),
+            self.flight_settings_req.set(data=self.gait_manager.get_step_enddh(contact_name=contact_names[i]),
                 data_type="end_dpos",
                 robot_idxs=self.robot_index_np_view,
                 contact_idx=i)
         
-        self.flight_settings.synch_retry(row_index=self.robot_index,
+        self.flight_settings_req.synch_retry(row_index=self.robot_index,
             col_index=0,
             row_index_view=self.robot_index_view,
             n_rows=1,
-            n_cols=self.flight_settings.n_cols,
+            n_cols=self.flight_settings_req.n_cols,
             read=False)
 
     def step(self, qstate: np.ndarray = None,
@@ -140,7 +140,7 @@ class HybridQuadRhcRefs(RhcRefs):
             self.contact_flags.synch_all(read=True, retry=True,
                         row_index=self.robot_index,
                         row_index_view=self.robot_index_view)
-            self.flight_settings.synch_all(read=True, retry=True,
+            self.flight_settings_req.synch_all(read=True, retry=True,
                         row_index=self.robot_index,
                         row_index_view=self.robot_index_view)
             self._set_contact_phases(q_full=qstate)
@@ -174,116 +174,58 @@ class HybridQuadRhcRefs(RhcRefs):
             target_n_limbs_in_contact=4
 
         is_contact = contact_flags_refs.flatten().tolist() 
-        
-        for i in range(len(is_contact)): # loop through contact timelines
+        n_contacts=len(is_contact)
+
+        for i in range(n_contacts): # loop through contact timelines
             timeline_name = self.timeline_names[i]
             
             self.gait_manager.set_f_reg(contact_name=timeline_name,
                 scale=target_n_limbs_in_contact)
 
-            if is_contact[i]==False: # flight phase
-                
-                len_now=int(self.flight_settings.get(data_type="len",
+            if is_contact[i]==False: # release contact
+
+                # flight parameters requests are set only when inserting a flight phase
+                len_req_now=int(self.flight_settings_req.get(data_type="len_remain",
                     robot_idxs=self.robot_index_np_view,
                     contact_idx=i).item())
-                apex_now=self.flight_settings.get(data_type="apex_dpos",
+                apex_now_req=self.flight_settings_req.get(data_type="apex_dpos",
                     robot_idxs=self.robot_index_np_view,
                     contact_idx=i).item()
-                end_now=self.flight_settings.get(data_type="end_dpos",
+                end_now_req=self.flight_settings_req.get(data_type="end_dpos",
                     robot_idxs=self.robot_index_np_view,
                     contact_idx=i).item()
-                # set flight phase property depending on last value
-                self.gait_manager.set_flight_duration(contact_name=timeline_name,
-                    val=len_now)
-                self.gait_manager.set_step_apexdh(contact_name=timeline_name,
-                    val=apex_now)
-                self.gait_manager.set_step_enddh(contact_name=timeline_name,
-                    val=end_now)
                 
-                # add flight phase
+                # set flight phase properties depending on last value on shared memory
+                self.gait_manager.set_flight_duration(contact_name=timeline_name,
+                    val=len_req_now)
+                self.gait_manager.set_step_apexdh(contact_name=timeline_name,
+                    val=apex_now_req)
+                self.gait_manager.set_step_enddh(contact_name=timeline_name,
+                    val=end_now_req)
+                
+                # insert flight phase over the horizon
                 self.gait_manager.add_flight(contact_name=timeline_name,
                     robot_q=q_full)
                                 
             else: # contact phase
                 self.gait_manager.add_stand(contact_name=timeline_name)
 
-            flight_info=self.gait_manager.get_flight_info(timeline_name)
-            # self._flight_info=None
-            if flight_info is not None:
-                pos=flight_info[0]
-                length=flight_info[1]
-                self.flight_info.write_retry(pos, 
-                    row_index=self.robot_index,
-                    col_index=i, # contact i
-                    row_index_view=self.robot_index_np_view,
-                    )
-            else:
-                length=0
-
-            self.flight_info.write_retry(length, 
-                row_index=self.robot_index,
-                col_index=len(is_contact)+i,
-                row_index_view=self.robot_index_np_view)
-                # self._flight_info[2] # n nodes
+            at_least_one_flight=self.gait_manager.update_flight_info(timeline_name)
+            # flight_info=self.gait_manager.get_flight_info(timeline_name)
             
             self.gait_manager.check_horizon_full(timeline_name=timeline_name)
         
+        # write flight info to shared mem for all contacts in one shot (we follow same order as in flight_info shm)
+        all_flight_info=self.gait_manager.get_flight_info_all()
+        flight_info_shared=self.flight_info.get_numpy_mirror()
+        flight_info_shared[self.robot_index_np_view, :]=all_flight_info
+        self.flight_info.synch_retry(row_index=self.robot_index, 
+                                col_index=0, 
+                                row_index_view=self.robot_index_np_view,
+                                n_rows=1, n_cols=self.flight_info.n_cols,
+                                read=False)
+                                     
         self.gait_manager.update()
-        
-    def _handle_contact_phases_free(self):
-
-        pz_ref=self.rob_refs.contact_pos.get(data_type = "p_z", 
-                robot_idxs=self.robot_index_np_view).reshape(-1, 1)
-        
-        thresh=0.01
-        is_contact=~(pz_ref>thresh)
-        target_n_limbs_in_contact=np.sum(is_contact).item()
-        if target_n_limbs_in_contact==0:
-            target_n_limbs_in_contact=4
-
-        is_contact_list = is_contact.flatten().tolist() 
-
-        for i in range(len(is_contact)): # loop through contact timelines
-            timeline_name = self._timeline_names[i]
-            timeline = self.gait_manager._contact_timelines[timeline_name]
-            for contact_force_ref in self._f_reg_ref[i]: # set for references depending on n of contacts and contact forces per-contact
-                
-                scale=self._n_forces_per_contact[i]*target_n_limbs_in_contact
-                # scale=4 # just regularize
-                contact_force_ref.assign(self._total_weight/scale)
-
-            self.gait_manager.set_ref_pos(timeline_name=timeline_name,
-                ref_height=pz_ref[i,:],
-                threshold=thresh)
-            
-            # writing flight info
-            self._flight_info=self.gait_manager.get_flight_info(timeline_name)
-            # self._flight_info=None
-            if self._flight_info is not None:
-                pos=self._flight_info[0]
-                length=self._flight_info[1]
-                self.flight_info.write_retry(pos, 
-                    row_index=self.robot_index,
-                    col_index=i,
-                    row_index_view=self.robot_index_np_view)
-            else:
-                length=0
-            self.flight_info.write_retry(length, 
-                row_index=self.robot_index,
-                col_index=len(is_contact)+i,
-                row_index_view=self.robot_index_np_view)
-                # self._flight_info[2] # n nodes
-
-            if timeline.getEmptyNodes() > 0: # if there's space, always add a stance
-                self.gait_manager.add_stand(timeline_name)
-
-            if timeline.getEmptyNodes() > 0:
-                error = f"Empty nodes detected over the horizon! Make sure to fill the whole horizon with valid phases!!"
-                Journal.log(self.__class__.__name__,
-                    "step",
-                    error,
-                    LogType.EXCEP,
-                    throw_when_excep = True)
       
     def _apply_refs_to_tasks(self, q_base = None):
         # overrides parent
@@ -391,7 +333,6 @@ class HybridQuadRhcRefs(RhcRefs):
 
             self.rob_refs.root_state.set(data_type="p", data=self._p_ref_default, robot_idxs=self.robot_index_np_view)
             self.rob_refs.root_state.set(data_type="q", data=self._q_ref_default, robot_idxs=self.robot_index_np_view)
-            
             self.rob_refs.root_state.set(data_type="twist", data=np.zeros((1, 6)), robot_idxs=self.robot_index_np_view)
                                            
             self.contact_flags.synch_retry(row_index=self.robot_index, col_index=0, 
@@ -412,17 +353,14 @@ class HybridQuadRhcRefs(RhcRefs):
                                     n_rows=1, n_cols=self.rob_refs.contact_pos.n_cols,
                                     read=False)
             
-            self.flight_info.synch_retry(row_index=self.robot_index, col_index=0, 
+            self.flight_info.synch_retry(row_index=self.robot_index, 
+                                col_index=0, 
                                 row_index_view=self.robot_index_view,
                                 n_rows=1, n_cols=self.flight_info.n_cols,
                                 read=False)
             
-            
-            
             # should also empty the timeline for stepping phases
             self._step_idx = 0
-
-            self._flight_info=None
 
         else:
             exception = f"Cannot call reset() since run() was not called!"

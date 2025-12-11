@@ -211,10 +211,10 @@ if __name__ == "__main__":
 
             if args.mpc_finfo:
                 rhc_refs.flight_info.synch_all(read=True, retry=True)
-                rhc_refs.flight_settings.synch_all(read=True, retry=True)
-                len=rhc_refs.flight_settings.get(data_type="len", robot_idxs=idx).flatten()
-                apex_dpos=rhc_refs.flight_settings.get(data_type="apex_dpos", robot_idxs=idx).flatten()
-                end_dpos=rhc_refs.flight_settings.get(data_type="end_dpos", robot_idxs=idx).flatten()
+                rhc_refs.flight_settings_req.synch_all(read=True, retry=True)
+                len=rhc_refs.flight_settings_req.get(data_type="len_remain", robot_idxs=idx).flatten()
+                apex_dpos=rhc_refs.flight_settings_req.get(data_type="apex_dpos", robot_idxs=idx).flatten()
+                end_dpos=rhc_refs.flight_settings_req.get(data_type="end_dpos", robot_idxs=idx).flatten()
 
             if args.with_obs:
                 obs.synch_all(read=True, retry=True)

@@ -329,7 +329,7 @@ class TrainingEnvData(SharedDataWindow):
         
         # agent refs 
         self.rt_plotters.append(RtPlotWindow(data_dim=self.shared_data_clients[11].rob_refs.root_state.get(data_type="p").shape[1],
-                    n_data = 1,
+                    n_data = n_envs,
                     update_data_dt=self.update_data_dt, 
                     update_plot_dt=self.update_plot_dt,
                     window_duration=self.window_duration, 
@@ -341,7 +341,7 @@ class TrainingEnvData(SharedDataWindow):
         
         self.rt_plotters.append(RtPlotWindow(
                     data_dim=self.shared_data_clients[11].rob_refs.root_state.get(data_type="q").shape[1],
-                    n_data = 1,
+                    n_data = n_envs,
                     update_data_dt=self.update_data_dt, 
                     update_plot_dt=self.update_plot_dt,
                     window_duration=self.window_duration, 
@@ -351,7 +351,7 @@ class TrainingEnvData(SharedDataWindow):
                     legend_list=["q_w", "q_i", "q_j", "q_k"]))
         
         self.rt_plotters.append(RtPlotWindow(data_dim=self.shared_data_clients[11].rob_refs.root_state.get(data_type="v").shape[1],
-                    n_data = 1,
+                    n_data = n_envs,
                     update_data_dt=self.update_data_dt, 
                     update_plot_dt=self.update_plot_dt, 
                     window_duration=self.window_duration, 
@@ -362,7 +362,7 @@ class TrainingEnvData(SharedDataWindow):
                     ylabel="[m/s]"))
         
         self.rt_plotters.append(RtPlotWindow(data_dim=self.shared_data_clients[11].rob_refs.root_state.get(data_type="omega").shape[1],
-                    n_data = 1, 
+                    n_data = n_envs, 
                     update_data_dt=self.update_data_dt, 
                     update_plot_dt=self.update_plot_dt, 
                     window_duration=self.window_duration, 
