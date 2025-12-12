@@ -38,7 +38,7 @@ class SACAgent(nn.Module):
             add_weight_norm: bool = False,
             add_layer_norm: bool = False,
             add_batch_norm: bool = False,
-            target_entropy_per_action: float = 0.5):
+            init_target_entropy_per_action: float = 1.5):
 
         super().__init__()
 
@@ -123,7 +123,7 @@ class SACAgent(nn.Module):
         self.register_buffer(
             "obs_bias", obs_bias)
         
-        self._build_nets()
+        self._build_nets(init_target_entropy_per_action)
         
         self._init_obs_norm()
 
@@ -150,7 +150,7 @@ class SACAgent(nn.Module):
                                         debug=self._debug)
             self.obs_running_norm.type(self._torch_dtype) # ensuring correct dtype for whole module
 
-    def _build_nets(self):
+    def _build_nets(self, init_target_entropy_per_action: float = 0.5):
 
         if self._add_weight_norm:
             Journal.log(self.__class__.__name__,
@@ -175,7 +175,7 @@ class SACAgent(nn.Module):
                     add_weight_norm=self._add_weight_norm,
                     add_layer_norm=self._add_layer_norm,
                     add_batch_norm=self._add_batch_norm,
-                    target_entropy_per_action=target_entropy_per_action,
+                    init_target_entropy_per_action=init_target_entropy_per_action,
                     )
 
         if (not self._is_eval) or self._load_qf: # just needed for training or during eval
@@ -463,7 +463,7 @@ class Actor(nn.Module):
         add_weight_norm: bool = False,
         add_layer_norm: bool = False,
         add_batch_norm: bool = False,
-        target_entropy_per_action: float = 0.5):
+        init_target_entropy_per_action: float = 0.5):
     
         super().__init__()
 
@@ -518,7 +518,7 @@ class Actor(nn.Module):
         # Network configuration
         self.LOG_STD_MAX = 2
         self.LOG_STD_MIN = -5
-        self._init_target_entropy_per_action = target_entropy_per_action
+        self._init_target_entropy_per_action = init_target_entropy_per_action
 
         # Input layer followed by hidden layers
         layers=llayer_init(nn.Linear(self._obs_dim, self._first_hidden_layer_width), 
@@ -608,6 +608,7 @@ class Actor(nn.Module):
         print(self._fc12)
         print(self.fc_mean)
         print(self.fc_logstd)
+        print(f"logstd initial layer bias: {log_std_bias_const}")
 
     def get_n_params(self):
         return sum(p.numel() for p in self.parameters())
