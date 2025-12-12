@@ -415,6 +415,18 @@ class SActorCriticAlgoBase(ABC):
         if self._eval:
             self._env.switch_random_reset(on=False)
 
+        if self._debug and (not self._override_agent_actions):
+            with torch.no_grad():
+                init_obs = self._env.get_obs(clone=True)
+                _, init_log_pi, _ = self._agent.get_action(init_obs)
+                init_policy_entropy = (-init_log_pi).mean().item()
+                init_policy_entropy_per_action = init_policy_entropy / float(self._actions_dim)
+            Journal.log(self.__class__.__name__,
+                "setup",
+                f"Initial policy entropy per action: {init_policy_entropy_per_action:.4f})",
+                LogType.INFO,
+                throw_when_excep = True)
+
         # create dump directory + copy important files for debug
         self._init_drop_dir(drop_dir_name)
         self._hyperparameters["drop_dir"]=self._drop_dir

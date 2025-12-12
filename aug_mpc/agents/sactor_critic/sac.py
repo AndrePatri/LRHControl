@@ -37,8 +37,7 @@ class SACAgent(nn.Module):
             torch_compile: bool = False,
             add_weight_norm: bool = False,
             add_layer_norm: bool = False,
-            add_batch_norm: bool = False,
-            init_target_entropy_per_action: float = 1.5):
+            add_batch_norm: bool = False):
 
         super().__init__()
 
@@ -123,7 +122,7 @@ class SACAgent(nn.Module):
         self.register_buffer(
             "obs_bias", obs_bias)
         
-        self._build_nets(init_target_entropy_per_action)
+        self._build_nets()
         
         self._init_obs_norm()
 
@@ -150,7 +149,7 @@ class SACAgent(nn.Module):
                                         debug=self._debug)
             self.obs_running_norm.type(self._torch_dtype) # ensuring correct dtype for whole module
 
-    def _build_nets(self, init_target_entropy_per_action: float = 0.5):
+    def _build_nets(self):
 
         if self._add_weight_norm:
             Journal.log(self.__class__.__name__,
@@ -175,7 +174,6 @@ class SACAgent(nn.Module):
                     add_weight_norm=self._add_weight_norm,
                     add_layer_norm=self._add_layer_norm,
                     add_batch_norm=self._add_batch_norm,
-                    init_target_entropy_per_action=init_target_entropy_per_action,
                     )
 
         if (not self._is_eval) or self._load_qf: # just needed for training or during eval
@@ -462,8 +460,7 @@ class Actor(nn.Module):
         n_hidden_layers: int = 2,
         add_weight_norm: bool = False,
         add_layer_norm: bool = False,
-        add_batch_norm: bool = False,
-        init_target_entropy_per_action: float = 0.5):
+        add_batch_norm: bool = False):
     
         super().__init__()
 
@@ -518,7 +515,6 @@ class Actor(nn.Module):
         # Network configuration
         self.LOG_STD_MAX = 2
         self.LOG_STD_MIN = -5
-        self._init_target_entropy_per_action = init_target_entropy_per_action
 
         # Input layer followed by hidden layers
         layers=llayer_init(nn.Linear(self._obs_dim, self._first_hidden_layer_width), 
@@ -584,11 +580,10 @@ class Actor(nn.Module):
                         add_batch_norm=False
                         )
         self.fc_mean = nn.Sequential(*out_fc_mean)
-        log_std_bias_const = self._logstd_bias_from_entropy(self._init_target_entropy_per_action)
         out_fc_logstd= llayer_init(nn.Linear(layer_width, self._actions_dim), 
                         init_type="uniform",
                         uniform_biases=False,
-                        bias_const=log_std_bias_const,
+                        bias_const=math.log(1.0),
                         scale_weight=1e-3, # scaling (output layer)
                         scale_bias=1.0,
                         device=self._torch_device, 
@@ -608,7 +603,6 @@ class Actor(nn.Module):
         print(self._fc12)
         print(self.fc_mean)
         print(self.fc_logstd)
-        print(f"logstd initial layer bias: {log_std_bias_const}")
 
     def get_n_params(self):
         return sum(p.numel() for p in self.parameters())
@@ -638,17 +632,6 @@ class Actor(nn.Module):
     
     def remove_scaling(self, a):
         return (a - self.action_bias)/self.action_scale
-
-    def _logstd_bias_from_entropy(self, target_entropy: float) -> float:
-        action_scale = torch.abs(self.action_scale).clamp(min=1e-6)
-        mean_log_scale = torch.log(action_scale).mean().item()
-        normal_entropy = target_entropy - mean_log_scale
-        gaussian_const = 0.5 * math.log(2 * math.pi * math.e)
-        log_sigma = normal_entropy - gaussian_const
-        log_sigma = max(min(log_sigma, self.LOG_STD_MAX), self.LOG_STD_MIN)
-        tanh_arg = 2.0 * (log_sigma - self.LOG_STD_MIN) / (self.LOG_STD_MAX - self.LOG_STD_MIN) - 1.0
-        tanh_arg = max(min(tanh_arg, 0.999999), -0.999999)
-        return 0.5 * math.log((1.0 + tanh_arg) / (1.0 - tanh_arg))
 
 if __name__ == "__main__":  
     device = "cpu"  # or "cpu"
