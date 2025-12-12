@@ -97,8 +97,6 @@ class SActorCriticAlgoBase(ABC):
         self._episode_timeout_lb, self._episode_timeout_ub = self._env.episode_timeout_bounds()
         self._task_rand_timeout_lb, self._task_rand_timeout_ub = self._env.task_rand_timeout_bounds()
         self._env_n_action_reps = self._env.n_action_reps()
-        self._env_actions_ub=self._env.get_actions_ub()
-        self._env_actions_lb=self._env.get_actions_lb()
         self._is_continuous_actions_bool=self._env.is_action_continuous()
         self._is_continuous_actions=torch.where(self._is_continuous_actions_bool)[0]
         self._is_discrete_actions_bool=self._env.is_action_discrete()
@@ -326,8 +324,8 @@ class SActorCriticAlgoBase(ABC):
                         obs_ub=self._env.get_obs_ub().flatten().tolist(),
                         obs_lb=self._env.get_obs_lb().flatten().tolist(),
                         actions_dim=self._env.actions_dim(),
-                        actions_ub=self._env.get_actions_ub().flatten().tolist(),
-                        actions_lb=self._env.get_actions_lb().flatten().tolist(),
+                        actions_ub=None,
+                        actions_lb=None,
                         rescale_obs=rescale_obs,
                         norm_obs=norm_obs,
                         use_action_rescale_for_critic=act_rescale_critic,
@@ -348,8 +346,8 @@ class SActorCriticAlgoBase(ABC):
         else: # we use a fake agent
             self._agent = DummyAgent(obs_dim=self._env.obs_dim(),
                     actions_dim=self._env.actions_dim(),
-                    actions_ub=self._env.get_actions_ub().flatten().tolist(),
-                    actions_lb=self._env.get_actions_lb().flatten().tolist(),
+                    actions_ub=None,
+                    actions_lb=None,
                     device=self._torch_device,
                     dtype=self._dtype,
                     debug=self._debug)
@@ -510,8 +508,6 @@ class SActorCriticAlgoBase(ABC):
             self._demo_stop_thresh=self._hyperparameters["demo_stop_thresh"]
 
         actions = self._env.get_actions()
-        self._action_scale = self._env.get_actions_scale()
-        self._action_offset = self._env.get_actions_offset()
         self._random_uniform = torch.full_like(actions, fill_value=0.0) # used for sampling random actions (preallocated
         # for efficiency)
         self._random_normal = torch.full_like(self._random_uniform,fill_value=0.0)
@@ -2106,7 +2102,7 @@ class SActorCriticAlgoBase(ABC):
     def _sample_random_actions(self):
         
         self._random_uniform.uniform_(-1,1)
-        random_actions = self._random_uniform*self._action_scale+self._action_offset
+        random_actions = self._random_uniform
 
         return random_actions
     
@@ -2147,10 +2143,9 @@ class SActorCriticAlgoBase(ABC):
         action_indices = action_idxs.reshape(1,-1) # Get indices of True actions
         action_indices_flat=action_indices.flatten()
 
-        perturbation=noise[env_indices, action_indices]*self._action_scale[:, action_indices_flat]*scaling
+        perturbation=noise[env_indices, action_indices]*scaling
         perturbed_actions=actions[env_indices, action_indices]+perturbation
-        perturbed_actions.clamp_(self._env_actions_lb[:, action_indices_flat], 
-                self._env_actions_ub[:, action_indices_flat]) # enforce actions bounds
+        perturbed_actions.clamp_(-1.0, 1.0) # enforce normalized bounds
 
         actions[env_indices, action_indices]=\
             perturbed_actions

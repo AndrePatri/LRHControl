@@ -96,8 +96,6 @@ class ActorCriticAlgoBase(ABC):
         self._episode_timeout_lb, self._episode_timeout_ub = self._env.episode_timeout_bounds()
         self._task_rand_timeout_lb, self._task_rand_timeout_ub = self._env.task_rand_timeout_bounds()
         self._env_n_action_reps = self._env.n_action_reps()
-        self._env_actions_ub=self._env.get_actions_ub()
-        self._env_actions_lb=self._env.get_actions_lb()
         self._is_continuous_actions_bool=self._env.is_action_continuous()
         self._is_continuous_actions=torch.where(self._is_continuous_actions_bool)[0]
         self._is_discrete_actions_bool=self._env.is_action_discrete()
@@ -278,8 +276,8 @@ class ActorCriticAlgoBase(ABC):
                             obs_ub=self._env.get_obs_ub().flatten().tolist(),
                             obs_lb=self._env.get_obs_lb().flatten().tolist(),
                             actions_dim=self._env.actions_dim(),
-                            actions_ub=self._env.get_actions_ub().flatten().tolist(),
-                            actions_lb=self._env.get_actions_lb().flatten().tolist(),
+                            actions_ub=None,
+                            actions_lb=None,
                             rescale_obs=rescale_obs,
                             norm_obs=norm_obs,
                             compression_ratio=compression_ratio,
@@ -300,8 +298,8 @@ class ActorCriticAlgoBase(ABC):
         else: # we use a fake agent
             self._agent = DummyAgent(obs_dim=self._env.obs_dim(),
                     actions_dim=self._env.actions_dim(),
-                    actions_ub=self._env.get_actions_ub().flatten().tolist(),
-                    actions_lb=self._env.get_actions_lb().flatten().tolist(),
+                    actions_ub=None,
+                    actions_lb=None,
                     device=self._torch_device,
                     dtype=self._dtype,
                     debug=self._debug)
@@ -411,8 +409,6 @@ class ActorCriticAlgoBase(ABC):
                 wandb.watch((self._agent), log="all", log_freq=1000, log_graph=False)
                 
         actions = self._env.get_actions()
-        self._action_scale = self._env.get_actions_scale()
-        self._action_offset = self._env.get_actions_offset()
         self._random_uniform = torch.full_like(actions, fill_value=0.0) # used for sampling random actions (preallocated
         # for efficiency)
         self._random_normal = torch.full_like(self._random_uniform,fill_value=0.0)
@@ -1498,7 +1494,7 @@ class ActorCriticAlgoBase(ABC):
     def _sample_random_actions(self):
         
         self._random_uniform.uniform_(-1,1)
-        random_actions = self._random_uniform*self._action_scale+self._action_offset
+        random_actions = self._random_uniform
 
         return random_actions
     

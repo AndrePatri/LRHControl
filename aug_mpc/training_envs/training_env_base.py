@@ -503,16 +503,18 @@ class AugMPCTrainingEnvBase(ABC):
     def step(self, 
             action):
 
+        actions_norm = action.detach()
         actions = self._actions.get_torch_mirror(gpu=self._use_gpu) # will hold agent actions
 
-        # writes actions from agent, detaching to avoid grads prop
-        actions[:, :] = action.detach() 
+        # scale normalized actions to physical space before interfacing with controllers
+        actions[:, :] = actions_norm*self._actions_scale + self._actions_offset
+        actions.clamp_(self._actions_lb, self._actions_ub)
 
         self._override_actions_with_demo() # if necessary override some actions with expert demonstrations
         # (getting actions with get_actions will return the modified actions tensor)
 
         if self._act_mem_buffer is not None:
-            self._act_mem_buffer.update(new_data=actions)
+            self._act_mem_buffer.update(new_data=actions_norm)
 
         if self._env_opts["use_action_smoothing"]:
             self._apply_actions_smoothing() # smooth actions if enabled (the tensor returned by 
@@ -618,7 +620,7 @@ class AugMPCTrainingEnvBase(ABC):
 
         if self._act_mem_buffer is not None:
             self._act_mem_buffer.reset(to_be_reset=episode_finished.flatten(),
-                            init_data=self.default_action)
+                            init_data=self._normalize_actions(self.default_action))
 
         if self._action_smoother_continuous is not None:
             self._action_smoother_continuous.reset(to_be_reset=episode_finished.flatten(),
@@ -791,7 +793,7 @@ class AugMPCTrainingEnvBase(ABC):
         self._substep_abs_counter.reset()
 
         if self._act_mem_buffer is not None:
-            self._act_mem_buffer.reset_all(init_data=self.default_action)
+            self._act_mem_buffer.reset_all(init_data=self._normalize_actions(self.default_action))
 
         if self._action_smoother_continuous is not None:
             self._action_smoother_continuous.reset(reset_val=self.default_action[:, self._is_continuous_actions])
@@ -871,21 +873,32 @@ class AugMPCTrainingEnvBase(ABC):
         else:
             return self._next_obs.get_torch_mirror(gpu=self._use_gpu).detach()
         
-    def get_actions(self, clone:bool=False):
-        if clone:
-            return self._actions.get_torch_mirror(gpu=self._use_gpu).detach().clone()
-        else:
-            return self._actions.get_torch_mirror(gpu=self._use_gpu).detach()
+    def get_actions(self, clone:bool=False, normalized: bool = False):
+        actions = self._actions.get_torch_mirror(gpu=self._use_gpu).detach()
+        if normalized:
+            normalized_actions = self._normalize_actions(actions)
+            return normalized_actions.clone() if clone else normalized_actions
+        return actions.clone() if clone else actions
     
-    def get_actual_actions(self, clone:bool=False):
+    def get_actual_actions(self, clone:bool=False, normalized: bool = False):
         if self._env_opts["use_action_smoothing"]:
-            if clone:
-                return self._actual_actions.get_torch_mirror(gpu=self._use_gpu).detach().clone()
-            else:
-                return self._actual_actions.get_torch_mirror(gpu=self._use_gpu).detach()
+            actions = self._actual_actions.get_torch_mirror(gpu=self._use_gpu).detach()
         else: # actual action coincides with the one from the agent + possible modif.
-            # made if using demonstration envs
-            return self.get_actions(clone=clone)
+            actions = self.get_actions(clone=False, normalized=False)
+        if normalized:
+            normalized_actions = self._normalize_actions(actions)
+            return normalized_actions.clone() if clone else normalized_actions
+        return actions.clone() if clone else actions
+
+    def _normalize_actions(self, actions: torch.Tensor):
+        scale = torch.where(self._actions_scale == 0.0,
+            torch.ones_like(self._actions_scale),
+            self._actions_scale)
+        normalized = (actions - self._actions_offset)/scale
+        zero_scale_mask = torch.eq(self._actions_scale, 0.0).squeeze(0)
+        if torch.any(zero_scale_mask):
+            normalized[:, zero_scale_mask] = 0.0
+        return normalized
         
     def get_rewards(self, clone:bool=False):
         if clone:

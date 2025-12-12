@@ -160,8 +160,8 @@ class DummyTestAlgoBase(ABC):
 
         self._agent = DummyAgent(obs_dim=self._env.obs_dim(),
                     actions_dim=self._env.actions_dim(),
-                    actions_ub=self._env.get_actions_ub().flatten().tolist(),
-                    actions_lb=self._env.get_actions_lb().flatten().tolist(),
+                    actions_ub=None,
+                    actions_lb=None,
                     device=self._torch_device,
                     dtype=self._dtype,
                     debug=self._debug)

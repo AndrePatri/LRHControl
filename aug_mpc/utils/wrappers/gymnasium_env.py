@@ -353,11 +353,12 @@ class Gymnasium2LRHCEnv():
         else:
             return self._next_obs.get_torch_mirror(gpu=self._use_gpu)
         
-    def get_actions(self, clone:bool=False):
-        if clone:
-            return self._actions.get_torch_mirror(gpu=self._use_gpu).clone()
-        else:
-            return self._actions.get_torch_mirror(gpu=self._use_gpu)
+    def get_actions(self, clone:bool=False, normalized: bool = False):
+        actions = self._actions.get_torch_mirror(gpu=self._use_gpu).detach()
+        if normalized:
+            normalized_actions = self._normalize_actions(actions)
+            return normalized_actions.clone() if clone else normalized_actions
+        return actions.clone() if clone else actions
             
     def get_rewards(self, clone:bool=False):
         if clone:
@@ -390,6 +391,16 @@ class Gymnasium2LRHCEnv():
     
     def get_actions_offset(self):
         return self._actions_offset
+
+    def _normalize_actions(self, actions: torch.Tensor):
+        scale = torch.where(self._actions_scale == 0.0,
+            torch.ones_like(self._actions_scale),
+            self._actions_scale)
+        normalized = (actions - self._actions_offset)/scale
+        zero_scale_mask = torch.eq(self._actions_scale, 0.0).squeeze(0)
+        if torch.any(zero_scale_mask):
+            normalized[:, zero_scale_mask] = 0.0
+        return normalized
     
     def get_obs_lb(self):
         return self._obs_lb
@@ -442,8 +453,10 @@ class Gymnasium2LRHCEnv():
         
         stepping_ok = True
         
+        actions_norm = action.detach()
         actions = self._actions.get_torch_mirror(gpu=self._use_gpu)
-        actions[:, :] = action.detach() # writes actions
+        actions[:, :] = actions_norm*self._actions_scale+self._actions_offset
+        actions.clamp_(self._actions_lb, self._actions_ub)
 
         # step gymnasium env using the given action
         gym_env_action = actions.cpu().numpy()
