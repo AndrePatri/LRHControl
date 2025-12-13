@@ -583,7 +583,7 @@ class Actor(nn.Module):
         out_fc_logstd= llayer_init(nn.Linear(layer_width, self._actions_dim), 
                         init_type="uniform",
                         uniform_biases=False,
-                        bias_const=math.log(0.7),
+                        bias_const=math.log(0.5),
                         scale_weight=1e-3, # scaling (output layer)
                         scale_bias=1.0,
                         device=self._torch_device, 
