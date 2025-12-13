@@ -324,7 +324,7 @@ class SActorCriticAlgoBase(ABC):
                         obs_ub=self._env.get_obs_ub().flatten().tolist(),
                         obs_lb=self._env.get_obs_lb().flatten().tolist(),
                         actions_dim=self._env.actions_dim(),
-                        actions_ub=None,
+                        actions_ub=None, # agent will assume actions are properly normalized in [-1, 1] by the env
                         actions_lb=None,
                         rescale_obs=rescale_obs,
                         norm_obs=norm_obs,

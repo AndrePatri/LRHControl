@@ -503,17 +503,19 @@ class AugMPCTrainingEnvBase(ABC):
     def step(self, 
             action):
 
-        actions_norm = action.detach()
-        actions = self._actions.get_torch_mirror(gpu=self._use_gpu) # will hold agent actions
+        actions_norm = action.detach() # IMPORTANT: assumes actions are already normalized in [-1, 1]
+
+        actions = self._actions.get_torch_mirror(gpu=self._use_gpu) # will hold agent actions (real range)
 
         # scale normalized actions to physical space before interfacing with controllers
         actions[:, :] = actions_norm*self._actions_scale + self._actions_offset
-        actions.clamp_(self._actions_lb, self._actions_ub)
 
         self._override_actions_with_demo() # if necessary override some actions with expert demonstrations
         # (getting actions with get_actions will return the modified actions tensor)
 
-        if self._act_mem_buffer is not None:
+        actions.clamp_(self._actions_lb, self._actions_ub) # just to be safe
+
+        if self._act_mem_buffer is not None: # store norm actions in memory buffer
             self._act_mem_buffer.update(new_data=actions_norm)
 
         if self._env_opts["use_action_smoothing"]:
