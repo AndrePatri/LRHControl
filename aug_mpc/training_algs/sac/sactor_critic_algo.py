@@ -117,7 +117,7 @@ class SActorCriticAlgoBase(ABC):
         # (can be overridden thorugh the provided options)
         self._demo_env_selector=self._env.demo_env_idxs()
         self._demo_env_selector_bool=self._env.demo_env_idxs(get_bool=True)
-
+        
     def learn(self):
   
         if not self._setup_done:
@@ -417,7 +417,7 @@ class SActorCriticAlgoBase(ABC):
             with torch.no_grad():
                 init_obs = self._env.get_obs(clone=True)
                 _, init_log_pi, _ = self._agent.get_action(init_obs)
-                init_policy_entropy = (-init_log_pi).mean().item()
+                init_policy_entropy = (-init_log_pi[0]).mean().item()
                 init_policy_entropy_per_action = init_policy_entropy / float(self._actions_dim)
             Journal.log(self.__class__.__name__,
                 "setup",
@@ -584,13 +584,26 @@ class SActorCriticAlgoBase(ABC):
 
         # exploration
 
-        # entropy regularization
+        # entropy regularization (separate "discrete" and "continuous" actions)
+        self._trgt_avrg_entropy_per_action_disc = -0.3
+        self._trgt_avrg_entropy_per_action_cont = -2.0
+
+        self._disc_idxs = self._is_discrete_actions.clone().to(torch.long)
+        self._cont_idxs = self._is_continuous_actions.clone().to(torch.long)
+        
+        self._target_entropy_disc = float(self._disc_idxs.numel()) * float(self._trgt_avrg_entropy_per_action_disc)
+        self._target_entropy_cont = float(self._cont_idxs.numel()) * float(self._trgt_avrg_entropy_per_action_cont)
+        self._target_entropy = self._target_entropy_disc + self._target_entropy_cont
+        self._trgt_avrg_entropy_per_action = self._target_entropy / float(max(self._actions_dim, 1))
+
         self._autotune = True
-        self._trgt_avrg_entropy_per_action=-0.5 # the more negative, the more deterministic the policy
-        self._target_entropy = self._trgt_avrg_entropy_per_action*self._actions_dim
-        self._log_alpha = None
-        self._alpha = 0.2
-        self._a_optimizer = None
+        self._alpha_disc = 0.2
+        self._alpha_cont = 0.2
+        self._alpha = 0.5*(self._alpha_disc + self._alpha_cont)
+        self._log_alpha_disc = None
+        self._log_alpha_cont = None
+        self._a_optimizer_disc = None
+        self._a_optimizer_cont = None
 
         # random expl ens
         self._expl_envs_perc=0.0 # [0, 1]
@@ -783,8 +796,15 @@ class SActorCriticAlgoBase(ABC):
         self._hyperparameters["trgt_net_freq"] = self._trgt_net_freq
         self._hyperparameters["autotune"] = self._autotune
         self._hyperparameters["target_entropy"] = self._target_entropy
-        self._hyperparameters["log_alpha"] = self._log_alpha
+        self._hyperparameters["target_entropy_disc"] = self._target_entropy_disc
+        self._hyperparameters["target_entropy_cont"] = self._target_entropy_cont
+        self._hyperparameters["disc_entropy_idxs"] = self._disc_idxs.tolist()
+        self._hyperparameters["cont_entropy_idxs"] = self._cont_idxs.tolist()
+        self._hyperparameters["log_alpha_disc"] = None if self._log_alpha_disc is None else self._log_alpha_disc.item()
+        self._hyperparameters["log_alpha_cont"] = None if self._log_alpha_cont is None else self._log_alpha_cont.item()
         self._hyperparameters["alpha"] = self._alpha
+        self._hyperparameters["alpha_disc"] = self._alpha_disc
+        self._hyperparameters["alpha_cont"] = self._alpha_cont
         self._hyperparameters["m_checkpoint_freq"] = self._m_checkpoint_freq
         self._hyperparameters["db_vecstep_frequency"] = self._db_vecstep_frequency
         self._hyperparameters["m_checkpoint_freq"] = self._m_checkpoint_freq
@@ -1075,6 +1095,10 @@ class SActorCriticAlgoBase(ABC):
                     dtype=torch.float32, fill_value=torch.nan, device="cpu")
         self._alpha_loss = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=torch.nan, device="cpu")
+        self._alpha_loss_disc = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
+        self._alpha_loss_cont = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
         if self._validate: # add db data for validation losses
             self._overfit_index = torch.full((self._db_data_size, 1), 
                         dtype=torch.float32, fill_value=torch.nan, device="cpu")
@@ -1086,8 +1110,16 @@ class SActorCriticAlgoBase(ABC):
                         dtype=torch.float32, fill_value=torch.nan, device="cpu")
             self._alpha_loss_validation = torch.full((self._db_data_size, 1), 
                         dtype=torch.float32, fill_value=torch.nan, device="cpu")
+            self._alpha_loss_disc_validation = torch.full((self._db_data_size, 1), 
+                        dtype=torch.float32, fill_value=torch.nan, device="cpu")
+            self._alpha_loss_cont_validation = torch.full((self._db_data_size, 1), 
+                        dtype=torch.float32, fill_value=torch.nan, device="cpu")
         
         self._alphas = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
+        self._alphas_disc = torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
+        self._alphas_cont = torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=torch.nan, device="cpu")
 
         self._policy_entropy_mean=torch.full((self._db_data_size, 1), 
@@ -1097,7 +1129,23 @@ class SActorCriticAlgoBase(ABC):
         self._policy_entropy_max=torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=torch.nan, device="cpu")
         self._policy_entropy_min=torch.full((self._db_data_size, 1), 
-                    dtype=torch.float32, fill_value=torch.nan, device="cpu")            
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
+        self._policy_entropy_disc_mean=torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
+        self._policy_entropy_disc_std=torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
+        self._policy_entropy_disc_max=torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
+        self._policy_entropy_disc_min=torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
+        self._policy_entropy_cont_mean=torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
+        self._policy_entropy_cont_std=torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
+        self._policy_entropy_cont_max=torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
+        self._policy_entropy_cont_min=torch.full((self._db_data_size, 1), 
+                    dtype=torch.float32, fill_value=torch.nan, device="cpu")
 
         self._running_mean_obs=None
         self._running_std_obs=None
@@ -1149,9 +1197,13 @@ class SActorCriticAlgoBase(ABC):
                                 lr=self._lr_policy)
 
     def _init_alpha_autotuning(self):
-        self._log_alpha = torch.zeros(1, requires_grad=True, device=self._torch_device)
-        self._alpha = self._log_alpha.exp().item()
-        self._a_optimizer = optim.Adam([self._log_alpha], lr=self._lr_q)
+        self._log_alpha_disc = torch.zeros(1, requires_grad=True, device=self._torch_device)
+        self._log_alpha_cont = torch.zeros(1, requires_grad=True, device=self._torch_device)
+        self._alpha_disc = self._log_alpha_disc.exp().item()
+        self._alpha_cont = self._log_alpha_cont.exp().item()
+        self._alpha = 0.5*(self._alpha_disc + self._alpha_cont)
+        self._a_optimizer_disc = optim.Adam([self._log_alpha_disc], lr=self._lr_q)
+        self._a_optimizer_cont = optim.Adam([self._log_alpha_cont], lr=self._lr_q)
 
     def _init_replay_buffers(self):
         
@@ -1454,20 +1506,36 @@ class SActorCriticAlgoBase(ABC):
             hf.create_dataset('qf2_loss', data=self._qf2_loss.numpy())
             hf.create_dataset('actor_loss', data=self._actor_loss.numpy())
             hf.create_dataset('alpha_loss', data=self._alpha_loss.numpy())
+            hf.create_dataset('alpha_loss_disc', data=self._alpha_loss_disc.numpy())
+            hf.create_dataset('alpha_loss_cont', data=self._alpha_loss_cont.numpy())
             if self._validate:
                 hf.create_dataset('qf1_loss_validation', data=self._qf1_loss_validation.numpy())
                 hf.create_dataset('qf2_loss_validation', data=self._qf2_loss_validation.numpy())
                 hf.create_dataset('actor_loss_validation', data=self._actor_loss_validation.numpy())
                 hf.create_dataset('alpha_loss_validation', data=self._alpha_loss_validation.numpy())
+                hf.create_dataset('alpha_loss_disc_validation', data=self._alpha_loss_disc_validation.numpy())
+                hf.create_dataset('alpha_loss_cont_validation', data=self._alpha_loss_cont_validation.numpy())
                 hf.create_dataset('overfit_index', data=self._overfit_index.numpy())
 
             hf.create_dataset('alphas', data=self._alphas.numpy())
+            hf.create_dataset('alphas_disc', data=self._alphas_disc.numpy())
+            hf.create_dataset('alphas_cont', data=self._alphas_cont.numpy())
             
             hf.create_dataset('policy_entropy_mean', data=self._policy_entropy_mean.numpy())
             hf.create_dataset('policy_entropy_std', data=self._policy_entropy_std.numpy())
             hf.create_dataset('policy_entropy_max', data=self._policy_entropy_max.numpy())
             hf.create_dataset('policy_entropy_min', data=self._policy_entropy_min.numpy())
+            hf.create_dataset('policy_entropy_disc_mean', data=self._policy_entropy_disc_mean.numpy())
+            hf.create_dataset('policy_entropy_disc_std', data=self._policy_entropy_disc_std.numpy())
+            hf.create_dataset('policy_entropy_disc_max', data=self._policy_entropy_disc_max.numpy())
+            hf.create_dataset('policy_entropy_disc_min', data=self._policy_entropy_disc_min.numpy())
+            hf.create_dataset('policy_entropy_cont_mean', data=self._policy_entropy_cont_mean.numpy())
+            hf.create_dataset('policy_entropy_cont_std', data=self._policy_entropy_cont_std.numpy())
+            hf.create_dataset('policy_entropy_cont_max', data=self._policy_entropy_cont_max.numpy())
+            hf.create_dataset('policy_entropy_cont_min', data=self._policy_entropy_cont_min.numpy())
             hf.create_dataset('target_entropy', data=self._target_entropy)
+            hf.create_dataset('target_entropy_disc', data=self._target_entropy_disc)
+            hf.create_dataset('target_entropy_cont', data=self._target_entropy_cont)
 
             if self._use_rnd:
                 hf.create_dataset('n_rnd_updates', data=self._n_rnd_updates.numpy())
@@ -1925,22 +1993,45 @@ class SActorCriticAlgoBase(ABC):
                         "sac_actor_info/policy_entropy_std": self._policy_entropy_std[self._log_it_counter, 0],
                         "sac_actor_info/policy_entropy_max": self._policy_entropy_max[self._log_it_counter, 0],
                         "sac_actor_info/policy_entropy_min": self._policy_entropy_min[self._log_it_counter, 0],
+                        "sac_actor_info/policy_entropy_disc_mean": self._policy_entropy_disc_mean[self._log_it_counter, 0],
+                        "sac_actor_info/policy_entropy_disc_std": self._policy_entropy_disc_std[self._log_it_counter, 0],
+                        "sac_actor_info/policy_entropy_disc_max": self._policy_entropy_disc_max[self._log_it_counter, 0],
+                        "sac_actor_info/policy_entropy_disc_min": self._policy_entropy_disc_min[self._log_it_counter, 0],
+                        "sac_actor_info/policy_entropy_cont_mean": self._policy_entropy_cont_mean[self._log_it_counter, 0],
+                        "sac_actor_info/policy_entropy_cont_std": self._policy_entropy_cont_std[self._log_it_counter, 0],
+                        "sac_actor_info/policy_entropy_cont_max": self._policy_entropy_cont_max[self._log_it_counter, 0],
+                        "sac_actor_info/policy_entropy_cont_min": self._policy_entropy_cont_min[self._log_it_counter, 0],
                         
                         "sac_q_info/qf1_loss": self._qf1_loss[self._log_it_counter, 0],
                         "sac_q_info/qf2_loss": self._qf2_loss[self._log_it_counter, 0],
-                        "sac_actor_info/actor_loss": self._actor_loss[self._log_it_counter, 0],
-                        "sac_alpha_info/alpha_loss": self._alpha_loss[self._log_it_counter, 0],
-
+                        "sac_actor_info/actor_loss": self._actor_loss[self._log_it_counter, 0]})
+                    alpha_logs = {
                         "sac_alpha_info/alpha": self._alphas[self._log_it_counter, 0],
-                        "sac_alpha_info/target_entropy": self._target_entropy})
+                        "sac_alpha_info/alpha_disc": self._alphas_disc[self._log_it_counter, 0],
+                        "sac_alpha_info/alpha_cont": self._alphas_cont[self._log_it_counter, 0],
+                        "sac_alpha_info/target_entropy": self._target_entropy,
+                        "sac_alpha_info/target_entropy_disc": self._target_entropy_disc,
+                        "sac_alpha_info/target_entropy_cont": self._target_entropy_cont
+                    }
+                    if self._autotune:
+                        alpha_logs.update({
+                            "sac_alpha_info/alpha_loss": self._alpha_loss[self._log_it_counter, 0],
+                            "sac_alpha_info/alpha_loss_disc": self._alpha_loss_disc[self._log_it_counter, 0],
+                            "sac_alpha_info/alpha_loss_cont": self._alpha_loss_cont[self._log_it_counter, 0],
+                        })
+                    self._policy_update_db_data_dict.update(alpha_logs)
                     
                     if self._validate:
                         self._policy_update_db_data_dict.update({
                             "sac_q_info/qf1_loss_validation": self._qf1_loss_validation[self._log_it_counter, 0],
                             "sac_q_info/qf2_loss_validation": self._qf2_loss_validation[self._log_it_counter, 0],
                             "sac_q_info/overfit_index": self._overfit_index[self._log_it_counter, 0],
-                            "sac_actor_info/actor_loss_validation": self._actor_loss_validation[self._log_it_counter, 0],
-                            "sac_alpha_info/alpha_loss_validation": self._alpha_loss_validation[self._log_it_counter, 0]})
+                            "sac_actor_info/actor_loss_validation": self._actor_loss_validation[self._log_it_counter, 0]})
+                        if self._autotune:
+                            self._policy_update_db_data_dict.update({
+                                "sac_alpha_info/alpha_loss_validation": self._alpha_loss_validation[self._log_it_counter, 0],
+                                "sac_alpha_info/alpha_loss_disc_validation": self._alpha_loss_disc_validation[self._log_it_counter, 0],
+                                "sac_alpha_info/alpha_loss_cont_validation": self._alpha_loss_cont_validation[self._log_it_counter, 0]})
 
                     self._wandb_d.update(self._policy_update_db_data_dict)
 
@@ -2192,9 +2283,10 @@ class SActorCriticAlgoBase(ABC):
         del self._qf_optimizer
         del self._actor_optimizer
         if self._autotune:
-            del self._a_optimizer
-            del self._log_alpha
-            del self._alpha
+            del self._a_optimizer_disc
+            del self._a_optimizer_cont
+            del self._log_alpha_disc
+            del self._log_alpha_cont
         gc.collect()
         self._init_agent_optimizers()
         if self._autotune: # also reinitialize alpha optimization

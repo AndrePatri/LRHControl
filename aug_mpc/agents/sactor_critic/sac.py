@@ -583,7 +583,7 @@ class Actor(nn.Module):
         out_fc_logstd= llayer_init(nn.Linear(layer_width, self._actions_dim), 
                         init_type="uniform",
                         uniform_biases=False,
-                        bias_const=math.log(0.7),
+                        bias_const=math.log(0.5),
                         scale_weight=1e-3, # scaling (output layer)
                         scale_bias=1.0,
                         device=self._torch_device, 
@@ -624,11 +624,11 @@ class Actor(nn.Module):
         # comp. graph and not allow gradients to flow)
         y_t = torch.tanh(x_t)
         action = y_t * self.action_scale + self.action_bias
-        log_prob = normal.log_prob(x_t) # log probability before applying tanh
-        log_prob = log_prob - torch.log(self.action_scale * (1 - y_t.pow(2)) + 1e-6) # correct using the log of the derivative of tanh
-        log_prob = log_prob.sum(1, keepdim=True) 
+        log_prob_vec = normal.log_prob(x_t) # per-dimension log prob before tanh
+        log_prob_vec = log_prob_vec - torch.log(self.action_scale * (1 - y_t.pow(2)) + 1e-6) # tanh Jacobian + scaling
+        log_prob_sum = log_prob_vec.sum(1, keepdim=True)
         mean = torch.tanh(mean) * self.action_scale + self.action_bias
-        return action, log_prob, mean
+        return action, (log_prob_sum, log_prob_vec), mean
     
     def remove_scaling(self, a):
         return (a - self.action_bias)/self.action_scale

@@ -22,6 +22,31 @@ class SAC(SActorCriticAlgoBase):
                     seed=seed)
 
         self._this_child_path = os.path.abspath(__file__) # overrides parent
+
+    def _sum_log_probs(self, log_prob_vec, ref_tensor, idxs):
+        if idxs is None or idxs.numel() == 0:
+            return torch.zeros_like(ref_tensor)
+        return log_prob_vec.index_select(1, idxs.to(log_prob_vec.device)).sum(1, keepdim=True)
+
+    def _split_log_prob_components(self, log_prob_tuple):
+        log_prob_sum, log_prob_vec = log_prob_tuple
+        disc_idxs = getattr(self, "_disc_idxs", torch.tensor([], dtype=torch.long, device=log_prob_vec.device))
+        cont_idxs = getattr(self, "_cont_idxs", torch.tensor([], dtype=torch.long, device=log_prob_vec.device))
+        if disc_idxs.device != log_prob_vec.device:
+            disc_idxs = disc_idxs.to(log_prob_vec.device)
+        if cont_idxs.device != log_prob_vec.device:
+            cont_idxs = cont_idxs.to(log_prob_vec.device)
+        log_pi_disc = self._sum_log_probs(log_prob_vec, log_prob_sum, disc_idxs)
+        log_pi_cont = self._sum_log_probs(log_prob_vec, log_prob_sum, cont_idxs)
+        return log_prob_sum, log_prob_vec, log_pi_disc, log_pi_cont
+
+    def _alpha_tensor(self, which: str, ref_tensor: torch.Tensor):
+        if self._autotune:
+            if which == "disc":
+                return self._log_alpha_disc.exp().detach()
+            return self._log_alpha_cont.exp().detach()
+        value = self._alpha_disc if which == "disc" else self._alpha_cont
+        return ref_tensor.new_tensor(value)
     
     def _collect_transition(self):
         
@@ -102,10 +127,14 @@ class SAC(SActorCriticAlgoBase):
 
             # target qf
             next_obs=self._env.get_next_obs(clone=False)
-            next_action, next_log_pi, _ = self._agent.get_action(next_obs)
+            next_action, next_log_tuple, _ = self._agent.get_action(next_obs)
+            next_log_pi_sum, next_log_pi_vec, next_log_pi_disc, next_log_pi_cont = self._split_log_prob_components(next_log_tuple)
             qf1_v_next=self._agent.get_qf1_val(x=next_obs,a=next_action)
             qf2_v_next=self._agent.get_qf2_val(x=next_obs,a=next_action)
-            min_qf_next_target = torch.min(qf1_v_next, qf2_v_next)
+            alpha_disc = self._alpha_tensor("disc", next_log_pi_sum)
+            alpha_cont = self._alpha_tensor("cont", next_log_pi_sum)
+            entropy_penalty = alpha_disc * next_log_pi_disc + alpha_cont * next_log_pi_cont
+            min_qf_next_target = torch.min(qf1_v_next, qf2_v_next) - entropy_penalty
             rew_now=self._env.get_rewards(clone=False)
             reached_terminal_state=self._env.get_terminations(clone=False).to(torch.float32)
             qf_trgt_v=rew_now+(1 - reached_terminal_state)*self._discount_factor*min_qf_next_target
@@ -165,10 +194,14 @@ class SAC(SActorCriticAlgoBase):
                         self._expl_bonus_proc_std[self._log_it_counter, 0] = self._proc_exp_bonus_all.std().item()
 
             with torch.no_grad():
-                next_action, next_log_pi, _ = self._agent.get_action(next_obs)
+                next_action, next_log_tuple, _ = self._agent.get_action(next_obs)
+                next_log_pi_sum, next_log_pi_vec, next_log_pi_disc, next_log_pi_cont = self._split_log_prob_components(next_log_tuple)
                 qf1_next_target = self._agent.get_qf1t_val(next_obs, next_action)
                 qf2_next_target = self._agent.get_qf2t_val(next_obs, next_action)
-                min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - self._alpha * next_log_pi
+                alpha_disc = self._alpha_tensor("disc", next_log_pi_sum)
+                alpha_cont = self._alpha_tensor("cont", next_log_pi_sum)
+                entropy_penalty = alpha_disc * next_log_pi_disc + alpha_cont * next_log_pi_cont
+                min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - entropy_penalty
                 next_q_value = rewards.flatten() + (1 - next_terminal.flatten()) * self._discount_factor * (min_qf_next_target).view(-1)
             
             qf1_a_values = self._agent.get_qf1_val(obs, actions).view(-1)
@@ -185,37 +218,82 @@ class SAC(SActorCriticAlgoBase):
 
             if self._update_counter % self._policy_freq == 0:  # TD 3 Delayed update support
                 # policy update
+                alpha_loss_disc_val = None
+                alpha_loss_cont_val = None
                 for i in range(self._policy_freq): # compensate for the delay by doing 'actor_update_interval' instead of 1
-                    pi, log_pi, _ = self._agent.get_action(obs)
+                    pi, log_pi_tuple, _ = self._agent.get_action(obs)
+                    log_pi_sum, log_pi_vec, log_pi_disc, log_pi_cont = self._split_log_prob_components(log_pi_tuple)
+                    alpha_disc = self._alpha_tensor("disc", log_pi_sum)
+                    alpha_cont = self._alpha_tensor("cont", log_pi_sum)
                     qf1_pi = self._agent.get_qf1_val(obs, pi)
                     qf2_pi = self._agent.get_qf2_val(obs, pi)
                     min_qf_pi = torch.min(qf1_pi, qf2_pi)
-                    actor_loss = ((self._alpha * log_pi) - min_qf_pi).mean()
+                    entropy_penalty = alpha_disc * log_pi_disc + alpha_cont * log_pi_cont
+                    actor_loss = (entropy_penalty - min_qf_pi).mean()
                     self._actor_optimizer.zero_grad()
                     actor_loss.backward()
                     self._actor_optimizer.step()
                     if self._autotune:
                         with torch.no_grad():
-                            _, log_pi, _ = self._agent.get_action(obs)
-                        alpha_loss = (-self._log_alpha.exp() * (log_pi + self._target_entropy)).mean()
-                        self._a_optimizer.zero_grad()
-                        alpha_loss.backward()
-                        self._a_optimizer.step()
-                        self._alpha = self._log_alpha.exp().item()
+                            _, log_pi_tuple, _ = self._agent.get_action(obs)
+                        log_pi_sum, log_pi_vec, log_pi_disc, log_pi_cont = self._split_log_prob_components(log_pi_tuple)
+                        alpha_loss_disc = (-(self._log_alpha_disc.exp()) * (log_pi_disc + self._target_entropy_disc)).mean()
+                        alpha_loss_cont = (-(self._log_alpha_cont.exp()) * (log_pi_cont + self._target_entropy_cont)).mean()
+                        self._a_optimizer_disc.zero_grad()
+                        alpha_loss_disc.backward()
+                        self._a_optimizer_disc.step()
+                        self._a_optimizer_cont.zero_grad()
+                        alpha_loss_cont.backward()
+                        self._a_optimizer_cont.step()
+                        alpha_loss_disc_val = alpha_loss_disc.item()
+                        alpha_loss_cont_val = alpha_loss_cont.item()
+                        self._alpha_disc = self._log_alpha_disc.exp().item()
+                        self._alpha_cont = self._log_alpha_cont.exp().item()
+                        self._alpha = 0.5*(self._alpha_disc + self._alpha_cont)
                     self._n_policy_updates[self._log_it_counter]+=1
                 
                 if self._debug:
                     # just log last policy update info
                     self._actor_loss[self._log_it_counter, 0] = actor_loss.item()
-                    policy_entropy=-log_pi
+                    policy_entropy=-log_pi_sum
                     self._policy_entropy_mean[self._log_it_counter, 0] = policy_entropy.mean().item()
                     self._policy_entropy_std[self._log_it_counter, 0] = policy_entropy.std().item()
                     self._policy_entropy_max[self._log_it_counter, 0] = policy_entropy.max().item()
                     self._policy_entropy_min[self._log_it_counter, 0] = policy_entropy.min().item()
+                    if self._disc_idxs.numel() > 0:
+                        policy_entropy_disc = -log_pi_disc
+                        self._policy_entropy_disc_mean[self._log_it_counter, 0] = policy_entropy_disc.mean().item()
+                        self._policy_entropy_disc_std[self._log_it_counter, 0] = policy_entropy_disc.std().item()
+                        self._policy_entropy_disc_max[self._log_it_counter, 0] = policy_entropy_disc.max().item()
+                        self._policy_entropy_disc_min[self._log_it_counter, 0] = policy_entropy_disc.min().item()
+                    else:
+                        nan = torch.nan
+                        self._policy_entropy_disc_mean[self._log_it_counter, 0] = nan
+                        self._policy_entropy_disc_std[self._log_it_counter, 0] = nan
+                        self._policy_entropy_disc_max[self._log_it_counter, 0] = nan
+                        self._policy_entropy_disc_min[self._log_it_counter, 0] = nan
+                    if self._cont_idxs.numel() > 0:
+                        policy_entropy_cont = -log_pi_cont
+                        self._policy_entropy_cont_mean[self._log_it_counter, 0] = policy_entropy_cont.mean().item()
+                        self._policy_entropy_cont_std[self._log_it_counter, 0] = policy_entropy_cont.std().item()
+                        self._policy_entropy_cont_max[self._log_it_counter, 0] = policy_entropy_cont.max().item()
+                        self._policy_entropy_cont_min[self._log_it_counter, 0] = policy_entropy_cont.min().item()
+                    else:
+                        nan = torch.nan
+                        self._policy_entropy_cont_mean[self._log_it_counter, 0] = nan
+                        self._policy_entropy_cont_std[self._log_it_counter, 0] = nan
+                        self._policy_entropy_cont_max[self._log_it_counter, 0] = nan
+                        self._policy_entropy_cont_min[self._log_it_counter, 0] = nan
 
                     self._alphas[self._log_it_counter, 0] = self._alpha
+                    self._alphas_disc[self._log_it_counter, 0] = self._alpha_disc
+                    self._alphas_cont[self._log_it_counter, 0] = self._alpha_cont
                     if self._autotune:
-                        self._alpha_loss[self._log_it_counter, 0] = alpha_loss.item()
+                        if alpha_loss_disc_val is not None:
+                            self._alpha_loss_disc[self._log_it_counter, 0] = alpha_loss_disc_val
+                        if alpha_loss_cont_val is not None:
+                            self._alpha_loss_cont[self._log_it_counter, 0] = alpha_loss_cont_val
+                        self._alpha_loss[self._log_it_counter, 0] = 0.5*((alpha_loss_disc_val or 0.0)+(alpha_loss_cont_val or 0.0))
 
             # update the target networks
             if self._update_counter % self._trgt_net_freq == 0:
@@ -256,10 +334,14 @@ class SAC(SActorCriticAlgoBase):
             with torch.no_grad():
                 
                 # critics loss
-                next_action, next_log_pi, _ = self._agent.get_action(next_obs)
+                next_action, next_log_tuple, _ = self._agent.get_action(next_obs)
+                next_log_pi_sum, next_log_pi_vec, next_log_pi_disc, next_log_pi_cont = self._split_log_prob_components(next_log_tuple)
                 qf1_next_target = self._agent.get_qf1t_val(next_obs, next_action)
                 qf2_next_target = self._agent.get_qf2t_val(next_obs, next_action)
-                min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - self._alpha * next_log_pi
+                alpha_disc = self._alpha_tensor("disc", next_log_pi_sum)
+                alpha_cont = self._alpha_tensor("cont", next_log_pi_sum)
+                entropy_penalty = alpha_disc * next_log_pi_disc + alpha_cont * next_log_pi_cont
+                min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - entropy_penalty
                 next_q_value = rewards.flatten() + (1 - next_terminal.flatten()) * self._discount_factor * (min_qf_next_target).view(-1)
                 
                 qf1_a_values = self._agent.get_qf1_val(obs, actions).view(-1)
@@ -268,19 +350,25 @@ class SAC(SActorCriticAlgoBase):
                 qf2_loss_eval = F.mse_loss(qf2_a_values, next_q_value)
 
                 # actor loss
-                pi, log_pi, _ = self._agent.get_action(obs)
+                pi, log_pi_tuple, _ = self._agent.get_action(obs)
+                log_pi_sum, log_pi_vec, log_pi_disc, log_pi_cont = self._split_log_prob_components(log_pi_tuple)
+                alpha_disc = self._alpha_tensor("disc", log_pi_sum)
+                alpha_cont = self._alpha_tensor("cont", log_pi_sum)
                 qf1_pi = self._agent.get_qf1_val(obs, pi)
                 qf2_pi = self._agent.get_qf2_val(obs, pi)
                 min_qf_pi = torch.min(qf1_pi, qf2_pi)
-                actor_loss_eval = ((self._alpha * log_pi) - min_qf_pi).mean()
+                actor_loss_eval = ((alpha_disc * log_pi_disc + alpha_cont * log_pi_cont) - min_qf_pi).mean()
                 
                 # write db data
                 self._qf1_loss_validation[self._log_it_counter, 0] = qf1_loss_eval.item()
                 self._qf2_loss_validation[self._log_it_counter, 0] = qf2_loss_eval.item()
                 self._actor_loss_validation[self._log_it_counter, 0] = actor_loss_eval.item()
                 if self._autotune: # also compute alpha loss
-                    alpha_loss_eval = (-self._log_alpha.exp() * (log_pi + self._target_entropy)).mean()
-                    self._alpha_loss_validation[self._log_it_counter, 0] = alpha_loss_eval.item()
+                    alpha_loss_disc_eval = (-(self._log_alpha_disc.exp()) * (log_pi_disc + self._target_entropy_disc)).mean()
+                    alpha_loss_cont_eval = (-(self._log_alpha_cont.exp()) * (log_pi_cont + self._target_entropy_cont)).mean()
+                    self._alpha_loss_validation[self._log_it_counter, 0] = 0.5*(alpha_loss_disc_eval.item()+alpha_loss_cont_eval.item())
+                    self._alpha_loss_disc_validation[self._log_it_counter, 0] = alpha_loss_disc_eval.item()
+                    self._alpha_loss_cont_validation[self._log_it_counter, 0] = alpha_loss_cont_eval.item()
                 
                 # compute an index of overfit to training data
                 self._update_overfit_idx(loss=(self._qf1_loss[self._log_it_counter, 0]+self._qf2_loss[self._log_it_counter, 0])/2.0, 
