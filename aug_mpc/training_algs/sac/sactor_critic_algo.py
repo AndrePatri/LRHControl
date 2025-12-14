@@ -585,7 +585,7 @@ class SActorCriticAlgoBase(ABC):
         # exploration
 
         # entropy regularization (separate "discrete" and "continuous" actions)
-        self._trgt_avrg_entropy_per_action_disc = -0.3
+        self._trgt_avrg_entropy_per_action_disc = -0.1
         self._trgt_avrg_entropy_per_action_cont = -2.0
 
         self._disc_idxs = self._is_discrete_actions.clone().to(torch.long)
