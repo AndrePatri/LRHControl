@@ -585,8 +585,17 @@ class SActorCriticAlgoBase(ABC):
         # exploration
 
         # entropy regularization (separate "discrete" and "continuous" actions)
-        self._trgt_avrg_entropy_per_action_disc = -0.1
-        self._trgt_avrg_entropy_per_action_cont = -2.0
+        self._entropy_metric_high = 0.5
+        self._entropy_metric_low = 0.03
+
+        self._entropy_disc_start = -0.1
+        self._entropy_disc_end = -2.0
+
+        self._entropy_cont_start = -0.5
+        self._entropy_cont_end = -4.0
+        
+        self._trgt_avrg_entropy_per_action_disc = self._entropy_disc_start
+        self._trgt_avrg_entropy_per_action_cont = self._entropy_cont_start
 
         self._disc_idxs = self._is_discrete_actions.clone().to(torch.long)
         self._cont_idxs = self._is_continuous_actions.clone().to(torch.long)
@@ -2075,7 +2084,7 @@ class SActorCriticAlgoBase(ABC):
                 f"Warmstart completed: {self._vec_transition_counter > self._warmstart_vectimesteps or self._eval} ; ({self._vec_transition_counter}/{self._warmstart_vectimesteps})\n" +\
                 f"Replay buffer full: {self._replay_bf_full}; current position {self._bpos}/{self._replay_buffer_size_vec}\n" +\
                 f"Validation buffer full: {self._validation_bf_full}; current position {self._bpos_val}/{self._validation_buffer_size_vec}\n" +\
-                f"Elapsed time: {self._elapsed_min[self._log_it_counter].item()/60.0} h\n" + \
+                f"Elapsed time: {self._elapsed_min[self._log_it_counter].i_entropy_disc_endtem()/60.0} h\n" + \
                 f"Estimated remaining training time: " + \
                 f"{est_remaining_time_h} h\n" + \
                 f"Total reward episodic data --> \n" + \
@@ -2094,7 +2103,9 @@ class SActorCriticAlgoBase(ABC):
                 f"Time spent updating batch normalizations {self._batch_norm_update_dt[self._log_it_counter].item()} s\n" + \
                 f"Time spent for computing validation {self._validation_dt[self._log_it_counter].item()} s\n" + \
                 f"Demo envs are active: {self._demo_envs_active[self._log_it_counter].item()}. N  demo envs if active {self._env.n_demo_envs()}\n" + \
-                f"Performance metric now: {self._demo_perf_metric[self._log_it_counter].item()}/{self._demo_stop_thresh}\n"
+                f"Performance metric now: {self._demo_perf_metric[self._log_it_counter].item()}\n" + \
+                f"Entropy (disc): current {float(self._policy_entropy_disc_mean[self._log_it_counter, 0]):.4f}/{self._trgt_avrg_entropy_per_action_disc:.4f}\n" + \
+                f"Entropy (cont): current {float(self._policy_entropy_cont_mean[self._log_it_counter, 0]):.4f}/{self._trgt_avrg_entropy_per_action_cont:.4f}\n"
             if self._use_rnd:
                 info = info + f"N. rnd updates performed: {self._n_rnd_updates[self._log_it_counter].item()}\n"
             

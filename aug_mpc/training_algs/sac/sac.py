@@ -21,6 +21,15 @@ class SAC(SActorCriticAlgoBase):
                     remote_db=remote_db,
                     seed=seed)
 
+        # target entropy scheduling (per-action values)
+        self._entropy_disc_start = -0.1
+        self._entropy_disc_end = -2.0
+        self._entropy_cont_start = -0.8
+        self._entropy_cont_end = -2.5
+        # metric (tracking error) range mapped to the above targets
+        self._entropy_metric_high = 0.5
+        self._entropy_metric_low = 0.03
+
         self._this_child_path = os.path.abspath(__file__) # overrides parent
 
     def _sum_log_probs(self, log_prob_vec, ref_tensor, idxs):
@@ -376,7 +385,34 @@ class SAC(SActorCriticAlgoBase):
                 self._overfit_index[self._log_it_counter, 0] = self._overfit_idx                
 
     def _get_performance_metric(self):
-        # to be overridden
-        performance_now=self._episodic_reward_metrics.get_tot_rew_avrg_over_envs(env_selector=
+        tracking_err = None
+        if "TrackingError" in self._env.custom_db_data:
+            # custom db stores tracking error components; take x component average over envs
+            track_data = self._env.custom_db_data["TrackingError"].get_avrg_over_envs(env_selector=self._db_env_selector)
+            tracking_err = track_data[0, 0].item()
+
+        if tracking_err is None:
+            tracking_err = self._episodic_reward_metrics.get_tot_rew_avrg_over_envs(env_selector=
                                                         self._db_env_selector).item()
-        return performance_now
+
+        self._update_target_entropy_from_metric(tracking_err)
+        
+        return tracking_err
+
+    def _update_target_entropy_from_metric(self, metric: float):
+        # map metric into [0, 1] progress
+        metric_clamped = max(min(metric, self._entropy_metric_high), self._entropy_metric_low)
+        denom = max(self._entropy_metric_high - self._entropy_metric_low, 1e-6)
+        progress = (self._entropy_metric_high - metric_clamped) / denom
+
+        # interpolate targets
+        trgt_disc = self._entropy_disc_start + progress*(self._entropy_disc_end - self._entropy_disc_start)
+        trgt_cont = self._entropy_cont_start + progress*(self._entropy_cont_end - self._entropy_cont_start)
+
+        # update all dependent target entropy values
+        self._trgt_avrg_entropy_per_action_disc = trgt_disc
+        self._trgt_avrg_entropy_per_action_cont = trgt_cont
+        self._target_entropy_disc = float(self._disc_idxs.numel()) * float(trgt_disc)
+        self._target_entropy_cont = float(self._cont_idxs.numel()) * float(trgt_cont)
+        self._target_entropy = self._target_entropy_disc + self._target_entropy_cont
+        self._trgt_avrg_entropy_per_action = self._target_entropy / float(max(self._actions_dim, 1))
