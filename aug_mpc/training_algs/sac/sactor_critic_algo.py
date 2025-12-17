@@ -809,8 +809,8 @@ class SActorCriticAlgoBase(ABC):
         self._hyperparameters["target_entropy_cont"] = self._target_entropy_cont
         self._hyperparameters["disc_entropy_idxs"] = self._disc_idxs.tolist()
         self._hyperparameters["cont_entropy_idxs"] = self._cont_idxs.tolist()
-        self._hyperparameters["log_alpha_disc"] = None if self._log_alpha_disc is None else self._log_alpha_disc.item()
-        self._hyperparameters["log_alpha_cont"] = None if self._log_alpha_cont is None else self._log_alpha_cont.item()
+        self._hyperparameters["log_alpha_disc"] = None if self._log_alpha_disc is None else self._log_alpha_disc
+        self._hyperparameters["log_alpha_cont"] = None if self._log_alpha_cont is None else self._log_alpha_cont
         self._hyperparameters["alpha"] = self._alpha
         self._hyperparameters["alpha_disc"] = self._alpha_disc
         self._hyperparameters["alpha_cont"] = self._alpha_cont
