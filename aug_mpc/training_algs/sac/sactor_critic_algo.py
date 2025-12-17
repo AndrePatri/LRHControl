@@ -588,8 +588,8 @@ class SActorCriticAlgoBase(ABC):
         self._entropy_metric_high = 0.5
         self._entropy_metric_low = 0.03
 
-        self._entropy_disc_start = -0.1
-        self._entropy_disc_end = -2.0
+        self._entropy_disc_start = 0.1
+        self._entropy_disc_end = -0.7
 
         self._entropy_cont_start = -0.5
         self._entropy_cont_end = -4.0
