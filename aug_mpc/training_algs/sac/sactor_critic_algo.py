@@ -591,7 +591,7 @@ class SActorCriticAlgoBase(ABC):
         self._entropy_disc_start = 0.1
         self._entropy_disc_end = -0.7
 
-        self._entropy_cont_start = -0.5
+        self._entropy_cont_start = -0.1
         self._entropy_cont_end = -4.0
         
         self._trgt_avrg_entropy_per_action_disc = self._entropy_disc_start
