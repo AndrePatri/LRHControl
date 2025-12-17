@@ -606,11 +606,11 @@ class SActorCriticAlgoBase(ABC):
         self._trgt_avrg_entropy_per_action = self._target_entropy / float(max(self._actions_dim, 1))
 
         self._autotune = True
-        self._alpha_disc = 0.2
+        self._alpha_disc = 0.2 # initial values
         self._alpha_cont = 0.2
         self._alpha = 0.5*(self._alpha_disc + self._alpha_cont)
-        self._log_alpha_disc = None
-        self._log_alpha_cont = None
+        self._log_alpha_disc = math.log(self._alpha_disc)
+        self._log_alpha_cont = math.log(self._alpha_cont)
         self._a_optimizer_disc = None
         self._a_optimizer_cont = None
 
@@ -636,14 +636,14 @@ class SActorCriticAlgoBase(ABC):
         if "use_rnd" in custom_args and (not self._eval):
             self._use_rnd=custom_args["use_rnd"]
         self._rnd_weight=1.0
-        self._alpha=0.0
+        self._alpha_rnd=0.0
         self._novelty_scaler=None
         if self._use_rnd:
             from adarl.utils.NoveltyScaler import NoveltyScaler
 
             self._novelty_scaler=NoveltyScaler(th_device=self._torch_device,
                                     bonus_weight=self._rnd_weight,
-                                    avg_alpha=self._alpha)
+                                    avg_alpha=self._alpha_rnd)
         
         self._rnd_lwidth=512
         self._rnd_hlayers=3
@@ -1206,8 +1206,8 @@ class SActorCriticAlgoBase(ABC):
                                 lr=self._lr_policy)
 
     def _init_alpha_autotuning(self):
-        self._log_alpha_disc = torch.zeros(1, requires_grad=True, device=self._torch_device)
-        self._log_alpha_cont = torch.zeros(1, requires_grad=True, device=self._torch_device)
+        self._log_alpha_disc = torch.full((1,), fill_value=math.log(self._alpha_disc), requires_grad=True, device=self._torch_device)
+        self._log_alpha_cont = torch.full((1,), fill_value=math.log(self._alpha_cont), requires_grad=True, device=self._torch_device)
         self._alpha_disc = self._log_alpha_disc.exp().item()
         self._alpha_cont = self._log_alpha_cont.exp().item()
         self._alpha = 0.5*(self._alpha_disc + self._alpha_cont)
