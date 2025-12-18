@@ -66,7 +66,7 @@ if __name__ == '__main__':
                             help='list of custom arguments data types')
     
     parser.add_argument('--env_fname', type=str, 
-        default="aug_mpc_envs.world_interfaces.isaac_env",
+        default="aug_mpc_envs.world_interfaces.isaac_world_interface",
         help="env file import pattern (without extension)")
     
     args = parser.parse_args()
