@@ -400,6 +400,8 @@ class SAC(SActorCriticAlgoBase):
         return tracking_err
 
     def _update_target_entropy_from_metric(self, metric: float):
+        if not self._anneal_entropy:
+            return
         # map metric into [0, 1] progress
         metric_clamped = max(min(metric, self._entropy_metric_high), self._entropy_metric_low)
         denom = max(self._entropy_metric_high - self._entropy_metric_low, 1e-6)

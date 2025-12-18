@@ -593,6 +593,9 @@ class SActorCriticAlgoBase(ABC):
 
         self._entropy_cont_start = -0.1
         self._entropy_cont_end = -4.0
+
+        # enable/disable entropy annealing (default: enabled)
+        self._anneal_entropy = custom_args.get("anneal_entropy", True)
         
         self._trgt_avrg_entropy_per_action_disc = self._entropy_disc_start
         self._trgt_avrg_entropy_per_action_cont = self._entropy_cont_start
@@ -604,6 +607,7 @@ class SActorCriticAlgoBase(ABC):
         self._target_entropy_cont = float(self._cont_idxs.numel()) * float(self._trgt_avrg_entropy_per_action_cont)
         self._target_entropy = self._target_entropy_disc + self._target_entropy_cont
         self._trgt_avrg_entropy_per_action = self._target_entropy / float(max(self._actions_dim, 1))
+        self._hyperparameters["anneal_entropy"] = self._anneal_entropy
 
         self._autotune = True
         self._alpha_disc = 0.2 # initial values
