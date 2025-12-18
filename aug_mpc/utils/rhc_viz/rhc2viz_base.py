@@ -678,6 +678,13 @@ class RhcToVizBridgeBase(ABC):
         marker.header.stamp = self._ros_clock.clock
         marker.type = Marker.SPHERE_LIST
         marker.action = Marker.ADD
+        marker.pose.position.x = 0.0
+        marker.pose.position.y = 0.0
+        marker.pose.position.z = 0.0
+        marker.pose.orientation.x = 0.0
+        marker.pose.orientation.y = 0.0
+        marker.pose.orientation.z = 0.0
+        marker.pose.orientation.w = 1.0
         scale = max(res * 0.3, 1e-3)
         marker.scale.x = scale
         marker.scale.y = scale
