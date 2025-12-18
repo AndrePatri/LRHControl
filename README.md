@@ -10,7 +10,8 @@ Reinforcement Learning-Augmented Model Predictive Control *at scale* for legged 
 
 - **Hierarchical RL-MPC coupling** – The RL agent chooses contact schedules and twist commands for the underlying MPC controllers. A new flight phase is injected, for each limb, when the corresponding actions *instantaneously* exceed a given thresholds.
 
-- **Sample efficient** – high-throughput experience generation thanks to careful MPC parallelization and vectorized simulation. 50+ rt factor, 800 envs/MPCs 20Hz, 1 s horizon,  Sample-efficient learning with MPCs in the loop with the Soft Actor Critic (SAC) algorithm, convergence from 1 up to 10x10^6 environment steps (6h wall time, 9-29 sim. days) VS > 100x10^6 (N.A., ~20 sim. days) of a typical proprioceptive full RL policy. 
+- **Sample-efficient learning at scale** – AugMPC achieves high data efficiency through **high-throughput experience generation**, enabled by aggressive MPC parallelization and fully vectorized simulation. On a workstation equipped with an **AMD Ryzen Threadripper 7970**, **128 GiB RAM**, and an **NVIDIA RTX 4090**, the system sustains **50+× real-time factor** while running **800 parallel environments / MPC instances** at **20 Hz** with a **1 s MPC horizon**. Training with **Soft Actor–Critic (SAC)** and MPCs in the loop typically converges in **1–10 × 10⁶ environment steps** (≈ **6 h wall-clock time**, corresponding to **9–29 simulated days**). This contrasts with **> 100 × 10⁶ steps** commonly required by blind end-to-end RL locomotion policies.
+
 <p align="center">
   <img src="docs/images/sub_rewards.png" alt="rewards" width="500">
 </p>
