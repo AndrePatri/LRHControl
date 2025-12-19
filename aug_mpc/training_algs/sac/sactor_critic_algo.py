@@ -586,16 +586,16 @@ class SActorCriticAlgoBase(ABC):
 
         # entropy regularization (separate "discrete" and "continuous" actions)
         self._entropy_metric_high = 0.5
-        self._entropy_metric_low = 0.03
+        self._entropy_metric_low = 0.0
 
-        self._entropy_disc_start = 0.1
-        self._entropy_disc_end = -0.7
+        self._entropy_disc_start = -0.05
+        self._entropy_disc_end = -0.5
 
-        self._entropy_cont_start = -0.1
-        self._entropy_cont_end = -4.0
+        self._entropy_cont_start = -0.05
+        self._entropy_cont_end = -2.0
 
         # enable/disable entropy annealing (default: enabled)
-        self._anneal_entropy = custom_args.get("anneal_entropy", True)
+        self._anneal_entropy = True
         
         self._trgt_avrg_entropy_per_action_disc = self._entropy_disc_start
         self._trgt_avrg_entropy_per_action_cont = self._entropy_cont_start
