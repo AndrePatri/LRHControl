@@ -555,7 +555,7 @@ class SActorCriticAlgoBase(ABC):
             custom_args: Dict = {}):
     
         self._collection_freq=1
-        self._update_freq=4
+        self._update_freq=2
 
         self._replay_buffer_size_vec=10*self._task_rand_timeout_ub # cover at least a number of eps            
         self._replay_buffer_size = self._replay_buffer_size_vec*self._num_envs
@@ -2108,8 +2108,8 @@ class SActorCriticAlgoBase(ABC):
                 f"Time spent for computing validation {self._validation_dt[self._log_it_counter].item()} s\n" + \
                 f"Demo envs are active: {self._demo_envs_active[self._log_it_counter].item()}. N  demo envs if active {self._env.n_demo_envs()}\n" + \
                 f"Performance metric now: {self._demo_perf_metric[self._log_it_counter].item()}\n" + \
-                f"Entropy (disc): current {float(self._policy_entropy_disc_mean[self._log_it_counter, 0]):.4f}/{self._trgt_avrg_entropy_per_action_disc:.4f}\n" + \
-                f"Entropy (cont): current {float(self._policy_entropy_cont_mean[self._log_it_counter, 0]):.4f}/{self._trgt_avrg_entropy_per_action_cont:.4f}\n"
+                f"Entropy (disc): current {float(self._policy_entropy_disc_mean[self._log_it_counter, 0]):.4f}/{self._target_entropy_disc:.4f}\n" + \
+                f"Entropy (cont): current {float(self._policy_entropy_cont_mean[self._log_it_counter, 0]):.4f}/{self._target_entropy_cont:.4f}\n"
             if self._use_rnd:
                 info = info + f"N. rnd updates performed: {self._n_rnd_updates[self._log_it_counter].item()}\n"
             
