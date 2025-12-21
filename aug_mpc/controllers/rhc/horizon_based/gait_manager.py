@@ -373,7 +373,7 @@ class GaitManager:
                 if self._touchdown_phases[contact_name] is not None:
                     # add touchdown phase for forcing vertical landing
                     res, phase_token=timeline.addPhase(self._touchdown_phases[contact_name], 
-                            pos=self._injection_node+self._flight_durations[contact_name], 
+                            pos=self._injection_node+flight_duration_req, 
                             absolute_position=True)       
 
         if timeline.getEmptyNodes() > 0: # fill empty nodes at the end of the horizon, if any, with stance
