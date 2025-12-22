@@ -1426,6 +1426,19 @@ class SActorCriticAlgoBase(ABC):
             throw_when_excep = True)
         
         with h5py.File(self._dbinfo_drop_fname+".hdf5", 'w') as hf:
+            n_valid = int(max(0, min(self._log_it_counter, self._db_data_size)))
+
+            def _slice_valid(arr):
+                if isinstance(arr, torch.Tensor):
+                    return arr[:n_valid]
+                if isinstance(arr, np.ndarray):
+                    return arr[:n_valid]
+                return arr
+
+            def _ds(name, arr):
+                data = _slice_valid(arr)
+                hf.create_dataset(name, data=data.numpy() if isinstance(data, torch.Tensor) else data)
+
             # hf.create_dataset('numpy_data', data=numpy_data)
             # Write dictionaries to HDF5 as attributes
             for key, value in self._hyperparameters.items():
@@ -1436,132 +1449,132 @@ class SActorCriticAlgoBase(ABC):
             # rewards
             hf.create_dataset('sub_reward_names', data=self._reward_names, 
                 dtype='S40') 
-            hf.create_dataset('sub_rew_max', data=self._sub_rew_max.numpy())
-            hf.create_dataset('sub_rew_avrg', data=self._sub_rew_avrg.numpy())
-            hf.create_dataset('sub_rew_min', data=self._sub_rew_min.numpy())
-            hf.create_dataset('sub_rew_max_over_envs', data=self._sub_rew_max_over_envs.numpy())
-            hf.create_dataset('sub_rew_min_over_envs', data=self._sub_rew_min_over_envs.numpy())
-            hf.create_dataset('sub_rew_avrg_over_envs', data=self._sub_rew_avrg_over_envs.numpy())
-            hf.create_dataset('sub_rew_std_over_envs', data=self._sub_rew_std_over_envs.numpy())
+            _ds('sub_rew_max', self._sub_rew_max)
+            _ds('sub_rew_avrg', self._sub_rew_avrg)
+            _ds('sub_rew_min', self._sub_rew_min)
+            _ds('sub_rew_max_over_envs', self._sub_rew_max_over_envs)
+            _ds('sub_rew_min_over_envs', self._sub_rew_min_over_envs)
+            _ds('sub_rew_avrg_over_envs', self._sub_rew_avrg_over_envs)
+            _ds('sub_rew_std_over_envs', self._sub_rew_std_over_envs)
 
-            hf.create_dataset('tot_rew_max', data=self._tot_rew_max.numpy())
-            hf.create_dataset('tot_rew_avrg', data=self._tot_rew_avrg.numpy())
-            hf.create_dataset('tot_rew_min', data=self._tot_rew_min.numpy())
-            hf.create_dataset('tot_rew_max_over_envs', data=self._tot_rew_max_over_envs.numpy())
-            hf.create_dataset('tot_rew_min_over_envs', data=self._tot_rew_min_over_envs.numpy())
-            hf.create_dataset('tot_rew_avrg_over_envs', data=self._tot_rew_avrg_over_envs.numpy())
-            hf.create_dataset('tot_rew_std_over_envs', data=self._tot_rew_std_over_envs.numpy())
+            _ds('tot_rew_max', self._tot_rew_max)
+            _ds('tot_rew_avrg', self._tot_rew_avrg)
+            _ds('tot_rew_min', self._tot_rew_min)
+            _ds('tot_rew_max_over_envs', self._tot_rew_max_over_envs)
+            _ds('tot_rew_min_over_envs', self._tot_rew_min_over_envs)
+            _ds('tot_rew_avrg_over_envs', self._tot_rew_avrg_over_envs)
+            _ds('tot_rew_std_over_envs', self._tot_rew_std_over_envs)
 
-            hf.create_dataset('ep_tsteps_env_distr', data=self._ep_tsteps_env_distribution.numpy())
+            _ds('ep_tsteps_env_distr', self._ep_tsteps_env_distribution)
 
             if self._n_expl_envs > 0:
                 # expl envs
-                hf.create_dataset('sub_rew_max_expl', data=self._sub_rew_max_expl.numpy())
-                hf.create_dataset('sub_rew_avrg_expl', data=self._sub_rew_avrg_expl.numpy())
-                hf.create_dataset('sub_rew_min_expl', data=self._sub_rew_min_expl.numpy())
-                hf.create_dataset('sub_rew_max_over_envs_expl', data=self._sub_rew_max_over_envs_expl.numpy())
-                hf.create_dataset('sub_rew_min_over_envs_expl', data=self._sub_rew_min_over_envs_expl.numpy())
-                hf.create_dataset('sub_rew_avrg_over_envs_expl', data=self._sub_rew_avrg_over_envs_expl.numpy())
-                hf.create_dataset('sub_rew_std_over_envs_expl', data=self._sub_rew_std_over_envs_expl.numpy())
+                _ds('sub_rew_max_expl', self._sub_rew_max_expl)
+                _ds('sub_rew_avrg_expl', self._sub_rew_avrg_expl)
+                _ds('sub_rew_min_expl', self._sub_rew_min_expl)
+                _ds('sub_rew_max_over_envs_expl', self._sub_rew_max_over_envs_expl)
+                _ds('sub_rew_min_over_envs_expl', self._sub_rew_min_over_envs_expl)
+                _ds('sub_rew_avrg_over_envs_expl', self._sub_rew_avrg_over_envs_expl)
+                _ds('sub_rew_std_over_envs_expl', self._sub_rew_std_over_envs_expl)
 
-                hf.create_dataset('ep_timesteps_expl_env_distr', data=self._ep_tsteps_expl_env_distribution.numpy())
+                _ds('ep_timesteps_expl_env_distr', self._ep_tsteps_expl_env_distribution)
                 
                 hf.create_dataset('expl_env_selector', data=self._expl_env_selector.numpy())
                 
-            hf.create_dataset('demo_envs_active', data=self._demo_envs_active.numpy())
-            hf.create_dataset('demo_perf_metric', data=self._demo_perf_metric.numpy())
+            _ds('demo_envs_active', self._demo_envs_active)
+            _ds('demo_perf_metric', self._demo_perf_metric)
             
             if self._env.n_demo_envs() > 0:
                 # demo envs
-                hf.create_dataset('sub_rew_max_demo', data=self._sub_rew_max_demo.numpy())
-                hf.create_dataset('sub_rew_avrg_demo', data=self._sub_rew_avrg_demo.numpy())
-                hf.create_dataset('sub_rew_min_demo', data=self._sub_rew_min_demo.numpy())
-                hf.create_dataset('sub_rew_max_over_envs_demo', data=self._sub_rew_max_over_envs_demo.numpy())
-                hf.create_dataset('sub_rew_min_over_envs_demo', data=self._sub_rew_min_over_envs_demo.numpy())
-                hf.create_dataset('sub_rew_avrg_over_envs_demo', data=self._sub_rew_avrg_over_envs_demo.numpy())
-                hf.create_dataset('sub_rew_std_over_envs_demo', data=self._sub_rew_std_over_envs_demo.numpy())
+                _ds('sub_rew_max_demo', self._sub_rew_max_demo)
+                _ds('sub_rew_avrg_demo', self._sub_rew_avrg_demo)
+                _ds('sub_rew_min_demo', self._sub_rew_min_demo)
+                _ds('sub_rew_max_over_envs_demo', self._sub_rew_max_over_envs_demo)
+                _ds('sub_rew_min_over_envs_demo', self._sub_rew_min_over_envs_demo)
+                _ds('sub_rew_avrg_over_envs_demo', self._sub_rew_avrg_over_envs_demo)
+                _ds('sub_rew_std_over_envs_demo', self._sub_rew_std_over_envs_demo)
 
-                hf.create_dataset('ep_timesteps_demo_env_distr', data=self._ep_tsteps_demo_env_distribution.numpy())
+                _ds('ep_timesteps_demo_env_distr', self._ep_tsteps_demo_env_distribution)
                 
                 hf.create_dataset('demo_env_idxs', data=self._env.demo_env_idxs().numpy())
 
             # profiling data
-            hf.create_dataset('env_step_fps', data=self._env_step_fps.numpy())
-            hf.create_dataset('env_step_rt_factor', data=self._env_step_rt_factor.numpy())
-            hf.create_dataset('collection_dt', data=self._collection_dt.numpy())
-            hf.create_dataset('batch_norm_update_dt', data=self._batch_norm_update_dt.numpy())
-            hf.create_dataset('policy_update_dt', data=self._policy_update_dt.numpy())
-            hf.create_dataset('policy_update_fps', data=self._policy_update_fps.numpy())
-            hf.create_dataset('validation_dt', data=self._validation_dt.numpy())
+            _ds('env_step_fps', self._env_step_fps)
+            _ds('env_step_rt_factor', self._env_step_rt_factor)
+            _ds('collection_dt', self._collection_dt)
+            _ds('batch_norm_update_dt', self._batch_norm_update_dt)
+            _ds('policy_update_dt', self._policy_update_dt)
+            _ds('policy_update_fps', self._policy_update_fps)
+            _ds('validation_dt', self._validation_dt)
             
-            hf.create_dataset('n_of_played_episodes', data=self._n_of_played_episodes.numpy())
-            hf.create_dataset('n_timesteps_done', data=self._n_timesteps_done.numpy())
-            hf.create_dataset('n_policy_updates', data=self._n_policy_updates.numpy())
-            hf.create_dataset('n_qfun_updates', data=self._n_qfun_updates.numpy())
-            hf.create_dataset('n_tqfun_updates', data=self._n_tqfun_updates.numpy())
+            _ds('n_of_played_episodes', self._n_of_played_episodes)
+            _ds('n_timesteps_done', self._n_timesteps_done)
+            _ds('n_policy_updates', self._n_policy_updates)
+            _ds('n_qfun_updates', self._n_qfun_updates)
+            _ds('n_tqfun_updates', self._n_tqfun_updates)
             
-            hf.create_dataset('elapsed_min', data=self._elapsed_min.numpy())
+            _ds('elapsed_min', self._elapsed_min)
 
             # algo data 
-            hf.create_dataset('qf1_vals_mean', data=self._qf1_vals_mean.numpy())
-            hf.create_dataset('qf2_vals_mean', data=self._qf2_vals_mean.numpy())
-            hf.create_dataset('qf1_vals_std', data=self._qf1_vals_std.numpy())
-            hf.create_dataset('qf2_vals_std', data=self._qf2_vals_std.numpy())
-            hf.create_dataset('qf1_vals_max', data=self._qf1_vals_max.numpy())
-            hf.create_dataset('qf1_vals_min', data=self._qf1_vals_min.numpy())
-            hf.create_dataset('qf2_vals_max', data=self._qf2_vals_max.numpy())
-            hf.create_dataset('qf2_vals_min', data=self._qf1_vals_min.numpy())
+            _ds('qf1_vals_mean', self._qf1_vals_mean)
+            _ds('qf2_vals_mean', self._qf2_vals_mean)
+            _ds('qf1_vals_std', self._qf1_vals_std)
+            _ds('qf2_vals_std', self._qf2_vals_std)
+            _ds('qf1_vals_max', self._qf1_vals_max)
+            _ds('qf1_vals_min', self._qf1_vals_min)
+            _ds('qf2_vals_max', self._qf2_vals_max)
+            _ds('qf2_vals_min', self._qf1_vals_min)
 
-            hf.create_dataset('min_qft_vals_mean', data=self._min_qft_vals_mean.numpy())
-            hf.create_dataset('min_qft_vals_std', data=self._min_qft_vals_std.numpy())
+            _ds('min_qft_vals_mean', self._min_qft_vals_mean)
+            _ds('min_qft_vals_std', self._min_qft_vals_std)
             
-            hf.create_dataset('qf1_loss', data=self._qf1_loss.numpy())
-            hf.create_dataset('qf2_loss', data=self._qf2_loss.numpy())
-            hf.create_dataset('actor_loss', data=self._actor_loss.numpy())
-            hf.create_dataset('alpha_loss', data=self._alpha_loss.numpy())
-            hf.create_dataset('alpha_loss_disc', data=self._alpha_loss_disc.numpy())
-            hf.create_dataset('alpha_loss_cont', data=self._alpha_loss_cont.numpy())
+            _ds('qf1_loss', self._qf1_loss)
+            _ds('qf2_loss', self._qf2_loss)
+            _ds('actor_loss', self._actor_loss)
+            _ds('alpha_loss', self._alpha_loss)
+            _ds('alpha_loss_disc', self._alpha_loss_disc)
+            _ds('alpha_loss_cont', self._alpha_loss_cont)
             if self._validate:
-                hf.create_dataset('qf1_loss_validation', data=self._qf1_loss_validation.numpy())
-                hf.create_dataset('qf2_loss_validation', data=self._qf2_loss_validation.numpy())
-                hf.create_dataset('actor_loss_validation', data=self._actor_loss_validation.numpy())
-                hf.create_dataset('alpha_loss_validation', data=self._alpha_loss_validation.numpy())
-                hf.create_dataset('alpha_loss_disc_validation', data=self._alpha_loss_disc_validation.numpy())
-                hf.create_dataset('alpha_loss_cont_validation', data=self._alpha_loss_cont_validation.numpy())
-                hf.create_dataset('overfit_index', data=self._overfit_index.numpy())
+                _ds('qf1_loss_validation', self._qf1_loss_validation)
+                _ds('qf2_loss_validation', self._qf2_loss_validation)
+                _ds('actor_loss_validation', self._actor_loss_validation)
+                _ds('alpha_loss_validation', self._alpha_loss_validation)
+                _ds('alpha_loss_disc_validation', self._alpha_loss_disc_validation)
+                _ds('alpha_loss_cont_validation', self._alpha_loss_cont_validation)
+                _ds('overfit_index', self._overfit_index)
 
-            hf.create_dataset('alphas', data=self._alphas.numpy())
-            hf.create_dataset('alphas_disc', data=self._alphas_disc.numpy())
-            hf.create_dataset('alphas_cont', data=self._alphas_cont.numpy())
+            _ds('alphas', self._alphas)
+            _ds('alphas_disc', self._alphas_disc)
+            _ds('alphas_cont', self._alphas_cont)
             
-            hf.create_dataset('policy_entropy_mean', data=self._policy_entropy_mean.numpy())
-            hf.create_dataset('policy_entropy_std', data=self._policy_entropy_std.numpy())
-            hf.create_dataset('policy_entropy_max', data=self._policy_entropy_max.numpy())
-            hf.create_dataset('policy_entropy_min', data=self._policy_entropy_min.numpy())
-            hf.create_dataset('policy_entropy_disc_mean', data=self._policy_entropy_disc_mean.numpy())
-            hf.create_dataset('policy_entropy_disc_std', data=self._policy_entropy_disc_std.numpy())
-            hf.create_dataset('policy_entropy_disc_max', data=self._policy_entropy_disc_max.numpy())
-            hf.create_dataset('policy_entropy_disc_min', data=self._policy_entropy_disc_min.numpy())
-            hf.create_dataset('policy_entropy_cont_mean', data=self._policy_entropy_cont_mean.numpy())
-            hf.create_dataset('policy_entropy_cont_std', data=self._policy_entropy_cont_std.numpy())
-            hf.create_dataset('policy_entropy_cont_max', data=self._policy_entropy_cont_max.numpy())
-            hf.create_dataset('policy_entropy_cont_min', data=self._policy_entropy_cont_min.numpy())
+            _ds('policy_entropy_mean', self._policy_entropy_mean)
+            _ds('policy_entropy_std', self._policy_entropy_std)
+            _ds('policy_entropy_max', self._policy_entropy_max)
+            _ds('policy_entropy_min', self._policy_entropy_min)
+            _ds('policy_entropy_disc_mean', self._policy_entropy_disc_mean)
+            _ds('policy_entropy_disc_std', self._policy_entropy_disc_std)
+            _ds('policy_entropy_disc_max', self._policy_entropy_disc_max)
+            _ds('policy_entropy_disc_min', self._policy_entropy_disc_min)
+            _ds('policy_entropy_cont_mean', self._policy_entropy_cont_mean)
+            _ds('policy_entropy_cont_std', self._policy_entropy_cont_std)
+            _ds('policy_entropy_cont_max', self._policy_entropy_cont_max)
+            _ds('policy_entropy_cont_min', self._policy_entropy_cont_min)
             hf.create_dataset('target_entropy', data=self._target_entropy)
             hf.create_dataset('target_entropy_disc', data=self._target_entropy_disc)
             hf.create_dataset('target_entropy_cont', data=self._target_entropy_cont)
 
             if self._use_rnd:
-                hf.create_dataset('n_rnd_updates', data=self._n_rnd_updates.numpy())
-                hf.create_dataset('expl_bonus_raw_avrg', data=self._expl_bonus_raw_avrg.numpy())
-                hf.create_dataset('expl_bonus_raw_std', data=self._expl_bonus_raw_std.numpy())
-                hf.create_dataset('expl_bonus_proc_avrg', data=self._expl_bonus_proc_avrg.numpy())
-                hf.create_dataset('expl_bonus_proc_std', data=self._expl_bonus_proc_std.numpy())
+                _ds('n_rnd_updates', self._n_rnd_updates)
+                _ds('expl_bonus_raw_avrg', self._expl_bonus_raw_avrg)
+                _ds('expl_bonus_raw_std', self._expl_bonus_raw_std)
+                _ds('expl_bonus_proc_avrg', self._expl_bonus_proc_avrg)
+                _ds('expl_bonus_proc_std', self._expl_bonus_proc_std)
 
                 if self._rnd_net.obs_running_norm is not None:
                     if self._running_mean_rnd_input is not None:
-                        hf.create_dataset('running_mean_rnd_input', data=self._running_mean_rnd_input.numpy())
+                        _ds('running_mean_rnd_input', self._running_mean_rnd_input)
                     if self._running_std_rnd_input is not None:
-                        hf.create_dataset('running_std_rnd_input', data=self._running_std_rnd_input.numpy())
+                        _ds('running_std_rnd_input', self._running_std_rnd_input)
 
             # dump all custom env data  
             db_data_names = list(self._env.custom_db_data.keys())
@@ -1570,14 +1583,14 @@ class SActorCriticAlgoBase(ABC):
                 subnames = list(data.keys())
                 for subname in subnames:
                     var_name = db_dname + "_" + subname
-                    hf.create_dataset(var_name, data=data[subname])
+                    _ds(var_name, data[subname])
             
             # other data
             if self._agent.obs_running_norm is not None:
                 if self._running_mean_obs is not None:
-                    hf.create_dataset('running_mean_obs', data=self._running_mean_obs.numpy())
+                    _ds('running_mean_obs', self._running_mean_obs)
                 if self._running_std_obs is not None:
-                    hf.create_dataset('running_std_obs', data=self._running_std_obs.numpy())
+                    _ds('running_std_obs', self._running_std_obs)
             
         info = f"done."
         Journal.log(self.__class__.__name__,
