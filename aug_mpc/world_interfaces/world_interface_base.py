@@ -446,6 +446,10 @@ class AugMPCWorldInterfaceBase(ABC):
                 env_indxs=None)
             self._read_root_state_from_robot(robot_name=robot_name,
                     env_indxs=None)
+            # contact sanity check after warmup: ensure we settled with enough contacts (e.g., quadruped feet)
+            self._check_warmup_contacts(robot_name=robot_name,
+                min_contacts=3,
+                force_thresh=1e-3)
             
             # write some inits for all robots
             self._update_root_offsets(robot_name)
@@ -866,6 +870,33 @@ class AugMPCWorldInterfaceBase(ABC):
     
     def _n_contacts(self, robot_name: str) -> List[int]:
         return self._num_contacts[robot_name]
+    
+    def _check_warmup_contacts(self,
+            robot_name: str,
+            min_contacts: int = 3,
+            force_thresh: float = 1e-3):
+        """Check that each env has at least min_contacts active (force above threshold) after warmup."""
+        contact_links = self._contact_names.get(robot_name, [])
+        if contact_links is None or len(contact_links) < min_contacts:
+            return
+
+        counts = torch.zeros((self._num_envs,), dtype=torch.int32, device=self._device)
+        for link in contact_links:
+            f_contact = self._get_contact_f(robot_name=robot_name,
+                                            contact_link=link,
+                                            env_indxs=None)
+            if f_contact is None:
+                continue
+            active = torch.linalg.norm(f_contact, dim=1) > force_thresh
+            counts += active.int()
+
+        failing = torch.nonzero(counts < min_contacts, as_tuple=False).flatten()
+        if failing.numel() > 0:
+            Journal.log(self.__class__.__name__,
+                "_check_warmup_contacts",
+                f"Warmup contact check failed for {robot_name}: envs {failing.tolist()} have < {min_contacts} contacts.",
+                LogType.WARN,
+                throw_when_excep=False)
     
     def root_p(self,
             robot_name: str,
