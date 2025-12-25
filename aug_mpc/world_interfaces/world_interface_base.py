@@ -461,7 +461,7 @@ class AugMPCWorldInterfaceBase(ABC):
                         "_setup",
                         f"Warmup validation failed for {robot_name}, envs indexes {failing.tolist()}",
                         LogType.EXCEP,
-                        throw_when_excep=False)
+                        throw_when_excep=True)
                 else:
                     Journal.log(self.__class__.__name__,
                         "_setup",
