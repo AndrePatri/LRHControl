@@ -78,9 +78,13 @@ if __name__ == '__main__':
     init_tsteps=args.init_timesteps 
     if init_tsteps is None:
         init_tsteps=default_init_tsteps
-    
     # Ensure custom_args_names, custom_args_vals, and custom_args_dtype have the same length
     custom_opt = generate_custom_arg_dict(args=args)
+
+    Journal.log("launch_world_interface.py",
+            "",
+            f"Will warmup world interface for {default_init_duration}s ({default_init_tsteps} physics steps)",
+            LogType.STAT)
 
     robot_names = [args.robot_name]
     robot_urdf_paths = [args.urdf_path]

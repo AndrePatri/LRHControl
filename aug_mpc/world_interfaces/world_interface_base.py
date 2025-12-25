@@ -402,6 +402,7 @@ class AugMPCWorldInterfaceBase(ABC):
             self._set_jnts_to_homing(robot_name=robot_name)
             self._set_root_to_defconfig(robot_name=robot_name)
             self._reset_sim()
+
             self._init_safe_cluster_actions(robot_name=robot_name)
 
             Journal.log(self.__class__.__name__,
@@ -439,17 +440,33 @@ class AugMPCWorldInterfaceBase(ABC):
                         f"The filter_sampling_rate should be smaller that the physics rate ({physics_rate} Hz)",
                         LogType.EXCEP,
                         throw_when_excep=True)
-                
+            
+            warmup_zero_steps = max(0, int(3*self._n_init_steps / 4))
             for n in range(self._n_init_steps): # run some initialization steps
                 self._step_world()
+                if n < warmup_zero_steps and hasattr(self, "_zero_angular_velocities"):
+                    self._zero_angular_velocities(robot_name=robot_name, env_indxs=None)
             self._read_jnts_state_from_robot(robot_name=robot_name,
                 env_indxs=None)
             self._read_root_state_from_robot(robot_name=robot_name,
                     env_indxs=None)
-            # contact sanity check after warmup: ensure we settled with enough contacts (e.g., quadruped feet)
-            self._check_warmup_contacts(robot_name=robot_name,
-                min_contacts=3,
-                force_thresh=1e-3)
+            # allow child to perform additional warmup validations (e.g., terrain/tilt)
+            # retry_done = False
+            if hasattr(self, "_post_warmup_validation"):
+                failing = self._post_warmup_validation(robot_name=robot_name)
+                if failing is not None and failing.numel() > 0:
+                    # retry: reset only failing envs, rerun warmup, revalidate once
+                    failing = failing.to(self._device)
+                    Journal.log(self.__class__.__name__,
+                        "_setup",
+                        f"Warmup validation failed for {robot_name}, envs indexes {failing.tolist()}",
+                        LogType.EXCEP,
+                        throw_when_excep=False)
+                else:
+                    Journal.log(self.__class__.__name__,
+                        "_setup",
+                        f"Warmup validation passed for {robot_name}",
+                        LogType.INFO)
             
             # write some inits for all robots
             self._update_root_offsets(robot_name)
@@ -631,7 +648,6 @@ class AugMPCWorldInterfaceBase(ABC):
     def _update_contact_state(self, 
             robot_name: str, 
             env_indxs: torch.Tensor = None):
-
         for i in range(0, self.cluster_servers[robot_name].n_contact_sensors()):
             contact_link = self.cluster_servers[robot_name].contact_linknames()[i]
             f_contact = self._get_contact_f(robot_name=robot_name,
@@ -870,33 +886,6 @@ class AugMPCWorldInterfaceBase(ABC):
     
     def _n_contacts(self, robot_name: str) -> List[int]:
         return self._num_contacts[robot_name]
-    
-    def _check_warmup_contacts(self,
-            robot_name: str,
-            min_contacts: int = 3,
-            force_thresh: float = 1e-3):
-        """Check that each env has at least min_contacts active (force above threshold) after warmup."""
-        contact_links = self._contact_names.get(robot_name, [])
-        if contact_links is None or len(contact_links) < min_contacts:
-            return
-
-        counts = torch.zeros((self._num_envs,), dtype=torch.int32, device=self._device)
-        for link in contact_links:
-            f_contact = self._get_contact_f(robot_name=robot_name,
-                                            contact_link=link,
-                                            env_indxs=None)
-            if f_contact is None:
-                continue
-            active = torch.linalg.norm(f_contact, dim=1) > force_thresh
-            counts += active.int()
-
-        failing = torch.nonzero(counts < min_contacts, as_tuple=False).flatten()
-        if failing.numel() > 0:
-            Journal.log(self.__class__.__name__,
-                "_check_warmup_contacts",
-                f"Warmup contact check failed for {robot_name}: envs {failing.tolist()} have < {min_contacts} contacts.",
-                LogType.WARN,
-                throw_when_excep=False)
     
     def root_p(self,
             robot_name: str,
