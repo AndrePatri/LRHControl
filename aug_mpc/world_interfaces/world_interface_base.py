@@ -441,10 +441,9 @@ class AugMPCWorldInterfaceBase(ABC):
                         LogType.EXCEP,
                         throw_when_excep=True)
             
-            warmup_zero_steps = max(0, int(3*self._n_init_steps / 4))
             for n in range(self._n_init_steps): # run some initialization steps
                 self._step_world()
-                if n < warmup_zero_steps and hasattr(self, "_zero_angular_velocities"):
+                if hasattr(self, "_zero_angular_velocities"):
                     self._zero_angular_velocities(robot_name=robot_name, env_indxs=None)
             self._read_jnts_state_from_robot(robot_name=robot_name,
                 env_indxs=None)
