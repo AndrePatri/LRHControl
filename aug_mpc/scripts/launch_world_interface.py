@@ -73,7 +73,7 @@ if __name__ == '__main__':
     
     deterministic_run(seed=args.seed, torch_det_algos=False)
 
-    default_init_duration=2.0 # [s]
+    default_init_duration=3.0 # [s]
     default_init_tsteps=int(default_init_duration/args.physics_dt)
     init_tsteps=args.init_timesteps 
     if init_tsteps is None:
