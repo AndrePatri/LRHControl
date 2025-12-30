@@ -1927,7 +1927,8 @@ class AugMPCTrainingEnvBase(ABC):
             self._prev_root_p_substep[:, :]=robot_p_meas
             self._prev_root_q_substep[:, :]=robot_q_meas
             out[:, :]=twist_w
-        world2base_frame(t_w=twist_w, q_b=self._prev_root_q_substep, t_out=out)
+        # rotate using the current (end-of-substep) orientation for consistency with other signals
+        world2base_frame(t_w=twist_w, q_b=robot_q_meas, t_out=out)
         self._prev_root_p_substep[:, :]=robot_p_meas
         self._prev_root_q_substep[:, :]=robot_q_meas
 
@@ -1947,7 +1948,8 @@ class AugMPCTrainingEnvBase(ABC):
             dim=1)
         if not base_loc:
             out[:, :]=twist_w
-        world2base_frame(t_w=twist_w, q_b=self._prev_root_q_step, t_out=out)
+        # rotate using the current (end-of-step) orientation for consistency with other signals
+        world2base_frame(t_w=twist_w, q_b=robot_q_meas, t_out=out)
 
     def _get_avrg_rhc_root_twist(self,
             out: torch.Tensor,
