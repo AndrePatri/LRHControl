@@ -14,11 +14,13 @@ from mpc_hive.utilities.homing import RobotHomer
 from mpc_hive.utilities.shared_data.jnt_imp_control import JntImpCntrlData
 
 from EigenIPC.PyEigenIPC import VLevel, Journal, LogType, dtype
+from EigenIPC.PyEigenIPC import StringTensorServer
 from EigenIPC.PyEigenIPCExt.wrappers.shared_data_view import SharedTWrapper
 
 from typing import List, Union, Dict, TypeVar
 
 import os
+import inspect
 import signal
 import time
 
@@ -232,11 +234,13 @@ class AugMPCWorldInterfaceBase(ABC):
 
         self._closed = False
              
+        self._this_child_path=os.path.abspath(inspect.getfile(self.__class__))
         self._descr_dump_path=dump_basepath+"/"+f"{self.__class__.__name__}"
         self._urdf_dump_paths = {}
         self._srdf_dump_paths = {}
         self.xrdf_cmd_vals = [] # by default empty, needs to be overriden by
         # child class
+        self._world_iface_files_server=None
 
         self._override_low_lev_controller=override_low_lev_controller
 
@@ -285,6 +289,8 @@ class AugMPCWorldInterfaceBase(ABC):
 
         self._init_world() # after this point all info from sim or robot is 
         # available
+
+        self._publish_world_interface_files()
         
         self._setup()
 
@@ -320,9 +326,46 @@ class AugMPCWorldInterfaceBase(ABC):
                         jnt_imp_shared_data.close()
             if self._remote_exit_flag is not None:
                 self._remote_exit_flag.close()
+            if self._world_iface_files_server is not None:
+                self._world_iface_files_server.close()
             self._close()
             self._closed=True
-    
+
+    def _collect_world_interface_files(self):
+        files = [self._this_child_path]
+        files.extend(list(self._robot_urdf_paths.values()))
+        files.extend(list(self._robot_srdf_paths.values()))
+        files.extend(list(self._jnt_imp_config_paths.values()))
+        # remove duplicates while preserving order
+        unique_files=[]
+        for f in files:
+            if f not in unique_files:
+                unique_files.append(f)
+        return unique_files
+
+    def _publish_world_interface_files(self):
+
+        if not any(self._use_remote_stepping):
+            return
+        self._world_iface_files_server=StringTensorServer(length=1,
+            basename="SharedWorldInterfaceFilesDropDir",
+            name_space=self._robot_names[0],
+            verbose=self._verbose,
+            vlevel=self._vlevel,
+            force_reconnection=True)
+        self._world_iface_files_server.run()
+        combined_paths=", ".join(self._collect_world_interface_files())
+        while not self._world_iface_files_server.write_vec([combined_paths], 0):
+            Journal.log(self.__class__.__name__,
+            "_publish_world_interface_files",
+            f"Failed to pub world interface files. Retrying...",
+            LogType.WARN)
+            time.sleep(0.1)
+        Journal.log(self.__class__.__name__,
+            "_publish_world_interface_files",
+            f"World interface files advertised: {combined_paths}",
+            LogType.STAT)
+
     def _setup(self) -> None:
     
         for i in range(len(self._robot_names)):

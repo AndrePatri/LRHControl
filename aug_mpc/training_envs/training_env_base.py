@@ -34,6 +34,7 @@ from mpc_hive.utilities.math_utils_torch import world2base_frame
 from EigenIPC.PyEigenIPC import VLevel
 from EigenIPC.PyEigenIPC import LogType
 from EigenIPC.PyEigenIPC import Journal
+from EigenIPC.PyEigenIPC import StringTensorClient
 
 from perf_sleep.pyperfsleep import PerfSleep
 
@@ -362,6 +363,7 @@ class AugMPCTrainingEnvBase(ABC):
         for script_path in path_getter.SCRIPTSPATHS:
             base_paths.append(script_path)
 
+        # rhc files
         from EigenIPC.PyEigenIPC import StringTensorClient
         from perf_sleep.pyperfsleep import PerfSleep
         shared_rhc_shared_files = StringTensorClient(
@@ -381,12 +383,37 @@ class AugMPCTrainingEnvBase(ABC):
         rhc_list = list(set(rhc_list)) # removing duplicates
         base_paths.extend(rhc_list)
         
+        # world interface files
+        get_world_interface_paths = self.get_world_interface_paths()
+        base_paths.extend(get_world_interface_paths)
         return base_paths
+
+    def get_world_interface_paths(self):
+        paths = []
+        shared_world_iface_files = StringTensorClient(
+            basename="SharedWorldInterfaceFilesDropDir", 
+            name_space=self._namespace,
+            verbose=self._verbose, 
+            vlevel=VLevel.V2)
+        shared_world_iface_files.run()
+        world_iface_vals=[""]*shared_world_iface_files.length()
+        while not shared_world_iface_files.read_vec(world_iface_vals, 0):
+            nsecs =  1000000000 # 1 sec
+            PerfSleep.thread_sleep(nsecs) # keep alive while waiting
+        shared_world_iface_files.close()
+        for files in world_iface_vals:
+            if files == "":
+                continue
+            file_list = files.split(", ")
+            for f in file_list:
+                if f not in paths:
+                    paths.append(f)
+        return paths
 
     def get_aux_dir(self):
         empty_list = []
         return empty_list
-    
+
     def _init_step(self):
         
         self._check_controllers_registered(retry=True)
