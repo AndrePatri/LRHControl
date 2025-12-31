@@ -333,8 +333,15 @@ class AugMPCWorldInterfaceBase(ABC):
 
     def _collect_world_interface_files(self):
         files = [self._this_child_path]
-        files.extend(list(self._robot_urdf_paths.values()))
-        files.extend(list(self._robot_srdf_paths.values()))
+        # prefer generated URDF/SRDF if available, fallback to provided xacros
+        if len(self._urdf_dump_paths) > 0:
+            files.extend(list(self._urdf_dump_paths.values()))
+        else:
+            files.extend(list(self._robot_urdf_paths.values()))
+        if len(self._srdf_dump_paths) > 0:
+            files.extend(list(self._srdf_dump_paths.values()))
+        else:
+            files.extend(list(self._robot_srdf_paths.values()))
         files.extend(list(self._jnt_imp_config_paths.values()))
         # remove duplicates while preserving order
         unique_files=[]
