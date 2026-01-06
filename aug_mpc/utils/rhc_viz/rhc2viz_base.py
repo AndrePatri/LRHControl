@@ -224,6 +224,18 @@ class RhcToVizBridgeBase(ABC):
         self._sim_data.run()
         self._sim_datanames = self._sim_data.param_keys
         self._simtime_idx = self._sim_datanames.index("cluster_time")
+        self._hs_fwd_idx = self._sim_datanames.index("height_sensor_forward_offset") \
+            if "height_sensor_forward_offset" in self._sim_datanames else None
+        self._hs_lat_idx = self._sim_datanames.index("height_sensor_lateral_offset") \
+            if "height_sensor_lateral_offset" in self._sim_datanames else None
+        _sim_params_snapshot = self._sim_data.get()
+        def _safe_offset(idx):
+            if idx is None:
+                return 0.0
+            val = float(_sim_params_snapshot[idx])
+            return 0.0 if np.isnan(val) else val
+        self._hs_forward_offset = _safe_offset(self._hs_fwd_idx)
+        self._hs_lateral_offset = _safe_offset(self._hs_lat_idx)
         self._ros_clock = Clock()
 
         # robot state
@@ -663,6 +675,7 @@ class RhcToVizBridgeBase(ABC):
         coords = (np.arange(grid_size) - (grid_size / 2.0) + 0.5) * res
         gx, gy = np.meshgrid(coords, coords)
         offsets = np.stack([gx.reshape(-1), gy.reshape(-1)], axis=1)
+        offsets += np.array([self._hs_forward_offset, self._hs_lateral_offset], dtype=float)
 
         base_pose = self.robot_state.root_state.get(data_type="q_full", robot_idxs=self._current_index)
         # publish in base frame: xy grid offsets, z as absolute height so marker frame can sit on ground
