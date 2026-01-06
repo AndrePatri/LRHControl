@@ -179,6 +179,8 @@ class AugMPCWorldInterfaceBase(ABC):
         self._env_opts["enable_height_sensor"]=False
         self._env_opts["height_sensor_resolution"]=0.16
         self._env_opts["height_sensor_pixels"]=10
+        self._env_opts["height_sensor_lateral_offset"]=0.0
+        self._env_opts["height_sensor_forward_offset"]=0.0
 
         self._filter_step_ssteps_freq=None
 
