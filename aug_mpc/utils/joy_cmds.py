@@ -513,11 +513,12 @@ class AgentRefsFromJoy:
         else:
             self._current_twist_ref_base[:, :]=self._current_twist_ref_world.reshape(1, -1)
 
-        self.agent_refs.rob_refs.root_state.set(data_type="twist",data=self._current_twist_ref_base,
+        if self.enable_omega or self.enable_linvel:
+            self.agent_refs.rob_refs.root_state.set(data_type="twist",data=self._current_twist_ref_base,
                                         robot_idxs=self.cluster_idx_np)
-        self.agent_refs.rob_refs.root_state.synch_retry(row_index=self.cluster_idx, col_index=7, 
-                                    n_rows=1, n_cols=6,
-                                    read=False)
+            self.agent_refs.rob_refs.root_state.synch_retry(row_index=self.cluster_idx, col_index=7, 
+                                        n_rows=1, n_cols=6,
+                                        read=False)
               
     # def run(self, connect, topic, poll_interval ):
 
