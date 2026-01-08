@@ -212,9 +212,19 @@ if __name__ == "__main__":
             if args.mpc_finfo:
                 rhc_refs.flight_info.synch_all(read=True, retry=True)
                 rhc_refs.flight_settings_req.synch_all(read=True, retry=True)
-                len=rhc_refs.flight_settings_req.get(data_type="len_remain", robot_idxs=idx).flatten()
-                apex_dpos=rhc_refs.flight_settings_req.get(data_type="apex_dpos", robot_idxs=idx).flatten()
-                end_dpos=rhc_refs.flight_settings_req.get(data_type="end_dpos", robot_idxs=idx).flatten()
+                len_req=rhc_refs.flight_settings_req.get(data_type="len_remain", robot_idxs=idx).flatten()
+                apex_dpos_req=rhc_refs.flight_settings_req.get(data_type="apex_dpos", robot_idxs=idx).flatten()
+                end_dpos_req=rhc_refs.flight_settings_req.get(data_type="end_dpos", robot_idxs=idx).flatten()
+                land_dx_req=rhc_refs.flight_settings_req.get(data_type="land_dx", robot_idxs=idx).flatten()
+                land_dy_req=rhc_refs.flight_settings_req.get(data_type="land_dy", robot_idxs=idx).flatten()
+
+                pos=rhc_refs.flight_info.get(data_type="pos", robot_idxs=idx).flatten()
+                len_remain=rhc_refs.flight_info.get(data_type="len_remain", robot_idxs=idx).flatten()
+                len_nom=rhc_refs.flight_info.get(data_type="len", robot_idxs=idx).flatten()
+                apex=rhc_refs.flight_info.get(data_type="apex", robot_idxs=idx).flatten()
+                end=rhc_refs.flight_info.get(data_type="end", robot_idxs=idx).flatten()
+                land_dx=rhc_refs.flight_info.get(data_type="land_dx", robot_idxs=idx).flatten()
+                land_dy=rhc_refs.flight_info.get(data_type="land_dy", robot_idxs=idx).flatten()
 
             if args.with_obs:
                 obs.synch_all(read=True, retry=True)
@@ -255,13 +265,33 @@ if __name__ == "__main__":
             
 
             if args.mpc_finfo:
-                print("\n flight info:")
-                print("\n len:")
-                print(len)
+                print("\n flight settings req:")
+                print("\n len_remain:")
+                print(len_req)
                 print("\n apex_dpos:")
-                print(apex_dpos)
+                print(apex_dpos_req)
                 print("\n end_dpos:")
-                print(end_dpos)
+                print(end_dpos_req)
+                print("\n land_dx:")
+                print(land_dx_req)
+                print("\n land_dy:")
+                print(land_dy_req)
+
+                print("\n flight info:")
+                print("\n pos:")
+                print(pos)
+                print("\n len_remain:")
+                print(len_remain)
+                print("\n len:")
+                print(len_nom)
+                print("\n apex:")
+                print(apex)
+                print("\n end:")
+                print(end)
+                print("\n land_dx:")
+                print(land_dx)
+                print("\n land_dy:")
+                print(land_dy)
 
             if args.with_obs:
                 print("\nobservations:")

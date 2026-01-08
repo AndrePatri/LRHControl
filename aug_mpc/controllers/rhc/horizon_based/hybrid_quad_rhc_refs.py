@@ -188,10 +188,16 @@ class HybridQuadRhcRefs(RhcRefs):
                 len_req_now=int(self.flight_settings_req.get(data_type="len_remain",
                     robot_idxs=self.robot_index_np_view,
                     contact_idx=i).item())
-                apex_now_req=self.flight_settings_req.get(data_type="apex_dpos",
+                apex_req_now=self.flight_settings_req.get(data_type="apex_dpos",
                     robot_idxs=self.robot_index_np_view,
                     contact_idx=i).item()
-                end_now_req=self.flight_settings_req.get(data_type="end_dpos",
+                end_req_now=self.flight_settings_req.get(data_type="end_dpos",
+                    robot_idxs=self.robot_index_np_view,
+                    contact_idx=i).item()
+                landing_dx_req_now=self.flight_settings_req.get(data_type="land_dx",
+                    robot_idxs=self.robot_index_np_view,
+                    contact_idx=i).item()
+                landing_dy_req_now=self.flight_settings_req.get(data_type="land_dy",
                     robot_idxs=self.robot_index_np_view,
                     contact_idx=i).item()
                 
@@ -199,10 +205,13 @@ class HybridQuadRhcRefs(RhcRefs):
                 self.gait_manager.set_flight_duration(contact_name=timeline_name,
                     val=len_req_now)
                 self.gait_manager.set_step_apexdh(contact_name=timeline_name,
-                    val=apex_now_req)
+                    val=apex_req_now)
                 self.gait_manager.set_step_enddh(contact_name=timeline_name,
-                    val=end_now_req)
-                
+                    val=end_req_now)
+                self.gait_manager.set_step_landing_dx(contact_name=timeline_name,
+                    val=landing_dx_req_now)
+                self.gait_manager.set_step_landing_dy(contact_name=timeline_name,
+                    val=landing_dy_req_now)   
                 # insert flight phase over the horizon
                 self.gait_manager.add_flight(contact_name=timeline_name,
                     robot_q=q_full)
@@ -241,7 +250,7 @@ class HybridQuadRhcRefs(RhcRefs):
 
             root_twist_ref_h = root_twist_ref.copy() 
 
-            hor2w_frame(root_twist_ref, q_base, root_twist_ref_h)
+            hor2w_frame(root_twist_ref, q_base, root_twist_ref_h) # horizon works in local world aligned frame
             
             if self.base_lin_velxy is not None:
                 self.base_lin_velxy.setRef(root_twist_ref_h[0:2, :])

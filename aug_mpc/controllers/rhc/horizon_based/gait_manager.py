@@ -51,8 +51,6 @@ class GaitManager:
         # flight parameters
         self._post_flight_stance=post_flight_stance
         self._flight_info_now=None 
-        self._flight_info_size=5 # current pos, current length, nominal length, nom. apex, no. landing height 
-        # duration bounds/defaults
         self._flight_duration_max=self._n_nodes_prb-(injection_node+1)
         self._flight_duration_min=3
         self._flight_duration_default=flight_duration 
@@ -64,7 +62,14 @@ class GaitManager:
         self._dh_default=dh
         self._dh_min=0.0
         self._dh_max=0.5
-
+        # landing dx, dy bounds/defaults
+        self._land_dx_default=0.0
+        self._land_dx_min=-0.5
+        self._land_dx_max=0.5
+        self._land_dy_default=0.0       
+        self._land_dy_min=-0.5
+        self._land_dy_max=0.5
+        
         # timeline data
         self._contact_timelines = dict()
         self.timeline_names=[]
@@ -95,13 +100,12 @@ class GaitManager:
         self._reset_contact_timelines()
 
     def _init_contact_timelines(self):
+
         short_stance_duration=1
         flight_phase_short_duration=1
 
-        self.n_contacts=len(self._model.cmap.keys())
-
-        # current pos [c0, c1, ....], current length, nominal length, nom. apex, no. landing height 
-        self._flight_info_now=np.zeros(shape=(5*self.n_contacts)) 
+        self.n_contacts=len(self._model.cmap.keys()) 
+        self._dt=float(self.task_interface.prb.getDt())
 
         self._name_to_idx_map={}
 
@@ -140,17 +144,19 @@ class GaitManager:
             self._flight_phases[contact]=self._contact_timelines[contact].createPhase(flight_phase_short_duration, 
                                     f'flight_{contact}_short')
 
-            # ref traj for contacts
-            self._ref_trjs[contact]=np.zeros(shape=[7, self.task_interface.prb.getNNodes()]) # allocate traj
-            # of max length eual to number of nodes
-
-            # sanity checks
+            # sanity checks (z trajectory)
             self._zpos_task_found=True
             self._zvel_task_found=True
+            self._xypos_task_found=True
+            self._xyvel_task_found=True
             if self.task_interface.getTask(f'z_{contact}') is None:
                 self._zpos_task_found=False
             if self.task_interface.getTask(f'vz_{contact}') is None:
                 self._zvel_task_found=False
+            if self.task_interface.getTask(f'xy_{contact}') is None:
+                self._xypos_task_found=False
+            if self.task_interface.getTask(f'vxy_{contact}') is None:
+                self._xyvel_task_found=False
             if (not self._zpos_task_found) and (not self._zvel_task_found):
                 Journal.log(self.__class__.__name__,
                     "_init_contact_timelines",
@@ -163,6 +169,23 @@ class GaitManager:
                     f"Running in open loop, but no contact pos task found. Aborting.",
                     LogType.EXCEP,
                     throw_when_excep=True)
+            if self._zpos_task_found and self._xyvel_task_found:
+                Journal.log(self.__class__.__name__,
+                    "_init_contact_timelines",
+                    f"Both pos and vel task for contact {contact} found! This is not allowed, aborting.",
+                    LogType.EXCEP,
+                    throw_when_excep=True)
+            if self._zvel_task_found and self._xypos_task_found:
+                Journal.log(self.__class__.__name__,
+                    "_init_contact_timelines",
+                    f"Both pos and vel task for contact {contact} found! This is not allowed, aborting.",
+                    LogType.EXCEP,
+                    throw_when_excep=True)
+            if (not self._xypos_task_found) and (not self._xyvel_task_found):
+                Journal.log(self.__class__.__name__,
+                    "_init_contact_timelines",
+                    f"neither pos or vel task for contacts xy were found! Will proceed without xy landing constraints.",
+                    LogType.WARN)
             # if (not self._zvel_task_found) and (not self._is_open_loop):
             #     Journal.log(self.__class__.__name__,
             #         "_init_contact_timelines",
@@ -179,16 +202,30 @@ class GaitManager:
                     self._ref_trjs[contact][2, :] = np.atleast_2d(init_z_foot)
                 else:
                     self._ref_trjs[contact][2, :] = 0.0 # place foot at ground level initially ()
-                    
+                
+                if self._xypos_task_found: # xy
+                    self._flight_phases[contact].addItemReference(self.task_interface.getTask(f'xy_{contact}'), 
+                        self._ref_trjs[contact][0:2, 0:1], 
+                        nodes=list(range(0, flight_phase_short_duration)))
+                    self._touchdown_phases[contact]=None
+                # z
                 self._flight_phases[contact].addItemReference(self.task_interface.getTask(f'z_{contact}'), 
                     self._ref_trjs[contact][2, 0:1], 
                     nodes=list(range(0, flight_phase_short_duration)))
+                
                 self._touchdown_phases[contact]=None
+                
             else: # foot traj in velocity
                 # ref vel traj
                 self._ref_vtrjs[contact]=np.zeros(shape=[7, self.task_interface.prb.getNNodes()]) # allocate traj
                 # of max length eual to number of nodes
-                self._ref_vtrjs[contact][2, :] = np.atleast_2d(0)
+                self._ref_vtrjs[contact][2, :] = np.atleast_2d(0) 
+
+                if self._xyvel_task_found: # xy
+                    self._flight_phases[contact].addItemReference(self.task_interface.getTask(f'vxy_{contact}'), 
+                        self._ref_vtrjs[contact][0:2, 0:1], 
+                        nodes=list(range(0, flight_phase_short_duration)))
+                # z
                 self._flight_phases[contact].addItemReference(self.task_interface.getTask(f'vz_{contact}'), 
                     self._ref_vtrjs[contact][2, 0:1], 
                     nodes=list(range(0, flight_phase_short_duration)))
@@ -197,7 +234,7 @@ class GaitManager:
                 # self._touchdown_phases[contact].addItemReference(self.task_interface.getTask(f'vz_{contact}'), 
                 #     self._ref_vtrjs[contact][2, 0:1], 
                 #     nodes=list(range(0, flight_phase_short_duration)))
-            
+
             # ee_vel=self._fkd_contacts[contact](q=self._model.q, 
             #             qdot=self._model.v)['ee_vel_linear']
             # cstr = self.task_interface.prb.createConstraint(f'{contact}_vert', ee_vel[0:2], [])
@@ -219,6 +256,9 @@ class GaitManager:
 
             j+=1
 
+        # current pos [c0, c1, ....], current length, nominal length, nom. apex, no. landing height, landing dx, landing dy (local world aligned) 
+        self._flight_info_now=np.zeros(shape=(7*self.n_contacts))
+
         self.update()
 
     def _reset_contact_timelines(self):
@@ -232,7 +272,8 @@ class GaitManager:
             self._flight_info_now[idx+2*self.n_contacts]=self._flight_duration_default # [nodes]
             self._flight_info_now[idx+3*self.n_contacts]=self._step_height_default
             self._flight_info_now[idx+4*self.n_contacts]=self._dh_default
-
+            self._flight_info_now[idx+5*self.n_contacts]=self._land_dx_default
+            self._flight_info_now[idx+6*self.n_contacts]=self._land_dy_default
             # fill timeline with stances
             contact_timeline=self._contact_timelines[contact]
             contact_timeline.clear() # remove phases
@@ -273,6 +314,18 @@ class GaitManager:
     def get_step_enddh(self, contact_name):
         return self._flight_info_now[self._name_to_idx_map[contact_name]+4*self.n_contacts]
     
+    def get_step_landing_dx(self, contact_name):
+        return self._flight_info_now[self._name_to_idx_map[contact_name]+5*self.n_contacts]
+    
+    def set_step_landing_dx(self, contact_name, val: float):
+        self._flight_info_now[self._name_to_idx_map[contact_name]+5*self.n_contacts]=val
+    
+    def get_step_landing_dy(self, contact_name):
+        return self._flight_info_now[self._name_to_idx_map[contact_name]+6*self.n_contacts]     
+    
+    def set_step_landing_dy(self, contact_name, val: float):
+        self._flight_info_now[self._name_to_idx_map[contact_name]+6*self.n_contacts]=val
+
     def add_stand(self, contact_name):
         # always add stand at the end of the horizon
         timeline = self._contact_timelines[contact_name]
@@ -292,10 +345,11 @@ class GaitManager:
 
         if last_flight_idx<self._injection_node: # allow injecting
             
-            flight_duration_req=int(self._flight_info_now[self._name_to_idx_map[contact_name]+2*self.n_contacts])
-            flight_apex_req=self._flight_info_now[self._name_to_idx_map[contact_name]+3*self.n_contacts]
-            flight_enddh_req=self._flight_info_now[self._name_to_idx_map[contact_name]+4*self.n_contacts]
-            
+            flight_duration_req=int(self.get_flight_duration(contact_name=contact_name))
+            flight_apex_req=self.get_step_apexdh(contact_name=contact_name)
+            flight_enddh_req=self.get_step_enddh(contact_name=contact_name)
+            flight_land_dx_req=self.get_step_landing_dx(contact_name=contact_name)
+            flight_land_dy_req=self.get_step_landing_dy(contact_name=contact_name)
             if not flight_duration_req>1:
                 Journal.log(self.__class__.__name__,
                     "add_flight",
@@ -319,6 +373,40 @@ class GaitManager:
                 flight_enddh_req=self._dh_min
             if flight_enddh_req>self._dh_max:
                 flight_enddh_req=self._dh_max
+            # landing dx
+            if flight_land_dx_req<self._land_dx_min:
+                flight_land_dx_req=self._land_dx_min
+            if flight_land_dx_req>self._land_dx_max:
+                flight_land_dx_req=self._land_dx_max
+            # landing dy                
+            if flight_land_dy_req<self._land_dy_min:
+                flight_land_dy_req=self._land_dy_min
+            if flight_land_dy_req>self._land_dy_max:
+                flight_land_dy_req=self._land_dy_max   
+
+            land_dx_w = flight_land_dx_req
+            land_dy_w = flight_land_dy_req
+            if self._xypos_task_found or self._xyvel_task_found:
+                # landing dx/dy are specified in horizontal frame; rotate into world aligned frame
+                q_base = robot_q[3:7]
+                if q_base.ndim == 1:
+                    q_base = q_base.reshape(-1, 1)
+                q_w = q_base[3, 0]
+                q_x = q_base[0, 0]
+                q_y = q_base[1, 0]
+                q_z = q_base[2, 0]
+                r11 = 1 - 2 * (q_y * q_y + q_z * q_z)
+                r21 = 2 * (q_x * q_y + q_z * q_w)
+                norm = np.hypot(r11, r21)
+                if norm > 0.0:
+                    cos_yaw = r11 / norm
+                    sin_yaw = r21 / norm
+                else:
+                    cos_yaw = 1.0
+                    sin_yaw = 0.
+                    
+                land_dx_w = flight_land_dx_req * cos_yaw - flight_land_dy_req * sin_yaw
+                land_dy_w = flight_land_dx_req * sin_yaw + flight_land_dy_req * cos_yaw
 
             if self._ref_vtrjs[contact_name] is not None and \
                 self._ref_trjs[contact_name] is not None: # only allow one mode (pos/velocity traj)
@@ -331,7 +419,10 @@ class GaitManager:
             # inject pos traj if pos mode
             if self._ref_trjs[contact_name] is not None:
                 # recompute trajectory online (just needed if using pos traj)
-                starting_pos=self._fk_contacts[contact_name](q=robot_q)['ee_pos'].elements()[2] # compute foot traj
+                foot_pos=self._fk_contacts[contact_name](q=robot_q)['ee_pos'].elements()
+                starting_pos=foot_pos[2] # compute foot traj (local world aligned)
+                starting_x_pos=foot_pos[0]
+                starting_y_pos=foot_pos[1]
                 # starting_pos=0.0
                 self._ref_trjs[contact_name][2, 0:flight_duration_req]=np.atleast_2d(self._tg.from_derivatives(
                     flight_duration_req, 
@@ -342,12 +433,19 @@ class GaitManager:
                     second_der=self._traj_second_der,
                     third_der=self._third_traj_der)
                     )
+                if self._xypos_task_found:
+                    self._ref_trjs[contact_name][0, 0:flight_duration_req]=starting_x_pos+land_dx_w
+                    self._ref_trjs[contact_name][1, 0:flight_duration_req]=starting_y_pos+land_dy_w
+
                 for i in range(flight_duration_req):
                     res, phase_token=timeline.addPhase(self._flight_phases[contact_name], 
                         pos=self._injection_node+i, 
                         absolute_position=True)
                     phase_token.setItemReference(f'z_{contact_name}',
                         self._ref_trjs[contact_name][:, i])
+                    if self._xypos_task_found:
+                        phase_token.setItemReference(f'xy_{contact_name}',
+                            self._ref_trjs[contact_name][:, i])        
                 if self._touchdown_phases[contact_name] is not None:
                     # add touchdown phase for forcing vertical landing
                     res, phase_token=timeline.addPhase(self._touchdown_phases[contact_name], 
@@ -364,6 +462,11 @@ class GaitManager:
                     derivatives=self._traj_der,
                     second_der=self._traj_second_der,
                     third_der=self._third_traj_der))
+                if self._xyvel_task_found: # compute vel reference using problem dt and flight length
+                    flight_duration_sec=float(flight_duration_req)*self._dt
+                    self._ref_vtrjs[contact_name][0, 0:flight_duration_req]=land_dx_w/flight_duration_sec
+                    self._ref_vtrjs[contact_name][1, 0:flight_duration_req]=land_dy_w/flight_duration_sec
+                    
                 for i in range(flight_duration_req):
                     res, phase_token=timeline.addPhase(self._flight_phases[contact_name], 
                         pos=self._injection_node+i, 
@@ -417,7 +520,9 @@ class GaitManager:
             self._flight_info_now[self._name_to_idx_map[timeline_name]+1*self.n_contacts],
             self._flight_info_now[self._name_to_idx_map[timeline_name]+2*self.n_contacts],
             self._flight_info_now[self._name_to_idx_map[timeline_name]+3*self.n_contacts],
-            self._flight_info_now[self._name_to_idx_map[timeline_name]+4*self.n_contacts])
+            self._flight_info_now[self._name_to_idx_map[timeline_name]+4*self.n_contacts],
+            self._flight_info_now[self._name_to_idx_map[timeline_name]+5*self.n_contacts],
+            self._flight_info_now[self._name_to_idx_map[timeline_name]+6*self.n_contacts])
     
     def get_flight_info_all(self):
         return self._flight_info_now
