@@ -184,7 +184,7 @@ class GaitManager:
             if (not self._xypos_task_found) and (not self._xyvel_task_found):
                 Journal.log(self.__class__.__name__,
                     "_init_contact_timelines",
-                    f"neither pos or vel task for contacts xy were found! Will proceed without xy landing constraints.",
+                    f"neither pos or vel task for contact {contact} xy were found! Will proceed without xy landing constraints.",
                     LogType.WARN)
             # if (not self._zvel_task_found) and (not self._is_open_loop):
             #     Journal.log(self.__class__.__name__,
