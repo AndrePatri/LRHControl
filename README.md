@@ -17,6 +17,13 @@ Reinforcement Learning-Augmented Model Predictive Control *at scale* for legged 
 </p>
 
 - **Domain adaptability** – thanks to MPC's robustness, successful sim-to-sim and sim-to-real zero-shot transfer *without any domain randomization* (no contact properties, inertial, timing randomizations).
+<p align="center">
+  <img src="docs/sim2sim_gen.gif" alt="sim-to-sim_mj" width="400">
+</p>
+<p align="center">
+  <img src="docs/sim2real_centauro_wheeled.gif" alt="sim-to-reall, sim-to-real" width="200">
+  <img src="docs/sim2real_centauro_legged.gif" alt="sim-to-realw, sim-to-real" width="200">
+</p>
 
 - **Robot adaptability** – validated on robots with *different morphologies and weight distributions* (30-120 Kg), with standard legged and *hybrid locomotion* tasks.
 
@@ -32,6 +39,19 @@ Reinforcement Learning-Augmented Model Predictive Control *at scale* for legged 
 <p align="center">
   <img src="docs/hybrid_quadruped_fake_pos_track.gif" alt="sim-to-sim, sim-to-real" width="300">
 </p>
+
+- Easily extensible to **unstructured** environments
+
+  Non-flat terrain example:
+  <p align="center">
+    <img src="docs/step_pyr_centauro_percep.gif" alt="sim-to-sim, sim-to-real" width="350">
+  </p>
+  
+  Enabled by
+    - Raw heightmap in observation
+    - Granted agent control of feet clearance, landing height and flight duration 
+
+
 
 ## Software
 <p align="center">
