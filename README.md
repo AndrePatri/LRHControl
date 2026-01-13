@@ -91,3 +91,5 @@ The preferred way to install MPCHive is through [ibrido-containers](https://gith
 2. **New world interface** – 
 3. **New training environment** – 
 4. **New agent/algorithm** – 
+
+## Citing our work (TBD)
