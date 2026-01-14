@@ -555,7 +555,7 @@ class SActorCriticAlgoBase(ABC):
             custom_args: Dict = {}):
     
         self._collection_freq=1
-        self._update_freq=2
+        self._update_freq=4
 
         self._replay_buffer_size_vec=10*self._task_rand_timeout_ub # cover at least a number of eps            
         self._replay_buffer_size = self._replay_buffer_size_vec*self._num_envs
@@ -588,14 +588,20 @@ class SActorCriticAlgoBase(ABC):
         self._entropy_metric_high = 0.5
         self._entropy_metric_low = 0.0
 
-        self._entropy_disc_start = -0.05
-        self._entropy_disc_end = -0.5
+        # self._entropy_disc_start = -0.05
+        # self._entropy_disc_end = -0.5
 
-        self._entropy_cont_start = -0.05
-        self._entropy_cont_end = -2.0
+        # self._entropy_cont_start = -0.05
+        # self._entropy_cont_end = -2.0
+
+        self._entropy_disc_start = -0.2
+        self._entropy_disc_end = -0.2
+
+        self._entropy_cont_start = -0.5
+        self._entropy_cont_end = -0.5
 
         # enable/disable entropy annealing (default: enabled)
-        self._anneal_entropy = True
+        self._anneal_entropy = False
         
         self._trgt_avrg_entropy_per_action_disc = self._entropy_disc_start
         self._trgt_avrg_entropy_per_action_cont = self._entropy_cont_start
