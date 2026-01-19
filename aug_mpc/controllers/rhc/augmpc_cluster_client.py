@@ -11,7 +11,7 @@ import os
 
 from abc import abstractmethod
 
-class LRhcClusterClient(ControlClusterClient):
+class AugMpcClusterClient(ControlClusterClient):
     
     def _import_aux_libs(self):
         super()._import_aux_libs()

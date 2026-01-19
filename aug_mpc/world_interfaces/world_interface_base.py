@@ -1,4 +1,4 @@
-from aug_mpc.controllers.rhc.lrhc_cluster_server import LRhcClusterServer
+from aug_mpc.controllers.rhc.augmpc_cluster_server import AugMpcClusterServer
 from aug_mpc.utils.shared_data.remote_stepping import RemoteStepperClnt
 from aug_mpc.utils.shared_data.remote_stepping import RemoteResetClnt
 from aug_mpc.utils.shared_data.remote_stepping import RemoteResetRequest
@@ -399,7 +399,7 @@ class AugMPCWorldInterfaceBase(ABC):
             self._wait_sol[robot_name] = False
 
             # initialize a lrhc cluster server for communicating with rhc controllers
-            self.cluster_servers[robot_name] = LRhcClusterServer(cluster_size=self._num_envs, 
+            self.cluster_servers[robot_name] = AugMpcClusterServer(cluster_size=self._num_envs, 
                         cluster_dt=self._cluster_dt[robot_name], 
                         control_dt=self.physics_dt(), 
                         jnt_names=self._robot_jnt_names(robot_name=robot_name), 

@@ -2,7 +2,7 @@ from mpc_hive.cluster_server.control_cluster_server import ControlClusterServer
 from typing import List
 from EigenIPC.PyEigenIPC import VLevel
 
-class LRhcClusterServer(ControlClusterServer):
+class AugMpcClusterServer(ControlClusterServer):
 
     def __init__(self, 
             robot_name: str,
