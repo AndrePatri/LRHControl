@@ -1,4 +1,4 @@
-from aug_mpc.controllers.rhc.lrhc_cluster_client import LRhcClusterClient
+from aug_mpc.controllers.rhc.augmpc_cluster_client import AugMpcClusterClient
 
 from aug_mpc.controllers.rhc.horizon_based.hybrid_quad_rhc import HybridQuadRhc
 from aug_mpc.utils.hybrid_quad_xrdf_gen import get_xrdf_cmds_horizon
@@ -6,7 +6,7 @@ from aug_mpc.utils.sys_utils import PathsGetter
 
 from typing import List, Dict
 
-class HybridQuadrupedClusterClient(LRhcClusterClient):
+class HybridQuadrupedClusterClient(AugMpcClusterClient):
     
     def _import_aux_libs(self):
         super()._import_aux_libs()
