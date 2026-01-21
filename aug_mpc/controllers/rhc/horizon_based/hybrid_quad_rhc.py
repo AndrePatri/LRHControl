@@ -1166,14 +1166,14 @@ class HybridQuadRhc(RHController):
         self._expl_idx_counter=0.0
         self._expl_idx_buffer_counter=0
 
-    def _get_cost_data(self):
+    def _get_cost_info(self):
         
         cost_dict = self._ti.solver_rti.getCostsValues()
         cost_names = list(cost_dict.keys())
         cost_dims = [1] * len(cost_names) # costs are always scalar
         return cost_names, cost_dims
     
-    def _get_constr_data(self):
+    def _get_constr_info(self):
         
         constr_dict = self._ti.solver_rti.getConstraintsValues()
         constr_names = list(constr_dict.keys())
