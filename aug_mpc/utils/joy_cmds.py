@@ -513,13 +513,20 @@ class AgentRefsFromJoy:
         else:
             self._current_twist_ref_base[:, :]=self._current_twist_ref_world.reshape(1, -1)
 
-        if self.enable_omega or self.enable_linvel:
-            self.agent_refs.rob_refs.root_state.set(data_type="twist",data=self._current_twist_ref_base,
+        if self.enable_linvel:
+            self.agent_refs.rob_refs.root_state.set(data_type="linvel",data=self._current_twist_ref_base[:, 0:3],
                                         robot_idxs=self.cluster_idx_np)
             self.agent_refs.rob_refs.root_state.synch_retry(row_index=self.cluster_idx, col_index=7, 
-                                        n_rows=1, n_cols=6,
+                                        n_rows=1, n_cols=3,
                                         read=False)
-              
+        
+        if self.enable_omega:
+            self.agent_refs.rob_refs.root_state.set(data_type="omega",data=self._current_twist_ref_base[:, 3:6],
+                                        robot_idxs=self.cluster_idx_np)
+            self.agent_refs.rob_refs.root_state.synch_retry(row_index=self.cluster_idx, col_index=10, 
+                                        n_rows=1, n_cols=3,
+                                        read=False)
+            
     # def run(self, connect, topic, poll_interval ):
 
     #     info = f"Ready. Starting to listen for commands..."
