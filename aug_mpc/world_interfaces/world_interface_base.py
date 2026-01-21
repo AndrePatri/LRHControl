@@ -494,10 +494,10 @@ class AugMPCWorldInterfaceBase(ABC):
                         throw_when_excep=True)
             
             for n in range(self._n_init_steps): # run some initialization steps
-                if hasattr(self, "_zero_angular_velocities"):
-                    self._zero_angular_velocities(robot_name=robot_name, env_indxs=None)
+                if hasattr(self, "_alter_twist_warmup"):
+                    self._alter_twist_warmup(robot_name=robot_name, env_indxs=None)
                 self._step_world()
-                
+               
             self._read_jnts_state_from_robot(robot_name=robot_name,
                 env_indxs=None)
             self._read_root_state_from_robot(robot_name=robot_name,
