@@ -104,9 +104,6 @@ class LRHCPlotter:
             self.compute_stats(dataset_name="Obs_avrg",
                 stats_dim=1,name="Obs",
                 recompute_mean=recompute_mean)
-            self.compute_stats(dataset_name="Obs_avrg",
-                stats_dim=1,name="Obs",
-                recompute_mean=recompute_mean)
             self.compute_stats(dataset_name="Power_avrg",
                 stats_dim=1,name="Power",
                 recompute_mean=recompute_mean)
@@ -129,9 +126,6 @@ class LRHCPlotter:
                 recompute_mean=recompute_mean)
             self.compute_stats(dataset_name="Truncations_avrg",
                 stats_dim=1,name="Truncations",
-                recompute_mean=recompute_mean)
-            self.compute_stats(dataset_name="TrackingError_avrg",
-                stats_dim=1,name="TrackingError",
                 recompute_mean=recompute_mean)
             self.compute_stats(dataset_name="TrackingError_avrg",
                 stats_dim=1,name="TrackingError",
@@ -322,45 +316,55 @@ class LRHCPlotter:
 
     def add_datas(self, dataset_name, datas: Tuple[np.ndarray],
         avrg: bool = True):
-        
+        """
+        Merge additional datasets into an existing one.
+
+        If avrg is True, compute the element‑wise mean across the original dataset
+        and all provided datasets (aligned to the shortest length). If avrg is
+        False, simply concatenate along axis 1 (env dimension for 3‑D arrays).
+        """
+
         dnames=list(self.data.keys())
-        if not dataset_name in dnames:
+        if dataset_name not in dnames:
             print(f"{dataset_name} not found in available data.")
             return False
 
+        # Scalars cannot be merged
+        if self.data[dataset_name].shape == ():
+            print(f"Cannot merge scalar dataset '{dataset_name}'.")
+            return False
+
+        # align to the shortest time horizon across inputs
+        min_timesteps = self.data[dataset_name].shape[0]
+        for d in datas:
+            min_timesteps = min(min_timesteps, d.shape[0])
+
+        def _truncate(arr):
+            if arr.ndim == 3:
+                return arr[:min_timesteps, :, :]
+            if arr.ndim == 2:
+                return arr[:min_timesteps, :]
+            if arr.ndim == 1:
+                return arr[:min_timesteps]
+            raise Exception("add_datas was called on a dataset with dim not in [1, 2, 3]")
+
+        base_data = _truncate(self.data[dataset_name])
+
         if avrg:
-            try:
-                self.data[dataset_name]=self.data[dataset_name]/len(datas)
-            except:
-                return False
-            
-        for i in range(len(datas)):
-
-            if not self.data[dataset_name].shape == (): # not scalar
-                n_samples_base=self.data[dataset_name].shape[0]
-                n_samples_incoming=datas[i].shape[0]
-
-                # to merge data we need the same number of samples (runs may be of different length)
-                n_timesteps=n_samples_base if n_samples_base<=n_samples_incoming else n_samples_incoming
-
-                if self.data[dataset_name].ndim==3:
-                    base_data=self.data[dataset_name][0:n_timesteps, :, :]
-                    to_be_added=datas[i][0:n_timesteps, :, :]
-                elif self.data[dataset_name].ndim==2:
-                    base_data=self.data[dataset_name][0:n_timesteps, :]
-                    to_be_added=datas[i][0:n_timesteps, :]
-                elif self.data[dataset_name].ndim==1:
-                    base_data=self.data[dataset_name][0:n_timesteps]
-                    to_be_added=datas[i][0:n_timesteps]
+            acc = base_data.astype(np.float64, copy=True)
+            for incoming in datas:
+                acc = acc + _truncate(incoming)
+            self.data[dataset_name] = acc / (len(datas) + 1)
+        else:
+            for incoming in datas:
+                to_be_added = _truncate(incoming)
+                if base_data.ndim == 3 or base_data.ndim == 2:
+                    base_data = np.concatenate((base_data, to_be_added), axis=1)
+                elif base_data.ndim == 1:
+                    base_data = np.concatenate((base_data, to_be_added), axis=0)
                 else:
-                    raise Exception("add_datas was call on a dataset of dim which is neither 1, 2, or 3")
-                
-                if not avrg:
-                    self.data[dataset_name]=np.concatenate((base_data,to_be_added), axis=1) # add augmented data
-                else: # compute average
-                    self.data[dataset_name]=base_data+to_be_added/len(datas)
-            else:
-                print(f"Cannot merge scalar dataset'{dataset_name}'.")
+                    raise Exception("add_datas was called on a dataset with dim not in [1, 2, 3]")
+            self.data[dataset_name] = base_data
 
         return True
     
@@ -588,7 +592,8 @@ class LRHCPlotter:
                     if median_line is not None:
                         plt_aux_lines.append(median_line)
 
-                ax.set_title(label)
+                # Use the provided title (or first element if a list was given)
+                ax.set_title(titles[0])
                 ax.set_xlabel(xlabels[0])
                 ax.set_ylabel(ylabels[0])
                 # Create custom legend with lines instead of dots
@@ -715,7 +720,7 @@ class LRHCPlotter:
                         if median_line is not None:
                             plt_aux_lines.append(median_line)
 
-                        ax.set_title(f"{label}")
+                        ax.set_title(titles[i])
                         ax.set_xlabel(xlabels[i])
                         ax.set_ylabel(ylabels[i])
                         # Create custom legend with lines instead of dots
@@ -797,7 +802,7 @@ class LRHCPlotter:
                     # vmax=2000  # Set the maximum value for the colormap
                 # Smooth shading for better visualization
                 )
-                axes[i].set_title(f"{label}")
+                axes[i].set_title(titles[i] if isinstance(title, list) else title)
                 axes[i].set_xlabel(xlabels[i])
                 axes[i].set_ylabel(ylabels[i])
                 axes[i].grid()
@@ -1244,10 +1249,10 @@ class LRHCMultiRunPlotter():
         return self._final_plotter.list_attributes()
     
     def load_data(self, dataset_names, env_idx: int = None):
-        pass
+        raise NotImplementedError("Not implemented")
 
     def load_attributes(self):
-        pass
+        raise NotImplementedError("Not implemented.")
 
     def get_idx_matching(self, pattern_list, original_list):
 
