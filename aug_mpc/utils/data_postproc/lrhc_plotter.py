@@ -94,6 +94,23 @@ class LRHCPlotter:
             self.create_dataset(dataset_name="total_simulated_vec_d", 
                 data=total_simulated_vec_d)
             
+            self.create_dataset(dataset_name="total_simulated_vec_d", 
+                data=total_simulated_vec_d)
+            
+            target_entropy_cont=self.data["n_timesteps_done"].copy()
+            target_entropy_cont[:, :]=self.data["target_entropy_cont"]
+            target_entropy_disc=target_entropy_cont.copy()
+            target_entropy_disc[:, :]=self.data["target_entropy_disc"]
+            target_entropy=target_entropy_disc.copy()
+            target_entropy[:, :]=self.data["target_entropy"]
+
+            self.create_dataset(dataset_name="target_entropy_cont_aux", 
+                data=target_entropy_cont)
+            self.create_dataset(dataset_name="target_entropy_discr_aux", 
+                data=target_entropy_disc)
+            self.create_dataset(dataset_name="target_entropy_aux", 
+                data=target_entropy)
+            
             # add stats which where not logged explicitly
             self.compute_stats(dataset_name="Actions_avrg",
                 stats_dim=1,name="Actions",
@@ -1562,6 +1579,7 @@ class LRHCMultiRunPlotter():
             self.figures.append(fig)
             
     def compose_datasets(self, datasets_list: List[str], name: str):
+        print(f"Composing datasets '{name}' with shape {self.data[datasets_list[0]].shape}.")
         self._final_plotter.compose_datasets(datasets_list, name)
 
     def show(self):
@@ -1663,6 +1681,35 @@ if __name__ == "__main__":
             ylabel="[]",
             data_labels=["training", "validation"],
             data_alphas=[0.6, 0.2],
+            use_markers=False,
+            marker_size=marker_size)
+
+        # policy entropy diagnostics (assume datasets are present)
+
+        plotter.compose_datasets(["policy_entropy_cont_mean", "target_entropy_cont_aux"], name="policy_entropy_cont_w_target")
+        plotter.plot_data(dataset_name="policy_entropy_cont_w_target", title="Policy entropy (continuous vs target)", 
+            xaxis_dataset_name=xaxis_dataset_name,
+            xlabel=xlabel,
+            ylabel="entropy",
+            data_labels=["average", "target"],
+            use_markers=False,
+            marker_size=marker_size)
+
+        plotter.compose_datasets(["policy_entropy_disc_mean", "target_entropy_discr_aux"], name="policy_entropy_discr_w_target")
+        plotter.plot_data(dataset_name="policy_entropy_discr_w_target", title="Policy entropy (discrete vs target)", 
+            xaxis_dataset_name=xaxis_dataset_name,
+            xlabel=xlabel,
+            ylabel="entropy",
+            data_labels=["average", "target"],
+            use_markers=False,
+            marker_size=marker_size)
+
+        plotter.compose_datasets(["policy_entropy_mean", "target_entropy_aux"], name="policy_entropy_w_target")
+        plotter.plot_data(dataset_name="policy_entropy_w_target", title="Policy entropy (overall vs target)", 
+            xaxis_dataset_name=xaxis_dataset_name,
+            xlabel=xlabel,
+            ylabel="entropy",
+            data_labels=["average", "target"],
             use_markers=False,
             marker_size=marker_size)
         
