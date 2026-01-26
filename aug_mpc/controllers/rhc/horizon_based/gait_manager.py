@@ -195,6 +195,8 @@ class GaitManager:
             
             self._ref_trjs[contact]=None
             self._ref_vtrjs[contact]=None
+            self._touchdown_phases[contact]=None
+
             if self._zpos_task_found: # we use pos trajectory
                 self._ref_trjs[contact]=np.zeros(shape=[7, self.task_interface.prb.getNNodes()])
                 init_z_foot = self._fk_contacts[contact](q=self._q0)['ee_pos'].elements()[2]
@@ -203,48 +205,40 @@ class GaitManager:
                 else:
                     self._ref_trjs[contact][2, :] = 0.0 # place foot at ground level initially ()
                 
-                if self._xypos_task_found: # xy
-                    self._flight_phases[contact].addItemReference(self.task_interface.getTask(f'xy_{contact}'), 
-                        self._ref_trjs[contact][0:2, 0:1], 
-                        nodes=list(range(0, flight_phase_short_duration)))
-                    self._touchdown_phases[contact]=None
                 # z
                 self._flight_phases[contact].addItemReference(self.task_interface.getTask(f'z_{contact}'), 
                     self._ref_trjs[contact][2, 0:1], 
                     nodes=list(range(0, flight_phase_short_duration)))
-                
-                self._touchdown_phases[contact]=None
-                
+
+                if self._xypos_task_found: # xy, we add a landing phase of unit duration to enforce landing pos costs
+                    
+                    self._touchdown_phases[contact]=self._contact_timelines[contact].createPhase(flight_phase_short_duration, 
+                                    f'touchdown_{contact}_short') 
+
+                    self._touchdown_phases[contact].addItemReference(self.task_interface.getTask(f'xy_{contact}'), 
+                        self._ref_trjs[contact][0:2, 0:1], 
+                        nodes=list(range(0, short_stance_duration)))
+                    
             else: # foot traj in velocity
                 # ref vel traj
                 self._ref_vtrjs[contact]=np.zeros(shape=[7, self.task_interface.prb.getNNodes()]) # allocate traj
                 # of max length eual to number of nodes
                 self._ref_vtrjs[contact][2, :] = np.atleast_2d(0) 
 
-                if self._xyvel_task_found: # xy
-                    self._flight_phases[contact].addItemReference(self.task_interface.getTask(f'vxy_{contact}'), 
-                        self._ref_vtrjs[contact][0:2, 0:1], 
-                        nodes=list(range(0, flight_phase_short_duration)))
                 # z
                 self._flight_phases[contact].addItemReference(self.task_interface.getTask(f'vz_{contact}'), 
                     self._ref_vtrjs[contact][2, 0:1], 
                     nodes=list(range(0, flight_phase_short_duration)))
-                self._touchdown_phases[contact]=self._contact_timelines[contact].createPhase(flight_phase_short_duration, 
-                                    f'touchdown_{contact}_short')
-                # self._touchdown_phases[contact].addItemReference(self.task_interface.getTask(f'vz_{contact}'), 
-                #     self._ref_vtrjs[contact][2, 0:1], 
-                #     nodes=list(range(0, flight_phase_short_duration)))
+                
+                if self._xyvel_task_found: # xy (when in vel the xy vel is set on the whole flight phase)
+                    self._flight_phases[contact].addItemReference(self.task_interface.getTask(f'vxy_{contact}'), 
+                        self._ref_vtrjs[contact][0:2, 0:1], 
+                        nodes=list(range(0, flight_phase_short_duration)))
+                    
+                if self._vertical_landing: # add touchdown phase for vertical landing
+                    self._touchdown_phases[contact]=self._contact_timelines[contact].createPhase(flight_phase_short_duration, 
+                                        f'touchdown_{contact}_short')
 
-            # ee_vel=self._fkd_contacts[contact](q=self._model.q, 
-            #             qdot=self._model.v)['ee_vel_linear']
-            # cstr = self.task_interface.prb.createConstraint(f'{contact}_vert', ee_vel[0:2], [])
-            # self._flight_phases[contact].addConstraint(cstr, nodes=[0, flight_phase_short_duration-1])
-            if self._keep_yaw_vert:
-                # keep ankle vertical
-                c_ori = self._model.kd.fk(contact)(q=self._model.q)['ee_rot'][2, :]
-                cost_ori = self.task_interface.prb.createResidual(f'{contact}_ori', self._yaw_vertical_weight * (c_ori.T - np.array([0, 0, 1])))
-                # flight_phase.addCost(cost_ori, nodes=list(range(0, flight_duration+post_landing_stance)))
-            
             if self._vertical_landing and self._touchdown_phases[contact] is not None:
                 v_xy=self._fkd_contacts[contact](q=self._model.q, qdot=self._model.v)['ee_vel_linear'][0:2]
                 vertical_landing=self.task_interface.prb.createResidual(f'{contact}_only_vert_v', 
@@ -252,6 +246,12 @@ class GaitManager:
                     nodes=[])
                 self._touchdown_phases[contact].addCost(vertical_landing, nodes=list(range(0, short_stance_duration)))
 
+            if self._keep_yaw_vert:
+                # keep ankle vertical over the whole horizon (can be useful with wheeled robots)
+                c_ori = self._model.kd.fk(contact)(q=self._model.q)['ee_rot'][2, :]
+                cost_ori = self.task_interface.prb.createResidual(f'{contact}_ori', self._yaw_vertical_weight * (c_ori.T - np.array([0, 0, 1])))
+                # flight_phase.addCost(cost_ori, nodes=list(range(0, flight_duration+post_landing_stance)))
+            
             self._name_to_idx_map[contact]=j
 
             j+=1
@@ -433,24 +433,25 @@ class GaitManager:
                     second_der=self._traj_second_der,
                     third_der=self._third_traj_der)
                     )
-                if self._xypos_task_found:
-                    self._ref_trjs[contact_name][0, 0:flight_duration_req]=starting_x_pos+land_dx_w
-                    self._ref_trjs[contact_name][1, 0:flight_duration_req]=starting_y_pos+land_dy_w
+                if self._xypos_task_found: # we use _ref_trjs to write xy pos references
+                    self._ref_trjs[contact_name][0, -1]=starting_x_pos+land_dx_w
+                    self._ref_trjs[contact_name][1, -1]=starting_y_pos+land_dy_w
 
                 for i in range(flight_duration_req):
-                    res, phase_token=timeline.addPhase(self._flight_phases[contact_name], 
+                    res, phase_token_flight=timeline.addPhase(self._flight_phases[contact_name], 
                         pos=self._injection_node+i, 
                         absolute_position=True)
-                    phase_token.setItemReference(f'z_{contact_name}',
+                    phase_token_flight.setItemReference(f'z_{contact_name}',
                         self._ref_trjs[contact_name][:, i])
-                    if self._xypos_task_found:
-                        phase_token.setItemReference(f'xy_{contact_name}',
-                            self._ref_trjs[contact_name][:, i])        
+                    
                 if self._touchdown_phases[contact_name] is not None:
-                    # add touchdown phase for forcing vertical landing
-                    res, phase_token=timeline.addPhase(self._touchdown_phases[contact_name], 
+                    # add touchdown phase after flight
+                    res, phase_token_touchdown=timeline.addPhase(self._touchdown_phases[contact_name], 
                             pos=self._injection_node+flight_duration_req, 
-                            absolute_position=True)                
+                            absolute_position=True)    
+                    if self._xypos_task_found:
+                        phase_token_touchdown.setItemReference(f'xy_{contact_name}',
+                            self._ref_trjs[contact_name][:, -1])                    
                     
             # inject vel traj if vel mode
             if self._ref_vtrjs[contact_name] is not None:
