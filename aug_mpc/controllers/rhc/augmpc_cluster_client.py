@@ -79,9 +79,14 @@ class AugMpcClusterClient(ControlClusterClient):
         custom_xacro_args=extract_custom_xacro_args(self._custom_opts)
         cmds=merge_xacro_cmds(prev_cmds=self._xrdf_cmds(),
             new_cmds=custom_xacro_args)
-    
-        self._urdf_path=generate_urdf(robot_name=namespace,
-            xacro_path=self._urdf_xacro_path,
+
+        # call _xrdf_cmds_override in case some cmds need to be overridden
+        override_cmds=self._xrdf_cmds_override()
+        cmds=merge_xacro_cmds(prev_cmds=cmds,
+            new_cmds=override_cmds)
+        
+        self._srdf_path=generate_srdf(robot_name=namespace,
+            xacro_path=self._srdf_xacro_path,
             dump_path=self._temp_path,
             xrdf_cmds=cmds)
     
@@ -91,8 +96,13 @@ class AugMpcClusterClient(ControlClusterClient):
         cmds=merge_xacro_cmds(prev_cmds=self._xrdf_cmds(),
             new_cmds=custom_xacro_args)
 
-        self._srdf_path=generate_srdf(robot_name=namespace,
-            xacro_path=self._srdf_xacro_path,
+        # call _xrdf_cmds_override in case some cmds need to be overridden
+        override_cmds=self._xrdf_cmds_override()
+        cmds=merge_xacro_cmds(prev_cmds=cmds,
+            new_cmds=override_cmds)
+        
+        self._urdf_path=generate_urdf(robot_name=namespace,
+            xacro_path=self._urdf_xacro_path,
             dump_path=self._temp_path,
             xrdf_cmds=cmds)
             
@@ -103,3 +113,11 @@ class AugMpcClusterClient(ControlClusterClient):
         # for an example have a look at utils/centauro_xrdf_gen.py)
 
         pass    
+
+    def _xrdf_cmds_override(self):
+        
+        # to be overridden by parent class 
+
+        to_be_overridden = ["dummy_cmd:=true"]
+
+        return to_be_overridden    
