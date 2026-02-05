@@ -294,8 +294,10 @@ class AugMPCWorldInterfaceBase(ABC):
 
         self._publish_world_interface_files()
         
-        self._setup()
-
+        setup_ok=self._setup()
+        if not setup_ok:
+            self.close()
+        
         self._exit_request=False
         signal.signal(signal.SIGINT, self.signal_handler)   
 
@@ -375,7 +377,7 @@ class AugMPCWorldInterfaceBase(ABC):
             f"World interface files advertised: {combined_paths}",
             LogType.STAT)
 
-    def _setup(self) -> None:
+    def _setup(self) -> bool:
     
         for i in range(len(self._robot_names)):
             robot_name = self._robot_names[i]
@@ -393,7 +395,8 @@ class AugMPCWorldInterfaceBase(ABC):
                     "_setup",
                     exception,
                     LogType.EXCEP,
-                    throw_when_excep = True)
+                    throw_when_excep = False)
+                return False
             self._cluster_dt[robot_name] = self._cluster_dt[robot_name]
             self._trigger_sol[robot_name] = True # allow first trigger
             self._wait_sol[robot_name] = False
@@ -526,12 +529,14 @@ class AugMPCWorldInterfaceBase(ABC):
             epsi=0.03 # adding a bit of height to avoid initial penetration
             self._root_p_default[robot_name][:, 2]=self._root_p_default[robot_name][:, 2]+epsi
             
-            self._reset(env_indxs=None,
+            reset_ok=self._reset(env_indxs=None,
                 robot_name=robot_name,
                 reset_cluster=True,
                 reset_cluster_counter=False,
                 randomize=True)
-
+            if not reset_ok:
+                return False
+            
             control_cluster=self.cluster_servers[robot_name]
             self._set_state_to_cluster(robot_name=robot_name)
             control_cluster.write_robot_state()
@@ -542,7 +547,9 @@ class AugMPCWorldInterfaceBase(ABC):
                     idxs=to_be_activated)       
 
             if self._use_remote_stepping[i]:
-                self._wait_for_remote_step_req(robot_name=robot_name)
+                step_wait_ok = self._wait_for_remote_step_req(robot_name=robot_name)
+                if not step_wait_ok:
+                   return False
             
             self._set_startup_jnt_imp_gains(robot_name=robot_name) # set gains to
             # startup config (usually lower)
@@ -564,6 +571,8 @@ class AugMPCWorldInterfaceBase(ABC):
 
         self._setup_done=True
 
+        return self._setup_done
+
     def step(self) -> bool:
 
         success=False
@@ -571,14 +580,17 @@ class AugMPCWorldInterfaceBase(ABC):
         if self._remote_exit_flag is not None:
             # check for exit request
             self._remote_exit_flag.synch_all(read=True, retry = False)
-            self._exit_request=bool(self._remote_exit_flag.get_numpy_mirror()[0, 0].item())
+            self._exit_request=self._exit_request or \
+                bool(self._remote_exit_flag.get_numpy_mirror()[0, 0].item())
 
         if self._exit_request:
             self.close()
             
         if self.is_running() and (not self.is_closed()):
             if self._debug:
-                self._pre_step_db()
+                pre_step_ok=self._pre_step_db()
+                if not pre_step_ok:
+                    return False
                 self._env_timer=time.perf_counter()
                 self._step_world()
                 self.debug_data["time_to_step_world"] = \
@@ -586,7 +598,9 @@ class AugMPCWorldInterfaceBase(ABC):
                 self._post_world_step_db()
                 success=True
             else:
-                self._pre_step()
+                pre_step_ok=self._pre_step()
+                if not pre_step_ok:
+                    return False
                 self._step_world()
                 self._post_world_step()
                 success=True
@@ -605,16 +619,20 @@ class AugMPCWorldInterfaceBase(ABC):
 
         for i in range(len(self._robot_names)):
             robot_name=self._robot_names[i]
-            self._reset(robot_name=robot_name,
+            reset_ok=self._reset(robot_name=robot_name,
                 env_indxs=env_indxs,
                 randomize=randomize,
                 reset_cluster=reset_cluster,
                 reset_cluster_counter=reset_cluster_counter)
+            if not reset_ok:
+                return False    
             self._set_startup_jnt_imp_gains(robot_name=robot_name,
                 env_indxs=env_indxs)
             
         if reset_sim:
             self._reset_sim()
+        
+        return True
 
     def _reset_cluster(self,
             robot_name: str,
@@ -623,14 +641,18 @@ class AugMPCWorldInterfaceBase(ABC):
         
         control_cluster = self.cluster_servers[robot_name]
 
-        control_cluster.reset_controllers(idxs=env_indxs)
-
+        reset_ok=control_cluster.reset_controllers(idxs=env_indxs)
+        if not reset_ok:
+            return False
+        
         self._set_state_to_cluster(robot_name=robot_name,
             env_indxs=env_indxs)
         control_cluster.write_robot_state() # writes to shared memory
 
         if reset_cluster_counter:
             self.cluster_sim_step_counters[robot_name] = 0 
+        
+        return True
 
     def _step_jnt_vel_filter(self,
             robot_name: str, 
@@ -754,7 +776,9 @@ class AugMPCWorldInterfaceBase(ABC):
 
             control_cluster = self.cluster_servers[robot_name]
             if control_cluster.is_cluster_instant(self.cluster_sim_step_counters[robot_name]):
-                control_cluster.wait_for_solution() # this is blocking
+                wait_ok=control_cluster.wait_for_solution() # this is blocking
+                if not wait_ok:
+                    return False
                 failed = control_cluster.get_failed_controllers(gpu=self._use_gpu)
                 self._set_cluster_actions(robot_name=robot_name) # write last cmds to low level control
                 if not self._override_low_lev_controller:
@@ -781,16 +805,19 @@ class AugMPCWorldInterfaceBase(ABC):
                     if failed is not None and self._env_opts["deact_when_failure"]: # deactivate robot completely 
                         self._deactivate(env_indxs=failed,
                             robot_name=robot_name)
-                    
-                    self._process_remote_reset_req(robot_name=robot_name) # wait for remote reset request (blocking)
-                    self._wait_for_remote_step_req(robot_name=robot_name)
+                    wait_reset_ok=self._process_remote_reset_req(robot_name=robot_name) # wait for remote reset request (blocking)
+                    wait_step_ok=self._wait_for_remote_step_req(robot_name=robot_name)
+                    if not wait_reset_ok or not wait_step_ok:   
+                        return False
                 else:
                     if failed is not None:
-                        self._reset(env_indxs=failed,
+                        reset_ok=self._reset(env_indxs=failed,
                             robot_name=robot_name,
                             reset_cluster=True,
                             reset_cluster_counter=False,
                             randomize=True)
+                        if not reset_ok:
+                            return False
                         self._set_startup_jnt_imp_gains(robot_name=robot_name,
                             env_indxs=failed)
 
@@ -799,6 +826,8 @@ class AugMPCWorldInterfaceBase(ABC):
                 control_cluster.pre_trigger() # performs pre-trigger steps, like retrieving
                 # values of some rhc flags on shared memory
                 control_cluster.trigger_solution() # trigger only active controllers
+
+        return True
 
     def _pre_step(self) -> None:
         
@@ -822,7 +851,9 @@ class AugMPCWorldInterfaceBase(ABC):
 
             control_cluster = self.cluster_servers[robot_name]
             if control_cluster.is_cluster_instant(self.cluster_sim_step_counters[robot_name]):
-                control_cluster.wait_for_solution() # this is blocking
+                wait_ok=control_cluster.wait_for_solution() # this is blocking
+                if not wait_ok:
+                    return False
                 failed = control_cluster.get_failed_controllers(gpu=self._use_gpu)
                 self._set_cluster_actions(robot_name=robot_name) # set last cmds to low level control
                 if not self._override_low_lev_controller:
@@ -842,15 +873,19 @@ class AugMPCWorldInterfaceBase(ABC):
                     if failed is not None and self._env_opts["deact_when_failure"]:
                         self._deactivate(env_indxs=failed,
                             robot_name=robot_name)
-                    self._process_remote_reset_req(robot_name=robot_name) # wait for remote reset request (blocking)
-                    self._wait_for_remote_step_req(robot_name=robot_name)
+                    wait_reset_ok=self._process_remote_reset_req(robot_name=robot_name) # wait for remote reset request (blocking)
+                    wait_step_ok=self._wait_for_remote_step_req(robot_name=robot_name)
+                    if not wait_reset_ok or not wait_step_ok:   
+                        return False
                 else:
                     if failed is not None:
-                        self._reset(env_indxs=failed,
+                        reset_ok=self._reset(env_indxs=failed,
                             robot_name=robot_name,
                             reset_cluster=True,
                             reset_cluster_counter=False,
                             randomize=True)
+                        if not reset_ok:
+                            return False
                         self._set_startup_jnt_imp_gains(robot_name=robot_name,
                             env_indxs=failed)
                     control_cluster.activate_controllers(idxs=control_cluster.get_inactive_controllers())
@@ -858,7 +893,9 @@ class AugMPCWorldInterfaceBase(ABC):
                 control_cluster.pre_trigger() # performs pre-trigger steps, like retrieving
                 # values of some rhc flags on shared memory
                 control_cluster.trigger_solution() # trigger only active controllers
-                    
+        
+        return True
+    
     def _post_world_step_db(self) -> bool:
 
         for i in range(len(self._robot_names)):
@@ -906,9 +943,13 @@ class AugMPCWorldInterfaceBase(ABC):
             self._jnt_vel_filter[robot_name].reset(idxs=env_indxs)
 
         if reset_cluster: # reset controllers remotely
-            self._reset_cluster(env_indxs=env_indxs,
+            reset_ok=self._reset_cluster(env_indxs=env_indxs,
                 robot_name=robot_name,
                 reset_cluster_counter=reset_cluster_counter)
+            if not reset_ok:
+                return False
+            
+        return True
         
     def _randomize_yaw(self,
             robot_name: str,
@@ -1070,33 +1111,36 @@ class AugMPCWorldInterfaceBase(ABC):
     def _wait_for_remote_step_req(self,
             robot_name: str):
         if not self._remote_steppers[robot_name].wait(self._timeout):
-            self.close()
             Journal.log(self.__class__.__name__,
                 "_wait_for_remote_step_req",
                 "Didn't receive any remote step req within timeout!",
                 LogType.EXCEP,
-                throw_when_excep = True)
+                throw_when_excep = False)
+            return False
+        return True
     
     def _process_remote_reset_req(self,
             robot_name: str):
         
         if not self._remote_resetters[robot_name].wait(self._timeout):
-            self.close()
             Journal.log(self.__class__.__name__,
                 "_process_remote_reset_req",
                 "Didn't receive any remote reset req within timeout!",
                 LogType.EXCEP,
-                throw_when_excep = True)
+                throw_when_excep = False)
+            return False
             
         reset_requests = self._remote_reset_requests[robot_name]
         reset_requests.synch_all(read=True, retry=True) # read reset requests from shared mem
         to_be_reset = reset_requests.to_be_reset(gpu=self._use_gpu)
         if to_be_reset is not None:
-            self._reset(env_indxs=to_be_reset,
+            reset_ok=self._reset(env_indxs=to_be_reset,
                 robot_name=robot_name,
                 reset_cluster=True,
                 reset_cluster_counter=False,
                 randomize=True)
+            if not reset_ok:
+                return False
             self._set_startup_jnt_imp_gains(robot_name=robot_name,
                 env_indxs=to_be_reset)
         control_cluster = self.cluster_servers[robot_name]
@@ -1105,6 +1149,8 @@ class AugMPCWorldInterfaceBase(ABC):
 
         self._remote_resetters[robot_name].ack() # signal reset performed
 
+        return True
+    
     def _update_jnt_imp_cntrl_shared_data(self):
         if self._debug:
             for i in range(0, len(self._robot_names)):

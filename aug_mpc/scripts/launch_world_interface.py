@@ -15,11 +15,11 @@ from EigenIPC.PyEigenIPC import Journal, LogType
 script_name = os.path.splitext(os.path.basename(os.path.abspath(__file__)))[0]
 
 # Function to dynamically import a module from a specific file path
-def import_env_module(env_path):
-    spec = importlib.util.spec_from_file_location("env_module", env_path)
-    env_module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(env_module)
-    return env_module
+def import_world_module(env_path):
+    spec = importlib.util.spec_from_file_location("world_module", env_path)
+    world_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(world_module)
+    return world_module
 
 if __name__ == '__main__':
 
@@ -65,9 +65,9 @@ if __name__ == '__main__':
     parser.add_argument('--custom_args_dtype', nargs='+', default=None,
                             help='list of custom arguments data types')
     
-    parser.add_argument('--env_fname', type=str, 
+    parser.add_argument('--world_iface_fname', type=str, 
         default="aug_mpc_envs.world_interfaces.isaac_world_interface",
-        help="env file import pattern (without extension)")
+        help="world interface file import pattern (without extension)")
     
     args = parser.parse_args()
     
@@ -121,22 +121,22 @@ if __name__ == '__main__':
             force_reconnection=True))
         shared_sim_infos[i].run()
 
-    env_module=importlib.import_module(args.env_fname)
-    classes_in_module = [name for name, obj in inspect.getmembers(env_module, inspect.isclass) 
-                        if obj.__module__ == env_module.__name__]
+    world_module=importlib.import_module(args.world_iface_fname)
+    classes_in_module = [name for name, obj in inspect.getmembers(world_module, inspect.isclass) 
+                        if obj.__module__ == world_module.__name__]
     if len(classes_in_module) == 1:
         cluster_classname=classes_in_module[0]
-        Env = getattr(env_module, cluster_classname)
+        WorldInterface = getattr(world_module, cluster_classname)
     else:
         class_list_str = ", ".join(classes_in_module)
         Journal.log("launch_world_interface.py",
             "",
-            f"Found more than one class in env file {args.env_fname}. Found: {class_list_str}",
+            f"Found more than one class in world file {args.world_iface_fname}. Found: {class_list_str}",
             LogType.EXCEP,
             throw_when_excep = False)
         exit()
 
-    env = Env(robot_names=robot_names,
+    world_interface = WorldInterface(robot_names=robot_names,
         robot_urdf_paths=robot_urdf_paths,
         robot_srdf_paths=robot_srdf_paths,
         cluster_dt=control_clust_dts,
@@ -153,9 +153,12 @@ if __name__ == '__main__':
         env_opts=remote_env_params,
         use_gpu=args.use_gpu,
         override_low_lev_controller=args.use_custom_jnt_imp) # create environment
-    env.reset(reset_sim=True)
+    reset_ok=world_interface.reset(reset_sim=True)
+    if not reset_ok:
+        world_interface.close()
+        exit()
 
-    rt_factor = RtFactor(dt_nom=env.physics_dt(),
+    rt_factor = RtFactor(dt_nom=world_interface.physics_dt(),
                 window_size=100)
     
     while True:
@@ -163,7 +166,7 @@ if __name__ == '__main__':
         if rt_factor.reset_due():
             rt_factor.reset()
 
-        step_ok=env.step() 
+        step_ok=world_interface.step() 
 
         if not step_ok:
             break
@@ -172,9 +175,9 @@ if __name__ == '__main__':
 
         for i in range(len(robot_names)):
             robot_name=robot_names[i]
-            n_steps = env.cluster_sim_step_counters[robot_name]
-            sol_counter = env.cluster_servers[robot_name].solution_counter()
-            trigger_counter = env.cluster_servers[robot_name].trigger_counter()
+            n_steps = world_interface.cluster_sim_step_counters[robot_name]
+            sol_counter = world_interface.cluster_servers[robot_name].solution_counter()
+            trigger_counter = world_interface.cluster_servers[robot_name].trigger_counter()
             shared_sim_infos[i].write(dyn_info_name=["sim_rt_factor", 
                                                 "total_rt_factor", 
                                                 "env_stepping_dt",
@@ -190,13 +193,15 @@ if __name__ == '__main__':
                                 val=[rt_factor.get(), 
                                     rt_factor.get() * num_envs,
                                     rt_factor.get_avrg_step_time(),
-                                    env.debug_data["time_to_step_world"],
-                                    env.debug_data["time_to_get_states_from_env"],
-                                    env.debug_data["cluster_state_update_dt"][robot_name],
-                                    env.debug_data["cluster_sol_time"][robot_name],
+                                    world_interface.debug_data["time_to_step_world"],
+                                    world_interface.debug_data["time_to_get_states_from_env"],
+                                    world_interface.debug_data["cluster_state_update_dt"][robot_name],
+                                    world_interface.debug_data["cluster_sol_time"][robot_name],
                                     n_steps,
                                     trigger_counter,
                                     sol_counter,
-                                    env.debug_data["sim_time"][robot_name],
-                                    sol_counter*env.cluster_servers[robot_name].cluster_dt()
+                                    world_interface.debug_data["sim_time"][robot_name],
+                                    sol_counter*world_interface.cluster_servers[robot_name].cluster_dt()
                                     ])
+            
+    world_interface.close()
