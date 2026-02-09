@@ -17,7 +17,7 @@ from EigenIPC.PyEigenIPC import VLevel, Journal, LogType, dtype
 from EigenIPC.PyEigenIPC import StringTensorServer
 from EigenIPC.PyEigenIPCExt.wrappers.shared_data_view import SharedTWrapper
 
-from typing import List, Union, Dict, TypeVar
+from typing import List, Dict, TypeVar
 
 import os
 import inspect
@@ -903,14 +903,11 @@ class AugMPCWorldInterfaceBase(ABC):
             control_cluster = self.cluster_servers[robot_name]
             self.cluster_sim_step_counters[robot_name]+=1 # this has to be update with sim freq
             if self._debug:
-                self.debug_data["sim_time"][robot_name]=self._get_world_time(robot_name=robot_name)
+                self.debug_data["sim_time"][robot_name]=self.world_time(robot_name=robot_name)
                 self.debug_data["cluster_sol_time"][robot_name] = \
                     control_cluster.solution_time()
                 
         self.step_counter +=1
-
-    def _get_world_time(self, robot_name: str):
-        return self.cluster_sim_step_counters[robot_name]*self.physics_dt()
     
     def _post_world_step(self) -> bool:
 
@@ -930,15 +927,17 @@ class AugMPCWorldInterfaceBase(ABC):
         self._reset_state(env_indxs=env_indxs, 
             robot_name=robot_name,
             randomize=randomize)
+        
+        # read reset state
+        self._read_root_state_from_robot(robot_name=robot_name,
+                env_indxs=env_indxs)
+        self._read_jnts_state_from_robot(robot_name=robot_name,
+            env_indxs=env_indxs)
+        
         # and jnt imp. controllers
         self._reset_jnt_imp_control(robot_name=robot_name,
                 env_indxs=env_indxs)
-        
-        self._read_jnts_state_from_robot(robot_name=robot_name,
-            env_indxs=env_indxs)
-        self._read_root_state_from_robot(robot_name=robot_name,
-                env_indxs=env_indxs)
-        
+
         if self._jnt_vel_filter[robot_name] is not None:
             self._jnt_vel_filter[robot_name].reset(idxs=env_indxs)
 
@@ -1142,7 +1141,8 @@ class AugMPCWorldInterfaceBase(ABC):
             if not reset_ok:
                 return False
             self._set_startup_jnt_imp_gains(robot_name=robot_name,
-                env_indxs=to_be_reset)
+                env_indxs=to_be_reset) # set gains to startup config (usually lower gains)
+        
         control_cluster = self.cluster_servers[robot_name]
         control_cluster.activate_controllers(idxs=to_be_reset) # activate controllers
         # (necessary if failed)
@@ -1429,14 +1429,14 @@ class AugMPCWorldInterfaceBase(ABC):
         urdf_descr_root_path = '/'.join(parts[:-2])
         cmds = get_xrdf_cmds(urdf_descr_root_path=urdf_descr_root_path) 
         return cmds
-
+    
     @abstractmethod
     def current_tstep(self) -> int:
         pass
     
     @abstractmethod
-    def current_time(self) -> float:
-        pass
+    def world_time(self, robot_name: str) -> float:
+        return self.cluster_sim_step_counters[robot_name]*self.physics_dt()
     
     @abstractmethod
     def is_running(self) -> bool:
