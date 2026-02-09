@@ -177,7 +177,7 @@ class AugMPCTrainingEnvBase(ABC):
         if self._env_opts["use_action_smoothing"]:
             self._init_action_smoothing()
 
-        self._ready=self._init_step()
+        self._ready=self._init_step(reset_on_init=self._env_opts["reset_on_init"])
 
     def _add_env_opt(self,
         opts: Dict,
@@ -218,6 +218,8 @@ class AugMPCTrainingEnvBase(ABC):
 
         self._check_for_env_opts("add_heightmap_obs", bool)
 
+        self._check_for_env_opts("reset_on_init", bool)
+        
         # parse action repeat opt + get some sim information
         if self._env_opts["action_repeat"] <=0: 
             self._env_opts["action_repeat"] = 1
@@ -414,14 +416,14 @@ class AugMPCTrainingEnvBase(ABC):
         empty_list = []
         return empty_list
 
-    def _init_step(self):
+    def _init_step(self, reset_on_init: bool = True):
         
         self._check_controllers_registered(retry=True)
         self._activate_rhc_controllers()
 
         # just an auxiliary tensor
         initial_reset_aux = self._terminations.get_torch_mirror(gpu=self._use_gpu).clone()
-        initial_reset_aux[:, :] = True # we reset all sim envs first
+        initial_reset_aux[:, :] = reset_on_init # we reset all sim envs first
         init_step_ok=True
         init_step_ok=self._remote_sim_step() and init_step_ok
         if not init_step_ok:

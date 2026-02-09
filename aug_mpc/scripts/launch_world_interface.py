@@ -153,10 +153,10 @@ if __name__ == '__main__':
         env_opts=remote_env_params,
         use_gpu=args.use_gpu,
         override_low_lev_controller=args.use_custom_jnt_imp) # create environment
-    reset_ok=world_interface.reset(reset_sim=True)
-    if not reset_ok:
-        world_interface.close()
-        exit()
+    # reset_ok=world_interface.reset(reset_sim=True)
+    # if not reset_ok:
+    #     world_interface.close()
+    #     exit()
 
     rt_factor = RtFactor(dt_nom=world_interface.physics_dt(),
                 window_size=100)

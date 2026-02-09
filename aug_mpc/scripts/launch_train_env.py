@@ -172,6 +172,7 @@ if __name__ == "__main__":
     parser.add_argument('--override_agent_refs',action='store_true', help='Whether to override automatically generated agent refs (useful for debug)')
     
     parser.add_argument('--step_while_setup',action='store_true', help='Continue stepping env with default actions while setting up agent, etc..')
+    parser.add_argument('--reset_on_init',action='store_true', help='Whether to reset the environment on initialization')
 
     args = parser.parse_args()
     args_dict = vars(args)
