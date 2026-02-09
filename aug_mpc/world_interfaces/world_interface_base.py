@@ -928,15 +928,15 @@ class AugMPCWorldInterfaceBase(ABC):
             robot_name=robot_name,
             randomize=randomize)
         
+        # and jnt imp. controllers
+        self._reset_jnt_imp_control(robot_name=robot_name,
+                env_indxs=env_indxs)
+        
         # read reset state
         self._read_root_state_from_robot(robot_name=robot_name,
                 env_indxs=env_indxs)
         self._read_jnts_state_from_robot(robot_name=robot_name,
             env_indxs=env_indxs)
-        
-        # and jnt imp. controllers
-        self._reset_jnt_imp_control(robot_name=robot_name,
-                env_indxs=env_indxs)
 
         if self._jnt_vel_filter[robot_name] is not None:
             self._jnt_vel_filter[robot_name].reset(idxs=env_indxs)
