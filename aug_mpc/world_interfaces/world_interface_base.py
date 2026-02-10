@@ -495,7 +495,7 @@ class AugMPCWorldInterfaceBase(ABC):
                         f"The filter_sampling_rate should be smaller that the physics rate ({physics_rate} Hz)",
                         LogType.EXCEP,
                         throw_when_excep=True)
-            
+
             for n in range(self._n_init_steps): # run some initialization steps
                 if hasattr(self, "_alter_twist_warmup"):
                     self._alter_twist_warmup(robot_name=robot_name, env_indxs=None)
@@ -533,13 +533,13 @@ class AugMPCWorldInterfaceBase(ABC):
                 robot_name=robot_name,
                 reset_cluster=True,
                 reset_cluster_counter=False,
-                randomize=True)
+                randomize=True) # resets everything and also updates the cluster with fresh reset states
             if not reset_ok:
                 return False
             
             control_cluster=self.cluster_servers[robot_name]
-            self._set_state_to_cluster(robot_name=robot_name)
-            control_cluster.write_robot_state()
+            # self._set_state_to_cluster(robot_name=robot_name)
+            # control_cluster.write_robot_state()
             control_cluster.pre_trigger()
             to_be_activated=control_cluster.get_inactive_controllers()
             if to_be_activated is not None:
@@ -553,8 +553,9 @@ class AugMPCWorldInterfaceBase(ABC):
             
             self._set_startup_jnt_imp_gains(robot_name=robot_name) # set gains to
             # startup config (usually lower)
-            control_cluster.trigger_solution()
-        
+
+            control_cluster.trigger_solution() # trigger first solution before first call to step to ensure that first solution is ready when step is called the first time
+            
         if self._env_opts["add_remote_exit_flag"]:
             self._remote_exit_flag=SharedTWrapper(namespace = self._robot_names[0],# use first robot as name
                 basename = "IbridoRemoteEnvExitFlag",
@@ -715,7 +716,7 @@ class AugMPCWorldInterfaceBase(ABC):
                 hdata = hdata[env_indxs]
             flat = hdata.reshape(hdata.shape[0], -1)
             rhc_state.height_sensor.set(data=flat, data_type=None, robot_idxs=env_indxs, gpu=self._use_gpu)
-        
+
         # Updating contact state for selected contact links
         self._update_contact_state(robot_name=robot_name, env_indxs=env_indxs)
     
