@@ -554,6 +554,10 @@ class AugMPCWorldInterfaceBase(ABC):
             self._set_startup_jnt_imp_gains(robot_name=robot_name) # set gains to
             # startup config (usually lower)
 
+            rhc_state = control_cluster.get_state()
+            jnt_v=rhc_state.jnts_state.get(data_type="v", robot_idxs = None, gpu=self._use_gpu) 
+            jnt_v[:, :]=0 # make sure MPC starts with zero velocity to avoid initial jerks
+
             control_cluster.trigger_solution() # trigger first solution before first call to step to ensure that first solution is ready when step is called the first time
             
         if self._env_opts["add_remote_exit_flag"]:
