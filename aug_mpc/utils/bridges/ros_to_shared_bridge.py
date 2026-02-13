@@ -31,11 +31,11 @@ class RosToSharedMemBridge:
             backend: str = "ros2",
             add_training_data: bool = False,
             verbose: bool = True,
-            vlevel: VLevel = VLevel.V1,
+            vlevel: VLevel = VLevel.V2,
             queue_size: int = 1,
             force_reconnection: bool = True,
             remap_ns: str = None):
-
+        
         self._namespace = namespace
         self._backend = backend
         self._add_training_data = add_training_data
@@ -43,6 +43,9 @@ class RosToSharedMemBridge:
         self._vlevel = vlevel
         self._queue_size = queue_size
         self._force_reconnection = force_reconnection
+        if remap_ns is not None:
+            raise Exception("remap_ns argument is not supported in this version of the bridge")
+        
         self._remap_ns=remap_ns
 
         self._bridges = []
@@ -100,25 +103,25 @@ class RosToSharedMemBridge:
     def _init_template_clients(self):
 
         self._template_clients = [
-            RhcStatus(namespace=self._namespace,
-                is_server=False,
-                verbose=self._verbose,
-                vlevel=self._vlevel),
             RobotState(namespace=self._namespace,
                 is_server=False,
                 safe=False,
                 verbose=self._verbose,
                 vlevel=self._vlevel),
-            RhcRefs(namespace=self._namespace,
+            RhcStatus(namespace=self._namespace,
                 is_server=False,
-                safe=False,
                 verbose=self._verbose,
                 vlevel=self._vlevel),
-            RhcCmds(namespace=self._namespace,
-                is_server=False,
-                safe=False,
-                verbose=self._verbose,
-                vlevel=self._vlevel),
+            # RhcRefs(namespace=self._namespace,
+            #     is_server=False,
+            #     safe=False,
+            #     verbose=self._verbose,
+            #     vlevel=self._vlevel),
+            # RhcCmds(namespace=self._namespace,
+            #     is_server=False,
+            #     safe=False,
+            #     verbose=self._verbose,
+            #     vlevel=self._vlevel),
             # RhcProfiling(name=self._namespace,
             #     is_server=False,
             #     safe=False,
@@ -257,6 +260,11 @@ class RosToSharedMemBridge:
 
     def _run_bridges_until_ready(self):
 
+        def _bridge_id(bridge):
+            basename = getattr(bridge, "_basename", "unknown_basename")
+            namespace = getattr(bridge, "_namespace", "unknown_namespace")
+            return f"{basename}@{namespace}"
+
         pending = list(self._bridges)
         warn_counter = 0
 
@@ -274,13 +282,22 @@ class RosToSharedMemBridge:
 
             if len(pending) > 0:
                 if warn_counter % 20 == 0:
+                    pending_ids = ", ".join([_bridge_id(bridge) for bridge in pending])
                     Journal.log(self.__class__.__name__,
                         "_run_bridges_until_ready",
-                        f"waiting for ROS metadata on {len(pending)} bridge(s)...",
+                        f"waiting for ROS metadata on {len(pending)} bridge(s): {pending_ids}",
                         LogType.WARN,
                         throw_when_excep=True)
                 warn_counter += 1
                 time.sleep(0.05)
+
+        if len(pending) > 0:
+            pending_ids = ", ".join([_bridge_id(bridge) for bridge in pending])
+            Journal.log(self.__class__.__name__,
+                "_run_bridges_until_ready",
+                f"failed to initialize {len(pending)} bridge(s): {pending_ids}",
+                LogType.WARN,
+                throw_when_excep=True)
 
     def run(self, dt: float = 0.05):
 
@@ -296,7 +313,7 @@ class RosToSharedMemBridge:
     def _run_loop(self):
 
         info = f"starting ROS-to-shared-memory bridge with update dt {self._dt} s" + \
-            f" and namespace {self._namespace} ({self._backend})"
+            f" and namespace {self._namespace} ({self._backend}), remapped to {self._remap_ns}"
         Journal.log(self.__class__.__name__,
             "run",
             info,
