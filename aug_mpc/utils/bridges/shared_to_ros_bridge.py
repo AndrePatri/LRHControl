@@ -1,10 +1,5 @@
-from EigenIPC.PyEigenIPCExt.extensions.ros_bridge.to_ros import *
-from EigenIPC.PyEigenIPCExt.wrappers.shared_data_view import *
-from EigenIPC.PyEigenIPC import *
-
-from EigenIPC.PyEigenIPC import VLevel
-from EigenIPC.PyEigenIPC import LogType
-from EigenIPC.PyEigenIPC import Journal
+from EigenIPC.PyEigenIPCExt.extensions.ros_bridge.to_ros import ToRos
+from EigenIPC.PyEigenIPC import VLevel, LogType, Journal
 
 from mpc_hive.utilities.shared_data.rhc_data import RobotState
 from mpc_hive.utilities.shared_data.rhc_data import RhcRefs
@@ -23,208 +18,226 @@ from aug_mpc.utils.shared_data.training_env import Truncations
 from aug_mpc.utils.shared_data.training_env import EpisodesCounter, TaskRandCounter
 
 import argparse
-import time 
+import time
 
-from perf_sleep.pyperfsleep import PerfSleep
 
-from typing import List
-
-class SharedMemToRosBridge():
+class SharedMemToRosBridge:
 
     def __init__(self,
             namespace: str,
-            backend: str = "ros2"):
+            backend: str = "ros2",
+            add_training_data: bool = False,
+            verbose: bool = True,
+            vlevel: VLevel = VLevel.V1,
+            queue_size: int = 1):
 
         self._namespace = namespace
         self._backend = backend
+        self._add_training_data = add_training_data
+        self._verbose = verbose
+        self._vlevel = vlevel
+        self._queue_size = queue_size
 
         self._bridges = []
         self._clients = []
-        self._shared_mems = [] # List of lists
+        self._shared_mems = []
 
         self._dt = 0.05
-
         self._is_running = False
+        self._node = None
+
+        self._check_backend()
+
+    def _check_backend(self):
+
+        if self._backend not in ("ros1", "ros2"):
+            Journal.log(self.__class__.__name__,
+                "_check_backend",
+                f"backend {self._backend} not supported!",
+                LogType.EXCEP,
+                throw_when_excep=True)
 
     def _init_clients(self):
-        self._clients.append(RobotState(namespace=self._namespace, 
-                                is_server=False, 
-                                safe=False, 
-                                verbose=True, 
-                                vlevel=VLevel.V1))
-        self._clients.append(RhcRefs(namespace=self._namespace, 
-                                is_server=False, 
-                                safe=False, 
-                                verbose=True, 
-                                vlevel=VLevel.V1))
-        self._clients.append(RhcCmds(namespace=self._namespace, 
-                                is_server=False, 
-                                safe=False, 
-                                verbose=True, 
-                                vlevel=VLevel.V1))
-        self._clients.append(RhcStatus(namespace=self._namespace, 
-                                is_server=False, 
-                                verbose=True, 
-                                vlevel=VLevel.V1))
-        self._clients.append(SharedEnvInfo(namespace=self._namespace, 
-                                is_server=False, 
-                                verbose=True, 
-                                vlevel=VLevel.V1))
-        self._clients.append(AgentRefs(namespace=self._namespace, 
-                                is_server=False, 
-                                safe=False, 
-                                verbose=True, 
-                                vlevel=VLevel.V1))
-        self._clients.append(Observations(namespace=self._namespace, 
-                                is_server=False, 
-                                safe=False, 
-                                verbose=True, 
-                                vlevel=VLevel.V1))
-        self._clients.append(NextObservations(namespace=self._namespace, 
-                                is_server=False, 
-                                safe=False, 
-                                verbose=True, 
-                                vlevel=VLevel.V1))
-        self._clients.append(TotRewards(namespace=self._namespace, 
-                                is_server=False, 
-                                safe=False, 
-                                verbose=True, 
-                                vlevel=VLevel.V1))
-        self._clients.append(SubRewards(namespace=self._namespace, 
-                                is_server=False, 
-                                safe=False, 
-                                verbose=True, 
-                                vlevel=VLevel.V1))
-        self._clients.append(Actions(namespace=self._namespace, 
-                                is_server=False, 
-                                safe=False, 
-                                verbose=True, 
-                                vlevel=VLevel.V1))
-        self._clients.append(Terminations(namespace=self._namespace, 
-                                is_server=False, 
-                                safe=False, 
-                                verbose=True, 
-                                vlevel=VLevel.V1))
-        self._clients.append(Truncations(namespace=self._namespace, 
-                                is_server=False, 
-                                safe=False, 
-                                verbose=True, 
-                                vlevel=VLevel.V1))
-        self._clients.append(EpisodesCounter(namespace=self._namespace, 
-                                is_server=False, 
-                                safe=False, 
-                                verbose=True, 
-                                vlevel=VLevel.V1))
-        self._clients.append(TaskRandCounter(namespace=self._namespace, 
-                                is_server=False, 
-                                safe=False, 
-                                verbose=True, 
-                                vlevel=VLevel.V1))
-        # self._clients.append(SharedTrainingEnvInfo(namespace=self._namespace, 
-        #                         is_server=False, 
-        #                         verbose=True, 
-        #                         vlevel=VLevel.V1))
-        
+
+        self._clients = [
+            RobotState(namespace=self._namespace,
+                is_server=False,
+                safe=False,
+                verbose=self._verbose,
+                vlevel=self._vlevel),
+            RhcRefs(namespace=self._namespace,
+                is_server=False,
+                safe=False,
+                verbose=self._verbose,
+                vlevel=self._vlevel),
+            RhcCmds(namespace=self._namespace,
+                is_server=False,
+                safe=False,
+                verbose=self._verbose,
+                vlevel=self._vlevel),
+            RhcStatus(namespace=self._namespace,
+                is_server=False,
+                verbose=self._verbose,
+                vlevel=self._vlevel),
+            SharedEnvInfo(namespace=self._namespace,
+                is_server=False,
+                verbose=self._verbose,
+                vlevel=self._vlevel)
+        ]
+
+        if self._add_training_data:
+            self._clients.extend([
+                AgentRefs(namespace=self._namespace,
+                    is_server=False,
+                    safe=False,
+                    verbose=self._verbose,
+                    vlevel=self._vlevel),
+                Observations(namespace=self._namespace,
+                    is_server=False,
+                    safe=False,
+                    verbose=self._verbose,
+                    vlevel=self._vlevel),
+                NextObservations(namespace=self._namespace,
+                    is_server=False,
+                    safe=False,
+                    verbose=self._verbose,
+                    vlevel=self._vlevel),
+                TotRewards(namespace=self._namespace,
+                    is_server=False,
+                    safe=False,
+                    verbose=self._verbose,
+                    vlevel=self._vlevel),
+                SubRewards(namespace=self._namespace,
+                    is_server=False,
+                    safe=False,
+                    verbose=self._verbose,
+                    vlevel=self._vlevel),
+                Actions(namespace=self._namespace,
+                    is_server=False,
+                    safe=False,
+                    verbose=self._verbose,
+                    vlevel=self._vlevel),
+                Terminations(namespace=self._namespace,
+                    is_server=False,
+                    safe=False,
+                    verbose=self._verbose,
+                    vlevel=self._vlevel),
+                Truncations(namespace=self._namespace,
+                    is_server=False,
+                    safe=False,
+                    verbose=self._verbose,
+                    vlevel=self._vlevel),
+                EpisodesCounter(namespace=self._namespace,
+                    is_server=False,
+                    safe=False,
+                    verbose=self._verbose,
+                    vlevel=self._vlevel),
+                TaskRandCounter(namespace=self._namespace,
+                    is_server=False,
+                    safe=False,
+                    verbose=self._verbose,
+                    vlevel=self._vlevel),
+                SharedTrainingEnvInfo(namespace=self._namespace,
+                    is_server=False,
+                    verbose=self._verbose,
+                    vlevel=self._vlevel)
+            ])
+
+    def _as_mem_list(self, shared_mem):
+
+        if shared_mem is None:
+            return []
+        if isinstance(shared_mem, list):
+            return [mem for mem in shared_mem if mem is not None]
+        return [shared_mem]
+
     def _run_clients(self):
+
+        self._shared_mems = []
         for client in self._clients:
             client.run()
-            shared_mems = []
-            shared_mem = client.get_shared_mem() # this method is must be available for all clients 
-            # (it must return either a single Client, a List of Clients or None)
-            if not isinstance(shared_mem, List): #
-                shared_mems.append(shared_mem)
-            else: # we assume that in all other cases it will be a List of clients
-                for mem in shared_mem:
-                    if mem is not None:
-                        shared_mems.append(mem)
-            self._shared_mems.append(shared_mems)
+            self._shared_mems.extend(self._as_mem_list(client.get_shared_mem()))
 
     def _close_clients(self):
+
         for client in self._clients:
-            client.close()
+            try:
+                client.close()
+            except Exception:
+                pass
 
     def _close_bridges(self):
-        for bridge in self._bridges:
-            bridge.close()
 
-    def _init_toROS_bridges(self):
+        for bridge in self._bridges:
+            try:
+                bridge.close()
+            except Exception:
+                pass
+
+    def _init_to_ros_bridges(self):
 
         if self._backend == "ros1":
             import rospy
-            node = rospy.init_node("Sharsor2RosBridge_" + self._namespace)
-            for i in range(len(self._shared_mems)):
-                shared_mems_client = self._shared_mems[i]
-                for j in range(len(shared_mems_client)):
-                    self._bridges.append(ToRos(client=shared_mems_client[j],
-                    queue_size = 1,
-                    ros_backend = self._backend))
+            rospy.init_node("Sharsor2RosBridge_" + self._namespace)
         elif self._backend == "ros2":
             import rclpy
-            rclpy.init()
-            node = rclpy.create_node("Sharsor2RosBridge_" + self._namespace)
-            for i in range(len(self._shared_mems)):
-                shared_mems_client = self._shared_mems[i]
-                for j in range(len(shared_mems_client)):
-                    self._bridges.append(ToRos(client=shared_mems_client[j],
-                    queue_size = 1,
-                    ros_backend = self._backend,
-                    node=node))
-        else:
-            Journal.log(self.__class__.__name__,
-                "_init_toROS_bridges",
-                f"backend {self._backend} not supported!",
-                LogType.EXCEP,
-                throw_when_excep = True)
-        
-        for bridge in self._bridges:
+            if not rclpy.ok():
+                rclpy.init()
+            self._node = rclpy.create_node("Sharsor2RosBridge_" + self._namespace)
+
+        self._bridges = []
+        for shared_mem in self._shared_mems:
+            if self._backend == "ros1":
+                bridge = ToRos(client=shared_mem,
+                    queue_size=self._queue_size,
+                    ros_backend=self._backend)
+            else:
+                bridge = ToRos(client=shared_mem,
+                    queue_size=self._queue_size,
+                    ros_backend=self._backend,
+                    node=self._node)
             bridge.run()
+            self._bridges.append(bridge)
 
     def run(self, dt: float = 0.05):
 
         self._dt = dt
 
         self._init_clients()
-
         self._run_clients()
-
-        self._init_toROS_bridges()
+        self._init_to_ros_bridges()
 
         self._is_running = True
+        self._run_loop()
 
-        self._run()
+    def _run_loop(self):
 
-    def _run(self):
-
-        info = f": starting sharsor-to-ROS bridge with update dt {self._dt} s" + \
-            f" with namespace {self._namespace}"
+        info = f"starting shared memory-to-ROS bridge with update dt {self._dt} s" + \
+            f" and namespace {self._namespace} ({self._backend})"
         Journal.log(self.__class__.__name__,
             "run",
             info,
             LogType.INFO,
-            throw_when_excep = True)
-        start_time = 0.0
-        elapsed_time = 0.0
-        time_to_sleep_ns = 0
+            throw_when_excep=True)
 
         while self._is_running:
             try:
-                start_time = time.perf_counter() 
+                start_time = time.perf_counter()
                 self._update()
                 elapsed_time = time.perf_counter() - start_time
-                time_to_sleep_ns = int((self._dt - elapsed_time) * 1000000000) # [ns]
-                if time_to_sleep_ns < 0:
-                    warning = f": Could not match desired update dt of {self._dt} s. " + \
-                        f"Elapsed time to update {elapsed_time}."
+                time_to_sleep = self._dt - elapsed_time
+                if time_to_sleep < 0:
                     Journal.log(self.__class__.__name__,
                         "run",
-                        warning,
+                        f"Could not match desired update dt of {self._dt} s. Elapsed {elapsed_time} s.",
                         LogType.WARN,
-                        throw_when_excep = True)
+                        throw_when_excep=True)
                 else:
-                    PerfSleep.thread_sleep(time_to_sleep_ns) 
-                continue
+                    time.sleep(time_to_sleep)
             except KeyboardInterrupt:
-                self.close()
+                break
+
+        self.close()
 
     def _update(self):
 
@@ -233,31 +246,37 @@ class SharedMemToRosBridge():
 
     def close(self):
 
-        self._close_clients()
-        self._close_bridges()
+        if not self._is_running and len(self._bridges) == 0 and len(self._clients) == 0:
+            return
 
         self._is_running = False
+        self._close_bridges()
+        self._close_clients()
+        self._bridges = []
+        self._clients = []
+        self._shared_mems = []
+
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(description="Multi Robot Visualizer")
-    parser.add_argument('--ns', type=str, help='Namespace to be used for cluster shared memory')
+    parser = argparse.ArgumentParser(description="Shared-memory to ROS bridge")
+    parser.add_argument('--ns', type=str, required=True,
+        help='Namespace to be used for cluster shared memory')
     parser.add_argument('--ros2', action='store_true', help='Enable ROS 2 mode')
-    parser.add_argument('--dt', type=float, default=0.01, help='Update interval in seconds, default is 0.01')
+    parser.add_argument('--dt', type=float, default=0.01,
+        help='Update interval in seconds, default is 0.01')
+    parser.add_argument('--add_training_data', action='store_true',
+        help='Also bridge training-related shared-memory blocks')
 
     args = parser.parse_args()
-    
+
     backend = "ros2" if args.ros2 else "ros1"
 
-    if args.ns is None:
-        Journal.log("ros_bridge.py",
-                "ros_bridge",
-                "no --ns argument provided!",
-                LogType.EXCEP,
-                throw_when_excep = True)
     bridge = SharedMemToRosBridge(namespace=args.ns,
-                    backend=backend)
+                    backend=backend,
+                    add_training_data=args.add_training_data)
 
-    bridge.run(dt=args.dt)
-
-    bridge.close()
+    try:
+        bridge.run(dt=args.dt)
+    finally:
+        bridge.close()
