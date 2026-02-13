@@ -1,10 +1,11 @@
 from EigenIPC.PyEigenIPCExt.extensions.ros_bridge.to_ros import ToRos
 from EigenIPC.PyEigenIPC import VLevel, LogType, Journal
 
-from mpc_hive.utilities.shared_data.rhc_data import RobotState
-from mpc_hive.utilities.shared_data.rhc_data import RhcRefs
-from mpc_hive.utilities.shared_data.rhc_data import RhcCmds
-from mpc_hive.utilities.shared_data.rhc_data import RhcStatus
+from mpc_hive.utilities.shared_data.rhc_data import RobotState, RhcRefs, RhcCmds, RhcStatus
+from mpc_hive.utilities.shared_data.rhc_data import RhcPred, RhcPredDelta
+from mpc_hive.utilities.shared_data.rhc_data import RhcInternal
+from mpc_hive.utilities.shared_data.cluster_profiling import RhcProfiling
+
 from mpc_hive.utilities.shared_data.sim_data import SharedEnvInfo
 
 from aug_mpc.utils.shared_data.agent_refs import AgentRefs
@@ -57,9 +58,46 @@ class SharedMemToRosBridge:
                 LogType.EXCEP,
                 throw_when_excep=True)
 
+    def _backend_alive(self):
+
+        if self._backend == "ros1":
+            import rospy
+            return not rospy.is_shutdown()
+
+        if self._backend == "ros2":
+            import rclpy
+            return rclpy.ok()
+
+        return True
+
+    def _shutdown_backend(self):
+
+        if self._backend == "ros1":
+            try:
+                import rospy
+                if not rospy.is_shutdown():
+                    rospy.signal_shutdown("bridge close requested")
+            except Exception:
+                pass
+
+        if self._backend == "ros2":
+            try:
+                import rclpy
+                if self._node is not None:
+                    self._node.destroy_node()
+                    self._node = None
+                if rclpy.ok():
+                    rclpy.shutdown()
+            except Exception:
+                pass
+
     def _init_clients(self):
 
         self._clients = [
+            RhcStatus(namespace=self._namespace,
+                is_server=False,
+                verbose=self._verbose,
+                vlevel=self._vlevel),
             RobotState(namespace=self._namespace,
                 is_server=False,
                 safe=False,
@@ -75,14 +113,15 @@ class SharedMemToRosBridge:
                 safe=False,
                 verbose=self._verbose,
                 vlevel=self._vlevel),
-            RhcStatus(namespace=self._namespace,
-                is_server=False,
-                verbose=self._verbose,
-                vlevel=self._vlevel),
-            SharedEnvInfo(namespace=self._namespace,
-                is_server=False,
-                verbose=self._verbose,
-                vlevel=self._vlevel)
+            # RhcProfiling(name=self._namespace,
+            #     is_server=False,
+            #     safe=False,
+            #     verbose=self._verbose,
+            #     vlevel=self._vlevel),
+            # SharedEnvInfo(namespace=self._namespace,
+            #     is_server=False,
+            #     verbose=self._verbose,
+            #     vlevel=self._vlevel)
         ]
 
         if self._add_training_data:
@@ -178,12 +217,12 @@ class SharedMemToRosBridge:
 
         if self._backend == "ros1":
             import rospy
-            rospy.init_node("Sharsor2RosBridge_" + self._namespace)
+            rospy.init_node("SharedMem2RosBridge_" + self._namespace)
         elif self._backend == "ros2":
             import rclpy
             if not rclpy.ok():
                 rclpy.init()
-            self._node = rclpy.create_node("Sharsor2RosBridge_" + self._namespace)
+            self._node = rclpy.create_node("SharedMem2RosBridge_" + self._namespace)
 
         self._bridges = []
         for shared_mem in self._shared_mems:
@@ -220,7 +259,7 @@ class SharedMemToRosBridge:
             LogType.INFO,
             throw_when_excep=True)
 
-        while self._is_running:
+        while self._is_running and self._backend_alive():
             try:
                 start_time = time.perf_counter()
                 self._update()
@@ -234,7 +273,7 @@ class SharedMemToRosBridge:
                         throw_when_excep=True)
                 else:
                     time.sleep(time_to_sleep)
-            except KeyboardInterrupt:
+            except (KeyboardInterrupt, SystemExit):
                 break
 
         self.close()
@@ -252,6 +291,7 @@ class SharedMemToRosBridge:
         self._is_running = False
         self._close_bridges()
         self._close_clients()
+        self._shutdown_backend()
         self._bridges = []
         self._clients = []
         self._shared_mems = []

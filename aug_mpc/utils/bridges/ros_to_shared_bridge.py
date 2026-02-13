@@ -1,10 +1,11 @@
 from EigenIPC.PyEigenIPCExt.extensions.ros_bridge.from_ros import FromRos
 from EigenIPC.PyEigenIPC import VLevel, LogType, Journal
 
-from mpc_hive.utilities.shared_data.rhc_data import RobotState
-from mpc_hive.utilities.shared_data.rhc_data import RhcRefs
-from mpc_hive.utilities.shared_data.rhc_data import RhcCmds
-from mpc_hive.utilities.shared_data.rhc_data import RhcStatus
+from mpc_hive.utilities.shared_data.rhc_data import RobotState, RhcRefs, RhcCmds, RhcStatus
+from mpc_hive.utilities.shared_data.rhc_data import RhcPred, RhcPredDelta
+from mpc_hive.utilities.shared_data.rhc_data import RhcInternal
+from mpc_hive.utilities.shared_data.cluster_profiling import RhcProfiling
+
 from mpc_hive.utilities.shared_data.sim_data import SharedEnvInfo
 
 from aug_mpc.utils.shared_data.agent_refs import AgentRefs
@@ -32,7 +33,8 @@ class RosToSharedMemBridge:
             verbose: bool = True,
             vlevel: VLevel = VLevel.V1,
             queue_size: int = 1,
-            force_reconnection: bool = True):
+            force_reconnection: bool = True,
+            remap_ns: str = None):
 
         self._namespace = namespace
         self._backend = backend
@@ -41,6 +43,7 @@ class RosToSharedMemBridge:
         self._vlevel = vlevel
         self._queue_size = queue_size
         self._force_reconnection = force_reconnection
+        self._remap_ns=remap_ns
 
         self._bridges = []
         self._template_clients = []
@@ -51,7 +54,7 @@ class RosToSharedMemBridge:
         self._node = None
 
         self._check_backend()
-
+    
     def _check_backend(self):
 
         if self._backend not in ("ros1", "ros2"):
@@ -61,9 +64,46 @@ class RosToSharedMemBridge:
                 LogType.EXCEP,
                 throw_when_excep=True)
 
+    def _backend_alive(self):
+
+        if self._backend == "ros1":
+            import rospy
+            return not rospy.is_shutdown()
+
+        if self._backend == "ros2":
+            import rclpy
+            return rclpy.ok()
+
+        return True
+
+    def _shutdown_backend(self):
+
+        if self._backend == "ros1":
+            try:
+                import rospy
+                if not rospy.is_shutdown():
+                    rospy.signal_shutdown("bridge close requested")
+            except Exception:
+                pass
+
+        if self._backend == "ros2":
+            try:
+                import rclpy
+                if self._node is not None:
+                    self._node.destroy_node()
+                    self._node = None
+                if rclpy.ok():
+                    rclpy.shutdown()
+            except Exception:
+                pass
+
     def _init_template_clients(self):
 
         self._template_clients = [
+            RhcStatus(namespace=self._namespace,
+                is_server=False,
+                verbose=self._verbose,
+                vlevel=self._vlevel),
             RobotState(namespace=self._namespace,
                 is_server=False,
                 safe=False,
@@ -79,14 +119,15 @@ class RosToSharedMemBridge:
                 safe=False,
                 verbose=self._verbose,
                 vlevel=self._vlevel),
-            RhcStatus(namespace=self._namespace,
-                is_server=False,
-                verbose=self._verbose,
-                vlevel=self._vlevel),
-            SharedEnvInfo(namespace=self._namespace,
-                is_server=False,
-                verbose=self._verbose,
-                vlevel=self._vlevel)
+            # RhcProfiling(name=self._namespace,
+            #     is_server=False,
+            #     safe=False,
+            #     verbose=self._verbose,
+            #     vlevel=self._vlevel),
+            # SharedEnvInfo(namespace=self._namespace,
+            #     is_server=False,
+            #     verbose=self._verbose,
+            #     vlevel=self._vlevel)
         ]
 
         if self._add_training_data:
@@ -189,12 +230,12 @@ class RosToSharedMemBridge:
 
         if self._backend == "ros1":
             import rospy
-            rospy.init_node("Ros2SharsorBridge_" + self._namespace)
+            rospy.init_node("Ros2SharedMemoryBridge_" + self._namespace)
         elif self._backend == "ros2":
             import rclpy
             if not rclpy.ok():
                 rclpy.init()
-            self._node = rclpy.create_node("Ros2SharsorBridge_" + self._namespace)
+            self._node = rclpy.create_node("Ros2SharedMemoryBridge_" + self._namespace)
 
         self._bridges = []
         for basename, namespace in self._bridge_endpoints:
@@ -206,6 +247,7 @@ class RosToSharedMemBridge:
                 verbose=self._verbose,
                 vlevel=self._vlevel,
                 force_reconnection=self._force_reconnection,
+                remap_ns=self._remap_ns,
             )
             if self._backend == "ros2":
                 kwargs["node"] = self._node
@@ -218,7 +260,7 @@ class RosToSharedMemBridge:
         pending = list(self._bridges)
         warn_counter = 0
 
-        while len(pending) > 0:
+        while len(pending) > 0 and self._backend_alive():
             if self._backend == "ros2":
                 import rclpy
                 rclpy.spin_once(self._node, timeout_sec=0.0)
@@ -261,7 +303,7 @@ class RosToSharedMemBridge:
             LogType.INFO,
             throw_when_excep=True)
 
-        while self._is_running:
+        while self._is_running and self._backend_alive():
             try:
                 start_time = time.perf_counter()
                 self._update()
@@ -275,14 +317,14 @@ class RosToSharedMemBridge:
                         throw_when_excep=True)
                 else:
                     PerfSleep.thread_sleep(time_to_sleep_ns)
-            except KeyboardInterrupt:
+            except (KeyboardInterrupt, SystemExit):
                 break
 
         self.close()
 
     def _update(self):
 
-        if self._backend == "ros2":
+        if self._backend == "ros2" and self._backend_alive():
             import rclpy
             rclpy.spin_once(self._node, timeout_sec=0.0)
 
@@ -297,6 +339,7 @@ class RosToSharedMemBridge:
         self._is_running = False
         self._close_bridges()
         self._close_template_clients()
+        self._shutdown_backend()
         self._bridges = []
         self._template_clients = []
         self._bridge_endpoints = []

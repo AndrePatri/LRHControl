@@ -19,6 +19,8 @@ if __name__ == '__main__':
         help='Update interval in seconds, default is 0.01')
     parser.add_argument('--ns', type=str,
         help='Namespace to be used for cluster shared memory')
+    parser.add_argument('--remap_ns', type=str,
+        help='Namespace to be used for remapping when creating shared memory servers (only used when --is_client is set)')
     parser.add_argument('--debug', action='store_true',
         help='Enable debug mode (reserved)')
     parser.add_argument('--verbose', action='store_true',
@@ -47,6 +49,7 @@ if __name__ == '__main__':
             backend=backend,
             add_training_data=args.add_training_data,
             verbose=args.verbose,
+            remap_ns=args.remap_ns,
         )
     else:
         from aug_mpc.utils.bridges.shared_to_ros_bridge import SharedMemToRosBridge
@@ -57,7 +60,6 @@ if __name__ == '__main__':
             verbose=args.verbose,
         )
 
-    try:
-        bridge.run(dt=args.dt)
-    finally:
-        bridge.close()
+    bridge.run(dt=args.dt)
+    
+    bridge.close()
