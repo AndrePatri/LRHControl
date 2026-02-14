@@ -43,7 +43,7 @@ if __name__ == '__main__':
     backend = 'ros2' if args.ros2 else 'ros1'
 
     if args.is_client:
-        from aug_mpc.utils.bridges.ros_to_shared_bridge import RosToSharedMemBridge
+        from aug_mpc.utils.bridges.ros.ros_to_shared_bridge import RosToSharedMemBridge
         bridge = RosToSharedMemBridge(
             namespace=args.ns,
             backend=backend,
@@ -52,7 +52,7 @@ if __name__ == '__main__':
             remap_ns=args.remap_ns,
         )
     else:
-        from aug_mpc.utils.bridges.shared_to_ros_bridge import SharedMemToRosBridge
+        from aug_mpc.utils.bridges.ros.shared_to_ros_bridge import SharedMemToRosBridge
         bridge = SharedMemToRosBridge(
             namespace=args.ns,
             backend=backend,

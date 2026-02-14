@@ -1,4 +1,4 @@
-from EigenIPC.PyEigenIPCExt.extensions.ros_bridge.to_ros import ToRos
+from EigenIPC.PyEigenIPCExt.extensions.ros_bridge.from_ros import FromRos
 from EigenIPC.PyEigenIPC import VLevel, LogType, Journal
 
 from mpc_hive.utilities.shared_data.rhc_data import RobotState, RhcRefs, RhcCmds, RhcStatus
@@ -21,8 +21,10 @@ from aug_mpc.utils.shared_data.training_env import EpisodesCounter, TaskRandCoun
 import argparse
 import time
 
+from perf_sleep.pyperfsleep import PerfSleep
 
-class SharedMemToRosBridge:
+
+class RosToSharedMemBridge:
 
     def __init__(self,
             namespace: str,
@@ -30,25 +32,32 @@ class SharedMemToRosBridge:
             add_training_data: bool = False,
             verbose: bool = True,
             vlevel: VLevel = VLevel.V2,
-            queue_size: int = 1):
-
+            queue_size: int = 1,
+            force_reconnection: bool = True,
+            remap_ns: str = None):
+        
         self._namespace = namespace
         self._backend = backend
         self._add_training_data = add_training_data
         self._verbose = verbose
         self._vlevel = vlevel
         self._queue_size = queue_size
+        self._force_reconnection = force_reconnection
+        if remap_ns is not None:
+            raise Exception("remap_ns argument is not supported in this version of the bridge")
+        
+        self._remap_ns=remap_ns
 
         self._bridges = []
-        self._clients = []
-        self._shared_mems = []
+        self._template_clients = []
+        self._bridge_endpoints = []
 
         self._dt = 0.05
         self._is_running = False
         self._node = None
 
         self._check_backend()
-
+    
     def _check_backend(self):
 
         if self._backend not in ("ros1", "ros2"):
@@ -91,33 +100,33 @@ class SharedMemToRosBridge:
             except Exception:
                 pass
 
-    def _init_clients(self):
+    def _init_template_clients(self):
 
-        self._clients = [
-            RhcStatus(namespace=self._namespace,
-                is_server=False,
-                verbose=self._verbose,
-                vlevel=self._vlevel),
+        self._template_clients = [
             RobotState(namespace=self._namespace,
                 is_server=False,
                 safe=False,
                 verbose=self._verbose,
                 vlevel=self._vlevel),
-            # RhcRefs(namespace=self._namespace,
-            #     is_server=False,
-            #     safe=False,
-            #     verbose=self._verbose,
-            #     vlevel=self._vlevel),
-            # RhcCmds(namespace=self._namespace,
-            #     is_server=False,
-            #     safe=False,
-            #     verbose=self._verbose,
-            #     vlevel=self._vlevel),
-            # RhcProfiling(name=self._namespace,
-            #     is_server=False,
-            #     safe=False,
-            #     verbose=self._verbose,
-            #     vlevel=self._vlevel),
+            RhcStatus(namespace=self._namespace,
+                is_server=False,
+                verbose=self._verbose,
+                vlevel=self._vlevel),
+            RhcRefs(namespace=self._namespace,
+                is_server=False,
+                safe=False,
+                verbose=self._verbose,
+                vlevel=self._vlevel),
+            RhcCmds(namespace=self._namespace,
+                is_server=False,
+                safe=False,
+                verbose=self._verbose,
+                vlevel=self._vlevel),
+            RhcProfiling(name=self._namespace,
+                is_server=False,
+                safe=False,
+                verbose=self._verbose,
+                vlevel=self._vlevel),
             # SharedEnvInfo(namespace=self._namespace,
             #     is_server=False,
             #     verbose=self._verbose,
@@ -125,7 +134,7 @@ class SharedMemToRosBridge:
         ]
 
         if self._add_training_data:
-            self._clients.extend([
+            self._template_clients.extend([
                 AgentRefs(namespace=self._namespace,
                     is_server=False,
                     safe=False,
@@ -190,16 +199,23 @@ class SharedMemToRosBridge:
             return [mem for mem in shared_mem if mem is not None]
         return [shared_mem]
 
-    def _run_clients(self):
+    def _collect_endpoints(self):
 
-        self._shared_mems = []
-        for client in self._clients:
-            client.run()
-            self._shared_mems.extend(self._as_mem_list(client.get_shared_mem()))
+        endpoint_set = set()
+        self._bridge_endpoints = []
 
-    def _close_clients(self):
+        for client in self._template_clients:
+            for mem in self._as_mem_list(client.get_shared_mem()):
+                basename = mem.getBasename()
+                namespace = mem.getNamespace()
+                endpoint = (basename, namespace)
+                if endpoint not in endpoint_set:
+                    endpoint_set.add(endpoint)
+                    self._bridge_endpoints.append(endpoint)
 
-        for client in self._clients:
+    def _close_template_clients(self):
+
+        for client in self._template_clients:
             try:
                 client.close()
             except Exception:
@@ -213,46 +229,91 @@ class SharedMemToRosBridge:
             except Exception:
                 pass
 
-    def _init_to_ros_bridges(self):
+    def _init_from_ros_bridges(self):
 
         if self._backend == "ros1":
             import rospy
-            rospy.init_node("SharedMem2RosBridge_" + self._namespace)
+            rospy.init_node("Ros2SharedMemoryBridge_" + self._namespace)
         elif self._backend == "ros2":
             import rclpy
             if not rclpy.ok():
                 rclpy.init()
-            self._node = rclpy.create_node("SharedMem2RosBridge_" + self._namespace)
+            self._node = rclpy.create_node("Ros2SharedMemoryBridge_" + self._namespace)
 
         self._bridges = []
-        for shared_mem in self._shared_mems:
-            if self._backend == "ros1":
-                bridge = ToRos(client=shared_mem,
-                    queue_size=self._queue_size,
-                    ros_backend=self._backend)
-            else:
-                bridge = ToRos(client=shared_mem,
-                    queue_size=self._queue_size,
-                    ros_backend=self._backend,
-                    node=self._node)
-            bridge.run()
-            self._bridges.append(bridge)
+        for basename, namespace in self._bridge_endpoints:
+            kwargs = dict(
+                basename=basename,
+                namespace=namespace,
+                queue_size=self._queue_size,
+                ros_backend=self._backend,
+                verbose=self._verbose,
+                vlevel=self._vlevel,
+                force_reconnection=self._force_reconnection,
+                remap_ns=self._remap_ns,
+            )
+            if self._backend == "ros2":
+                kwargs["node"] = self._node
+            self._bridges.append(FromRos(**kwargs))
+
+        self._run_bridges_until_ready()
+
+    def _run_bridges_until_ready(self):
+
+        def _bridge_id(bridge):
+            basename = getattr(bridge, "_basename", "unknown_basename")
+            namespace = getattr(bridge, "_namespace", "unknown_namespace")
+            return f"{basename}@{namespace}"
+
+        pending = list(self._bridges)
+        warn_counter = 0
+
+        while len(pending) > 0 and self._backend_alive():
+            if self._backend == "ros2":
+                import rclpy
+                rclpy.spin_once(self._node, timeout_sec=0.0)
+
+            next_pending = []
+            for bridge in pending:
+                if not bridge.run():
+                    next_pending.append(bridge)
+
+            pending = next_pending
+
+            if len(pending) > 0:
+                if warn_counter % 20 == 0:
+                    pending_ids = ", ".join([_bridge_id(bridge) for bridge in pending])
+                    Journal.log(self.__class__.__name__,
+                        "_run_bridges_until_ready",
+                        f"waiting for ROS metadata on {len(pending)} bridge(s): {pending_ids}",
+                        LogType.WARN,
+                        throw_when_excep=True)
+                warn_counter += 1
+                time.sleep(0.05)
+
+        if len(pending) > 0:
+            pending_ids = ", ".join([_bridge_id(bridge) for bridge in pending])
+            Journal.log(self.__class__.__name__,
+                "_run_bridges_until_ready",
+                f"failed to initialize {len(pending)} bridge(s): {pending_ids}",
+                LogType.WARN,
+                throw_when_excep=True)
 
     def run(self, dt: float = 0.05):
 
         self._dt = dt
 
-        self._init_clients()
-        self._run_clients()
-        self._init_to_ros_bridges()
+        self._init_template_clients()
+        self._collect_endpoints()
+        self._init_from_ros_bridges()
 
         self._is_running = True
         self._run_loop()
 
     def _run_loop(self):
 
-        info = f"starting shared memory-to-ROS bridge with update dt {self._dt} s" + \
-            f" and namespace {self._namespace} ({self._backend})"
+        info = f"starting ROS-to-shared-memory bridge with update dt {self._dt} s" + \
+            f" and namespace {self._namespace} ({self._backend}), remapped to {self._remap_ns}"
         Journal.log(self.__class__.__name__,
             "run",
             info,
@@ -264,15 +325,15 @@ class SharedMemToRosBridge:
                 start_time = time.perf_counter()
                 self._update()
                 elapsed_time = time.perf_counter() - start_time
-                time_to_sleep = self._dt - elapsed_time
-                if time_to_sleep < 0:
+                time_to_sleep_ns = int((self._dt - elapsed_time) * 1e9)
+                if time_to_sleep_ns < 0:
                     Journal.log(self.__class__.__name__,
                         "run",
                         f"Could not match desired update dt of {self._dt} s. Elapsed {elapsed_time} s.",
                         LogType.WARN,
                         throw_when_excep=True)
                 else:
-                    time.sleep(time_to_sleep)
+                    PerfSleep.thread_sleep(time_to_sleep_ns)
             except (KeyboardInterrupt, SystemExit):
                 break
 
@@ -280,26 +341,30 @@ class SharedMemToRosBridge:
 
     def _update(self):
 
+        if self._backend == "ros2" and self._backend_alive():
+            import rclpy
+            rclpy.spin_once(self._node, timeout_sec=0.0)
+
         for bridge in self._bridges:
             bridge.update()
 
     def close(self):
 
-        if not self._is_running and len(self._bridges) == 0 and len(self._clients) == 0:
+        if not self._is_running and len(self._bridges) == 0 and len(self._template_clients) == 0:
             return
 
         self._is_running = False
         self._close_bridges()
-        self._close_clients()
+        self._close_template_clients()
         self._shutdown_backend()
         self._bridges = []
-        self._clients = []
-        self._shared_mems = []
+        self._template_clients = []
+        self._bridge_endpoints = []
 
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(description="Shared-memory to ROS bridge")
+    parser = argparse.ArgumentParser(description="ROS to shared-memory bridge")
     parser.add_argument('--ns', type=str, required=True,
         help='Namespace to be used for cluster shared memory')
     parser.add_argument('--ros2', action='store_true', help='Enable ROS 2 mode')
@@ -312,7 +377,7 @@ if __name__ == '__main__':
 
     backend = "ros2" if args.ros2 else "ros1"
 
-    bridge = SharedMemToRosBridge(namespace=args.ns,
+    bridge = RosToSharedMemBridge(namespace=args.ns,
                     backend=backend,
                     add_training_data=args.add_training_data)
 
