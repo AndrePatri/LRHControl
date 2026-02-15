@@ -1,19 +1,7 @@
 from EigenIPC.PyEigenIPC import VLevel, LogType, Journal
 from EigenIPC.PyEigenIPCExt.extensions.zmq_bridge.from_zmq import FromZmq
-from EigenIPC.PyEigenIPCExt.extensions.zmq_bridge.abstractions import default_endpoint
-
-from mpc_hive.utilities.shared_data.rhc_data import RobotState, RhcRefs, RhcCmds, RhcStatus
-from mpc_hive.utilities.shared_data.cluster_profiling import RhcProfiling
-
-from aug_mpc.utils.shared_data.agent_refs import AgentRefs
-from aug_mpc.utils.shared_data.training_env import SharedTrainingEnvInfo
-from aug_mpc.utils.shared_data.training_env import Observations, NextObservations
-from aug_mpc.utils.shared_data.training_env import TotRewards
-from aug_mpc.utils.shared_data.training_env import SubRewards
-from aug_mpc.utils.shared_data.training_env import Actions
-from aug_mpc.utils.shared_data.training_env import Terminations
-from aug_mpc.utils.shared_data.training_env import Truncations
-from aug_mpc.utils.shared_data.training_env import EpisodesCounter, TaskRandCounter
+from EigenIPC.PyEigenIPCExt.extensions.zmq_bridge.abstractions import default_endpoint, ZmqSubscriber
+from EigenIPC.PyEigenIPCExt.extensions.zmq_bridge.defs import MSG_DATA, is_string_tensor
 
 import argparse
 import time
@@ -22,6 +10,8 @@ from perf_sleep.pyperfsleep import PerfSleep
 
 
 class ZmqToSharedMemBridge:
+
+    _CATALOG_BASENAME = "ZmqBridgeCatalog"
 
     def __init__(self,
             namespace: str,
@@ -52,154 +42,145 @@ class ZmqToSharedMemBridge:
         self._force_reconnection = force_reconnection
         self._remap_ns = remap_ns
 
-        self._bridges = []
-        self._template_clients = []
-        self._bridge_specs = []
+        self._bridges = {}
+        self._catalog_subscriber = None
 
         self._dt = 0.05
         self._is_running = False
 
-    def _init_template_clients(self):
+    def _catalog_endpoint(self):
 
-        self._template_clients = [
-            RhcStatus(namespace=self._namespace,
-                is_server=False,
-                verbose=self._verbose,
-                vlevel=self._vlevel),
-            RobotState(namespace=self._namespace,
-                is_server=False,
-                safe=False,
-                verbose=self._verbose,
-                vlevel=self._vlevel),
-            # RhcCmds(namespace=self._namespace,
-            #     is_server=False,
-            #     safe=False,
-            #     verbose=self._verbose,
-            #     vlevel=self._vlevel),
-            # RhcRefs(namespace=self._namespace,
-            #     is_server=False,
-            #     safe=False,
-            #     verbose=self._verbose,
-            #     vlevel=self._vlevel),
-            # RhcProfiling(name=self._namespace,
-            #     is_server=False,
-            #     safe=False,
-            #     verbose=self._verbose,
-            #     vlevel=self._vlevel),
-        ]
+        return default_endpoint(
+            namespace=self._namespace,
+            basename=self._CATALOG_BASENAME,
+            ip=self._source_ip,
+            port_base=self._port_base,
+            port_span=self._port_span,
+        )
 
-        if self._add_training_data:
-            self._template_clients.extend([
-                AgentRefs(namespace=self._namespace,
-                    is_server=False,
-                    safe=False,
-                    verbose=self._verbose,
-                    vlevel=self._vlevel),
-                Observations(namespace=self._namespace,
-                    is_server=False,
-                    safe=False,
-                    verbose=self._verbose,
-                    vlevel=self._vlevel),
-                NextObservations(namespace=self._namespace,
-                    is_server=False,
-                    safe=False,
-                    verbose=self._verbose,
-                    vlevel=self._vlevel),
-                TotRewards(namespace=self._namespace,
-                    is_server=False,
-                    safe=False,
-                    verbose=self._verbose,
-                    vlevel=self._vlevel),
-                SubRewards(namespace=self._namespace,
-                    is_server=False,
-                    safe=False,
-                    verbose=self._verbose,
-                    vlevel=self._vlevel),
-                Actions(namespace=self._namespace,
-                    is_server=False,
-                    safe=False,
-                    verbose=self._verbose,
-                    vlevel=self._vlevel),
-                Terminations(namespace=self._namespace,
-                    is_server=False,
-                    safe=False,
-                    verbose=self._verbose,
-                    vlevel=self._vlevel),
-                Truncations(namespace=self._namespace,
-                    is_server=False,
-                    safe=False,
-                    verbose=self._verbose,
-                    vlevel=self._vlevel),
-                EpisodesCounter(namespace=self._namespace,
-                    is_server=False,
-                    safe=False,
-                    verbose=self._verbose,
-                    vlevel=self._vlevel),
-                TaskRandCounter(namespace=self._namespace,
-                    is_server=False,
-                    safe=False,
-                    verbose=self._verbose,
-                    vlevel=self._vlevel),
-                SharedTrainingEnvInfo(namespace=self._namespace,
-                    is_server=False,
-                    verbose=self._verbose,
-                    vlevel=self._vlevel)
-            ])
+    def _init_catalog_subscriber(self):
 
-    def _as_mem_list(self, shared_mem):
+        endpoint = self._catalog_endpoint()
+        self._catalog_subscriber = ZmqSubscriber(
+            endpoint=endpoint,
+            connect=self._connect,
+            queue_size=self._queue_size,
+            conflate=self._conflate,
+            timeout_ms=self._timeout_ms,
+        )
+        self._catalog_subscriber.run()
 
-        if shared_mem is None:
-            return []
-        if isinstance(shared_mem, list):
-            return [mem for mem in shared_mem if mem is not None]
-        return [shared_mem]
+        Journal.log(self.__class__.__name__,
+            "_init_catalog_subscriber",
+            f"subscribed to catalog on {endpoint}",
+            LogType.INFO,
+            throw_when_excep=True)
 
-    def _collect_bridge_specs(self):
+    def _decode_string_tensor(self, np_data):
 
-        endpoint_set = set()
-        self._bridge_specs = []
+        decoded = []
 
-        for client in self._template_clients:
-            for mem in self._as_mem_list(client.get_shared_mem()):
-                basename = mem.getBasename()
-                namespace = mem.getNamespace()
+        for col_idx in range(np_data.shape[1]):
+            raw = bytearray()
+            terminated = False
 
-                endpoint = default_endpoint(
-                    namespace=namespace,
-                    basename=basename,
-                    ip=self._source_ip,
-                    port_base=self._port_base,
-                    port_span=self._port_span,
-                )
+            for row_idx in range(np_data.shape[0]):
+                value = int(np_data[row_idx, col_idx])
+                for byte_idx in range(4):
+                    byte = (value >> (8 * byte_idx)) & 0xFF
+                    if byte == 0:
+                        terminated = True
+                        break
+                    raw.append(byte)
+                if terminated:
+                    break
 
-                stream_key = (basename, namespace, endpoint)
-                if stream_key in endpoint_set:
-                    continue
+            decoded.append(raw.decode("utf-8", errors="ignore"))
 
-                endpoint_set.add(stream_key)
-                self._bridge_specs.append(stream_key)
+        return decoded
 
-    def _close_template_clients(self):
+    def _parse_catalog_specs(self, entries):
 
-        for client in self._template_clients:
-            try:
-                client.close()
-            except Exception:
-                pass
+        stream_specs = []
+        seen = set()
 
-    def _close_bridges(self):
+        for entry in entries:
+            if entry is None:
+                continue
 
-        for bridge in self._bridges:
-            try:
-                bridge.close()
-            except Exception:
-                pass
+            clean = entry.strip()
+            if clean == "":
+                continue
 
-    def _init_from_zmq_bridges(self):
+            if "|" not in clean:
+                Journal.log(self.__class__.__name__,
+                    "_parse_catalog_specs",
+                    f"ignoring malformed catalog entry '{clean}'",
+                    LogType.WARN,
+                    throw_when_excep=True)
+                continue
 
-        self._bridges = []
-        for basename, namespace, endpoint in self._bridge_specs:
-            remap_ns_to=namespace if self._remap_ns is None else namespace.replace(self._namespace, self._remap_ns)
+            namespace, basename = clean.split("|", 1)
+            if basename == "":
+                continue
+
+            key = (basename, namespace)
+            if key in seen:
+                continue
+            seen.add(key)
+
+            endpoint = default_endpoint(
+                namespace=namespace,
+                basename=basename,
+                ip=self._source_ip,
+                port_base=self._port_base,
+                port_span=self._port_span,
+            )
+
+            stream_specs.append((basename, namespace, endpoint))
+
+        return stream_specs
+
+    def _read_catalog_once(self):
+
+        if self._catalog_subscriber is None:
+            return None
+
+        header, payload = self._catalog_subscriber.recv_latest()
+        if header is None:
+            return None
+
+        if header.msg_type != MSG_DATA:
+            return None
+
+        if not is_string_tensor(header.flags):
+            Journal.log(self.__class__.__name__,
+                "_read_catalog_once",
+                "received non-string catalog payload, ignoring",
+                LogType.WARN,
+                throw_when_excep=True)
+            return None
+
+        np_data = self._catalog_subscriber.payload_to_numpy(header, payload, copy=True)
+        entries = self._decode_string_tensor(np_data)
+
+        return self._parse_catalog_specs(entries)
+
+    def _remap_namespace(self, namespace):
+
+        if self._remap_ns is None:
+            return namespace
+
+        return namespace.replace(self._namespace, self._remap_ns)
+
+    def _ensure_bridges_from_catalog(self, stream_specs):
+
+        for basename, namespace, endpoint in stream_specs:
+            key = (basename, namespace)
+            if key in self._bridges:
+                continue
+
+            remap_ns_to = self._remap_namespace(namespace)
             bridge = FromZmq(
                 basename=basename,
                 namespace=namespace,
@@ -213,66 +194,46 @@ class ZmqToSharedMemBridge:
                 force_reconnection=self._force_reconnection,
                 remap_ns=remap_ns_to,
             )
-            self._bridges.append(bridge)
 
-        self._run_bridges_until_ready()
+            self._bridges[key] = bridge
 
-    def _bridge_id(self, bridge):
-
-        basename = getattr(bridge, "_basename", "unknown_basename")
-        namespace = getattr(bridge, "_namespace", "unknown_namespace")
-        endpoint = getattr(bridge, "_endpoint", "unknown_endpoint")
-        return f"{namespace}/{basename} ({endpoint})"
-
-    def _run_bridges_until_ready(self):
-
-        pending = list(self._bridges)
-        warn_counter = 0
-
-        while len(pending) > 0 and self._is_running:
-            next_pending = []
-            for bridge in pending:
-                if not bridge.run():
-                    next_pending.append(bridge)
-
-            pending = next_pending
-
-            if len(pending) > 0:
-                if warn_counter % 20 == 0:
-                    pending_ids = ", ".join([self._bridge_id(bridge) for bridge in pending])
-                    Journal.log(self.__class__.__name__,
-                        "_run_bridges_until_ready",
-                        f"waiting for first ZMQ packet on {len(pending)} bridge(s): {pending_ids}",
-                        LogType.WARN,
-                        throw_when_excep=True)
-                warn_counter += 1
-                time.sleep(0.05)
-
-        if len(pending) > 0:
-            pending_ids = ", ".join([self._bridge_id(bridge) for bridge in pending])
             Journal.log(self.__class__.__name__,
-                "_run_bridges_until_ready",
-                f"failed to initialize {len(pending)} bridge(s): {pending_ids}",
-                LogType.WARN,
+                "_ensure_bridges_from_catalog",
+                f"discovered stream {namespace}/{basename} ({endpoint})",
+                LogType.INFO,
                 throw_when_excep=True)
+
+    def _refresh_catalog(self):
+
+        stream_specs = self._read_catalog_once()
+        if stream_specs is None:
+            return False
+
+        self._ensure_bridges_from_catalog(stream_specs)
+
+        return True
 
     def run(self, dt: float = 0.05):
 
         self._dt = dt
         self._is_running = True
 
-        self._init_template_clients()
-        self._collect_bridge_specs()
-        self._init_from_zmq_bridges()
+        self._init_catalog_subscriber()
 
-        if len(self._bridges) == 0:
-            Journal.log(self.__class__.__name__,
-                "run",
-                "no streams discovered to bridge",
-                LogType.WARN,
-                throw_when_excep=True)
-            self.close()
-            return
+        warn_counter = 0
+        while self._is_running and len(self._bridges) == 0:
+            got_catalog = self._refresh_catalog()
+            if got_catalog:
+                break
+
+            if warn_counter % 20 == 0:
+                Journal.log(self.__class__.__name__,
+                    "run",
+                    "waiting for catalog stream to discover bridges",
+                    LogType.WARN,
+                    throw_when_excep=True)
+            warn_counter += 1
+            time.sleep(0.05)
 
         self._run_loop()
 
@@ -309,20 +270,35 @@ class ZmqToSharedMemBridge:
 
     def _update(self):
 
-        for bridge in self._bridges:
+        self._refresh_catalog()
+
+        for bridge in self._bridges.values():
+            if not bridge.run():
+                continue
+
             bridge.update(retry_write=False)
 
     def close(self):
 
-        if not self._is_running and len(self._bridges) == 0 and len(self._template_clients) == 0:
+        if not self._is_running and len(self._bridges) == 0 and self._catalog_subscriber is None:
             return
 
         self._is_running = False
-        self._close_bridges()
-        self._close_template_clients()
-        self._bridges = []
-        self._template_clients = []
-        self._bridge_specs = []
+
+        for bridge in self._bridges.values():
+            try:
+                bridge.close()
+            except Exception:
+                pass
+
+        self._bridges = {}
+
+        if self._catalog_subscriber is not None:
+            try:
+                self._catalog_subscriber.close()
+            except Exception:
+                pass
+            self._catalog_subscriber = None
 
 
 if __name__ == '__main__':
@@ -347,7 +323,7 @@ if __name__ == '__main__':
     parser.add_argument('--port_span', type=int, default=40000,
         help='Port span used by deterministic endpoint mapping')
     parser.add_argument('--add_training_data', action='store_true',
-        help='Also bridge training-related shared-memory blocks')
+        help='Reserved, kept for compatibility')
 
     args = parser.parse_args()
 

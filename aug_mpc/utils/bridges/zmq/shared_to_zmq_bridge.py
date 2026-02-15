@@ -1,4 +1,5 @@
 from EigenIPC.PyEigenIPC import VLevel, LogType, Journal
+from EigenIPC.PyEigenIPC import StringTensorServer, StringTensorClient
 from EigenIPC.PyEigenIPCExt.extensions.zmq_bridge.to_zmq import ToZmq
 from EigenIPC.PyEigenIPCExt.extensions.zmq_bridge.abstractions import default_endpoint
 
@@ -22,6 +23,8 @@ from perf_sleep.pyperfsleep import PerfSleep
 
 
 class SharedMemToZmqBridge:
+
+    _CATALOG_BASENAME = "ZmqBridgeCatalog"
 
     def __init__(self,
             namespace: str,
@@ -49,6 +52,11 @@ class SharedMemToZmqBridge:
         self._bridges = []
         self._clients = []
         self._shared_mems = []
+
+        self._catalog_server = None
+        self._catalog_client = None
+        self._catalog_bridge = None
+        self._catalog_strings = []
 
         self._dt = 0.05
         self._is_running = False
@@ -144,8 +152,13 @@ class SharedMemToZmqBridge:
 
         if shared_mem is None:
             return []
-        if isinstance(shared_mem, list):
-            return [mem for mem in shared_mem if mem is not None]
+
+        if isinstance(shared_mem, (list, tuple)):
+            flat_list = []
+            for mem in shared_mem:
+                flat_list.extend(self._as_mem_list(mem))
+            return flat_list
+
         return [shared_mem]
 
     def _run_clients(self):
@@ -160,6 +173,103 @@ class SharedMemToZmqBridge:
                     LogType.ERROR,
                     throw_when_excep=True)
             self._shared_mems.extend(self._as_mem_list(client.get_shared_mem()))
+
+    def _collect_stream_specs(self):
+
+        unique = set()
+        stream_specs = []
+
+        for shared_mem in self._shared_mems:
+            namespace = shared_mem.getNamespace()
+            basename = shared_mem.getBasename()
+            key = (namespace, basename)
+            if key in unique:
+                continue
+            unique.add(key)
+            stream_specs.append(key)
+
+        stream_specs.sort(key=lambda item: (item[0], item[1]))
+
+        return stream_specs
+
+    def _init_catalog_bridge(self):
+
+        stream_specs = self._collect_stream_specs()
+        self._catalog_strings = [f"{namespace}|{basename}" for namespace, basename in stream_specs]
+
+        catalog_length = max(1, len(self._catalog_strings))
+
+        self._catalog_server = StringTensorServer(
+            length=catalog_length,
+            basename=self._CATALOG_BASENAME,
+            name_space=self._namespace,
+            verbose=self._verbose,
+            vlevel=self._vlevel,
+            force_reconnection=True,
+            safe=True,
+        )
+        self._catalog_server.run()
+
+        self._catalog_client = StringTensorClient(
+            basename=self._CATALOG_BASENAME,
+            name_space=self._namespace,
+            verbose=self._verbose,
+            vlevel=self._vlevel,
+            safe=True,
+        )
+        self._catalog_client.run()
+
+        catalog_endpoint = default_endpoint(
+            namespace=self._namespace,
+            basename=self._CATALOG_BASENAME,
+            ip=self._bind_ip,
+            port_base=self._port_base,
+            port_span=self._port_span,
+        )
+
+        self._catalog_bridge = ToZmq(
+            client=self._catalog_client,
+            endpoint=catalog_endpoint,
+            bind=self._bind,
+            queue_size=self._queue_size,
+            conflate=self._conflate,
+        )
+        self._catalog_bridge.run()
+
+        Journal.log(self.__class__.__name__,
+            "_init_catalog_bridge",
+            f"publishing catalog on {catalog_endpoint} ({len(self._catalog_strings)} stream(s))",
+            LogType.INFO,
+            throw_when_excep=True)
+
+    def _publish_catalog(self):
+
+        if self._catalog_server is None or self._catalog_bridge is None:
+            return
+
+        payload = self._catalog_strings if len(self._catalog_strings) > 0 else [""]
+
+        self._catalog_server.write_vec(payload, 0)
+        self._catalog_bridge.update(retry=False)
+
+    def _close_catalog(self):
+
+        if self._catalog_bridge is not None:
+            try:
+                self._catalog_bridge.close()
+            except Exception:
+                pass
+            self._catalog_bridge = None
+
+        if self._catalog_server is not None:
+            try:
+                self._catalog_server.close()
+            except Exception:
+                pass
+            self._catalog_server = None
+
+        self._catalog_client = None
+        self._catalog_strings = []
 
     def _close_clients(self):
 
@@ -212,6 +322,7 @@ class SharedMemToZmqBridge:
         self._init_clients()
         self._run_clients()
         self._init_to_zmq_bridges()
+        self._init_catalog_bridge()
 
         self._is_running = True
         self._run_loop()
@@ -249,6 +360,8 @@ class SharedMemToZmqBridge:
 
     def _update(self):
 
+        self._publish_catalog()
+
         for bridge in self._bridges:
             bridge.update(retry=False)
 
@@ -258,6 +371,7 @@ class SharedMemToZmqBridge:
             return
 
         self._is_running = False
+        self._close_catalog()
         self._close_bridges()
         self._close_clients()
         self._bridges = []
