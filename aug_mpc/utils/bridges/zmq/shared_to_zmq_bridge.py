@@ -60,17 +60,17 @@ class SharedMemToZmqBridge:
                 is_server=False,
                 verbose=self._verbose,
                 vlevel=self._vlevel),
-            # RobotState(namespace=self._namespace,
+            RobotState(namespace=self._namespace,
+                is_server=False,
+                safe=False,
+                verbose=self._verbose,
+                vlevel=self._vlevel),
+            # RhcCmds(namespace=self._namespace,
             #     is_server=False,
             #     safe=False,
             #     verbose=self._verbose,
             #     vlevel=self._vlevel),
             # RhcRefs(namespace=self._namespace,
-            #     is_server=False,
-            #     safe=False,
-            #     verbose=self._verbose,
-            #     vlevel=self._vlevel),
-            # RhcCmds(namespace=self._namespace,
             #     is_server=False,
             #     safe=False,
             #     verbose=self._verbose,
@@ -153,6 +153,12 @@ class SharedMemToZmqBridge:
         self._shared_mems = []
         for client in self._clients:
             client.run()
+            if not client.is_running():
+                Journal.log(self.__class__.__name__,
+                    "_run_clients",
+                    f"Client {client.get_name()} failed to start",
+                    LogType.ERROR,
+                    throw_when_excep=True)
             self._shared_mems.extend(self._as_mem_list(client.get_shared_mem()))
 
     def _close_clients(self):

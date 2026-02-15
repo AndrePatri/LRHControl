@@ -50,7 +50,7 @@ class ZmqToSharedMemBridge:
         self._port_base = port_base
         self._port_span = port_span
         self._force_reconnection = force_reconnection
-        self._remap_ns = self._namespace if remap_ns is None else remap_ns
+        self._remap_ns = remap_ns
 
         self._bridges = []
         self._template_clients = []
@@ -66,17 +66,17 @@ class ZmqToSharedMemBridge:
                 is_server=False,
                 verbose=self._verbose,
                 vlevel=self._vlevel),
-            # RobotState(namespace=self._namespace,
+            RobotState(namespace=self._namespace,
+                is_server=False,
+                safe=False,
+                verbose=self._verbose,
+                vlevel=self._vlevel),
+            # RhcCmds(namespace=self._namespace,
             #     is_server=False,
             #     safe=False,
             #     verbose=self._verbose,
             #     vlevel=self._vlevel),
             # RhcRefs(namespace=self._namespace,
-            #     is_server=False,
-            #     safe=False,
-            #     verbose=self._verbose,
-            #     vlevel=self._vlevel),
-            # RhcCmds(namespace=self._namespace,
             #     is_server=False,
             #     safe=False,
             #     verbose=self._verbose,
@@ -199,6 +199,7 @@ class ZmqToSharedMemBridge:
 
         self._bridges = []
         for basename, namespace, endpoint in self._bridge_specs:
+            remap_ns_to=namespace if self._remap_ns is None else namespace.replace(self._namespace, self._remap_ns)
             bridge = FromZmq(
                 basename=basename,
                 namespace=namespace,
@@ -210,7 +211,7 @@ class ZmqToSharedMemBridge:
                 verbose=self._verbose,
                 vlevel=self._vlevel,
                 force_reconnection=self._force_reconnection,
-                remap_ns=self._remap_ns,
+                remap_ns=remap_ns_to,
             )
             self._bridges.append(bridge)
 
@@ -279,7 +280,7 @@ class ZmqToSharedMemBridge:
 
         info = (
             f"starting ZMQ-to-shared-memory bridge with update dt {self._dt} s "
-            f"and namespace {self._namespace}, remapped to {self._remap_ns}"
+            f"and namespace {self._namespace}, base remapped to {self._remap_ns}"
         )
         Journal.log(self.__class__.__name__,
             "run",
