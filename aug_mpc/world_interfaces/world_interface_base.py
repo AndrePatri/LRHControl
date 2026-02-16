@@ -280,6 +280,8 @@ class AugMPCWorldInterfaceBase(ABC):
 
         self._root_pos_offsets = {} 
         self._root_q_offsets = {} 
+        self._root_q_offsets_yaw = {}
+        self._root_q_yaw_rel_ws = {}
 
         self._parse_env_opts()
 
@@ -386,6 +388,23 @@ class AugMPCWorldInterfaceBase(ABC):
             self._gravity_normalized[robot_name]=torch.full_like(self._root_v[robot_name], fill_value=0.0)
             self._gravity_normalized[robot_name][:, 2]=-1.0
             self._gravity_normalized_base_loc[robot_name]=self._gravity_normalized[robot_name].detach().clone()
+
+            # Pre-allocate yaw-related buffers once and reuse them in root_q_yaw_rel().
+            q_ref = self._root_q[robot_name]
+            self._root_q_offsets_yaw[robot_name] = torch.zeros(
+                (self._num_envs,), dtype=q_ref.dtype, device=q_ref.device)
+            self._root_q_yaw_rel_ws[robot_name] = {
+                "yaw_abs": torch.zeros((self._num_envs,), dtype=q_ref.dtype, device=q_ref.device),
+                "yaw_rel": torch.zeros((self._num_envs,), dtype=q_ref.dtype, device=q_ref.device),
+                "yaw_sin": torch.zeros((self._num_envs,), dtype=q_ref.dtype, device=q_ref.device),
+                "yaw_cos": torch.zeros((self._num_envs,), dtype=q_ref.dtype, device=q_ref.device),
+                "q_abs_unit": torch.zeros_like(q_ref),
+                "q_yaw_abs": torch.zeros_like(q_ref),
+                "q_yaw_rel": torch.zeros_like(q_ref),
+                "q_yaw_abs_conj": torch.zeros_like(q_ref),
+                "q_pr": torch.zeros_like(q_ref),
+                "q_rel": torch.zeros_like(q_ref),
+            }
 
             self.cluster_sim_step_counters[robot_name]=0
             self._is_first_trigger[robot_name] = True
@@ -524,7 +543,7 @@ class AugMPCWorldInterfaceBase(ABC):
                         LogType.INFO)
             
             # write some inits for all robots
-            self._update_root_offsets(robot_name)
+            # self._update_root_offsets(robot_name)
             self._synch_default_root_states(robot_name=robot_name)
             epsi=0.03 # adding a bit of height to avoid initial penetration
             self._root_p_default[robot_name][:, 2]=self._root_p_default[robot_name][:, 2]+epsi
@@ -533,7 +552,9 @@ class AugMPCWorldInterfaceBase(ABC):
                 robot_name=robot_name,
                 reset_cluster=True,
                 reset_cluster_counter=False,
-                randomize=True) # resets everything and also updates the cluster with fresh reset states
+                randomize=True,
+                acquire_offsets=True) # resets everything, updates the cluster with fresh reset states 
+            # and acquire offsets
             if not reset_ok:
                 return False
             
@@ -543,7 +564,7 @@ class AugMPCWorldInterfaceBase(ABC):
             cluster_setup_ok=self._setup_mpc_cluster(robot_name)
             if not cluster_setup_ok:
                 return False
-                
+            
             self._set_cluster_actions(robot_name=robot_name) # write last cmds
             self._apply_cmds_to_jnt_imp_control(robot_name=robot_name) # apply to robot
             
@@ -714,7 +735,7 @@ class AugMPCWorldInterfaceBase(ABC):
         # configuration
         rhc_state.root_state.set(data=self.root_p_rel(robot_name=robot_name, env_idxs=env_indxs), 
                 data_type="p", robot_idxs = env_indxs, gpu=self._use_gpu)
-        rhc_state.root_state.set(data=self.root_q(robot_name=robot_name, env_idxs=env_indxs), 
+        rhc_state.root_state.set(data=self.root_q_yaw_rel(robot_name=robot_name, env_idxs=env_indxs), 
                 data_type="q", robot_idxs = env_indxs, gpu=self._use_gpu)
         
         # twist
@@ -958,7 +979,8 @@ class AugMPCWorldInterfaceBase(ABC):
             env_indxs: torch.Tensor = None,
             randomize: bool = False,
             reset_cluster: bool = False,
-            reset_cluster_counter = False):
+            reset_cluster_counter = False,
+            acquire_offsets: bool = False):
         
         # resets the state of target robot and env to the defaults
         self._reset_state(env_indxs=env_indxs, 
@@ -978,6 +1000,10 @@ class AugMPCWorldInterfaceBase(ABC):
         if self._jnt_vel_filter[robot_name] is not None:
             self._jnt_vel_filter[robot_name].reset(idxs=env_indxs)
 
+        if acquire_offsets:
+            self._update_root_offsets(robot_name=robot_name,
+                    env_indxs=env_indxs)
+            
         if reset_cluster: # reset controllers remotely
             reset_ok=self._reset_cluster(env_indxs=env_indxs,
                 robot_name=robot_name,
@@ -1029,9 +1055,13 @@ class AugMPCWorldInterfaceBase(ABC):
             robot_name: str,
             env_idxs: torch.Tensor = None):
 
-        rel_pos = torch.sub(self.root_p(robot_name=robot_name,
-                                            env_idxs=env_idxs), 
-                self._root_pos_offsets[robot_name][env_idxs, :])
+        if env_idxs is None:
+            rel_pos = torch.sub(self.root_p(robot_name=robot_name),
+                self._root_pos_offsets[robot_name])
+        else:
+            rel_pos = torch.sub(self.root_p(robot_name=robot_name,
+                                                env_idxs=env_idxs), 
+                    self._root_pos_offsets[robot_name][env_idxs, :])
         return rel_pos
     
     def root_q(self,
@@ -1047,10 +1077,109 @@ class AugMPCWorldInterfaceBase(ABC):
             robot_name: str,
             env_idxs: torch.Tensor = None):
 
+        if env_idxs is None:
+            return quaternion_difference(self._root_q_offsets[robot_name], 
+                                self.root_q(robot_name=robot_name))
         rel_q = quaternion_difference(self._root_q_offsets[robot_name][env_idxs, :], 
                             self.root_q(robot_name=robot_name,
                                             env_idxs=env_idxs))
         return rel_q
+
+    def _quat_to_yaw_wxyz(self, q: torch.Tensor, out: torch.Tensor = None):
+        # Quaternion convention is w, x, y, z.
+        w, x, y, z = q[:, 0], q[:, 1], q[:, 2], q[:, 3]
+        num = 2.0 * (w * z + x * y)
+        den = 1.0 - 2.0 * (y * y + z * z)
+        if out is None:
+            return torch.atan2(num, den)
+        return torch.atan2(num, den, out=out)
+
+    def _yaw_to_quat_wxyz(self, yaw: torch.Tensor, like_q: torch.Tensor,
+            out: torch.Tensor = None):
+        q = out
+        if q is None:
+            q = torch.zeros((yaw.shape[0], 4), dtype=like_q.dtype, device=like_q.device)
+        else:
+            q.zero_()
+        q[:, 0] = torch.cos(yaw / 2.0)
+        q[:, 3] = torch.sin(yaw / 2.0)
+        return q
+
+    def _quat_conjugate_wxyz(self, q: torch.Tensor, out: torch.Tensor = None):
+        qi = out
+        if qi is None:
+            qi = torch.empty_like(q)
+        qi[:, :] = q
+        qi[:, 1:] = -qi[:, 1:]
+        return qi
+
+    def _quat_multiply_wxyz(self, q1: torch.Tensor, q2: torch.Tensor,
+            out: torch.Tensor = None):
+        q_out = out
+        if q_out is None:
+            q_out = torch.empty_like(q1)
+        w1, x1, y1, z1 = q1[:, 0], q1[:, 1], q1[:, 2], q1[:, 3]
+        w2, x2, y2, z2 = q2[:, 0], q2[:, 1], q2[:, 2], q2[:, 3]
+        q_out[:, 0] = w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2
+        q_out[:, 1] = w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2
+        q_out[:, 2] = w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2
+        q_out[:, 3] = w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2
+        return q_out
+
+    def _normalize_quat_wxyz(self, q: torch.Tensor, out: torch.Tensor = None):
+        q_norm = out
+        if q_norm is None:
+            q_norm = torch.empty_like(q)
+        q_norm[:, :] = q
+        q_norm /= torch.clamp(torch.norm(q_norm, dim=1, keepdim=True), min=1e-9)
+        return q_norm
+
+    def root_q_yaw_rel(self,
+            robot_name: str,
+            env_idxs: torch.Tensor = None):
+        
+        # Return quaternion with startup yaw removed while preserving current pitch/roll.
+        if env_idxs is None:
+            ws = self._root_q_yaw_rel_ws[robot_name]
+            q_abs = self._root_q[robot_name]
+            yaw_start = self._root_q_offsets_yaw[robot_name]
+
+            self._normalize_quat_wxyz(q=q_abs, out=ws["q_abs_unit"])
+            self._quat_to_yaw_wxyz(q=ws["q_abs_unit"], out=ws["yaw_abs"])
+
+            torch.sub(ws["yaw_abs"], yaw_start, out=ws["yaw_rel"])
+            torch.sin(ws["yaw_rel"], out=ws["yaw_sin"])
+            torch.cos(ws["yaw_rel"], out=ws["yaw_cos"])
+            torch.atan2(ws["yaw_sin"], ws["yaw_cos"], out=ws["yaw_rel"])
+
+            # Build pure-yaw quaternions for:
+            # 1) the current absolute heading and 2) the startup-relative heading.
+            self._yaw_to_quat_wxyz(yaw=ws["yaw_abs"], like_q=ws["q_abs_unit"], out=ws["q_yaw_abs"])
+            self._yaw_to_quat_wxyz(yaw=ws["yaw_rel"], like_q=ws["q_abs_unit"], out=ws["q_yaw_rel"])
+
+            # Isolate pitch/roll by removing the absolute yaw from the current orientation.
+            # For unit quaternions q_pr = q_yaw_abs^{-1} * q_abs.
+            self._quat_conjugate_wxyz(q=ws["q_yaw_abs"], out=ws["q_yaw_abs_conj"])
+            self._quat_multiply_wxyz(q1=ws["q_yaw_abs_conj"], q2=ws["q_abs_unit"], out=ws["q_pr"])
+            # Recompose orientation with relative yaw + current pitch/roll.
+            self._quat_multiply_wxyz(q1=ws["q_yaw_rel"], q2=ws["q_pr"], out=ws["q_rel"])
+
+            return self._normalize_quat_wxyz(q=ws["q_rel"], out=ws["q_rel"])
+
+        q_abs = self.root_q(robot_name=robot_name, env_idxs=env_idxs)
+        q_abs = self._normalize_quat_wxyz(q=q_abs, out=q_abs)
+
+        yaw_abs = self._quat_to_yaw_wxyz(q_abs)
+        yaw_start = self._root_q_offsets_yaw[robot_name][env_idxs]
+        yaw_rel = yaw_abs - yaw_start
+        yaw_rel = torch.atan2(torch.sin(yaw_rel), torch.cos(yaw_rel))
+
+        q_yaw_abs = self._yaw_to_quat_wxyz(yaw_abs, like_q=q_abs)
+        q_yaw_rel = self._yaw_to_quat_wxyz(yaw_rel, like_q=q_abs)
+        q_pr = self._quat_multiply_wxyz(self._quat_conjugate_wxyz(q_yaw_abs), q_abs)
+        q_rel = self._quat_multiply_wxyz(q_yaw_rel, q_pr)
+
+        return self._normalize_quat_wxyz(q_rel)
     
     def root_v(self,
             robot_name: str,
@@ -1323,11 +1452,15 @@ class AugMPCWorldInterfaceBase(ABC):
         # only planar position used
         if env_indxs is None:
             self._root_pos_offsets[robot_name][:, 0:2]  = self._root_p[robot_name][:, 0:2]
-            self._root_q_offsets[robot_name][:, :]  = self._root_q[robot_name]
+            self._normalize_quat_wxyz(q=self._root_q[robot_name], out=self._root_q_offsets[robot_name])
+            self._quat_to_yaw_wxyz(q=self._root_q_offsets[robot_name],
+                out=self._root_q_offsets_yaw[robot_name])
             
         else:
             self._root_pos_offsets[robot_name][env_indxs, 0:2]  = self._root_p[robot_name][env_indxs, 0:2]
-            self._root_q_offsets[robot_name][env_indxs, :]  = self._root_q[robot_name][env_indxs, :]
+            q_root_norm=self._normalize_quat_wxyz(self._root_q[robot_name][env_indxs, :])
+            self._root_q_offsets[robot_name][env_indxs, :]  = q_root_norm
+            self._root_q_offsets_yaw[robot_name][env_indxs] = self._quat_to_yaw_wxyz(q=q_root_norm)
 
     def _reset_jnt_imp_control(self, 
         robot_name: str,
@@ -1510,6 +1643,7 @@ class AugMPCWorldInterfaceBase(ABC):
     def _read_root_state_from_robot(self,
         robot_name: str,
         env_indxs: torch.Tensor = None):
+        # IMPORTANT: Child interfaces should provide root quaternions in w, x, y, z convention.
         pass
     
     @abstractmethod

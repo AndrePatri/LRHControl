@@ -691,7 +691,7 @@ class HybridQuadRhc(RHController):
         # assigning ig
         self._prb.getState().setInitialGuess(xig)
         self._prb.getInput().setInitialGuess(uig)
-
+        
         return xig, uig
     
     def _update_open_loop(self):
@@ -849,6 +849,7 @@ class HybridQuadRhc(RHController):
         root_q_full_from_rhc=self._get_root_full_q_from_sol(node_idx=1).reshape(-1, 1)
         root_p_from_rhc=root_q_full_from_rhc[0:3, :]
         p_root[:, :]=root_p_from_rhc # position is always open loop
+        
         if not self._custom_opts["estimate_v_root"]:
             v_root[:, :]=self._get_root_twist_from_sol(node_idx=1)[:, 0:3].reshape(-1, 1)
             # override v jnts with the ones from controller
@@ -881,6 +882,7 @@ class HybridQuadRhc(RHController):
             ub=q_root, nodes=0)
         jnts_q_rhc.setBounds(lb=q_jnts, 
             ub=q_jnts, nodes=0)
+        
         if self._custom_opts["estimate_v_root"]:
             root_v_rhc.setBounds(lb=-self._v_inf[0:3], 
                 ub=self._v_inf[0:3], nodes=0) # leaving lin v of the base free (estimated from constraints)
