@@ -1,5 +1,5 @@
 import argparse
-from mpc_hive.utilities.sysutils import set_process_affinity
+from mpc_hive.utilities.sysutils import set_process_affinity, parse_env_slice
 
 
 if __name__ == '__main__':
@@ -23,6 +23,8 @@ if __name__ == '__main__':
         help='If set, run ROS->shared bridge. Otherwise shared->ROS bridge.')
     parser.add_argument('--add_training_data', action='store_true',
         help='Also bridge training-related shared-memory blocks')
+    parser.add_argument('--env_idx', type=str, default=None,
+        help='Optional env index or inclusive range (examples: "67", "67-75"). Sender mode only.')
 
     args = parser.parse_args()
 
@@ -32,6 +34,13 @@ if __name__ == '__main__':
     if args.cores:
         selected = set_process_affinity(args.cores)
         print(f"Set CPU affinity to cores: {selected}")
+
+    env_start = None
+    env_count = 1
+    if args.env_idx is not None:
+        if args.is_client:
+            raise RuntimeError('--env_idx can only be used when running sender mode (without --is_client)')
+        env_start, env_count = parse_env_slice(args.env_idx)
 
     backend = 'ros2' if args.ros2 else 'ros1'
 
@@ -51,6 +60,8 @@ if __name__ == '__main__':
             backend=backend,
             add_training_data=args.add_training_data,
             verbose=args.verbose,
+            env_idx=env_start,
+            env_count=env_count,
         )
 
     try:

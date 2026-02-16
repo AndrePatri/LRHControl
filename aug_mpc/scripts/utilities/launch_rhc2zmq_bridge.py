@@ -1,5 +1,5 @@
 import argparse
-from mpc_hive.utilities.sysutils import set_process_affinity
+from mpc_hive.utilities.sysutils import set_process_affinity, parse_env_slice
 
 
 if __name__ == '__main__':
@@ -19,6 +19,8 @@ if __name__ == '__main__':
         help='If set, run ZMQ->shared bridge. Otherwise shared->ZMQ bridge.')
     parser.add_argument('--add_training_data', action='store_true',
         help='Also bridge training-related shared-memory blocks')
+    parser.add_argument('--env_idx', type=str, default=None,
+        help='Optional env index or inclusive range (examples: "67", "67-75"). Sender mode only.')
 
     parser.add_argument('--queue_size', type=int, default=1,
         help='ZMQ socket queue size (HWM)')
@@ -48,6 +50,12 @@ if __name__ == '__main__':
         print(f"Set CPU affinity to cores: {selected}")
 
     conflate = not args.no_conflate
+    env_start = None
+    env_count = 1
+    if args.env_idx is not None:
+        if args.is_client:
+            raise RuntimeError('--env_idx can only be used when running sender mode (without --is_client)')
+        env_start, env_count = parse_env_slice(args.env_idx)
 
     if args.is_client:
         from aug_mpc.utils.bridges.zmq.zmq_to_shared_bridge import ZmqToSharedMemBridge
@@ -70,6 +78,8 @@ if __name__ == '__main__':
             namespace=args.ns,
             add_training_data=args.add_training_data,
             verbose=args.verbose,
+            env_idx=env_start,
+            env_count=env_count,
             queue_size=args.queue_size,
             conflate=conflate,
             bind_ip=args.bind_ip,

@@ -1,6 +1,4 @@
 from mpc_hive.controllers.rhc import RHController
-# from perf_sleep.pyperfsleep import PerfSleep
-# from mpc_hive.utilities.cpu_utils.core_utils import get_memory_usage
 
 from aug_mpc.controllers.rhc.horizon_based.horizon_imports import *
 
@@ -13,13 +11,10 @@ from EigenIPC.PyEigenIPC import Journal, LogType
 import numpy as np
 
 import os
-# import shutil
 
 import time
-from abc import ABC, abstractmethod
 
 from typing import Dict, List
-import re
 
 class HybridQuadRhc(RHController):
 
