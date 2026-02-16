@@ -1,20 +1,12 @@
 import argparse
-import os
-
-
-def set_affinity(cores):
-    try:
-        os.sched_setaffinity(0, cores)
-        print(f"Set CPU affinity to cores: {cores}")
-    except Exception as exc:
-        print(f"Error setting CPU affinity: {exc}")
+from mpc_hive.utilities.sysutils import set_process_affinity
 
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description="Launch shared-memory <-> ROS bridge.")
-    parser.add_argument('--cores', nargs='+', type=int,
-        help='List of CPU cores to set affinity to')
+    parser.add_argument('--cores', nargs='+', type=str,
+        help='CPU cores to set affinity (examples: "2 3 4", "2-5", "2,4,6")')
     parser.add_argument('--dt', type=float, default=0.01,
         help='Update interval in seconds, default is 0.01')
     parser.add_argument('--ns', type=str,
@@ -38,7 +30,8 @@ if __name__ == '__main__':
         raise RuntimeError('Missing required --ns argument')
 
     if args.cores:
-        set_affinity(args.cores)
+        selected = set_process_affinity(args.cores)
+        print(f"Set CPU affinity to cores: {selected}")
 
     backend = 'ros2' if args.ros2 else 'ros1'
 
@@ -60,6 +53,7 @@ if __name__ == '__main__':
             verbose=args.verbose,
         )
 
-    bridge.run(dt=args.dt)
-    
-    bridge.close()
+    try:
+        bridge.run(dt=args.dt)
+    finally:
+        bridge.close()
