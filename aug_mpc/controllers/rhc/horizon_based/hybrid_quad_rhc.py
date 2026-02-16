@@ -1033,11 +1033,18 @@ class HybridQuadRhc(RHController):
     def _solve(self):
         
         if self._debug:
-            return self._db_solve()
+            return self._db_solve(rti=True)
         else:
-            return self._min_solve()
+            return self._min_solve(rti=True)
+
+    def _bootstrap(self):
+
+        if self._debug:
+            return self._db_solve(rti=False)
+        else:
+            return self._min_solve(rti=False)
         
-    def _min_solve(self):
+    def _min_solve(self, rti: bool = True):
         # minimal solve version -> no debug 
         robot_qstate=None
         robot_vstate=None
@@ -1067,13 +1074,16 @@ class HybridQuadRhc(RHController):
             self.rhc_refs.step()
             
         try:
-            converged = self._ti.rti() # solves the problem
+            if rti:
+                converged = self._ti.rti() # RTI step
+            else:
+                converged = self._ti.bootstrap() # full solve bootstrap
             self.sol_counter = self.sol_counter + 1
             return not self._check_rhc_failure()
         except Exception as e: # fail in case of exceptions
             return False
     
-    def _db_solve(self):
+    def _db_solve(self, rti: bool = True):
 
         self._timer_start = time.perf_counter()
 
@@ -1110,7 +1120,10 @@ class HybridQuadRhc(RHController):
         self._task_ref_update_time = time.perf_counter() 
     
         try:
-            converged = self._ti.rti() # solves the problem
+            if rti:
+                converged = self._ti.rti() # RTI step
+            else:
+                converged = self._ti.bootstrap() # full solve bootstrap
             self._rti_time = time.perf_counter() 
             self.sol_counter = self.sol_counter + 1
             self._update_db_data()

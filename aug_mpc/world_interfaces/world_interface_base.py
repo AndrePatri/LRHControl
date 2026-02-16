@@ -537,15 +537,16 @@ class AugMPCWorldInterfaceBase(ABC):
             if not reset_ok:
                 return False
             
+            # cluster setup here
             control_cluster=self.cluster_servers[robot_name]
-            # self._set_state_to_cluster(robot_name=robot_name)
-            # control_cluster.write_robot_state()
-            control_cluster.pre_trigger()
-            to_be_activated=control_cluster.get_inactive_controllers()
-            if to_be_activated is not None:
-                control_cluster.activate_controllers(
-                    idxs=to_be_activated)       
 
+            cluster_setup_ok=self._setup_mpc_cluster(robot_name)
+            if not cluster_setup_ok:
+                return False
+                
+            self._set_cluster_actions(robot_name=robot_name) # write last cmds
+            self._apply_cmds_to_jnt_imp_control(robot_name=robot_name) # apply to robot
+            
             if self._use_remote_stepping[i]:
                 step_wait_ok = self._wait_for_remote_step_req(robot_name=robot_name)
                 if not step_wait_ok:
@@ -558,7 +559,8 @@ class AugMPCWorldInterfaceBase(ABC):
             jnt_v=rhc_state.jnts_state.get(data_type="v", robot_idxs = None, gpu=self._use_gpu) 
             jnt_v[:, :]=0 # make sure MPC starts with zero velocity to avoid initial jerks
 
-            control_cluster.trigger_solution() # trigger first solution before first call to step to ensure that first solution is ready when step is called the first time
+            control_cluster.pre_trigger()
+            control_cluster.trigger_solution(bootstrap=False) # trigger first solution (in real-time iteration) before first call to step to ensure that first solution is ready when step is called the first time
             
         if self._env_opts["add_remote_exit_flag"]:
             self._remote_exit_flag=SharedTWrapper(namespace = self._robot_names[0],# use first robot as name
@@ -577,6 +579,36 @@ class AugMPCWorldInterfaceBase(ABC):
         self._setup_done=True
 
         return self._setup_done
+
+    def _setup_mpc_cluster(self, robot_name: str):
+
+        control_cluster = self.cluster_servers[robot_name]
+
+        # self._set_state_to_cluster(robot_name=robot_name)
+        # control_cluster.write_robot_state()
+        control_cluster.pre_trigger()
+        to_be_activated=control_cluster.get_inactive_controllers()
+        if to_be_activated is not None:
+            control_cluster.activate_controllers(
+                idxs=to_be_activated)       
+        # trigger bootstrap solution (solvers will run up to convergence) 
+        control_cluster.trigger_solution(bootstrap=True) # this will trigger the bootstrap solver with the initial state,
+        # which will run until convergence before returning
+        wait_ok=control_cluster.wait_for_solution() # blocking
+        if not wait_ok:
+            return False
+        failed = control_cluster.get_failed_controllers(gpu=self._use_gpu)
+        if failed is not None:
+            failed_idxs = torch.nonzero(failed).squeeze(-1)
+            if failed_idxs.numel() > 0:
+                Journal.log(self.__class__.__name__,
+                    "_setup",
+                    f"Bootstrap solution failed for {robot_name}",
+                    LogType.EXCEP,
+                    throw_when_excep=False)
+                return False
+
+        return True
 
     def step(self) -> bool:
 
