@@ -40,6 +40,9 @@ if __name__ == '__main__':
     parser.add_argument('--no_force_reconnection', action='store_true',
         help='Disable force_reconnection when creating destination shared-memory servers')
 
+    parser.add_argument('--add_rhc_internal', action='store_true',
+        help='Disable latest-only behavior')
+    
     args = parser.parse_args()
 
     if args.ns is None:
@@ -85,6 +88,7 @@ if __name__ == '__main__':
             bind_ip=args.bind_ip,
             port_base=args.port_base,
             port_span=args.port_span,
+            add_rhc_internal=args.add_rhc_internal
         )
 
     try:

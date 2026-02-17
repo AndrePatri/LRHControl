@@ -17,6 +17,37 @@ from aug_mpc.utils.shared_data.training_env import EpisodesCounter, TaskRandCoun
 
 class SharedMemToZmqBridge(_BaseSharedMemToZmqBridge):
 
+    def __init__(self,
+            namespace: str,
+            add_rhc_internal: bool = False,
+            env_idx: int = None,
+            env_count: int = 1,
+            verbose: bool = True,
+            vlevel: VLevel = VLevel.V2,
+            queue_size: int = 1,
+            conflate: bool = True,
+            bind: bool = True,
+            bind_ip: str = "0.0.0.0",
+            port_base: int = 20000,
+            port_span: int = 40000,
+            add_training_data: bool = False):
+        
+        self._add_training_data=add_training_data
+
+        super().__init__(
+            namespace=namespace,
+            add_rhc_internal=add_rhc_internal,
+            env_idx=env_idx,
+            env_count=env_count,
+            verbose=verbose,
+            vlevel=vlevel,
+            queue_size=queue_size,
+            conflate=conflate,
+            bind=bind,
+            bind_ip=bind_ip,
+            port_base=port_base,
+            port_span=port_span,
+        )
     def _build_extra_clients(self):
 
         if not self._add_training_data:
