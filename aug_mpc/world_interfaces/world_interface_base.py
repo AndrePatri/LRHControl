@@ -576,10 +576,6 @@ class AugMPCWorldInterfaceBase(ABC):
             self._set_startup_jnt_imp_gains(robot_name=robot_name) # set gains to
             # startup config (usually lower)
 
-            rhc_state = control_cluster.get_state()
-            jnt_v=rhc_state.jnts_state.get(data_type="v", robot_idxs = None, gpu=self._use_gpu) 
-            jnt_v[:, :]=0 # make sure MPC starts with zero velocity to avoid initial jerks
-
             control_cluster.pre_trigger()
             control_cluster.trigger_solution(bootstrap=False) # trigger first solution (in real-time iteration) before first call to step to ensure that first solution is ready when step is called the first time
             
@@ -604,14 +600,22 @@ class AugMPCWorldInterfaceBase(ABC):
     def _setup_mpc_cluster(self, robot_name: str):
 
         control_cluster = self.cluster_servers[robot_name]
-
+        
         # self._set_state_to_cluster(robot_name=robot_name)
-        # control_cluster.write_robot_state()
+        rhc_state = control_cluster.get_state()
+        root_twist=rhc_state.root_state.get(data_type="twist", robot_idxs = None, gpu=self._use_gpu)
+        jnt_v=rhc_state.jnts_state.get(data_type="v", robot_idxs = None, gpu=self._use_gpu) 
+        root_twist[:, :]=0 # override meas state to make sure MPC bootstrap uses zero velocity
+        jnt_v[:, :]=0 
+
+        control_cluster.write_robot_state()
+
         control_cluster.pre_trigger()
         to_be_activated=control_cluster.get_inactive_controllers()
         if to_be_activated is not None:
             control_cluster.activate_controllers(
-                idxs=to_be_activated)       
+                idxs=to_be_activated)   
+        
         # trigger bootstrap solution (solvers will run up to convergence) 
         control_cluster.trigger_solution(bootstrap=True) # this will trigger the bootstrap solver with the initial state,
         # which will run until convergence before returning
