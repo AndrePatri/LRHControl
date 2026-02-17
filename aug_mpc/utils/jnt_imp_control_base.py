@@ -105,6 +105,12 @@ class JntImpCntrlBase(ABC):
 
         self._default_pgain = default_pgain
         self._default_vgain = default_vgain
+
+        # Joints controlled in velocity mode (e.g. wheels).
+        self._vel_mode_jnt_idxs = None
+        self._vel_mode_patterns = []
+        self._vel_mode_filter_pos_ref = False
+        self._vel_mode_zero_eff_ref = False
         
         self._valid_signal_types = ["pos_ref", "vel_ref", "eff_ref", # references 
             "pos", "vel", "eff", # measurements
@@ -334,6 +340,9 @@ class JntImpCntrlBase(ABC):
             self._apply_init_gains()
         if not self.refs_initialized:
             self._apply_init_refs()
+
+        # Keep velocity-controlled joints safe before filtering/saturation.
+        self._sanitize_velocity_mode_refs(pos_ref=self._pos_ref, eff_ref=self._eff_ref)
                 
         if filter and self._filter_available:
             
@@ -345,6 +354,9 @@ class JntImpCntrlBase(ABC):
             eff_ref_filt = self._eff_ref_filter.get()
             pos_ref_filt = self._pos_ref_filter.get()
             vel_ref_filt = self._vel_ref_filter.get()
+
+            # Keep consistency also on filtered references.
+            self._sanitize_velocity_mode_refs(pos_ref=pos_ref_filt, eff_ref=eff_ref_filt)
 
             if self.limiter is not None:
                 # saturating ref cmds
@@ -436,6 +448,67 @@ class JntImpCntrlBase(ABC):
                             device=self._torch_device)
         else:
             return None
+
+    def set_velocity_controlled_joints(self,
+                    name_patterns: List[str],
+                    filter_pos_ref: bool = True,
+                    zero_eff_ref: bool = True):
+
+        self._vel_mode_filter_pos_ref = bool(filter_pos_ref)
+        self._vel_mode_zero_eff_ref = bool(zero_eff_ref)
+
+        if name_patterns is None:
+            name_patterns = []
+
+        if not isinstance(name_patterns, List):
+            exception = "name_patterns must be a list!"
+            Journal.log(self.__class__.__name__,
+                "set_velocity_controlled_joints",
+                exception,
+                LogType.EXCEP,
+                throw_when_excep = True)
+
+        self._vel_mode_patterns = [pattern for pattern in name_patterns if isinstance(pattern, str) and pattern != ""]
+
+        if len(self._vel_mode_patterns) == 0:
+            self._vel_mode_jnt_idxs = None
+            return
+
+        matched_idxs = []
+        patterns_l = [pattern.lower() for pattern in self._vel_mode_patterns]
+        for idx, jnt_name in enumerate(self.jnts_names):
+            jnt_name_l = jnt_name.lower()
+            for pattern_l in patterns_l:
+                if pattern_l in jnt_name_l:
+                    matched_idxs.append(idx)
+                    break
+
+        matched_idxs = sorted(set(matched_idxs))
+        if len(matched_idxs) == 0:
+            self._vel_mode_jnt_idxs = None
+            Journal.log(self.__class__.__name__,
+                "set_velocity_controlled_joints",
+                f"No joints matched patterns {self._vel_mode_patterns}.",
+                LogType.WARN,
+                throw_when_excep = True)
+            return
+
+        self._vel_mode_jnt_idxs = torch.tensor(matched_idxs,
+                            dtype=torch.int64,
+                            device=self._torch_device)
+
+    def _sanitize_velocity_mode_refs(self,
+                pos_ref: torch.Tensor = None,
+                eff_ref: torch.Tensor = None):
+
+        if self._vel_mode_jnt_idxs is None:
+            return
+
+        if self._vel_mode_filter_pos_ref and pos_ref is not None:
+            pos_ref[:, self._vel_mode_jnt_idxs] = self._pos[:, self._vel_mode_jnt_idxs]
+
+        if self._vel_mode_zero_eff_ref and eff_ref is not None:
+            eff_ref[:, self._vel_mode_jnt_idxs] = 0.0
     
     def pos_gains(self):
 

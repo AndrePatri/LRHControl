@@ -175,6 +175,9 @@ class AugMPCWorldInterfaceBase(ABC):
         self._env_opts["filter_cutoff_freq"]=10.0 # [Hz]
         self._env_opts["filter_sampling_rate"]=100 # rate at which state is filtered [Hz]
         self._env_opts["add_remote_exit_flag"]=False # add shared data server to trigger a remote exit
+        self._env_opts["wheel_joint_patterns"]=["wheel"]
+        self._env_opts["filter_wheel_pos_ref"]=True
+        self._env_opts["zero_wheel_eff_ref"]=True
 
         self._env_opts["enable_height_sensor"]=False
         self._env_opts["height_sensor_resolution"]=0.16
@@ -485,6 +488,10 @@ class AugMPCWorldInterfaceBase(ABC):
                 LogType.STAT)
             
             self._jnt_imp_controllers[robot_name] = self._generate_jnt_imp_control(robot_name=robot_name)
+            self._jnt_imp_controllers[robot_name].set_velocity_controlled_joints(
+                name_patterns=self._env_opts["wheel_joint_patterns"],
+                filter_pos_ref=self._env_opts["filter_wheel_pos_ref"],
+                zero_eff_ref=self._env_opts["zero_wheel_eff_ref"])
             self._jnt_imp_cntrl_shared_data[robot_name] = JntImpCntrlData(is_server=True, 
                                             n_envs=self._num_envs, 
                                             n_jnts=len(self._robot_jnt_names(robot_name=robot_name)),
