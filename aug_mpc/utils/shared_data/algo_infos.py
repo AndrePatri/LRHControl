@@ -198,6 +198,10 @@ class SharedRLAlgorithmInfo(SharedDataBase):
 
         return [self.shared_data.get_shared_mem(),
             self.shared_datanames.get_shared_mem()]
+
+    def get_shm_sliceable(self):
+
+        return [False, False]
     
     def is_running(self):
 

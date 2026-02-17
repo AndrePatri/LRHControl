@@ -152,6 +152,10 @@ class SharedTrainingEnvInfo(SharedDataBase):
 
         return [self.shared_train_env_data.get_shared_mem(),
             self.shared_train_env_datanames.get_shared_mem()]
+
+    def get_shm_sliceable(self):
+
+        return [False, False]
     
     def run(self):
         
@@ -754,6 +758,10 @@ class SimpleCounters(SharedDataBase):
     def get_shared_mem(self):
 
         return [self._step_counter.get_shared_mem()]
+
+    def get_shm_sliceable(self):
+
+        return [True]
     
     def is_running(self):
 

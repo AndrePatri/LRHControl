@@ -5,7 +5,7 @@ from EigenIPC.PyEigenIPC import dtype as eigenipc_dtype, toNumpyDType
 from EigenIPC.PyEigenIPC import Journal
 from EigenIPC.PyEigenIPC import LogType
 
-from mpc_hive.utilities.shared_data.abstractions import SharedDataBase
+from mpc_hive.utilities.shared_data.abstractions import SharedDataBase, infer_shm_type
 
 from typing import Dict, Union, List
 import numpy as np
@@ -180,3 +180,11 @@ class NamedSharedTWrapper(SharedTWrapper):
                     exception,
                     LogType.EXCEP,
                     throw_when_excep = True)
+
+    def get_shm_type(self):
+
+        return [infer_shm_type(self.get_shared_mem())]
+
+    def get_shm_sliceable(self):
+
+        return [True]

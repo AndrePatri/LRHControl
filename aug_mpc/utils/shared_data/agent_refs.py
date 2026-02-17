@@ -108,6 +108,14 @@ class AgentRefs(SharedDataBase):
     def get_shared_mem(self):
 
         return self.rob_refs.get_shared_mem()
+
+    def get_shm_type(self):
+
+        return self.rob_refs.get_shm_type()
+
+    def get_shm_sliceable(self):
+
+        return self.rob_refs.get_shm_sliceable()
     
     def is_running(self):
     
