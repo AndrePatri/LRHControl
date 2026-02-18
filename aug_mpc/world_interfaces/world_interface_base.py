@@ -746,9 +746,10 @@ class AugMPCWorldInterfaceBase(ABC):
         # configuration
         rhc_state.root_state.set(data=self.root_p_rel(robot_name=robot_name, env_idxs=env_indxs), 
                 data_type="p", robot_idxs = env_indxs, gpu=self._use_gpu)
-        rhc_state.root_state.set(data=self.root_q_yaw_rel(robot_name=robot_name, env_idxs=env_indxs), 
+        rhc_state.root_state.set(data=self.root_q(robot_name=robot_name, env_idxs=env_indxs), 
                 data_type="q", robot_idxs = env_indxs, gpu=self._use_gpu)
-        
+        # rhc_state.root_state.set(data=self.root_q_yaw_rel(robot_name=robot_name, env_idxs=env_indxs), 
+        #         data_type="q", robot_idxs = env_indxs, gpu=self._use_gpu)
         # twist
         rhc_state.root_state.set(data=self.root_v(robot_name=robot_name, env_idxs=env_indxs,base_loc=base_loc), 
                 data_type="v", robot_idxs = env_indxs, gpu=self._use_gpu)
