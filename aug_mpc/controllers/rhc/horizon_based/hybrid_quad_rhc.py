@@ -666,6 +666,25 @@ class HybridQuadRhc(RHController):
 
         return self._ti.solution["n_iter2sol"]
     
+    def _set_ig_bootstrap(self,
+            q_state: np.ndarray = None,
+            v_state: np.ndarray = None):
+
+        xig = self._ti.solution['x_opt'].copy()
+        uig = self._ti.solution['u_opt'].copy()
+
+        # Bootstrap-specific warm start:
+        # - q: replicate measured/selected configuration on all nodes
+        # - v: inject only on first node, keep shifted previous solution on the rest
+        xig[0:self._nq, :] = q_state
+        xig[self._nq:self._nq + self._nv, 0:1] = v_state 
+            
+        # assigning ig
+        self._prb.getState().setInitialGuess(xig)
+        self._prb.getInput().setInitialGuess(uig)
+        
+        return xig, uig
+    
     def _set_ig(self):
 
         shift_num = -1 # shift data by one node
@@ -694,11 +713,15 @@ class HybridQuadRhc(RHController):
         
         return xig, uig
     
-    def _update_open_loop(self):
-
-        xig, _ = self._set_ig()
+    def _update_open_loop(self,
+            bootstrap: bool = False):
 
         q_state, v_state, a_state=self._set_is_open()
+
+        if not bootstrap:
+            self._set_ig()
+        else:
+            self._set_ig_bootstrap(q_state=q_state, v_state=v_state)
 
         # robot_state=xig[:, 0]
         # # open loop update:
@@ -707,10 +730,9 @@ class HybridQuadRhc(RHController):
 
         return q_state, v_state, a_state
     
-    def _update_closed_loop(self):
+    def _update_closed_loop(self,
+            bootstrap: bool = False):
         
-        # set initial guess for controller
-        xig, _ = self._set_ig()
         # set initial state
         q_state=None
         v_state=None
@@ -729,6 +751,12 @@ class HybridQuadRhc(RHController):
                     LogType.EXCEP,
                     throw_when_excep = False)
             q_state, v_state, a_state=self._set_is()
+
+        # set initial guess for controller
+        if not bootstrap:
+            self._set_ig()
+        else:
+            self._set_ig_bootstrap(q_state=q_state, v_state=v_state)
 
         return q_state, v_state, a_state
     
@@ -1035,27 +1063,27 @@ class HybridQuadRhc(RHController):
     def _solve(self):
         
         if self._debug:
-            return self._db_solve(rti=True)
+            return self._db_solve(bootstrap=False)
         else:
-            return self._min_solve(rti=True)
+            return self._min_solve(bootstrap=False)
 
     def _bootstrap(self):
 
         if self._debug:
-            return self._db_solve(rti=False)
+            return self._db_solve(bootstrap=True)
         else:
-            return self._min_solve(rti=False)
+            return self._min_solve(bootstrap=True)
         
-    def _min_solve(self, rti: bool = True):
+    def _min_solve(self, bootstrap: bool = False):
         # minimal solve version -> no debug 
         robot_qstate=None
         robot_vstate=None
         robot_astate=None
         if self._open_loop:
-            robot_qstate, robot_vstate, robot_astate = self._update_open_loop() # updates the TO ig and 
+            robot_qstate, robot_vstate, robot_astate = self._update_open_loop(bootstrap=bootstrap) # updates the TO ig and 
             # initial conditions using data from the solution itself
         else: 
-            robot_qstate, robot_vstate, robot_astate = self._update_closed_loop() # updates the TO ig and 
+            robot_qstate, robot_vstate, robot_astate = self._update_closed_loop(bootstrap=bootstrap) # updates the TO ig and 
             # initial conditions using robot measurements
     
         self._pm.shift() # shifts phases of one dt
@@ -1076,16 +1104,16 @@ class HybridQuadRhc(RHController):
             self.rhc_refs.step()
             
         try:
-            if rti:
+            if not bootstrap:
                 converged = self._ti.rti() # RTI step
             else:
-                converged = self._ti.bootstrap() # full solve bootstrap
+                converged = self._ti.bootstrap() # full solve (to convergence)
             self.sol_counter = self.sol_counter + 1
             return not self._check_rhc_failure()
         except Exception as e: # fail in case of exceptions
             return False
     
-    def _db_solve(self, rti: bool = True):
+    def _db_solve(self, bootstrap: bool = False):
 
         self._timer_start = time.perf_counter()
 
@@ -1093,10 +1121,10 @@ class HybridQuadRhc(RHController):
         robot_vstate=None
         robot_astate=None
         if self._open_loop:
-            robot_qstate, robot_vstate, robot_astate = self._update_open_loop() # updates the TO ig and 
+            robot_qstate, robot_vstate, robot_astate = self._update_open_loop(bootstrap=bootstrap) # updates the TO ig and 
             # initial conditions using data from the solution itself
         else: 
-            robot_qstate, robot_vstate, robot_astate = self._update_closed_loop() # updates the TO ig and 
+            robot_qstate, robot_vstate, robot_astate = self._update_closed_loop(bootstrap=bootstrap) # updates the TO ig and 
             # initial conditions using robot measurements
 
         self._prb_update_time = time.perf_counter() 
@@ -1122,7 +1150,7 @@ class HybridQuadRhc(RHController):
         self._task_ref_update_time = time.perf_counter() 
     
         try:
-            if rti:
+            if not bootstrap:
                 converged = self._ti.rti() # RTI step
             else:
                 converged = self._ti.bootstrap() # full solve bootstrap
@@ -1132,8 +1160,9 @@ class HybridQuadRhc(RHController):
             return not self._check_rhc_failure()
         except Exception as e: # fail in case of exceptions
             if self._verbose:
-                exception = f"Rti() for controller {self.controller_index} failed" + \
-                f" with exception{type(e).__name__}"
+                solve_mode = "RTI" if not bootstrap else "Bootstrap"
+                exception = f"{solve_mode}() for controller {self.controller_index} failed" + \
+                f" with exception {type(e).__name__}"
                 Journal.log(self.__class__.__name__,
                     "solve",
                     exception,
