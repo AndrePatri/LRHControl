@@ -311,6 +311,12 @@ class AgentRefsFromJoy:
     #     self._current_twist_ref_world[4] = 0.0
     #     self._current_twist_ref_world[5] = yaw_rate
 
+    def _norm_trigger(self, val: float) -> float:
+        # Normalize trigger value to [0,1] across common joystick conventions.
+        if val < -0.1:
+            return float(np.clip((val + 1.0) / 2.0, 0.0, 1.0))
+        return float(np.clip(val, 0.0, 1.0))
+
     def _set_omega(self, joy):
         """
         Set angular part of world twist based on the left stick horizontal axis.
@@ -331,7 +337,17 @@ class AgentRefsFromJoy:
         twist_ref[3] = 0.0  # roll rate
         twist_ref[4] = 0.0  # pitch rate
 
-        # read left stick horizontal axis (left_x)
+        # 1) try trigger-based yaw (xbot listener maps slider into triggers)
+        try:
+            lt = float(joy.triggers[0])
+            rt = float(joy.triggers[1])
+        except Exception:
+            lt, rt = 0.0, 0.0
+        lt_n = self._norm_trigger(lt)
+        rt_n = self._norm_trigger(rt)
+        trig_yaw = -(rt_n - lt_n) * float(self._max_yaw_rate)
+
+        # 2) fallback to left-stick yaw for regular joystick paths
         try:
             lx = float(-joy.sticks[0])
         except Exception:
@@ -340,12 +356,18 @@ class AgentRefsFromJoy:
         # deadzone to avoid noise around center
         deadzone = float(getattr(self, "dxy", 0.05))
         if abs(lx) <= deadzone:
-            yaw_rate = 0.0
+            stick_yaw = 0.0
         else:
             # normalize magnitude: use absolute stick displacement (assume stick in [-1,1])
             mag = min(abs(lx), 1.0)
             # linear mapping; you can change to mag**2 for non-linear response
-            yaw_rate = np.sign(lx) * mag * float(self._max_yaw_rate)
+            stick_yaw = np.sign(lx) * mag * float(self._max_yaw_rate)
+
+        # Use trigger yaw when available, otherwise stick yaw.
+        if abs(trig_yaw) > 1e-4:
+            yaw_rate = trig_yaw
+        else:
+            yaw_rate = stick_yaw
 
         # write into world twist angular part [roll,pitch,yaw] -> indices 3,4,5
         twist_ref[5] = yaw_rate
