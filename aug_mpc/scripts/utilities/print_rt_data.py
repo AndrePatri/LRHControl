@@ -5,6 +5,7 @@ from aug_mpc.utils.shared_data.training_env import Actions
 from aug_mpc.utils.shared_data.training_env import Terminations, SubTerminations
 from aug_mpc.utils.shared_data.training_env import Truncations, SubTruncations
 from aug_mpc.utils.shared_data.training_env import EpisodesCounter, TaskRandCounter, SafetyRandResetsCounter
+from aug_mpc.utils.shared_data.agent_refs import AgentRefs
 
 from mpc_hive.utilities.shared_data.rhc_data import RobotState, RhcRefs
 
@@ -109,6 +110,14 @@ if __name__ == "__main__":
                     with_gpu_mirror=False,dtype=dtype)
         act.run()
         act_names=act.col_names()
+        agent_refs = AgentRefs(namespace=namespace,
+                    is_server=False,
+                    safe=False,
+                    verbose=True,
+                    vlevel=VLevel.V2,
+                    with_gpu_mirror=False,
+                    with_torch_view=False)
+        agent_refs.run()
     if args.with_rew:
         rew = TotRewards(namespace=namespace,is_server=False,verbose=True, 
                 vlevel=VLevel.V2,safe=False,
@@ -231,6 +240,7 @@ if __name__ == "__main__":
             # next_obs.synch_all(read=True, retry=True)
             if args.with_actions:
                 act.synch_all(read=True, retry=True)
+                agent_refs.rob_refs.synch_from_shared_mem()
             if args.with_rew:
                 rew.synch_all(read=True, retry=True)
                 if args.with_sub_r:
@@ -303,6 +313,13 @@ if __name__ == "__main__":
                 print("\nactions:")
                 print(act_names, sep = ", ")
                 print(act.get_torch_mirror(gpu=False)[idx:idx+env_range, :])
+                print("\nagent refs (root state):")
+                print("\n p:")
+                print(agent_refs.rob_refs.root_state.get(data_type="p")[idx:idx+env_range, :])
+                print("\n q:")
+                print(agent_refs.rob_refs.root_state.get(data_type="q")[idx:idx+env_range, :])
+                print("\n twist:")
+                print(agent_refs.rob_refs.root_state.get(data_type="twist")[idx:idx+env_range, :])
             if args.with_rew:
                 print("\nrewards:")
                 print(rew.get_torch_mirror(gpu=False)[idx:idx+env_range, :])
