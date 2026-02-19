@@ -673,15 +673,57 @@ class HybridQuadRhc(RHController):
         xig = self._ti.solution['x_opt'].copy()
         uig = self._ti.solution['u_opt'].copy()
 
-        # Bootstrap-specific warm start:
-        # - q: replicate measured/selected configuration on all nodes
-        # - v: inject only on first node, keep shifted previous solution on the rest
-        xig[0:self._nq, :] = q_state
-        xig[self._nq:self._nq + self._nv, 0:1] = v_state 
-            
+        # Normalize and keep quaternion in the same hemisphere as the previous
+        # solution to avoid artificial 180-deg jumps in the bootstrap warm start.
+        q_state_boot = q_state.copy()
+        q_prev = xig[3:7, 0]
+        q_now = q_state_boot[3:7, 0]
+
+        q_now_norm = np.linalg.norm(q_now)
+        if q_now_norm > 1e-9:
+            q_state_boot[3:7, :] /= q_now_norm
+        else:
+            q_state_boot[3:7, :] = np.array([[0.0], [0.0], [0.0], [1.0]], dtype=self._dtype)
+
+        q_prev_norm = np.linalg.norm(q_prev)
+        if q_prev_norm > 1e-9:
+            q_prev = q_prev / q_prev_norm
+
+        q_now = q_state_boot[3:7, 0]
+        if np.dot(q_prev, q_now) < 0.0:
+            q_state_boot[3:7, :] *= -1.0
+        
+        xig[0:self._nq, :] = q_state_boot
+        xig[self._nq:self._nq + self._nv, :] = 0.0 # 0 velocity on first nodes 
+        uig[0:self._nv, :]=0.0 # 0 acceleration
+
         # assigning ig
         self._prb.getState().setInitialGuess(xig)
         self._prb.getInput().setInitialGuess(uig)
+        # self._prb.getVariables("a").setInitialGuess(np.zeros((self._nv, 1), dtype=self._dtype))
+        for _, cforces in self._ti.model.cmap.items():
+            n_contact_f = len(cforces)
+            if n_contact_f == 0:
+                continue
+            f_guess = np.array(self._f0, dtype=self._dtype) / n_contact_f
+            for c in cforces:
+                c.setInitialGuess(f_guess)
+
+        # print("initial guesses")
+        # print(self._nq)
+        # print(self._nv)
+        # print("q")
+        # qig=self._ti.model.q.getInitialGuess()
+        # print(qig.shape)
+        # print(qig)
+        # print("v")
+        # print(self._ti.model.v.getInitialGuess())
+        # print("a")
+        # print(self._ti.model.a.getInitialGuess())
+        # for _, cforces in self._ti.model.cmap.items():
+        #     for c in cforces:
+        #         print("force")
+        #         print(c.getInitialGuess())
         
         return xig, uig
     
