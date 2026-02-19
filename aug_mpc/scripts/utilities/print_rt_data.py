@@ -70,7 +70,8 @@ if __name__ == "__main__":
                     enable_height_sensor=args.print_heightmap)
         robot_state.run()
     
-    if args.mpc_finfo:
+    rhc_refs = None
+    if args.mpc_finfo or args.with_actions:
         rhc_refs=RhcRefs(namespace=namespace,
                     is_server=False,
                     with_gpu_mirror=False, 
@@ -241,6 +242,7 @@ if __name__ == "__main__":
             if args.with_actions:
                 act.synch_all(read=True, retry=True)
                 agent_refs.rob_refs.synch_from_shared_mem()
+                rhc_refs.rob_refs.synch_from_shared_mem()
             if args.with_rew:
                 rew.synch_all(read=True, retry=True)
                 if args.with_sub_r:
@@ -313,6 +315,13 @@ if __name__ == "__main__":
                 print("\nactions:")
                 print(act_names, sep = ", ")
                 print(act.get_torch_mirror(gpu=False)[idx:idx+env_range, :])
+                print("\nrhc refs (root state):")
+                print("\n p:")
+                print(rhc_refs.rob_refs.root_state.get(data_type="p")[idx:idx+env_range, :])
+                print("\n q:")
+                print(rhc_refs.rob_refs.root_state.get(data_type="q")[idx:idx+env_range, :])
+                print("\n twist:")
+                print(rhc_refs.rob_refs.root_state.get(data_type="twist")[idx:idx+env_range, :])
                 print("\nagent refs (root state):")
                 print("\n p:")
                 print(agent_refs.rob_refs.root_state.get(data_type="p")[idx:idx+env_range, :])
