@@ -46,7 +46,6 @@ if __name__ == "__main__":
     parser.add_argument('--with_rew', action="store_true", help='')
     parser.add_argument('--with_tr', action="store_true", help='')
     parser.add_argument('--print_heightmap', action="store_true", help='Print heightmap data from RobotState')
-    parser.add_argument('--mpc_finfo', action="store_true", help='')
     parser.add_argument('--with_rhc_refs', action="store_true", help='')
 
 
