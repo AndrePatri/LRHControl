@@ -275,7 +275,7 @@ if __name__ == "__main__":
                 print(gn)
 
             if args.with_rhc_refs:
-                print("\n robot state:")
+                print("\n MPC refs:")
                 print("\n p:")
                 print(p_ref)
                 print("\n v:")
