@@ -153,6 +153,11 @@ class SharedTrainingEnvInfo(SharedDataBase):
         return [self.shared_train_env_data.get_shared_mem(),
             self.shared_train_env_datanames.get_shared_mem()]
 
+    def get_shm_type(self):
+
+        # Data tensor + names tensor.
+        return ["numeric", "str_list"]
+
     def get_shm_sliceable(self):
 
         return [False, False]
@@ -564,6 +569,14 @@ class Terminations(SharedTWrapper):
 
         self.to_zero()
 
+    def get_shm_type(self):
+
+        return ["numeric"]
+
+    def get_shm_sliceable(self):
+
+        return [True]
+
 class Truncations(SharedTWrapper):
 
     def __init__(self,
@@ -596,6 +609,14 @@ class Truncations(SharedTWrapper):
     def reset(self):
 
         self.to_zero()
+
+    def get_shm_type(self):
+
+        return ["numeric"]
+
+    def get_shm_sliceable(self):
+
+        return [True]
 
 class SubTerminations(NamedSharedTWrapper):
 
@@ -758,6 +779,10 @@ class SimpleCounters(SharedDataBase):
     def get_shared_mem(self):
 
         return [self._step_counter.get_shared_mem()]
+
+    def get_shm_type(self):
+
+        return ["numeric"]
 
     def get_shm_sliceable(self):
 
