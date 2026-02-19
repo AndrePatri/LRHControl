@@ -46,6 +46,9 @@ if __name__ == "__main__":
     parser.add_argument('--with_rew', action="store_true", help='')
     parser.add_argument('--with_tr', action="store_true", help='')
     parser.add_argument('--print_heightmap', action="store_true", help='Print heightmap data from RobotState')
+    parser.add_argument('--mpc_finfo', action="store_true", help='')
+    parser.add_argument('--with_rhc_refs', action="store_true", help='')
+
 
     args = parser.parse_args()
 
@@ -71,7 +74,7 @@ if __name__ == "__main__":
         robot_state.run()
     
     rhc_refs = None
-    if args.mpc_finfo or args.with_actions:
+    if args.with_rhc_refs:
         rhc_refs=RhcRefs(namespace=namespace,
                     is_server=False,
                     with_gpu_mirror=False, 
@@ -219,6 +222,11 @@ if __name__ == "__main__":
                 if args.print_heightmap:
                     robot_state.height_sensor.synch_all(read=True, retry=True)
 
+            if args.with_rhc_refs:
+                rhc_refs.rob_refs.synch_from_shared_mem()
+                p_ref=rhc_refs.rob_refs.root_state.get(data_type="p")[idx:idx+env_range, :]
+                v_ref=rhc_refs.rob_refs.root_state.get(data_type="v")[idx:idx+env_range, :] 
+
             if args.mpc_finfo:
                 rhc_refs.flight_info.synch_all(read=True, retry=True)
                 rhc_refs.flight_settings_req.synch_all(read=True, retry=True)
@@ -238,11 +246,10 @@ if __name__ == "__main__":
 
             if args.with_obs:
                 obs.synch_all(read=True, retry=True)
-            # next_obs.synch_all(read=True, retry=True)
+            # next_obs.synch_all(read=True, retry=True)                
             if args.with_actions:
                 act.synch_all(read=True, retry=True)
                 agent_refs.rob_refs.synch_from_shared_mem()
-                rhc_refs.rob_refs.synch_from_shared_mem()
             if args.with_rew:
                 rew.synch_all(read=True, retry=True)
                 if args.with_sub_r:
@@ -267,6 +274,13 @@ if __name__ == "__main__":
                 print(v)
                 print("\n gn:")
                 print(gn)
+
+            if args.with_rhc_refs:
+                print("\n robot state:")
+                print("\n p:")
+                print(p_ref)
+                print("\n v:")
+                print(v_ref)
 
             if args.print_heightmap:
                 h_raw = robot_state.height_sensor.get(gpu=False)
