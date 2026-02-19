@@ -152,13 +152,23 @@ class AgentRefsFromJoy:
             env_index = self.env_index.get_numpy_mirror()
             self._env_idx=env_index[0, 0].item()
         self.cluster_idx = self._env_idx
-        self.cluster_idx_np = self.cluster_idx    
+        self.cluster_idx_np = np.array(self.cluster_idx)
+
+        # Snapshot face buttons to avoid races with async listener updates.
+        try:
+            face = np.array(joy.face, dtype=bool).reshape(-1).copy()
+        except Exception:
+            face = np.zeros(4, dtype=bool)
+        if face.shape[0] < 4:
+            padded = np.zeros(4, dtype=bool)
+            padded[:face.shape[0]] = face
+            face = padded
         
         # Check hold-and-toggle for toggles:
         # face[1] -> omega toggle, face[0] -> linvel toggle, face[2] -> pos toggle
-        self._check_and_toggle("omega", bool(getattr(joy, "face")[1] if hasattr(joy, "face") else False))
-        self._check_and_toggle("linvel", bool(getattr(joy, "face")[0] if hasattr(joy, "face") else False))
-        self._check_and_toggle("pos", bool(getattr(joy, "face")[2] if hasattr(joy, "face") else False))
+        self._check_and_toggle("omega", bool(face[1]))
+        self._check_and_toggle("linvel", bool(face[0]))
+        self._check_and_toggle("pos", bool(face[2]))
 
         # After managing toggles, update twist/pos using current stable flags & latest joy values
         self._set_omega(joy)    
@@ -473,7 +483,7 @@ class AgentRefsFromJoy:
 
     def _write_to_shared_mem(self):
 
-        self.agent_refs.rob_refs.root_state.synch_all(read=True)
+        self.agent_refs.rob_refs.root_state.synch_all(read=True, retry=True)
         self._robot_state.root_state.synch_all(read = True, retry = True) # read robot state        
         
         if self.enable_pos:
@@ -513,19 +523,20 @@ class AgentRefsFromJoy:
         else:
             self._current_twist_ref_base[:, :]=self._current_twist_ref_world.reshape(1, -1)
 
-        if self.enable_linvel:
-            self.agent_refs.rob_refs.root_state.set(data_type="linvel",data=self._current_twist_ref_base[:, 0:3],
-                                        robot_idxs=self.cluster_idx_np)
-            self.agent_refs.rob_refs.root_state.synch_retry(row_index=self.cluster_idx, col_index=7, 
-                                        n_rows=1, n_cols=3,
-                                        read=False)
-        
-        if self.enable_omega:
-            self.agent_refs.rob_refs.root_state.set(data_type="omega",data=self._current_twist_ref_base[:, 3:6],
-                                        robot_idxs=self.cluster_idx_np)
-            self.agent_refs.rob_refs.root_state.synch_retry(row_index=self.cluster_idx, col_index=10, 
-                                        n_rows=1, n_cols=3,
-                                        read=False)
+        # Write the full twist atomically to avoid partial updates and lock contention
+        # between separate linvel/omega writes.
+        self.agent_refs.rob_refs.root_state.set(
+            data_type="twist",
+            data=np.ascontiguousarray(self._current_twist_ref_base),
+            robot_idxs=self.cluster_idx_np,
+        )
+        self.agent_refs.rob_refs.root_state.synch_retry(
+            row_index=self.cluster_idx,
+            col_index=7,
+            n_rows=1,
+            n_cols=6,
+            read=False,
+        )
             
     # def run(self, connect, topic, poll_interval ):
 
@@ -612,4 +623,3 @@ class AgentRefsFromJoy:
                 self._close()
             except Exception:
                 pass
-
