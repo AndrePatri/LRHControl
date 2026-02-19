@@ -20,7 +20,11 @@ class AgentRefsFromJoy:
                 verbose = False,
                 agent_refs_world: bool = True,
                 env_idx: int = None,
-                hold_time: float = 0.01):   # <-- new hold_time parameter
+                hold_time: float = 0.01,
+                listener_factory = None,
+                listener_endpoint_mode: str = "connect",
+                fixed_motion_mode: Optional[str] = None,
+                force_omega: bool = False):
         self._env_idx=env_idx
 
         self._verbose = verbose
@@ -64,6 +68,20 @@ class AgentRefsFromJoy:
 
         # hold time for toggles (seconds)
         self.hold_time = float(hold_time)
+        self._listener_factory = listener_factory
+        self._listener_endpoint_mode = str(listener_endpoint_mode).lower().strip()
+        if self._listener_endpoint_mode not in ("connect", "bind"):
+            raise ValueError(
+                f"Unsupported listener_endpoint_mode '{listener_endpoint_mode}'. "
+                "Use 'connect' or 'bind'."
+            )
+        self._fixed_motion_mode = None if fixed_motion_mode is None else str(fixed_motion_mode).lower().strip()
+        if self._fixed_motion_mode not in (None, "linvel", "pos"):
+            raise ValueError(
+                f"Unsupported fixed_motion_mode '{fixed_motion_mode}'. "
+                "Use None, 'linvel', or 'pos'."
+            )
+        self._force_omega = bool(force_omega)
 
         # helper structures to manage press-and-hold toggles
         # keys: "omega", "linvel", "pos"
@@ -169,6 +187,7 @@ class AgentRefsFromJoy:
         self._check_and_toggle("omega", bool(face[1]))
         self._check_and_toggle("linvel", bool(face[0]))
         self._check_and_toggle("pos", bool(face[2]))
+        self._apply_static_mode_policy()
 
         # After managing toggles, update twist/pos using current stable flags & latest joy values
         self._set_omega(joy)    
@@ -481,6 +500,17 @@ class AgentRefsFromJoy:
             # swallow exceptions to keep loop robust
             pass
 
+    def _apply_static_mode_policy(self):
+        if self._force_omega:
+            self.enable_omega = True
+
+        if self._fixed_motion_mode == "linvel":
+            self.enable_linvel = True
+            self.enable_pos = False
+        elif self._fixed_motion_mode == "pos":
+            self.enable_linvel = False
+            self.enable_pos = True
+
     def _write_to_shared_mem(self):
 
         self.agent_refs.rob_refs.root_state.synch_all(read=True, retry=True)
@@ -593,9 +623,17 @@ class AgentRefsFromJoy:
             # agent_refs may already be running or fail; continue
             pass
         
-        from mpc_hive.utilities.joy.joy_zmq_listener import JoyListenerZMQ
+        listener_factory = self._listener_factory
+        if listener_factory is None:
+            from mpc_hive.utilities.joy.joy_zmq_listener import JoyListenerZMQ
+            listener_factory = JoyListenerZMQ
 
-        joy_listener=JoyListenerZMQ(connect=connect, topic=topic, poll_interval=poll_interval, on_message=None)
+        listener_kwargs = {"topic": topic, "poll_interval": poll_interval}
+        if self._listener_endpoint_mode == "bind":
+            listener_kwargs["bind"] = connect
+        else:
+            listener_kwargs["connect"] = connect
+        joy_listener = listener_factory(**listener_kwargs)
         joy_listener.start()
 
         try:
