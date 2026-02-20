@@ -224,9 +224,9 @@ if __name__ == "__main__":
 
             if args.with_rhc_refs:
                 rhc_refs.rob_refs.synch_from_shared_mem()
-                p_ref=rhc_refs.root_state.get(data_type="p")[idx:idx+env_range, :]
-                q_ref=rhc_refs.root_state.get(data_type="q")[idx:idx+env_range, :]
-                twist_ref=rhc_refs.root_state.get(data_type="twist")[idx:idx+env_range, :] 
+                p_ref=rhc_refs.rob_refs.root_state.get(data_type="p")[idx:idx+env_range, :]
+                q_ref=rhc_refs.rob_refs.root_state.get(data_type="q")[idx:idx+env_range, :]
+                twist_ref=rhc_refs.rob_refs.root_state.get(data_type="twist")[idx:idx+env_range, :] 
 
             if args.mpc_finfo:
                 rhc_refs.flight_info.synch_all(read=True, retry=True)

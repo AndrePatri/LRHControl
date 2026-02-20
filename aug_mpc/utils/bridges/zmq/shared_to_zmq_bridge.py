@@ -7,13 +7,13 @@ from mpc_hive.utilities.bridges.zmq.shared_to_zmq_bridge import SharedMemToZmqBr
 from aug_mpc.utils.shared_data.agent_refs import AgentRefs
 from aug_mpc.utils.shared_data.training_env import SharedTrainingEnvInfo
 from aug_mpc.utils.shared_data.training_env import Observations, NextObservations
-from aug_mpc.utils.shared_data.training_env import TotRewards
-from aug_mpc.utils.shared_data.training_env import SubRewards
+from aug_mpc.utils.shared_data.training_env import TotRewards, TotReturns
+from aug_mpc.utils.shared_data.training_env import SubRewards, SubReturns
 from aug_mpc.utils.shared_data.training_env import Actions
 from aug_mpc.utils.shared_data.training_env import Terminations
-from aug_mpc.utils.shared_data.training_env import Truncations
+from aug_mpc.utils.shared_data.training_env import Truncations, SubTruncations, SubTerminations
 from aug_mpc.utils.shared_data.training_env import EpisodesCounter, TaskRandCounter
-
+from aug_mpc.utils.shared_data.algo_infos import SharedRLAlgorithmInfo, QfVal, QfTrgt
 
 class SharedMemToZmqBridge(_BaseSharedMemToZmqBridge):
 
@@ -30,6 +30,10 @@ class SharedMemToZmqBridge(_BaseSharedMemToZmqBridge):
             bind_ip: str = "0.0.0.0",
             port_base: int = 20000,
             port_span: int = 40000,
+            timing_window: int = 200,
+            string_stream_period: float = 1.0,
+            string_stream_once: bool = False,
+            drop_if_busy: bool = True,
             add_training_data: bool = False):
         
         self._add_training_data=add_training_data
@@ -47,6 +51,10 @@ class SharedMemToZmqBridge(_BaseSharedMemToZmqBridge):
             bind_ip=bind_ip,
             port_base=port_base,
             port_span=port_span,
+            timing_window=timing_window,
+            string_stream_period=string_stream_period,
+            string_stream_once=string_stream_once,
+            drop_if_busy=drop_if_busy,
         )
     def _build_extra_clients(self):
 
@@ -89,11 +97,21 @@ class SharedMemToZmqBridge(_BaseSharedMemToZmqBridge):
                 safe=False,
                 verbose=self._verbose,
                 vlevel=self._vlevel),
+            SubTerminations(namespace=self._namespace,
+                is_server=False,
+                safe=False,     
+                verbose=self._verbose,
+                vlevel=self._vlevel),
             Truncations(namespace=self._namespace,
                 is_server=False,
                 safe=False,
                 verbose=self._verbose,
                 vlevel=self._vlevel),
+            SubTruncations(namespace=self._namespace,
+                is_server=False,
+                safe=False,
+                verbose=self._verbose,          
+                vlevel=self._vlevel),   
             EpisodesCounter(namespace=self._namespace,
                 is_server=False,
                 safe=False,
@@ -105,7 +123,32 @@ class SharedMemToZmqBridge(_BaseSharedMemToZmqBridge):
                 verbose=self._verbose,
                 vlevel=self._vlevel),
             SharedTrainingEnvInfo(namespace=self._namespace,
+                    is_server=False,
+                    verbose=self._verbose,
+                    vlevel=self._vlevel),
+            SharedRLAlgorithmInfo(namespace=self._namespace,
                 is_server=False,
+                safe=False,
+                verbose=self._verbose,
+                vlevel=self._vlevel),
+            QfVal(namespace=self._namespace,    
+                is_server=False,
+                safe=False,
+                verbose=self._verbose,
+                vlevel=self._vlevel),
+            QfTrgt(namespace=self._namespace,
+                is_server=False,
+                safe=False,         
+                verbose=self._verbose,
+                vlevel=self._vlevel),
+            SubReturns(namespace=self._namespace,
+                is_server=False,
+                safe=False,
+                verbose=self._verbose,
+                vlevel=self._vlevel),
+            TotReturns(namespace=self._namespace,
+                is_server=False,
+                safe=False,
                 verbose=self._verbose,
                 vlevel=self._vlevel),
         ]
@@ -133,6 +176,14 @@ if __name__ == '__main__':
         help='Port span used by deterministic endpoint mapping')
     parser.add_argument('--add_training_data', action='store_true',
         help='Also bridge training-related shared-memory blocks')
+    parser.add_argument('--timing_window', type=int, default=200,
+        help='Number of loop samples used to aggregate dt violation warnings')
+    parser.add_argument('--string_stream_period', type=float, default=1.0,
+        help='Publish period [s] for str_list streams (row/col names)')
+    parser.add_argument('--string_stream_once', action='store_true',
+        help='Publish str_list streams only once after startup')
+    parser.add_argument('--no_drop_if_busy', action='store_true',
+        help='Disable non-blocking PUB send (bridge may block when socket is busy)')
 
     args = parser.parse_args()
 
@@ -144,9 +195,15 @@ if __name__ == '__main__':
         bind_ip=args.bind_ip,
         port_base=args.port_base,
         port_span=args.port_span,
+        timing_window=args.timing_window,
+        string_stream_period=args.string_stream_period,
+        string_stream_once=args.string_stream_once,
+        drop_if_busy=not args.no_drop_if_busy,
     )
 
     try:
         bridge.run(dt=args.dt)
+    except KeyboardInterrupt:
+        pass
     finally:
         bridge.close()

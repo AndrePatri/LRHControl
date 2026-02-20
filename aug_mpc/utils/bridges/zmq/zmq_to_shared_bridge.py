@@ -47,5 +47,7 @@ if __name__ == '__main__':
 
     try:
         bridge.run(dt=args.dt)
+    except KeyboardInterrupt:
+        pass
     finally:
         bridge.close()
