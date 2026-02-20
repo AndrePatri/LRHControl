@@ -11,7 +11,7 @@ if __name__ == "__main__":
                         help='If set and running keyboard mode, read key events from stdin-based listener')
     # New joystick options:
     parser.add_argument('--joy', action='store_true', help='Run in joystick mode (RefsFromJoy)')
-    parser.add_argument('--connect', type=str, default='localhost:5556', help='JoyListenerZMQ connect address (host:port)')
+    parser.add_argument('--bind', type=str, default='0.0.0.0:5556', help='JoyListenerZMQ bind address (host:port)')
     parser.add_argument('--topic', type=str, default='joy', help='ZeroMQ topic for joystick messages')
     parser.add_argument('--poll-interval', type=float, default=0.01, help='Joy listener poll interval (s)')
     parser.add_argument('--hold-time', type=float, default=0.15, help='Hold time for toggles (seconds) when using joystick')
@@ -88,12 +88,12 @@ if __name__ == "__main__":
                     return True
         
             # Run with callback and ensure cleanup
-            joy_cmds.run(connect=args.connect, topic=args.topic, poll_interval=args.poll_interval,
+            joy_cmds.run(connect=args.bind, topic=args.topic, poll_interval=args.poll_interval,
                             callback=safety_callback, callback_arg=safety_flag)
             safety_flag.close()
         else:
             # No remote-exit callback; pass callback_arg=None
-            joy_cmds.run(connect=args.connect, topic=args.topic, poll_interval=args.poll_interval,
+            joy_cmds.run(connect=args.bind, topic=args.topic, poll_interval=args.poll_interval,
                          callback=None, callback_arg=None)
 
     else:
@@ -105,4 +105,3 @@ if __name__ == "__main__":
                                      env_idx=args.env_idx)
 
         keyb_cmds.run(read_from_stdin=args.from_stdin)
-
