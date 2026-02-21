@@ -185,6 +185,8 @@ class AugMPCWorldInterfaceBase(ABC):
         self._env_opts["height_sensor_lateral_offset"]=0.0
         self._env_opts["height_sensor_forward_offset"]=0.0
 
+        self._env_opts["run_cluster_bootstrap"] = False
+        
         self._filter_step_ssteps_freq=None
 
         self._env_opts.update(env_opts)
@@ -568,12 +570,18 @@ class AugMPCWorldInterfaceBase(ABC):
             # cluster setup here
             control_cluster=self.cluster_servers[robot_name]
 
-            cluster_setup_ok=self._setup_mpc_cluster(robot_name)
-            if not cluster_setup_ok:
-                return False
-            
-            self._set_cluster_actions(robot_name=robot_name) # write last cmds
-            self._apply_cmds_to_jnt_imp_control(robot_name=robot_name) # apply to robot
+            control_cluster.pre_trigger()
+            to_be_activated=control_cluster.get_inactive_controllers()
+            if to_be_activated is not None:
+                control_cluster.activate_controllers(
+                    idxs=to_be_activated)   
+
+            if self._env_opts["run_cluster_bootstrap"]:
+                cluster_setup_ok=self._setup_mpc_cluster(robot_name)
+                if not cluster_setup_ok:
+                    return False
+                self._set_cluster_actions(robot_name=robot_name) # write last cmds
+                self._apply_cmds_to_jnt_imp_control(robot_name=robot_name) # apply to robot
             
             if self._use_remote_stepping[i]:
                 step_wait_ok = self._wait_for_remote_step_req(robot_name=robot_name)
@@ -616,12 +624,6 @@ class AugMPCWorldInterfaceBase(ABC):
         jnt_v[:, :]=0 
 
         control_cluster.write_robot_state()
-
-        control_cluster.pre_trigger()
-        to_be_activated=control_cluster.get_inactive_controllers()
-        if to_be_activated is not None:
-            control_cluster.activate_controllers(
-                idxs=to_be_activated)   
         
         # trigger bootstrap solution (solvers will run up to convergence) 
         control_cluster.trigger_solution(bootstrap=True) # this will trigger the bootstrap solver with the initial state,
