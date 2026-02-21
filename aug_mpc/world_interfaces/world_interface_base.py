@@ -635,7 +635,7 @@ class AugMPCWorldInterfaceBase(ABC):
             if failed_idxs.numel() > 0:
                 Journal.log(self.__class__.__name__,
                     "_setup",
-                    f"Bootstrap solution failed for {robot_name} | failed idxs: {failed_idxs.cpu().tolist()}",
+                    f"Bootstrap solution failed for {robot_name} | n_failed: {failed_idxs.numel()}, idxs: {failed_idxs.cpu().tolist()}",
                     LogType.EXCEP,
                     throw_when_excep=False)
                 return False
