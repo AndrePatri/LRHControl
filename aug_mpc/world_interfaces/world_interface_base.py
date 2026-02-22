@@ -471,7 +471,8 @@ class AugMPCWorldInterfaceBase(ABC):
 
             self._homers[robot_name] = RobotHomer(srdf_path=self._srdf_dump_paths[robot_name], 
                             jnt_names=self._robot_jnt_names(robot_name=robot_name),
-                            filter=True)
+                            filter=True,
+                            verbose=self._verbose)
             robot_homing=torch.from_numpy(self._homers[robot_name].get_homing().reshape(1,-1))
             if "cuda" in self._device:
                 robot_homing=robot_homing.cuda()

@@ -326,7 +326,8 @@ class RhcToVizBridgeBase(ABC):
 
         if self._srdf_homing_file_path is not None:
             self._homer= RobotHomer(srdf_path=self._srdf_homing_file_path, 
-                            jnt_names=self.jnt_names_robot)
+                            jnt_names=self.jnt_names_robot,
+                            verbose=self.verbose)
 
         if self._with_rhc_internal_data:
             self.jnt_names_rhc = self.rhc_internal_clients[0].jnt_names() # assumes all controllers work on the same robot
