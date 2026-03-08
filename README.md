@@ -37,7 +37,8 @@ Reinforcement Learning-Augmented Model Predictive Control *at scale* for legged 
   <img src="docs/images/acyclic_sequence.png" alt="sim-to-sim, sim-to-real" width="700">
 </p>
 <p align="center">
-  <img src="docs/hybrid_quadruped_fake_pos_track.gif" alt="sim-to-sim, sim-to-real" width="300">
+  <img src="docs/centauro_no_yaw_cloop_flat.gif" alt="sim-to-sim, sim-to-real" height="150">    
+  <img src="docs/hybrid_quadruped_fake_pos_track.gif" alt="sim-to-sim, sim-to-real" width="270">
 </p>
 
 - Easily extensible to **unstructured** environments
