@@ -13,7 +13,7 @@ if __name__ == "__main__":
     parser.add_argument('--from_stdin', action='store_true')
 
     parser.add_argument('--joy', action='store_true')
-    parser.add_argument("--connect", default="localhost:5556", help="Publisher address to connect to (host:port). Default localhost:5556")
+    parser.add_argument("--bind", default="0.0.0.0:5556", help="JoyListenerZMQ bind address (host:port). Default 0.0.0.0:5556")
     parser.add_argument("--topic", default="joy", help="Topic to subscribe to (default 'joy')")
     parser.add_argument("--poll-interval", type=float, default=0.01, help="Poll interval seconds (default 0.01)")
     parser.add_argument('--add_remote_exit', action='store_true', help='create a client to the remote exit flag')
@@ -89,10 +89,10 @@ if __name__ == "__main__":
                         return True
     
                 # run with callback and ensure cleanup
-                joy_cmds.run(connect=args.connect, topic=args.topic, poll_interval=args.poll_interval,
+                joy_cmds.run(connect=args.bind, topic=args.topic, poll_interval=args.poll_interval,
                                 callback=safety_callback, callback_arg=safety_flag)
                 safety_flag.close()
             else:
                 # run without safety callback
-                joy_cmds.run(connect=args.connect, topic=args.topic, poll_interval=args.poll_interval,
+                joy_cmds.run(connect=args.bind, topic=args.topic, poll_interval=args.poll_interval,
                              callback=None, callback_arg=None)

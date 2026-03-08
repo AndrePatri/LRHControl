@@ -20,7 +20,11 @@ class AgentRefsFromJoy:
                 verbose = False,
                 agent_refs_world: bool = True,
                 env_idx: int = None,
-                hold_time: float = 0.01):   # <-- new hold_time parameter
+                hold_time: float = 0.01,
+                listener_factory = None,
+                listener_endpoint_mode: str = "bind",
+                fixed_motion_mode: Optional[str] = None,
+                force_omega: bool = False):
         self._env_idx=env_idx
 
         self._verbose = verbose
@@ -64,6 +68,20 @@ class AgentRefsFromJoy:
 
         # hold time for toggles (seconds)
         self.hold_time = float(hold_time)
+        self._listener_factory = listener_factory
+        self._listener_endpoint_mode = str(listener_endpoint_mode).lower().strip()
+        if self._listener_endpoint_mode not in ("connect", "bind"):
+            raise ValueError(
+                f"Unsupported listener_endpoint_mode '{listener_endpoint_mode}'. "
+                "Use 'connect' or 'bind'."
+            )
+        self._fixed_motion_mode = None if fixed_motion_mode is None else str(fixed_motion_mode).lower().strip()
+        if self._fixed_motion_mode not in (None, "linvel", "pos"):
+            raise ValueError(
+                f"Unsupported fixed_motion_mode '{fixed_motion_mode}'. "
+                "Use None, 'linvel', or 'pos'."
+            )
+        self._force_omega = bool(force_omega)
 
         # helper structures to manage press-and-hold toggles
         # keys: "omega", "linvel", "pos"
@@ -137,6 +155,40 @@ class AgentRefsFromJoy:
             self._close()
     
     def _close(self):
+        try:
+            refs_running = (
+                self.agent_refs is not None
+                and getattr(self.agent_refs, "is_running", lambda: False)()
+            )
+            if refs_running:
+                if (
+                    self._env_idx is None
+                    and self.env_index is not None
+                    and getattr(self.env_index, "is_running", lambda: False)()
+                ):
+                    self.env_index.synch_all(read=True, retry=True)
+                    env_index = self.env_index.get_numpy_mirror()
+                    self._env_idx = int(env_index[0, 0].item())
+                if self._env_idx is not None:
+                    self.cluster_idx = int(self._env_idx)
+                    self.cluster_idx_np = np.array(self.cluster_idx)
+                if self.cluster_idx >= 0:
+                    self.agent_refs.rob_refs.root_state.synch_all(read=True, retry=True)
+                    self._current_twist_ref_base[:, :] = 0.0
+                    self.agent_refs.rob_refs.root_state.set(
+                        data_type="twist",
+                        data=self._current_twist_ref_base,
+                        robot_idxs=self.cluster_idx_np,
+                    )
+                    self.agent_refs.rob_refs.root_state.synch_retry(
+                        row_index=self.cluster_idx,
+                        col_index=7,
+                        n_rows=1,
+                        n_cols=6,
+                        read=False,
+                    )
+        except Exception:
+            pass
         
         if self.agent_refs is not None:
             self.agent_refs.close()
@@ -152,13 +204,24 @@ class AgentRefsFromJoy:
             env_index = self.env_index.get_numpy_mirror()
             self._env_idx=env_index[0, 0].item()
         self.cluster_idx = self._env_idx
-        self.cluster_idx_np = self.cluster_idx    
+        self.cluster_idx_np = np.array(self.cluster_idx)
+
+        # Snapshot face buttons to avoid races with async listener updates.
+        try:
+            face = np.array(joy.face, dtype=bool).reshape(-1).copy()
+        except Exception:
+            face = np.zeros(4, dtype=bool)
+        if face.shape[0] < 4:
+            padded = np.zeros(4, dtype=bool)
+            padded[:face.shape[0]] = face
+            face = padded
         
         # Check hold-and-toggle for toggles:
         # face[1] -> omega toggle, face[0] -> linvel toggle, face[2] -> pos toggle
-        self._check_and_toggle("omega", bool(getattr(joy, "face")[1] if hasattr(joy, "face") else False))
-        self._check_and_toggle("linvel", bool(getattr(joy, "face")[0] if hasattr(joy, "face") else False))
-        self._check_and_toggle("pos", bool(getattr(joy, "face")[2] if hasattr(joy, "face") else False))
+        self._check_and_toggle("omega", bool(face[1]))
+        self._check_and_toggle("linvel", bool(face[0]))
+        self._check_and_toggle("pos", bool(face[2]))
+        self._apply_static_mode_policy()
 
         # After managing toggles, update twist/pos using current stable flags & latest joy values
         self._set_omega(joy)    
@@ -471,9 +534,20 @@ class AgentRefsFromJoy:
             # swallow exceptions to keep loop robust
             pass
 
+    def _apply_static_mode_policy(self):
+        if self._force_omega:
+            self.enable_omega = True
+
+        if self._fixed_motion_mode == "linvel":
+            self.enable_linvel = True
+            self.enable_pos = False
+        elif self._fixed_motion_mode == "pos":
+            self.enable_linvel = False
+            self.enable_pos = True
+
     def _write_to_shared_mem(self):
 
-        self.agent_refs.rob_refs.root_state.synch_all(read=True)
+        self.agent_refs.rob_refs.root_state.synch_all(read=True, retry=True)
         self._robot_state.root_state.synch_all(read = True, retry = True) # read robot state        
         
         if self.enable_pos:
@@ -513,19 +587,20 @@ class AgentRefsFromJoy:
         else:
             self._current_twist_ref_base[:, :]=self._current_twist_ref_world.reshape(1, -1)
 
-        if self.enable_linvel:
-            self.agent_refs.rob_refs.root_state.set(data_type="linvel",data=self._current_twist_ref_base[:, 0:3],
-                                        robot_idxs=self.cluster_idx_np)
-            self.agent_refs.rob_refs.root_state.synch_retry(row_index=self.cluster_idx, col_index=7, 
-                                        n_rows=1, n_cols=3,
-                                        read=False)
-        
-        if self.enable_omega:
-            self.agent_refs.rob_refs.root_state.set(data_type="omega",data=self._current_twist_ref_base[:, 3:6],
-                                        robot_idxs=self.cluster_idx_np)
-            self.agent_refs.rob_refs.root_state.synch_retry(row_index=self.cluster_idx, col_index=10, 
-                                        n_rows=1, n_cols=3,
-                                        read=False)
+        # Write the full twist atomically to avoid partial updates and lock contention
+        # between separate linvel/omega writes.
+        self.agent_refs.rob_refs.root_state.set(
+            data_type="twist",
+            data=np.ascontiguousarray(self._current_twist_ref_base),
+            robot_idxs=self.cluster_idx_np,
+        )
+        self.agent_refs.rob_refs.root_state.synch_retry(
+            row_index=self.cluster_idx,
+            col_index=7,
+            n_rows=1,
+            n_cols=6,
+            read=False,
+        )
             
     # def run(self, connect, topic, poll_interval ):
 
@@ -582,9 +657,17 @@ class AgentRefsFromJoy:
             # agent_refs may already be running or fail; continue
             pass
         
-        from mpc_hive.utilities.joy.joy_zmq_listener import JoyListenerZMQ
+        listener_factory = self._listener_factory
+        if listener_factory is None:
+            from mpc_hive.utilities.joy.joy_zmq_listener import JoyListenerZMQ
+            listener_factory = JoyListenerZMQ
 
-        joy_listener=JoyListenerZMQ(connect=connect, topic=topic, poll_interval=poll_interval, on_message=None)
+        listener_kwargs = {"topic": topic, "poll_interval": poll_interval}
+        if self._listener_endpoint_mode == "bind":
+            listener_kwargs["bind"] = connect
+        else:
+            listener_kwargs["connect"] = connect
+        joy_listener = listener_factory(**listener_kwargs)
         joy_listener.start()
 
         try:
@@ -612,4 +695,3 @@ class AgentRefsFromJoy:
                 self._close()
             except Exception:
                 pass
-

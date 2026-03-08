@@ -42,6 +42,18 @@ class QfVal(SharedTWrapper):
             with_gpu_mirror=False,
             with_torch_view=True)
 
+    def get_shared_mem(self):
+
+        return [super().get_shared_mem()]
+
+    def get_shm_type(self):
+
+        return ["numeric"]
+
+    def get_shm_sliceable(self):
+
+        return [True]
+
 class QfTrgt(SharedTWrapper):
                  
     def __init__(self,
@@ -68,6 +80,18 @@ class QfTrgt(SharedTWrapper):
             force_reconnection=force_reconnection,
             with_gpu_mirror=False,
             with_torch_view=True)
+
+    def get_shared_mem(self):
+
+        return [super().get_shared_mem()]
+
+    def get_shm_type(self):
+
+        return ["numeric"]
+
+    def get_shm_sliceable(self):
+
+        return [True]
         
 class RLAlgorithmDebData(SharedTWrapper):
                  
@@ -198,6 +222,11 @@ class SharedRLAlgorithmInfo(SharedDataBase):
 
         return [self.shared_data.get_shared_mem(),
             self.shared_datanames.get_shared_mem()]
+
+    def get_shm_type(self):
+
+        # Data tensor + names tensor.
+        return ["numeric", "str_list"]
 
     def get_shm_sliceable(self):
 

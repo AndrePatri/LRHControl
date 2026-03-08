@@ -5,7 +5,7 @@ from EigenIPC.PyEigenIPC import dtype as eigenipc_dtype, toNumpyDType
 from EigenIPC.PyEigenIPC import Journal
 from EigenIPC.PyEigenIPC import LogType
 
-from mpc_hive.utilities.shared_data.abstractions import SharedDataBase, infer_shm_type
+from mpc_hive.utilities.shared_data.abstractions import SharedDataBase, infer_shm_type, flatten_shared_mem
 
 from typing import Dict, Union, List
 import numpy as np
@@ -183,8 +183,21 @@ class NamedSharedTWrapper(SharedTWrapper):
 
     def get_shm_type(self):
 
-        return [infer_shm_type(self.get_shared_mem())]
+        shared_mems = flatten_shared_mem(self.get_shared_mem())
+
+        return [infer_shm_type(shared_mem) for shared_mem in shared_mems]
 
     def get_shm_sliceable(self):
 
-        return [True]
+        shm_types = self.get_shm_type()
+
+        return [shm_type == "numeric" for shm_type in shm_types]
+
+    def get_shared_mem(self):
+
+        shared_mems = []
+        shared_mems.extend(flatten_shared_mem(super().get_shared_mem()))
+        shared_mems.extend(flatten_shared_mem(self._col_names_shared.get_shared_mem()))
+        shared_mems.extend(flatten_shared_mem(self._row_names_shared.get_shared_mem()))
+
+        return shared_mems

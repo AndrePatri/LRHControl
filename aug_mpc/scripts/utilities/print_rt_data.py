@@ -5,6 +5,7 @@ from aug_mpc.utils.shared_data.training_env import Actions
 from aug_mpc.utils.shared_data.training_env import Terminations, SubTerminations
 from aug_mpc.utils.shared_data.training_env import Truncations, SubTruncations
 from aug_mpc.utils.shared_data.training_env import EpisodesCounter, TaskRandCounter, SafetyRandResetsCounter
+from aug_mpc.utils.shared_data.agent_refs import AgentRefs
 
 from mpc_hive.utilities.shared_data.rhc_data import RobotState, RhcRefs
 
@@ -45,6 +46,8 @@ if __name__ == "__main__":
     parser.add_argument('--with_rew', action="store_true", help='')
     parser.add_argument('--with_tr', action="store_true", help='')
     parser.add_argument('--print_heightmap', action="store_true", help='Print heightmap data from RobotState')
+    parser.add_argument('--with_rhc_refs', action="store_true", help='')
+
 
     args = parser.parse_args()
 
@@ -69,7 +72,8 @@ if __name__ == "__main__":
                     enable_height_sensor=args.print_heightmap)
         robot_state.run()
     
-    if args.mpc_finfo:
+    rhc_refs = None
+    if args.with_rhc_refs:
         rhc_refs=RhcRefs(namespace=namespace,
                     is_server=False,
                     with_gpu_mirror=False, 
@@ -109,6 +113,14 @@ if __name__ == "__main__":
                     with_gpu_mirror=False,dtype=dtype)
         act.run()
         act_names=act.col_names()
+        agent_refs = AgentRefs(namespace=namespace,
+                    is_server=False,
+                    safe=False,
+                    verbose=True,
+                    vlevel=VLevel.V2,
+                    with_gpu_mirror=False,
+                    with_torch_view=False)
+        agent_refs.run()
     if args.with_rew:
         rew = TotRewards(namespace=namespace,is_server=False,verbose=True, 
                 vlevel=VLevel.V2,safe=False,
@@ -204,10 +216,17 @@ if __name__ == "__main__":
                 robot_state.synch_from_shared_mem()
                 if args.robot_state:
                     p=robot_state.root_state.get(data_type="p")[idx:idx+env_range, :]
-                    v=robot_state.root_state.get(data_type="v")[idx:idx+env_range, :]
+                    q=robot_state.root_state.get(data_type="q")[idx:idx+env_range, :]
+                    twist=robot_state.root_state.get(data_type="twist")[idx:idx+env_range, :]
                     gn=robot_state.root_state.get(data_type="gn")[idx:idx+env_range, :]
                 if args.print_heightmap:
                     robot_state.height_sensor.synch_all(read=True, retry=True)
+
+            if args.with_rhc_refs:
+                rhc_refs.rob_refs.synch_from_shared_mem()
+                p_ref=rhc_refs.rob_refs.root_state.get(data_type="p")[idx:idx+env_range, :]
+                q_ref=rhc_refs.rob_refs.root_state.get(data_type="q")[idx:idx+env_range, :]
+                twist_ref=rhc_refs.rob_refs.root_state.get(data_type="twist")[idx:idx+env_range, :] 
 
             if args.mpc_finfo:
                 rhc_refs.flight_info.synch_all(read=True, retry=True)
@@ -228,9 +247,10 @@ if __name__ == "__main__":
 
             if args.with_obs:
                 obs.synch_all(read=True, retry=True)
-            # next_obs.synch_all(read=True, retry=True)
+            # next_obs.synch_all(read=True, retry=True)                
             if args.with_actions:
                 act.synch_all(read=True, retry=True)
+                agent_refs.rob_refs.synch_from_shared_mem()
             if args.with_rew:
                 rew.synch_all(read=True, retry=True)
                 if args.with_sub_r:
@@ -251,11 +271,22 @@ if __name__ == "__main__":
                 print("\n robot state:")
                 print("\n p:")
                 print(p)
-                print("\n v:")
-                print(v)
+                print("\n q:")
+                print(q)
+                print("\n twist:")
+                print(twist)
                 print("\n gn:")
                 print(gn)
 
+            if args.with_rhc_refs:
+                print("\n MPC refs:")
+                print("\n p:")
+                print(p_ref)
+                print("\n q:")
+                print(q_ref)
+                print("\n twist:")
+                print(twist_ref)
+                
             if args.print_heightmap:
                 h_raw = robot_state.height_sensor.get(gpu=False)
                 gs = robot_state.height_sensor.grid_shape()[0]
@@ -303,6 +334,13 @@ if __name__ == "__main__":
                 print("\nactions:")
                 print(act_names, sep = ", ")
                 print(act.get_torch_mirror(gpu=False)[idx:idx+env_range, :])
+                print("\nagent refs (root state):")
+                print("\n p:")
+                print(agent_refs.rob_refs.root_state.get(data_type="p")[idx:idx+env_range, :])
+                print("\n q:")
+                print(agent_refs.rob_refs.root_state.get(data_type="q")[idx:idx+env_range, :])
+                print("\n twist:")
+                print(agent_refs.rob_refs.root_state.get(data_type="twist")[idx:idx+env_range, :])
             if args.with_rew:
                 print("\nrewards:")
                 print(rew.get_torch_mirror(gpu=False)[idx:idx+env_range, :])
