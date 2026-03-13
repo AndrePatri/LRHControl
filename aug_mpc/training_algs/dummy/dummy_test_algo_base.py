@@ -1,5 +1,6 @@
 from aug_mpc.utils.shared_data.algo_infos import SharedRLAlgorithmInfo, QfVal, QfTrgt
 from aug_mpc.utils.shared_data.training_env import SubReturns, TotReturns
+from aug_mpc.utils.model_bundle import write_bundle_manifest
 
 from aug_mpc.agents.dummies.dummy import DummyAgent
 
@@ -320,6 +321,11 @@ class DummyTestAlgoBase(ABC):
         aux_dirs = self._env.get_aux_dir()
         for aux_dir in aux_dirs:
             shutil.copytree(aux_dir, aux_drop_dir, dirs_exist_ok=True)
+
+        write_bundle_manifest(
+            bundle_dir=self._drop_dir,
+            checkpoint_file=os.path.basename(self._model_path),
+        )
 
     def _post_step(self):
                 
