@@ -273,10 +273,10 @@ class AgentRefsFromKeyboard:
         current_twist_ref[0] = self._v_magnitude*np.cos(self._heading)
         current_twist_ref[1] = self._v_magnitude*np.sin(self._heading)
 
-        current_twist_ref[2]=np.clip(current_twist_ref[2], a_min=0.0, a_max=self._max_vz_magn)
-        current_twist_ref[3]=np.clip(current_twist_ref[3], a_min=0.0, a_max=self._max_roll_rate)
-        current_twist_ref[4]=np.clip(current_twist_ref[4], a_min=0.0, a_max=self._max_pitch_rate)
-        current_twist_ref[5]=np.clip(current_twist_ref[5], a_min=0.0, a_max=self._max_yaw_rate)
+        current_twist_ref[2]=np.clip(current_twist_ref[2], a_min=-self._max_vz_magn, a_max=self._max_vz_magn)
+        current_twist_ref[3]=np.clip(current_twist_ref[3], a_min=-self._max_roll_rate, a_max=self._max_roll_rate)
+        current_twist_ref[4]=np.clip(current_twist_ref[4], a_min=-self._max_pitch_rate, a_max=self._max_pitch_rate)
+        current_twist_ref[5]=np.clip(current_twist_ref[5], a_min=-self._max_yaw_rate, a_max=self._max_yaw_rate)
 
     def _update_pos(self, 
         nav_type: str = "",
