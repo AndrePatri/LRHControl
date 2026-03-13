@@ -93,4 +93,18 @@ The preferred way to install MPCHive is through [ibrido-containers](https://gith
 3. **New training environment** – 
 4. **New agent/algorithm** – 
 
-## Citing our work (TBD)
+## Citing our work
+
+If you use AugMPC in your research, please cite:
+
+```bibtex
+@misc{patrizi2026rlaugmentedmpcnongaitedlegged,
+      title={RL-Augmented MPC for Non-Gaited Legged and Hybrid Locomotion},
+      author={Andrea Patrizi and Carlo Rizzardo and Arturo Laurenzi and Francesco Ruscelli and Luca Rossini and Nikos G. Tsagarakis},
+      year={2026},
+      eprint={2603.10878},
+      archivePrefix={arXiv},
+      primaryClass={cs.RO},
+      url={https://arxiv.org/abs/2603.10878},
+}
+```
