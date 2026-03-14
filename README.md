@@ -86,12 +86,8 @@ aug_mpc/
 
 The preferred way to install MPCHive is through [ibrido-containers](https://github.com/AndrePatri/ibrido-containers), which ships with all necessary dependencies.
 
-## Extending AugMPC (TBD)
-
-1. **New controller** – 
-2. **New world interface** – 
-3. **New training environment** – 
-4. **New agent/algorithm** – 
+## Public models and training runs
+Public demo models are made available at [AugMPCModels](https://huggingface.co/AndrePatri/AugMPCModels). The associated runs associated can be found [here](https://wandb.ai/andrepatriteam/AugMPCModels?nw=nwuserandrepatri).
 
 ## Citing our work
 
@@ -108,3 +104,10 @@ If you use AugMPC in your research, please cite:
       url={https://arxiv.org/abs/2603.10878},
 }
 ```
+
+## Extending AugMPC (TBD)
+
+1. **New controller** – 
+2. **New world interface** – 
+3. **New training environment** – 
+4. **New agent/algorithm** – 
