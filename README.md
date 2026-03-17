@@ -105,6 +105,8 @@ If you use AugMPC in your research, please cite:
 }
 ```
 
+Paper video available [here](https://www.youtube.com/watch?v=I08UywVVhN4).
+
 ## Extending AugMPC (TBD)
 
 1. **New controller** – 
