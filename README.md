@@ -108,7 +108,7 @@ If you use AugMPC in your research, please cite:
 
 Paper video available [here](https://www.youtube.com/watch?v=I08UywVVhN4).
 
-Preprint [here](https://arxiv.org/abs/2603.10878)
+Preprint [here](https://arxiv.org/abs/2603.10878). 
 
 ## Extending AugMPC (TBD)
 
