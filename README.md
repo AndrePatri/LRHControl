@@ -84,7 +84,7 @@ aug_mpc/
 
 ## Installation
 
-The preferred way to install MPCHive is through [ibrido-containers](https://github.com/AndrePatri/ibrido-containers), which ships with all necessary dependencies.
+The preferred way to install AugMPC is through [ibrido-containers](https://github.com/AndrePatri/ibrido-containers), which ships with all necessary dependencies.
 
 ## Public models and training runs
 Public demo models are made available at [AugMPCModels](https://huggingface.co/AndrePatri/AugMPCModels). The associated runs associated can be found [here](https://wandb.ai/andrepatriteam/AugMPCModels?nw=nwuserandrepatri).
