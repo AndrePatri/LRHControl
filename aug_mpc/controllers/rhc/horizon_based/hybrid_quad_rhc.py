@@ -87,7 +87,8 @@ class HybridQuadRhc(RHController):
             "alpha_from_outside": False, # alpha set ext. from shared memory
             "alpha_half": 1.0, 
             "only_vel_wheels": True, # whether wheels (if present) are just vel controlled
-            "use_jnt_v_feedback": False
+            "use_jnt_v_feedback": False,
+            "initial_force_load_divisor": 4.0
             }
         
         self._custom_opts.update(custom_opts)
@@ -298,7 +299,7 @@ class HybridQuadRhc(RHController):
         # ok just for v, eff, etc..)
         self._wheel_patterns=wheels_patterns
         self._wheels_idxs_v=self._get_wheels_jnt_v_idxs(wheel_patterns=self._wheel_patterns)
-        self._f0 = [0, 0, self._kin_dyn.mass()/4*9.81]
+        self._f0 = self._initial_contact_force_guess()
         
         # we can create an init for the base
         init = self._base_init.tolist() + jnt_homing
@@ -726,6 +727,16 @@ class HybridQuadRhc(RHController):
         #         print(c.getInitialGuess())
         
         return xig, uig
+
+    def _initial_contact_force_guess(self):
+        load_divisor = float(self._custom_opts["initial_force_load_divisor"])
+        if load_divisor <= 0.0:
+            Journal.log(self.__class__.__name__,
+                "_initial_contact_force_guess",
+                f"initial_force_load_divisor must be positive, got {load_divisor}",
+                LogType.EXCEP,
+                throw_when_excep=True)
+        return [0.0, 0.0, self._kin_dyn.mass() / load_divisor * 9.81]
     
     def _set_ig(self):
 
