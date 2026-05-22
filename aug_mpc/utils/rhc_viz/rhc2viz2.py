@@ -89,4 +89,7 @@ class RhcToViz2Bridge(RhcToVizBridgeBase):
         
     def close(self):
         super().close()
-        self.node.destroy_node()
+        node = getattr(self, "node", None)
+        if node is not None:
+            node.destroy_node()
+            self.node = None

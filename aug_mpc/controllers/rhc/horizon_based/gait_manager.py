@@ -136,7 +136,7 @@ class GaitManager:
                 force_reg=self.task_interface.prb.createResidual(f'{contact}_force_reg_f{i}', self._phase_force_reg * (force - f_ref), 
                     nodes=[])
                 self._f_reg_ref[contact].append(f_ref)
-                self.set_f_reg(contact_name=contact, scale=4)                
+                self.set_f_reg(contact_name=contact)
                 self._contact_phases[contact].addCost(force_reg, nodes=list(range(0, short_stance_duration)))
                 i+=1
             
@@ -290,7 +290,9 @@ class GaitManager:
     
     def set_f_reg(self, 
         contact_name,
-        scale: float = 4.0):
+        scale: float = None):
+        if scale is None:
+            scale = self.n_contacts
         f_refs=self._f_reg_ref[contact_name]
         for force in f_refs:
             ref=self._total_weight/(scale*len(f_refs))

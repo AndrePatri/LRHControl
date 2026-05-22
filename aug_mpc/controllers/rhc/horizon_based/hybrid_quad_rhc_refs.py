@@ -169,12 +169,11 @@ class HybridQuadRhcRefs(RhcRefs):
         #                         col_index=0)[0]
         
         contact_flags_refs = self.contact_flags.get_numpy_mirror()[self.robot_index_np_view, :]
-        target_n_limbs_in_contact=np.sum(contact_flags_refs).item()
-        if target_n_limbs_in_contact==0:
-            target_n_limbs_in_contact=4
-
         is_contact = contact_flags_refs.flatten().tolist() 
         n_contacts=len(is_contact)
+        target_n_limbs_in_contact=np.sum(contact_flags_refs).item()
+        if target_n_limbs_in_contact==0:
+            target_n_limbs_in_contact=n_contacts
 
         for i in range(n_contacts): # loop through contact timelines
             timeline_name = self.timeline_names[i]
@@ -378,4 +377,3 @@ class HybridQuadRhcRefs(RhcRefs):
                 exception,
                 LogType.EXCEP,
                 throw_when_excep = True)
-
