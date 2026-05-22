@@ -56,7 +56,9 @@ class RhcToVizBridgeBase(ABC):
             install_sighandler: bool = False,
             with_rhc_internal_data: bool = True,
             show_heightmap: bool = False):
-            
+
+        self._closed = False
+
         self._with_rhc_internal_data = with_rhc_internal_data
         
         self._install_sighandler=install_sighandler
@@ -102,6 +104,7 @@ class RhcToVizBridgeBase(ABC):
         self.rhc_internal_clients = None
         self.robot_state = None
         self.rhc_refs = None
+        self.rhc_cmds = None
         self.agent_refs = None
         self._sim_data = None
         self.heightmap_pub = None
@@ -115,7 +118,6 @@ class RhcToVizBridgeBase(ABC):
         self._missing_homing=None
         
         self._is_running = False
-        self._closed=False
 
         self._safety_abort_walldt=abort_wallmin # [min]. If using stime, abort
         # if it hasn't changed in the last _safety_abort_walldt minutes
@@ -490,16 +492,16 @@ class RhcToVizBridgeBase(ABC):
 
     def close(self):
 
-        if not self._closed:
-            if not self.rhc_internal_clients is None:
+        if not getattr(self, "_closed", True):
+            if not getattr(self, "rhc_internal_clients", None) is None:
                 for i in range(len(self.rhc_internal_clients)):
                     if self.rhc_internal_clients[i] is not None:
                         self.rhc_internal_clients[i].close() # closes servers
-            if not self.robot_state is None:
+            if not getattr(self, "robot_state", None) is None:
                 self.robot_state.close()
-            if not self.rhc_refs is None:
+            if not getattr(self, "rhc_refs", None) is None:
                 self.rhc_refs.close()
-            if not self.rhc_cmds is None:
+            if not getattr(self, "rhc_cmds", None) is None:
                 self.rhc_cmds.close()
 
             # rclpy.shutdown()
