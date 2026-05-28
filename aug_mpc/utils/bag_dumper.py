@@ -5,6 +5,7 @@ from EigenIPC.PyEigenIPC import VLevel
 from EigenIPC.PyEigenIPC import LogType
 from EigenIPC.PyEigenIPC import Journal
 from EigenIPC.PyEigenIPC import dtype
+from mpc_hive.utilities.timing import high_resolution_sleep_ns
 
 class RosBagDumper():
 
@@ -251,7 +252,6 @@ class RosBagDumper():
 
         # using a shared drop dir if enabled
         from EigenIPC.PyEigenIPC import StringTensorClient
-        from perf_sleep.pyperfsleep import PerfSleep
 
         if use_shared_drop_dir:
             shared_drop_dir=StringTensorClient(basename="SharedTrainingDropDir", 
@@ -262,7 +262,7 @@ class RosBagDumper():
             shared_drop_dir_val=[""]*shared_drop_dir.length()
             while not shared_drop_dir.read_vec(shared_drop_dir_val, 0):
                 ns=1000000000
-                PerfSleep.thread_sleep(ns)
+                high_resolution_sleep_ns(ns)
                 continue
             dump_path=shared_drop_dir_val[0] # overwrite
 

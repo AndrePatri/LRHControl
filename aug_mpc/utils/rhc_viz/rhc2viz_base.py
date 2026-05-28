@@ -21,11 +21,11 @@ from EigenIPC.PyEigenIPCExt.wrappers.shared_data_view import SharedTWrapper
 from EigenIPC.PyEigenIPC import VLevel
 from EigenIPC.PyEigenIPC import LogType
 from EigenIPC.PyEigenIPC import Journal
+from mpc_hive.utilities.timing import high_resolution_sleep_ns
 
 from typing import List
 
-from perf_sleep.pyperfsleep import PerfSleep
-import time 
+import time
 
 from std_msgs.msg import Float64MultiArray
 from std_msgs.msg import String
@@ -450,7 +450,7 @@ class RhcToVizBridgeBase(ABC):
                 LogType.WARN,
                 throw_when_excep = True)
         else:
-            PerfSleep.thread_sleep(self._time_to_sleep_ns) 
+            high_resolution_sleep_ns(self._time_to_sleep_ns)
             
         return True
 

@@ -11,8 +11,8 @@ from mpc_hive.utilities.shared_data.rhc_data import RobotState, RhcRefs
 
 from mpc_hive.utilities.shared_data.sim_data import SharedEnvInfo
 
-import time 
-from perf_sleep.pyperfsleep import PerfSleep
+import time
+from mpc_hive.utilities.timing import high_resolution_sleep_ns
 
 from EigenIPC.PyEigenIPC import VLevel
 from EigenIPC.PyEigenIPC import LogType
@@ -385,7 +385,7 @@ if __name__ == "__main__":
                     LogType.WARN,
                     throw_when_excep = True)
             else:
-                PerfSleep.thread_sleep(time_to_sleep_ns) 
+                high_resolution_sleep_ns(time_to_sleep_ns)
             elapsed_tot_nom+=update_dt
             if elapsed_tot_nom>=run_for:
                 break

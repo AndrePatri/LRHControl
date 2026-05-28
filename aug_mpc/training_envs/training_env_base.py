@@ -35,8 +35,7 @@ from EigenIPC.PyEigenIPC import VLevel
 from EigenIPC.PyEigenIPC import LogType
 from EigenIPC.PyEigenIPC import Journal
 from EigenIPC.PyEigenIPC import StringTensorClient
-
-from perf_sleep.pyperfsleep import PerfSleep
+from mpc_hive.utilities.timing import high_resolution_sleep_ns
 
 from abc import abstractmethod, ABC
 
@@ -367,7 +366,6 @@ class AugMPCTrainingEnvBase(ABC):
 
         # rhc files
         from EigenIPC.PyEigenIPC import StringTensorClient
-        from perf_sleep.pyperfsleep import PerfSleep
         shared_rhc_shared_files = StringTensorClient(
             basename="SharedRhcFilesDropDir", 
             name_space=self._namespace,
@@ -377,7 +375,7 @@ class AugMPCTrainingEnvBase(ABC):
         shared_rhc_files_vals=[""]*shared_rhc_shared_files.length()
         while not shared_rhc_shared_files.read_vec(shared_rhc_files_vals, 0):
             nsecs =  1000000000 # 1 sec
-            PerfSleep.thread_sleep(nsecs) # we just keep it alive
+            high_resolution_sleep_ns(nsecs) # we just keep it alive
         rhc_list=[]
         for rhc_files in shared_rhc_files_vals:
             file_list = rhc_files.split(", ")
@@ -401,7 +399,7 @@ class AugMPCTrainingEnvBase(ABC):
         world_iface_vals=[""]*shared_world_iface_files.length()
         while not shared_world_iface_files.read_vec(world_iface_vals, 0):
             nsecs =  1000000000 # 1 sec
-            PerfSleep.thread_sleep(nsecs) # keep alive while waiting
+            high_resolution_sleep_ns(nsecs) # keep alive while waiting
         shared_world_iface_files.close()
         for files in world_iface_vals:
             if files == "":
@@ -1817,7 +1815,7 @@ class AugMPCTrainingEnvBase(ABC):
                     LogType.WARN,
                     throw_when_excep = False)
                 nsecs = int(2 * 1000000000)
-                PerfSleep.thread_sleep(nsecs) 
+                high_resolution_sleep_ns(nsecs)
                 self._rhc_status.controllers_counter.synch_all(read=True, retry=True)
                 n_connected_controllers = self._rhc_status.controllers_counter.get_torch_mirror()[0, 0].item()
             info = f"All {n_connected_controllers} controllers connected!"

@@ -5,10 +5,9 @@ from mpc_hive.utilities.shared_data.cluster_data import SharedClusterInfo
 
 from EigenIPC.PyEigenIPC import VLevel, Journal, LogType
 from EigenIPC.PyEigenIPC import StringTensorServer
+from mpc_hive.utilities.timing import high_resolution_sleep_ns
 
 import os, argparse, sys, types, inspect
-
-from perf_sleep.pyperfsleep import PerfSleep
 
 import importlib.util
 import torch
@@ -113,6 +112,8 @@ if __name__ == "__main__":
     parser.add_argument('--ns', type=str, help='Namespace to be used for shared memory')
     parser.add_argument('--timeout_ms', type=int, help='Connection timeout after which the script self-terminates', default=60000)
     parser.add_argument('--drop_dir', type=str, help='Directory root where all run data will be dumped')
+    parser.add_argument('--run_meta_dir', type=str, default=None,
+        help='Resolved IBRIDO run metadata directory to copy into the training/eval run bundle')
     parser.add_argument('--comment', type=str, help='Any useful comment associated with this run', default="")
     parser.add_argument('--seed', type=int, help='Seed', default=1)
     parser.add_argument('--use_cpu',action='store_true', help='If set, all the training (data included) will be performed on CPU')
@@ -176,6 +177,8 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     args_dict = vars(args)
+    if args.run_meta_dir:
+        os.environ["IBRIDO_RUN_META_DIR"] = args.run_meta_dir
 
     if args.eval and args.resume:
         Journal.log("launch_train_env.py",
@@ -326,7 +329,7 @@ if __name__ == "__main__":
     while True:
         if not shared_drop_dir.write_vec([full_drop_dir], 0):
             ns=1000000000
-            PerfSleep.thread_sleep(ns)
+            high_resolution_sleep_ns(ns)
             continue
         else:
             break
