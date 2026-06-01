@@ -1,5 +1,8 @@
 import time
 
+_MIN_ELAPSED_TIME = 1e-12
+
+
 class RtFactor():
 
     def __init__(self,
@@ -7,7 +10,7 @@ class RtFactor():
             window_size: int):
 
         self._it_counter = 0
-        
+
         self._dt_nom = dt_nom
 
         self._start_time = time.perf_counter()
@@ -16,12 +19,13 @@ class RtFactor():
 
         self._window_size = window_size
 
-        self._real_time = 0
-        self._nom_time = 0
+        self._real_time = 0.0
+        self._nom_time = 0.0
 
     def update(self):
 
-        self._real_time = time.perf_counter() - self._start_time
+        self._real_time = max(time.perf_counter() - self._start_time,
+                              _MIN_ELAPSED_TIME)
 
         self._it_counter += 1
 
@@ -32,25 +36,33 @@ class RtFactor():
     def reset_due(self):
 
         return (self._it_counter+1) % self._window_size == 0
-    
+
     def get_avrg_step_time(self):
 
+        if self._window_size <= 0:
+
+            return 0.0
+
         return self._real_time / self._window_size
-    
+
     def get_dt_nom(self):
 
         return self._dt_nom
-    
+
     def get_nom_time(self):
 
-        return self._now_time
+        return self._nom_time
 
     def get(self):
 
         return self._current_rt_factor
-    
+
     def reset(self):
 
         self._it_counter = 0
-        self._nom_time = 0
+
+        self._nom_time = 0.0
+
+        self._real_time = 0.0
+
         self._start_time = time.perf_counter()
