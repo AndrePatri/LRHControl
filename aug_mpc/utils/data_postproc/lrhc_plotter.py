@@ -22,11 +22,11 @@ colors = [
 ]
 custom_cmap = LinearSegmentedColormap.from_list("custom_cmap", colors, N=256)
 
-class LRHCPlotter:
+class AugMPCRunPlotter:
     def __init__(self, hdf5_file_path, verbose: bool = True, env_db: bool = False,
         recompute_mean: bool = False):
         """
-        Initialize the LRHCPlotter with the path to the HDF5 file.
+        Initialize the AugMPCRunPlotter with the path to the HDF5 file.
         
         Args:
             hdf5_file_path (str): Path to the HDF5 file.
@@ -994,7 +994,7 @@ class LRHCMultiRunPlotter():
             dataset=self._hdf5_files[i]
             print("########################")
             print(f"Run {self._rnames[i]} ->")
-            self._single_run_plotters.append(LRHCPlotter(hdf5_file_path=dataset, verbose=True, recompute_mean=recompute_mean))
+            self._single_run_plotters.append(AugMPCRunPlotter(hdf5_file_path=dataset, verbose=True, recompute_mean=recompute_mean))
             self._single_run_datasets.append(self._single_run_plotters[i].list_datasets())
             self._single_run_plotters[i].load_attributes()
             self._single_run_plotters[i].load_data(dataset_names=self._single_run_datasets[i])
@@ -1643,7 +1643,7 @@ if __name__ == "__main__":
             
         else:
             # load training data
-            plotter = LRHCPlotter(hdf5_file_path=path,
+            plotter = AugMPCRunPlotter(hdf5_file_path=path,
                                 recompute_mean=args.recompute_mean)
         
         xlabel=xaxis_dataset_name
@@ -2571,7 +2571,7 @@ if __name__ == "__main__":
             dset_suffix="_demo"
 
         # load env db data
-        plotter = LRHCPlotter(hdf5_file_path=path, env_db=args.env_db)
+        plotter = AugMPCRunPlotter(hdf5_file_path=path, env_db=args.env_db)
         datasets = plotter.list_datasets()
         attributes = plotter.list_attributes()
         plotter.load_data(dataset_names=datasets, env_idx=args.env_idx)

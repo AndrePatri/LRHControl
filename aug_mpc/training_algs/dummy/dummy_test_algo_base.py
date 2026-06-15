@@ -1,6 +1,7 @@
 from aug_mpc.utils.shared_data.algo_infos import SharedRLAlgorithmInfo, QfVal, QfTrgt
 from aug_mpc.utils.shared_data.training_env import SubReturns, TotReturns
 from aug_mpc.utils.model_bundle import write_bundle_manifest
+from aug_mpc.utils.hdf5 import create_dataset as hdf5_create_dataset
 
 from aug_mpc.agents.dummies.dummy import DummyAgent
 
@@ -240,7 +241,7 @@ class DummyTestAlgoBase(ABC):
             throw_when_excep = True)
         
         with h5py.File(self._dbinfo_drop_fname+".hdf5", 'w') as hf:
-            # hf.create_dataset('numpy_data', data=numpy_data)
+            # hdf5_create_dataset(hf, 'numpy_data', data=numpy_data)
             # Write dictionaries to HDF5 as attributes
             for key, value in self._hyperparameters.items():
                 if value is None:
@@ -248,30 +249,30 @@ class DummyTestAlgoBase(ABC):
                 hf.attrs[key] = value
             
             # rewards
-            hf.create_dataset('sub_reward_names', data=self._reward_names, 
+            hdf5_create_dataset(hf, 'sub_reward_names', data=self._reward_names,
                 dtype='S20') 
             
-            hf.create_dataset('sub_rew_max', data=self._sub_rew_max.numpy())
-            hf.create_dataset('sub_rew_avrg', data=self._sub_rew_avrg.numpy())
-            hf.create_dataset('sub_rew_min', data=self._sub_rew_min.numpy())
-            hf.create_dataset('sub_rew_max_over_envs', data=self._sub_rew_max_over_envs.numpy())
-            hf.create_dataset('sub_rew_avrg_over_envs', data=self._sub_rew_avrg_over_envs.numpy())
-            hf.create_dataset('sub_rew_min_over_envs', data=self._sub_rew_min_over_envs.numpy())
+            hdf5_create_dataset(hf, 'sub_rew_max', data=self._sub_rew_max.numpy())
+            hdf5_create_dataset(hf, 'sub_rew_avrg', data=self._sub_rew_avrg.numpy())
+            hdf5_create_dataset(hf, 'sub_rew_min', data=self._sub_rew_min.numpy())
+            hdf5_create_dataset(hf, 'sub_rew_max_over_envs', data=self._sub_rew_max_over_envs.numpy())
+            hdf5_create_dataset(hf, 'sub_rew_avrg_over_envs', data=self._sub_rew_avrg_over_envs.numpy())
+            hdf5_create_dataset(hf, 'sub_rew_min_over_envs', data=self._sub_rew_min_over_envs.numpy())
 
-            hf.create_dataset('tot_rew_max', data=self._tot_rew_max.numpy())
-            hf.create_dataset('tot_rew_avrg', data=self._tot_rew_avrg.numpy())
-            hf.create_dataset('tot_rew_min', data=self._tot_rew_min.numpy())
-            hf.create_dataset('tot_rew_max_over_envs', data=self._tot_rew_max_over_envs.numpy())
-            hf.create_dataset('tot_rew_avrg_over_envs', data=self._tot_rew_avrg_over_envs.numpy())
-            hf.create_dataset('tot_rew_min_over_envs', data=self._tot_rew_min_over_envs.numpy())
+            hdf5_create_dataset(hf, 'tot_rew_max', data=self._tot_rew_max.numpy())
+            hdf5_create_dataset(hf, 'tot_rew_avrg', data=self._tot_rew_avrg.numpy())
+            hdf5_create_dataset(hf, 'tot_rew_min', data=self._tot_rew_min.numpy())
+            hdf5_create_dataset(hf, 'tot_rew_max_over_envs', data=self._tot_rew_max_over_envs.numpy())
+            hdf5_create_dataset(hf, 'tot_rew_avrg_over_envs', data=self._tot_rew_avrg_over_envs.numpy())
+            hdf5_create_dataset(hf, 'tot_rew_min_over_envs', data=self._tot_rew_min_over_envs.numpy())
 
             # profiling data
-            hf.create_dataset('env_step_fps', data=self._env_step_fps.numpy())
-            hf.create_dataset('env_step_rt_factor', data=self._env_step_rt_factor.numpy())
-            hf.create_dataset('n_of_played_episodes', data=self._n_of_played_episodes.numpy())
-            hf.create_dataset('n_timesteps_done', data=self._n_timesteps_done.numpy())
+            hdf5_create_dataset(hf, 'env_step_fps', data=self._env_step_fps.numpy())
+            hdf5_create_dataset(hf, 'env_step_rt_factor', data=self._env_step_rt_factor.numpy())
+            hdf5_create_dataset(hf, 'n_of_played_episodes', data=self._n_of_played_episodes.numpy())
+            hdf5_create_dataset(hf, 'n_timesteps_done', data=self._n_timesteps_done.numpy())
 
-            hf.create_dataset('elapsed_min', data=self._elapsed_min.numpy())            
+            hdf5_create_dataset(hf, 'elapsed_min', data=self._elapsed_min.numpy())
 
             # dump all custom env data
             db_data_names = list(self._env.custom_db_data.keys())
@@ -280,7 +281,7 @@ class DummyTestAlgoBase(ABC):
                 subnames = list(data.keys())
                 for subname in subnames:
                     var_name = db_dname + "_" + subname
-                    hf.create_dataset(var_name, data=data[subname])
+                    hdf5_create_dataset(hf, var_name, data=data[subname])
         
         info = f"done."
         Journal.log(self.__class__.__name__,

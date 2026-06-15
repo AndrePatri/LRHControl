@@ -4,6 +4,7 @@ from aug_mpc.agents.dummies.dummy import DummyAgent
 from aug_mpc.utils.shared_data.algo_infos import SharedRLAlgorithmInfo, QfVal, QfTrgt
 from aug_mpc.utils.shared_data.training_env import SubReturns, TotReturns
 from aug_mpc.utils.model_bundle import write_bundle_manifest
+from aug_mpc.utils.hdf5 import create_dataset as hdf5_create_dataset
 from aug_mpc.utils.nn.rnd import RNDFull
 
 import torch 
@@ -1365,35 +1366,35 @@ class SActorCriticAlgoBase(ABC):
                     ep_prefix=f'ep_{ep_idx}_'
 
                     # rewards
-                    hf.create_dataset(ep_prefix+'sub_rew', 
+                    hdf5_create_dataset(hf, ep_prefix+'sub_rew',
                         data=sub_rew_full[ep_idx, :, :, :])
-                    hf.create_dataset(ep_prefix+'tot_rew', 
+                    hdf5_create_dataset(hf, ep_prefix+'tot_rew',
                         data=tot_rew_full[ep_idx, :, :, :])
                     if self._n_expl_envs > 0:
-                        hf.create_dataset(ep_prefix+'sub_rew_expl', 
+                        hdf5_create_dataset(hf, ep_prefix+'sub_rew_expl',
                             data=sub_rew_full_expl[ep_idx, :, :, :])
-                        hf.create_dataset(ep_prefix+'tot_rew_expl', 
+                        hdf5_create_dataset(hf, ep_prefix+'tot_rew_expl',
                             data=tot_rew_full_expl[ep_idx, :, :, :])
-                        hf.create_dataset('expl_env_selector', data=self._expl_env_selector.cpu().numpy())
+                        hdf5_create_dataset(hf, 'expl_env_selector', data=self._expl_env_selector.cpu().numpy())
                     if self._env.n_demo_envs() > 0:
-                        hf.create_dataset(ep_prefix+'sub_rew_demo', 
+                        hdf5_create_dataset(hf, ep_prefix+'sub_rew_demo',
                             data=sub_rew_full_demo)
-                        hf.create_dataset(ep_prefix+'tot_rew_demo', 
+                        hdf5_create_dataset(hf, ep_prefix+'tot_rew_demo',
                             data=tot_rew_full_demo[ep_idx, :, :, :])
-                        hf.create_dataset('demo_env_idxs', data=self._env.demo_env_idxs().cpu().numpy())
+                        hdf5_create_dataset(hf, 'demo_env_idxs', data=self._env.demo_env_idxs().cpu().numpy())
 
                     # dump all custom env data
                     db_data_names = list(self._env.custom_db_data.keys())
                     for db_dname in db_data_names:
                         episodic_data=self._env.custom_db_data[db_dname]
                         var_name = db_dname
-                        hf.create_dataset(ep_prefix+var_name, 
+                        hdf5_create_dataset(hf, ep_prefix+var_name,
                             data=episodic_data.get_full_episodic_data(env_selector=self._db_env_selector)[ep_idx, :, :, :])
                         if self._n_expl_envs > 0:
-                            hf.create_dataset(ep_prefix+var_name+"_expl", 
+                            hdf5_create_dataset(hf, ep_prefix+var_name+"_expl",
                                 data=episodic_data.get_full_episodic_data(env_selector=self._expl_env_selector)[ep_idx, :, :, :])
                         if self._env.n_demo_envs() > 0:
-                            hf.create_dataset(ep_prefix+var_name+"_demo", 
+                            hdf5_create_dataset(hf, ep_prefix+var_name+"_demo",
                                 data=episodic_data.get_full_episodic_data(env_selector=self._demo_env_selector)[ep_idx, :, :, :])
                 
             Journal.log(self.__class__.__name__,
@@ -1444,9 +1445,9 @@ class SActorCriticAlgoBase(ABC):
 
             def _ds(name, arr):
                 data = _slice_valid(arr)
-                hf.create_dataset(name, data=data.numpy() if isinstance(data, torch.Tensor) else data)
+                hdf5_create_dataset(hf, name, data=data.numpy() if isinstance(data, torch.Tensor) else data)
 
-            # hf.create_dataset('numpy_data', data=numpy_data)
+            # hdf5_create_dataset(hf, 'numpy_data', data=numpy_data)
             # Write dictionaries to HDF5 as attributes
             for key, value in self._hyperparameters.items():
                 if value is None:
@@ -1454,7 +1455,7 @@ class SActorCriticAlgoBase(ABC):
                 hf.attrs[key] = value
             
             # rewards
-            hf.create_dataset('sub_reward_names', data=self._reward_names, 
+            hdf5_create_dataset(hf, 'sub_reward_names', data=self._reward_names,
                 dtype='S40') 
             _ds('sub_rew_max', self._sub_rew_max)
             _ds('sub_rew_avrg', self._sub_rew_avrg)
@@ -1486,7 +1487,7 @@ class SActorCriticAlgoBase(ABC):
 
                 _ds('ep_timesteps_expl_env_distr', self._ep_tsteps_expl_env_distribution)
                 
-                hf.create_dataset('expl_env_selector', data=self._expl_env_selector.numpy())
+                hdf5_create_dataset(hf, 'expl_env_selector', data=self._expl_env_selector.numpy())
                 
             _ds('demo_envs_active', self._demo_envs_active)
             _ds('demo_perf_metric', self._demo_perf_metric)
@@ -1503,7 +1504,7 @@ class SActorCriticAlgoBase(ABC):
 
                 _ds('ep_timesteps_demo_env_distr', self._ep_tsteps_demo_env_distribution)
                 
-                hf.create_dataset('demo_env_idxs', data=self._env.demo_env_idxs().numpy())
+                hdf5_create_dataset(hf, 'demo_env_idxs', data=self._env.demo_env_idxs().numpy())
 
             # profiling data
             _ds('env_step_fps', self._env_step_fps)
@@ -1566,9 +1567,9 @@ class SActorCriticAlgoBase(ABC):
             _ds('policy_entropy_cont_std', self._policy_entropy_cont_std)
             _ds('policy_entropy_cont_max', self._policy_entropy_cont_max)
             _ds('policy_entropy_cont_min', self._policy_entropy_cont_min)
-            hf.create_dataset('target_entropy', data=self._target_entropy)
-            hf.create_dataset('target_entropy_disc', data=self._target_entropy_disc)
-            hf.create_dataset('target_entropy_cont', data=self._target_entropy_cont)
+            hdf5_create_dataset(hf, 'target_entropy', data=self._target_entropy)
+            hdf5_create_dataset(hf, 'target_entropy_disc', data=self._target_entropy_disc)
+            hdf5_create_dataset(hf, 'target_entropy_cont', data=self._target_entropy_cont)
 
             if self._use_rnd:
                 _ds('n_rnd_updates', self._n_rnd_updates)
