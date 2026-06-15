@@ -348,7 +348,7 @@ class RosBagDumper():
                 # proc.send_signal(signal.SIGINT)
                     
                 try:
-                    proc.wait(timeout=2.0)
+                    proc.wait(timeout=15.0)
                 except:
                     proc.kill()
 

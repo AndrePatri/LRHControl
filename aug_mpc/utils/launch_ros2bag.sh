@@ -11,6 +11,21 @@ sigint_handler() {
     echo "[launch_rosbag.sh]:SIGINT received, exiting..."
     exit 0
 }
+
+source_ros2_setup() {
+    local distro
+    for distro in jazzy humble iron rolling; do
+        if [ -f "/opt/ros/${distro}/setup.bash" ]; then
+            echo "[launch_rosbag.sh]: sourcing ROS 2 ${distro}"
+            # shellcheck source=/dev/null
+            source "/opt/ros/${distro}/setup.bash"
+            return 0
+        fi
+    done
+
+    echo "[launch_rosbag.sh]: no ROS 2 setup.bash found under /opt/ros" >&2
+    return 1
+}
 # Set the trap to catch SIGINT and call sigint_handler
 trap sigint_handler SIGINT
 
@@ -38,7 +53,7 @@ if [ "$#" -eq 8 ] && [ "$7" == "--output_path" ]; then
 fi
 
 # Source ROS setup
-source /opt/ros/humble/setup.bash
+source_ros2_setup
 
 # Change to the training data directory
 cd "$HOME/training_data"
@@ -56,8 +71,8 @@ TOPICS=(
     "/MPCViz_${NAMESPACE}_heightmap"
 )
 
-# Add XBOT topics if the --xbot flag is provided
-if [ "$XBOT" = true ]; then
+# Add XBot topics if requested
+if [ "$ADD_XBOT_TOPICS" = "1" ]; then
     XBOT_TLIST=(
         "/xbotcore/command"
         "/xbotcore/imu/imu_link"
@@ -72,4 +87,3 @@ fi
 
 # Record the topics
 ros2 bag record --compression-mode file --compression-format zstd --use-sim-time "${TOPICS[@]}" -o "$OUTPUT_PATH"
-

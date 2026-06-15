@@ -44,6 +44,20 @@ safe_source() {
     set -u
 }
 
+source_first_ros2_setup() {
+    local distro
+    for distro in jazzy humble iron rolling; do
+        if [ -f "/opt/ros/${distro}/setup.bash" ]; then
+            echo "Replaying rosbag using ROS2 ${distro}"
+            safe_source "/opt/ros/${distro}/setup.bash"
+            return 0
+        fi
+    done
+
+    echo "No ROS2 setup.bash found under /opt/ros" >&2
+    return 1
+}
+
 if [ "$use_ros1" = true ]; then
     echo "Replaying rosbag using ROS1 Noetic"
     safe_source /opt/ros/noetic/setup.bash
@@ -55,8 +69,7 @@ if [ "$use_ros1" = true ]; then
     rosbag_cmd+=("$rosbag_file")
     "${rosbag_cmd[@]}"
 else
-    echo "Replaying rosbag using ROS2 Humble"
-    safe_source /opt/ros/humble/setup.bash
+    source_first_ros2_setup
     ros2_cmd=(ros2 bag play -r "$playback_rate")
     if [ "$pause_playback" = true ]; then
         ros2_cmd+=(-p)
