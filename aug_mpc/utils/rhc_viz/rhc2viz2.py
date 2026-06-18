@@ -1,5 +1,7 @@
 from aug_mpc.utils.rhc_viz.rhc2viz_base import RhcToVizBridgeBase
 
+import math
+
 import rclpy
 from std_msgs.msg import Float64MultiArray
 from std_msgs.msg import String
@@ -81,6 +83,9 @@ class RhcToViz2Bridge(RhcToVizBridgeBase):
                                 is_server=True)
     
     def pub_stime(self, stime: float):
+
+        if not math.isfinite(stime):
+            return
 
         self._ros_clock.clock.sec = int(stime)
         self._ros_clock.clock.nanosec = int((stime - self._ros_clock.clock.sec)*1e9)

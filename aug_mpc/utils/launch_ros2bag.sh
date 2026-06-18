@@ -85,5 +85,6 @@ if [ "$ADD_XBOT_TOPICS" = "1" ]; then
     TOPICS+=("${XBOT_TLIST[@]}")
 fi
 
-# Record the topics
-ros2 bag record --compression-mode file --compression-format zstd --use-sim-time "${TOPICS[@]}" -o "$OUTPUT_PATH"
+# Record the topics. Use exec so SIGINT reaches rosbag2 and bag_dumper waits on the actual recorder.
+trap - SIGINT
+exec ros2 bag record --compression-mode file --compression-format zstd --use-sim-time "${TOPICS[@]}" -o "$OUTPUT_PATH"

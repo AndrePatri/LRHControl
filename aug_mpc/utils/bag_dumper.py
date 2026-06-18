@@ -227,10 +227,14 @@ class RosBagDumper():
             signal.signal(signal.SIGINT, signal.SIG_IGN)
 
         def run_bag(command):
+            def setup_recorder_process():
+                os.setsid()
+                signal.signal(signal.SIGINT, signal.SIG_DFL)
+                signal.signal(signal.SIGTERM, signal.SIG_DFL)
+
             proc = subprocess.Popen(command, shell=shell,
             stdin=subprocess.DEVNULL,
-            preexec_fn=os.setsid
-            # preexec_fn=os.setsid # crucial -> all childs will have the same ID
+            preexec_fn=setup_recorder_process
             )
             # Set the process group ID to the subprocess PID
             # os.setpgid(proc.pid, proc.pid)
@@ -349,8 +353,21 @@ class RosBagDumper():
                     
                 try:
                     proc.wait(timeout=15.0)
-                except:
-                    proc.kill()
+                except subprocess.TimeoutExpired:
+                    Journal.log(self.__class__.__name__,
+                        "launch_rosbag",
+                        "rosbag did not stop after SIGINT; sending SIGTERM",
+                        LogType.WARN)
+                    try:
+                        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+                        proc.wait(timeout=5.0)
+                    except subprocess.TimeoutExpired:
+                        Journal.log(self.__class__.__name__,
+                            "launch_rosbag",
+                            "rosbag did not stop after SIGTERM; sending SIGKILL",
+                            LogType.WARN)
+                        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+                        proc.wait(timeout=5.0)
 
                 Journal.log(self.__class__.__name__,
                         "launch_rosbag",
@@ -428,7 +445,7 @@ class RosBagDumper():
     def _close_rosbag(self):
         if self._bag_proc is not None:
             self._close_rosbag_proc()
-            ret=self._bag_proc.join(5) # waits some time 
+            ret=self._bag_proc.join(15) # waits some time 
             if ret is not None:
                 if self._bag_proc.exitcode is None: # process not terminated yet
                     Journal.log(self.__class__.__name__,
