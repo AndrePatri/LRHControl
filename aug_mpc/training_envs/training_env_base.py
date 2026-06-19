@@ -233,11 +233,16 @@ class AugMPCTrainingEnvBase(ABC):
         sim_info_shared.run()
         sim_info_keys = sim_info_shared.param_keys
         sim_info_data = sim_info_shared.get().flatten()
+        protected_env_opts = {"n_preinit_steps"}
         for i in range(len(sim_info_keys)):
-            sim_info[sim_info_keys[i]] = sim_info_data[i]
+            key = sim_info_keys[i]
+            if key in protected_env_opts:
+                continue
+            sim_info[key] = sim_info_data[i]
         if "substepping_dt" in sim_info_keys:
             self._substep_dt=sim_info["substepping_dt"]
         self._env_opts.update(sim_info)
+        self._env_opts["n_preinit_steps"] = int(self._env_opts["n_preinit_steps"])
 
         self._env_opts["substep_dt"]=self._substep_dt
 
@@ -1598,7 +1603,7 @@ class AugMPCTrainingEnvBase(ABC):
         traing_env_param_dict["use_gpu"] = self._use_gpu
         traing_env_param_dict["debug"] = self._is_debug
         traing_env_param_dict["n_preinit_steps"] = self._env_opts["n_preinit_steps"]
-        traing_env_param_dict["n_preinit_steps"] = self._n_envs
+        traing_env_param_dict["n_envs"] = self._n_envs
         
         self._training_sim_info = SharedTrainingEnvInfo(namespace=self._namespace,
                 is_server=True, 

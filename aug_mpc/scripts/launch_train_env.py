@@ -1,4 +1,5 @@
 from aug_mpc.utils.determinism import deterministic_run
+from aug_mpc.utils.custom_arg_parsing import generate_custom_arg_dict
 
 from mpc_hive.utilities.shared_data.sim_data import SharedEnvInfo
 from mpc_hive.utilities.shared_data.cluster_data import SharedClusterInfo
@@ -175,8 +176,17 @@ if __name__ == "__main__":
     parser.add_argument('--step_while_setup',action='store_true', help='Continue stepping env with default actions while setting up agent, etc..')
     parser.add_argument('--reset_on_init',action='store_true', help='Whether to reset the environment on initialization')
 
+    parser.add_argument('--custom_args_names', nargs='+', default=None,
+                            help='list of custom arguments names')
+    parser.add_argument('--custom_args_vals', nargs='+', default=None,
+                            help='list of custom arguments values')
+    parser.add_argument('--custom_args_dtype', nargs='+', default=None,
+                            help='list of custom arguments data types')
+
     args = parser.parse_args()
     args_dict = vars(args)
+    custom_opt = generate_custom_arg_dict(args=args)
+    args_dict.update(custom_opt)
     if args.run_meta_dir:
         os.environ["IBRIDO_RUN_META_DIR"] = args.run_meta_dir
 
