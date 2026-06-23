@@ -608,7 +608,7 @@ class JntImpCntrlBase(ABC):
                 self._pos_ref_filter.reset()
                 self._vel_ref_filter.reset()
                 self._eff_ref_filter.reset()
-        
+            
         else: # only reset some robots
             
             if self._debug_checks:
@@ -652,8 +652,8 @@ class JntImpCntrlBase(ABC):
                 self._vel_ref_filter.reset(idxs = robot_indxs)
                 self._eff_ref_filter.reset(idxs = robot_indxs)
 
-            self._apply_init_gains()
-            self._apply_init_refs()
+        self._apply_init_gains()
+        self._apply_init_refs()
     
     def deactivate(self,
             robot_indxs: torch.Tensor = None):
@@ -694,7 +694,7 @@ class JntImpCntrlBase(ABC):
             if not self._override_low_lev_controller:
                 self._set_gains(kps=self._pos_gains, 
                     kds=self._vel_gains)
-            else: # gains of low lev controller are set to zero
+            else: # gains of low lev controller are set to zero         
                 no_gains = torch.zeros((self.num_envs, self.n_jnts), device = self._torch_device, 
                                     dtype=self._torch_dtype)        
                 self._set_gains(kps=no_gains, 
