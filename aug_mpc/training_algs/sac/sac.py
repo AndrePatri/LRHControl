@@ -387,9 +387,9 @@ class SAC(SActorCriticAlgoBase):
     def _get_performance_metric(self):
         tracking_err = None
         if "TrackingError" in self._env.custom_db_data:
-            # custom db stores tracking error components; take x component average over envs
+            # Use a frame-invariant planar metric for locomotion tasks.
             track_data = self._env.custom_db_data["TrackingError"].get_avrg_over_envs(env_selector=self._db_env_selector)
-            tracking_err = track_data[0, 0].item()
+            tracking_err = torch.linalg.vector_norm(track_data[0, 0:2]).item()
 
         if tracking_err is None:
             tracking_err = self._episodic_reward_metrics.get_tot_rew_avrg_over_envs(env_selector=
