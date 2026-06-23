@@ -24,7 +24,7 @@ class JntSafety:
 
     def apply(self, 
         q_cmd=None, v_cmd=None, eff_cmd=None):
-
+        
         if q_cmd is not None:
             self.saturate_tensor(q_cmd, position=True)
         if v_cmd is not None:

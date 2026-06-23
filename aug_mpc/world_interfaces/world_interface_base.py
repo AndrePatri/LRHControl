@@ -526,17 +526,20 @@ class AugMPCWorldInterfaceBase(ABC):
                         throw_when_excep=True)
 
             # run some "warmup" interface steps
+            if self._n_init_steps > 0:
+                control_cluster = self.cluster_servers[robot_name]
+                actions=control_cluster.get_actions()
+                self._jnt_imp_controllers[robot_name].set_refs(
+                    pos_ref=actions.jnts_state.get(data_type="q", gpu=self._use_gpu)) # write homing to low level control
             for n in range(self._n_init_steps): 
-                if n==0:
-                    control_cluster = self.cluster_servers[robot_name]
-                    actions=control_cluster.get_actions()
-                    self._jnt_imp_controllers[robot_name].set_refs(
-                        pos_ref=actions.jnts_state.get(data_type="q", gpu=self._use_gpu))  
-                    # write homing to low level control
-                    self._apply_cmds_to_jnt_imp_control(robot_name=robot_name) # apply to robot
-
+                if self._override_low_lev_controller:
+                    # if overriding low-lev jnt imp. this has to run at the highest
+                    # freq possible
+                    self._read_jnts_state_from_robot(robot_name=robot_name)
+                    self._write_state_to_jnt_imp(robot_name=robot_name)
+                self._apply_cmds_to_jnt_imp_control(robot_name=robot_name) # apply to robot
                 self._pre_warmup_step(robot_name=robot_name, env_indxs=None)
-                self.step(skip_cluster=True) # exclude MPC cluster (just joint imp if enabled)
+                self._step_world()
                
             self._read_jnts_state_from_robot(robot_name=robot_name,
                 env_indxs=None)
@@ -656,7 +659,7 @@ class AugMPCWorldInterfaceBase(ABC):
 
         return True
 
-    def step(self, skip_cluster: bool = False) -> bool:
+    def step(self) -> bool:
 
         success=False
 
@@ -671,7 +674,7 @@ class AugMPCWorldInterfaceBase(ABC):
             
         if self.is_running() and (not self.is_closed()):
             if self._debug:
-                pre_step_ok=self._pre_step_db(skip_cluster=skip_cluster)
+                pre_step_ok=self._pre_step_db()
                 if not pre_step_ok:
                     return False
                 self._env_timer=time.perf_counter()
@@ -681,7 +684,7 @@ class AugMPCWorldInterfaceBase(ABC):
                 self._post_world_step_db()
                 success=True
             else:
-                pre_step_ok=self._pre_step(skip_cluster=skip_cluster)
+                pre_step_ok=self._pre_step()
                 if not pre_step_ok:
                     return False
                 self._step_world()
@@ -834,7 +837,7 @@ class AugMPCWorldInterfaceBase(ABC):
         rhc_cmds.jnts_state.set(data=null_action, data_type="v", gpu=self._use_gpu)
         rhc_cmds.jnts_state.set(data=null_action, data_type="eff", gpu=self._use_gpu)
 
-    def _pre_step_db(self, skip_cluster: bool = False) -> None:
+    def _pre_step_db(self) -> None:
         
         # cluster step logic here
         for i in range(len(self._robot_names)):
@@ -859,8 +862,7 @@ class AugMPCWorldInterfaceBase(ABC):
                 self._step_jnt_vel_filter(robot_name=robot_name, env_indxs=None)
 
             control_cluster = self.cluster_servers[robot_name]
-            if control_cluster.is_cluster_instant(self.cluster_sim_step_counters[robot_name]) and \
-                    (not skip_cluster):
+            if control_cluster.is_cluster_instant(self.cluster_sim_step_counters[robot_name]):
                 wait_ok=control_cluster.wait_for_solution() # this is blocking
                 if not wait_ok:
                     return False
@@ -914,7 +916,7 @@ class AugMPCWorldInterfaceBase(ABC):
 
         return True
 
-    def _pre_step(self, skip_cluster: bool = False) -> None:
+    def _pre_step(self) -> None:
         
         # cluster step logic here
         for i in range(len(self._robot_names)):
@@ -935,8 +937,7 @@ class AugMPCWorldInterfaceBase(ABC):
                 self._step_jnt_vel_filter(robot_name=robot_name, env_indxs=None)
 
             control_cluster = self.cluster_servers[robot_name]
-            if control_cluster.is_cluster_instant(self.cluster_sim_step_counters[robot_name]) and \
-                (not skip_cluster):
+            if control_cluster.is_cluster_instant(self.cluster_sim_step_counters[robot_name]):
                 wait_ok=control_cluster.wait_for_solution() # this is blocking
                 if not wait_ok:
                     return False
