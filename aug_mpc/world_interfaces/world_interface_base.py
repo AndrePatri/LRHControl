@@ -156,6 +156,7 @@ class AugMPCWorldInterfaceBase(ABC):
                 LogType.EXCEP,
                 throw_when_excep = True)
         
+        self._exit_request=False
         self._remote_exit_flag=None
 
         self._name=name
@@ -305,7 +306,6 @@ class AugMPCWorldInterfaceBase(ABC):
         if not setup_ok:
             self.close()
         
-        self._exit_request=False
         signal.signal(signal.SIGINT, self.signal_handler)   
 
     def signal_handler(self, sig, frame):
@@ -506,7 +506,7 @@ class AugMPCWorldInterfaceBase(ABC):
                                             use_gpu=self._use_gpu,
                                             safe=False)
             self._jnt_imp_cntrl_shared_data[robot_name].run()
-
+        
             self._jnt_vel_filter[robot_name]=None
             if self._env_opts["filter_jnt_vel"]:
                 self._jnt_vel_filter[robot_name]=FirstOrderFilter(dt=1.0/self._env_opts["filter_sampling_rate"],
@@ -525,10 +525,18 @@ class AugMPCWorldInterfaceBase(ABC):
                         LogType.EXCEP,
                         throw_when_excep=True)
 
-            for n in range(self._n_init_steps): # run some initialization steps
-                if hasattr(self, "_alter_twist_warmup"):
-                    self._alter_twist_warmup(robot_name=robot_name, env_indxs=None)
-                self._step_world()
+            # run some "warmup" interface steps
+            for n in range(self._n_init_steps): 
+                if n==0:
+                    control_cluster = self.cluster_servers[robot_name]
+                    actions=control_cluster.get_actions()
+                    self._jnt_imp_controllers[robot_name].set_refs(
+                        pos_ref=actions.jnts_state.get(data_type="q", gpu=self._use_gpu))  
+                    # write homing to low level control
+                    self._apply_cmds_to_jnt_imp_control(robot_name=robot_name) # apply to robot
+
+                self._pre_warmup_step(robot_name=robot_name, env_indxs=None)
+                self.step(skip_cluster=True) # exclude MPC cluster (just joint imp if enabled)
                
             self._read_jnts_state_from_robot(robot_name=robot_name,
                 env_indxs=None)
@@ -613,6 +621,9 @@ class AugMPCWorldInterfaceBase(ABC):
 
         return self._setup_done
 
+    def _pre_warmup_step(self, robot_name: str, env_indxs: torch.Tensor = None):
+        pass
+
     def _setup_mpc_cluster(self, robot_name: str):
 
         control_cluster = self.cluster_servers[robot_name]
@@ -645,7 +656,7 @@ class AugMPCWorldInterfaceBase(ABC):
 
         return True
 
-    def step(self) -> bool:
+    def step(self, skip_cluster: bool = False) -> bool:
 
         success=False
 
@@ -660,7 +671,7 @@ class AugMPCWorldInterfaceBase(ABC):
             
         if self.is_running() and (not self.is_closed()):
             if self._debug:
-                pre_step_ok=self._pre_step_db()
+                pre_step_ok=self._pre_step_db(skip_cluster=skip_cluster)
                 if not pre_step_ok:
                     return False
                 self._env_timer=time.perf_counter()
@@ -670,7 +681,7 @@ class AugMPCWorldInterfaceBase(ABC):
                 self._post_world_step_db()
                 success=True
             else:
-                pre_step_ok=self._pre_step()
+                pre_step_ok=self._pre_step(skip_cluster=skip_cluster)
                 if not pre_step_ok:
                     return False
                 self._step_world()
@@ -823,7 +834,7 @@ class AugMPCWorldInterfaceBase(ABC):
         rhc_cmds.jnts_state.set(data=null_action, data_type="v", gpu=self._use_gpu)
         rhc_cmds.jnts_state.set(data=null_action, data_type="eff", gpu=self._use_gpu)
 
-    def _pre_step_db(self) -> None:
+    def _pre_step_db(self, skip_cluster: bool = False) -> None:
         
         # cluster step logic here
         for i in range(len(self._robot_names)):
@@ -848,7 +859,8 @@ class AugMPCWorldInterfaceBase(ABC):
                 self._step_jnt_vel_filter(robot_name=robot_name, env_indxs=None)
 
             control_cluster = self.cluster_servers[robot_name]
-            if control_cluster.is_cluster_instant(self.cluster_sim_step_counters[robot_name]):
+            if control_cluster.is_cluster_instant(self.cluster_sim_step_counters[robot_name]) and \
+                    (not skip_cluster):
                 wait_ok=control_cluster.wait_for_solution() # this is blocking
                 if not wait_ok:
                     return False
@@ -902,7 +914,7 @@ class AugMPCWorldInterfaceBase(ABC):
 
         return True
 
-    def _pre_step(self) -> None:
+    def _pre_step(self, skip_cluster: bool = False) -> None:
         
         # cluster step logic here
         for i in range(len(self._robot_names)):
@@ -923,7 +935,8 @@ class AugMPCWorldInterfaceBase(ABC):
                 self._step_jnt_vel_filter(robot_name=robot_name, env_indxs=None)
 
             control_cluster = self.cluster_servers[robot_name]
-            if control_cluster.is_cluster_instant(self.cluster_sim_step_counters[robot_name]):
+            if control_cluster.is_cluster_instant(self.cluster_sim_step_counters[robot_name]) and \
+                (not skip_cluster):
                 wait_ok=control_cluster.wait_for_solution() # this is blocking
                 if not wait_ok:
                     return False
@@ -1407,6 +1420,7 @@ class AugMPCWorldInterfaceBase(ABC):
 
     def _set_cluster_actions(self, 
         robot_name):
+        
         control_cluster = self.cluster_servers[robot_name]
         actions=control_cluster.get_actions()
         active_controllers=control_cluster.get_active_controllers(gpu=self._use_gpu)
@@ -1416,8 +1430,8 @@ class AugMPCWorldInterfaceBase(ABC):
                 pos_ref=actions.jnts_state.get(data_type="q", gpu=self._use_gpu)[active_controllers, :], 
                 vel_ref=actions.jnts_state.get(data_type="v", gpu=self._use_gpu)[active_controllers, :], 
                 eff_ref=actions.jnts_state.get(data_type="eff", gpu=self._use_gpu)[active_controllers, :],
-                robot_indxs=active_controllers)            
-    
+                robot_indxs=active_controllers)  
+                
     def _jnt_imp_reset_overrride(self, robot_name:str):
         # to be overriden
         pass
