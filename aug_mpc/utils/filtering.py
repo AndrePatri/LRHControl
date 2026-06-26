@@ -67,8 +67,9 @@ class FirstOrderFilter:
         else:
             flat_idx=idxs.flatten()
             self.refk[flat_idx, :] = refk
-            self.yk[flat_idx, :] = torch.add(torch.mul(self.ykm1[flat_idx, :], self._coeff_km1[flat_idx, :]), 
-                                torch.mul(torch.add(self.refk[flat_idx, :], self.refkm1[flat_idx, :]), 
+            # _coeff_km1 / _coeff_ref are scalars (uniform across envs); do not index them.
+            self.yk[flat_idx, :] = torch.add(torch.mul(self.ykm1[flat_idx, :], self._coeff_km1),
+                                torch.mul(torch.add(self.refk[flat_idx, :], self.refkm1[flat_idx, :]),
                                             self._coeff_ref))
             self.refkm1[flat_idx, :] = self.refk[flat_idx, :]
             self.ykm1[flat_idx, :] = self.yk[flat_idx, :]
