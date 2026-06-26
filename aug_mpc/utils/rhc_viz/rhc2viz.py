@@ -5,6 +5,8 @@ from std_msgs.msg import Float64MultiArray
 from std_msgs.msg import String
 from rosgraph_msgs.msg import Clock
 from visualization_msgs.msg import Marker
+from geometry_msgs.msg import PointStamped
+from geometry_msgs.msg import WrenchStamped
 
 from mpc_viz.utils.handshake import MPCVizHandshake
 
@@ -37,6 +39,15 @@ class RhcToVizBridge(RhcToVizBridgeBase):
         self.mpc_contact_pub = rospy.Publisher(self.ros_names.rhc_contacts_topicname(basename=self.mpc_viz_basename, 
                                             namespace=self._remap_namespace), 
                             Float64MultiArray, 
+                            queue_size=10)
+        
+        self.root_wrench_pub = rospy.Publisher(self.ros_names.root_wrench_topicname(basename=self.mpc_viz_basename,
+                                            namespace=self._remap_namespace),
+                            WrenchStamped,
+                            queue_size=10)
+        self.root_wrench_point_pub = rospy.Publisher(self.ros_names.root_wrench_point_topicname(basename=self.mpc_viz_basename,
+                                            namespace=self._remap_namespace),
+                            PointStamped,
                             queue_size=10)
         
         self.robot_jntnames_pub = rospy.Publisher(self.ros_names.robot_jntnames(basename=self.mpc_viz_basename, 

@@ -7,6 +7,8 @@ from std_msgs.msg import Float64MultiArray
 from std_msgs.msg import String
 from rosgraph_msgs.msg import Clock
 from visualization_msgs.msg import Marker
+from geometry_msgs.msg import PointStamped
+from geometry_msgs.msg import WrenchStamped
 # from rclpy.node import Node
 from rclpy.qos import ReliabilityPolicy, DurabilityPolicy, HistoryPolicy, LivelinessPolicy
 from rclpy.qos import QoSProfile
@@ -54,6 +56,15 @@ class RhcToViz2Bridge(RhcToVizBridgeBase):
         
         self.mpc_contact_pub = self.node.create_publisher(Float64MultiArray, 
                                             self.ros_names.rhc_contacts_topicname(basename=self.mpc_viz_basename, 
+                                                                    namespace=self._remap_namespace),
+                                            qos_profile=self._qos_settings)
+        
+        self.root_wrench_pub = self.node.create_publisher(WrenchStamped,
+                                            self.ros_names.root_wrench_topicname(basename=self.mpc_viz_basename,
+                                                                    namespace=self._remap_namespace),
+                                            qos_profile=self._qos_settings)
+        self.root_wrench_point_pub = self.node.create_publisher(PointStamped,
+                                            self.ros_names.root_wrench_point_topicname(basename=self.mpc_viz_basename,
                                                                     namespace=self._remap_namespace),
                                             qos_profile=self._qos_settings)
         

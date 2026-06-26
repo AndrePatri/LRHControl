@@ -32,6 +32,8 @@ from std_msgs.msg import String
 from rosgraph_msgs.msg import Clock
 from visualization_msgs.msg import Marker
 from geometry_msgs.msg import Point
+from geometry_msgs.msg import PointStamped
+from geometry_msgs.msg import WrenchStamped
 
 import signal
 class RhcToVizBridgeBase(ABC):
@@ -209,6 +211,8 @@ class RhcToVizBridgeBase(ABC):
             self.hl_refs_pub = None
         self.robot_q_pub = None
         self.mpc_contact_pub = None
+        self.root_wrench_pub = None
+        self.root_wrench_point_pub = None
         self.robot_jntnames_pub = None  
         self.rhc_jntnames_pub = None 
         self.simtime_pub=None
@@ -601,6 +605,7 @@ class RhcToVizBridgeBase(ABC):
 
         # contact data
         rhc_contacts=self.rhc_cmds.contact_wrenches.get(data_type="f",robot_idxs=self._current_index)
+        root_wrench = self._get_root_wrench_msg()
 
         # publish rhc q
         if not self._contains_nan(rhc_q):
@@ -637,8 +642,56 @@ class RhcToVizBridgeBase(ABC):
         else:
             self._sporadic_log(calling_methd="_publish", 
                             msg="mpc contact data contains some NaN. That data will not be published")
+        if root_wrench is not None and self.root_wrench_pub is not None and self.root_wrench_point_pub is not None:
+            point_msg, wrench_msg = self._build_root_wrench_msgs(root_wrench)
+            self.root_wrench_point_pub.publish(point_msg)
+            self.root_wrench_pub.publish(wrench_msg)
+
         if self._show_heightmap and self.heightmap_pub is not None:
             self._publish_heightmap()
+
+    def _get_root_wrench_msg(self):
+        # Root wrench data is frame explicit: application point, force, and torque are
+        # all expressed in world. Genesis perturbations are currently applied at the base link.
+        root_wrench = getattr(self.robot_state, "contact_wrenches_root", None)
+        if root_wrench is None:
+            return None
+        try:
+            point = np.asarray(self.robot_state.root_state.get(data_type="q_full",
+                robot_idxs=self._current_index)[0:3], dtype=float).reshape(3)
+            force = np.asarray(root_wrench.get(data_type="f",
+                robot_idxs=self._current_index), dtype=float).reshape(-1)[0:3]
+            torque = np.asarray(root_wrench.get(data_type="t",
+                robot_idxs=self._current_index), dtype=float).reshape(-1)[0:3]
+        except Exception as exc:
+            self._sporadic_log(calling_methd="_get_root_wrench_msg",
+                msg=f"could not read root wrench data: {exc}")
+            return None
+        if self._contains_nan(point) or self._contains_nan(force) or self._contains_nan(torque):
+            return None
+        return point, force, torque
+
+    def _build_root_wrench_msgs(self, root_wrench):
+        point, force, torque = root_wrench
+        stamp = self._ros_clock.clock
+
+        point_msg = PointStamped()
+        point_msg.header.stamp = stamp
+        point_msg.header.frame_id = "world"
+        point_msg.point.x = float(point[0])
+        point_msg.point.y = float(point[1])
+        point_msg.point.z = float(point[2])
+
+        wrench_msg = WrenchStamped()
+        wrench_msg.header.stamp = stamp
+        wrench_msg.header.frame_id = "world"
+        wrench_msg.wrench.force.x = float(force[0])
+        wrench_msg.wrench.force.y = float(force[1])
+        wrench_msg.wrench.force.z = float(force[2])
+        wrench_msg.wrench.torque.x = float(torque[0])
+        wrench_msg.wrench.torque.y = float(torque[1])
+        wrench_msg.wrench.torque.z = float(torque[2])
+        return point_msg, wrench_msg
 
     @abstractmethod
     def _init_ros_pubs(self, id: str):
