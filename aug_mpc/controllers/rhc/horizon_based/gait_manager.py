@@ -210,7 +210,12 @@ class GaitManager:
                     self._ref_trjs[contact][2, 0:1], 
                     nodes=list(range(0, flight_phase_short_duration)))
 
-                if self._xypos_task_found: # xy, we add a landing phase of unit duration to enforce landing pos costs
+                if self._xypos_task_found:
+                    # Track a smooth xy swing trajectory during flight and keep a
+                    # touchdown phase to enforce the final foothold.
+                    self._flight_phases[contact].addItemReference(self.task_interface.getTask(f'xy_{contact}'),
+                        self._ref_trjs[contact][:, 0:1],
+                        nodes=list(range(0, flight_phase_short_duration)))
                     
                     self._touchdown_phases[contact]=self._contact_timelines[contact].createPhase(flight_phase_short_duration, 
                                     f'touchdown_{contact}_short') 
@@ -436,8 +441,12 @@ class GaitManager:
                     third_der=self._third_traj_der)
                     )
                 if self._xypos_task_found: # we use _ref_trjs to write xy pos references
-                    self._ref_trjs[contact_name][0, -1]=starting_x_pos+land_dx_w
-                    self._ref_trjs[contact_name][1, -1]=starting_y_pos+land_dy_w
+                    landing_x_pos=starting_x_pos+land_dx_w
+                    landing_y_pos=starting_y_pos+land_dy_w
+                    self._ref_trjs[contact_name][0, 0:flight_duration_req]=np.linspace(starting_x_pos, landing_x_pos, flight_duration_req)
+                    self._ref_trjs[contact_name][1, 0:flight_duration_req]=np.linspace(starting_y_pos, landing_y_pos, flight_duration_req)
+                    self._ref_trjs[contact_name][0, -1]=landing_x_pos
+                    self._ref_trjs[contact_name][1, -1]=landing_y_pos
 
                 for i in range(flight_duration_req):
                     res, phase_token_flight=timeline.addPhase(self._flight_phases[contact_name], 
@@ -445,6 +454,9 @@ class GaitManager:
                         absolute_position=True)
                     phase_token_flight.setItemReference(f'z_{contact_name}',
                         self._ref_trjs[contact_name][:, i])
+                    if self._xypos_task_found:
+                        phase_token_flight.setItemReference(f'xy_{contact_name}',
+                            self._ref_trjs[contact_name][:, i])
                     
                 if self._touchdown_phases[contact_name] is not None:
                     # add touchdown phase after flight
@@ -476,6 +488,9 @@ class GaitManager:
                         absolute_position=True)
                     phase_token.setItemReference(f'vz_{contact_name}',
                         self._ref_vtrjs[contact_name][2:3, i:i+1])
+                    if self._xyvel_task_found:
+                        phase_token.setItemReference(f'vxy_{contact_name}',
+                            self._ref_vtrjs[contact_name][0:2, i:i+1])
                 if self._touchdown_phases[contact_name] is not None:
                     # add touchdown phase for forcing vertical landing
                     res, phase_token=timeline.addPhase(self._touchdown_phases[contact_name], 
