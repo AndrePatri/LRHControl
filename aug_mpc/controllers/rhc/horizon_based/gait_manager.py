@@ -52,23 +52,23 @@ class GaitManager:
         self._post_flight_stance=post_flight_stance
         self._flight_info_now=None 
         self._flight_duration_max=self._n_nodes_prb-(injection_node+1)
-        self._flight_duration_min=3
+        self._flight_duration_min=1
         self._flight_duration_default=flight_duration 
         # apex bounds/defaults
         self._step_height_default=step_height
         self._step_height_min=0.0
-        self._step_height_max=0.5
+        self._step_height_max=1.5
         # end height bounds/defaults
         self._dh_default=dh
-        self._dh_min=0.0
-        self._dh_max=0.5
+        self._dh_min=-1.0
+        self._dh_max=1.0
         # landing dx, dy bounds/defaults
         self._land_dx_default=0.0
-        self._land_dx_min=-0.5
-        self._land_dx_max=0.5
+        self._land_dx_min=-1.5
+        self._land_dx_max=1.5
         self._land_dy_default=0.0       
-        self._land_dy_min=-0.5
-        self._land_dy_max=0.5
+        self._land_dy_min=-1.5
+        self._land_dy_max=1.5
         
         # timeline data
         self._contact_timelines = dict()
