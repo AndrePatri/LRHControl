@@ -436,12 +436,16 @@ class AugMPCTrainingEnvBase(ABC):
             return False
             
         for i in range(self._env_opts["n_preinit_steps"]): # perform some
-            # dummy remote env stepping to make sure to have meaningful 
+            # dummy remote env stepping to make sure to have meaningful
             # initializations (doesn't increment step counter)
             init_step_ok=self._remote_sim_step() and init_step_ok # 1 remote sim. step
             if not init_step_ok:
                 return False
-            init_step_ok=self._send_remote_reset_req() and init_step_ok # fake reset request 
+            # NO-OP reset request: clears the reset buffer (reset_mask=None) so the world does NOT
+            # re-reset every preinit step. The raw _send_remote_reset_req() left the buffer all-True
+            # from the initial reset above, which made the world teleport the robot back to the
+            # un-settled spawn pose every step -> the robot never settled and flipped during preinit.
+            init_step_ok=self._remote_reset(reset_mask=None) and init_step_ok
             if not init_step_ok:
                 return False
             

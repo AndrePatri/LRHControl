@@ -41,18 +41,23 @@ def import_env_module(env_path, local_env_root: str = None):
     """
     if local_env_root is not None:
         local_env_root = os.path.abspath(local_env_root)
-        # override aug_mpc_envs.training_envs package to point to the local_env_root
+        # Make aug_mpc_envs.training_envs look in the bundle dir FIRST, but keep the installed package
+        # path as a fallback: bundle-snapshotted env modules take priority, while any dependency that
+        # was not snapshotted (e.g. task_reference_utils) still resolves from the installed package
+        # instead of raising ModuleNotFoundError. importlib.import_module ensures the real package (with
+        # its installed __path__) exists before we prepend the bundle dir.
         pkg_name = "aug_mpc_envs.training_envs"
-        if pkg_name not in sys.modules:
-            mod = types.ModuleType(pkg_name)
-            mod.__path__ = [local_env_root]  # tell Python to look here first
-            sys.modules[pkg_name] = mod
-        else:
-            existing = getattr(sys.modules[pkg_name], "__path__", None)
-            if existing is None:
-                sys.modules[pkg_name].__path__ = [local_env_root]
-            elif local_env_root not in existing:
-                existing.insert(0, local_env_root)
+        try:
+            pkg = importlib.import_module(pkg_name)
+            installed_path = list(getattr(pkg, "__path__", []))
+        except Exception:
+            pkg = sys.modules.get(pkg_name, None)
+            installed_path = list(getattr(pkg, "__path__", [])) if pkg is not None else []
+        if pkg is None:
+            pkg = types.ModuleType(pkg_name)
+            sys.modules[pkg_name] = pkg
+        new_path = [local_env_root] + [p for p in installed_path if p != local_env_root]
+        pkg.__path__ = new_path  # bundle dir first, installed package dirs as fallback
 
     # load the module as usual
     spec = importlib.util.spec_from_file_location("env_module", env_path)
