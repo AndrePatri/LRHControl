@@ -95,7 +95,7 @@ class HybridQuadRhc(RHController):
             }
         
         self._custom_opts.update(custom_opts)
-        
+
         self._alpha_half=self._custom_opts["alpha_half"]
 
         if self._open_loop:
@@ -124,6 +124,9 @@ class HybridQuadRhc(RHController):
                         verbose=verbose, 
                         debug=debug,
                         timeout_ms=timeout_ms)
+
+        # set AFTER super().__init__() (RHController.__init__ resets the base flag to False)
+        self._write_contact_pos=self._custom_opts["write_contact_pos"]
 
         self._rhc_fpaths.append(self.config_path)
 
@@ -585,14 +588,14 @@ class HybridQuadRhc(RHController):
 
         return self._ti.solution['q'][:, node_idx].reshape(1, -1).astype(self._dtype)
 
-    def _compute_contact_positions_rel(self, base_link=None):
-        # contact-frame positions expressed in the base_link frame (base-relative).
+    def _compute_contact_positions_rel(self):
+        # contact-frame positions expressed in the contact_pos_base_link frame (base-relative).
         # We use the node-1 full q of the MPC solution (expected q reached at the current time,
-        # coherent with a/eff cmds at node 1). base_link=None -> floating-base root frame, taken
+        # coherent with a/eff cmds at node 1). base link None -> floating-base root frame, taken
         # directly from q[0:7] (world). For a named link we FK it. Position only for now.
         # horizon quaternion order is ijkw (== xyzw, pinocchio convention).
         q = self._get_full_q_from_sol(node_idx=1).flatten()
-        if base_link is None: # root frame is directly in q[0:7] (world), no FK needed
+        if self._custom_opts["contact_pos_base_link"] is None: # root frame is q[0:7] (world), no FK
             p_base = q[0:3]
             r_base = Rotation.from_quat(q[3:7]).as_matrix()
         else:
