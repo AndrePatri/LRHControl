@@ -9,6 +9,7 @@ from EigenIPC.PyEigenIPC import VLevel
 from EigenIPC.PyEigenIPC import Journal, LogType
 
 import numpy as np
+from scipy.spatial.transform import Rotation
 
 import os
 
@@ -88,7 +89,9 @@ class HybridQuadRhc(RHController):
             "alpha_half": 1.0, 
             "only_vel_wheels": True, # whether wheels (if present) are just vel controlled
             "use_jnt_v_feedback": False,
-            "initial_force_load_divisor": 4.0
+            "initial_force_load_divisor": 4.0,
+            "write_contact_pos": False, # write contact positions (base frame) into RhcCmds
+            "contact_pos_base_link": None # link the contact pos are expressed rel. to (None -> root)
             }
         
         self._custom_opts.update(custom_opts)
@@ -397,6 +400,13 @@ class HybridQuadRhc(RHController):
         self._ti.model.q.setBounds(-self._q_inf, self._q_inf, nodes=0)
         self._ti.model.v.setBounds(-self._v_inf, self._v_inf, nodes=0)
 
+        # FK functions used to write contact positions (base frame) into RhcCmds (opt-in)
+        self._contact_fk_funcs = {c: self._kin_dyn.fk(c) for c in self._get_contacts()} \
+            if self._custom_opts["write_contact_pos"] else {}
+        base_link = self._custom_opts["contact_pos_base_link"]
+        self._base_fk_func = self._kin_dyn.fk(base_link) \
+            if (self._custom_opts["write_contact_pos"] and base_link is not None) else None
+
         # self.horizon_anal = analyzer.ProblemAnalyzer(self._prb)
 
     def get_file_paths(self):
@@ -574,6 +584,25 @@ class HybridQuadRhc(RHController):
     def _get_full_q_from_sol(self, node_idx=1):
 
         return self._ti.solution['q'][:, node_idx].reshape(1, -1).astype(self._dtype)
+
+    def _compute_contact_positions_rel(self, base_link=None):
+        # contact-frame positions expressed in the base_link frame (base-relative).
+        # We use the node-1 full q of the MPC solution (expected q reached at the current time,
+        # coherent with a/eff cmds at node 1). base_link=None -> floating-base root frame, taken
+        # directly from q[0:7] (world). For a named link we FK it. Position only for now.
+        # horizon quaternion order is ijkw (== xyzw, pinocchio convention).
+        q = self._get_full_q_from_sol(node_idx=1).flatten()
+        if base_link is None: # root frame is directly in q[0:7] (world), no FK needed
+            p_base = q[0:3]
+            r_base = Rotation.from_quat(q[3:7]).as_matrix()
+        else:
+            fk_base = self._base_fk_func(q=q)
+            p_base = np.array(fk_base['ee_pos']).flatten()
+            r_base = np.array(fk_base['ee_rot']).reshape(3, 3)
+        r_base_t = r_base.T
+        rows = [(r_base_t @ (np.array(fk(q=q)['ee_pos']).flatten() - p_base)).reshape(1, 3)
+            for fk in self._contact_fk_funcs.values()]
+        return np.concatenate(rows, axis=0).astype(self._dtype)
     
     def _get_root_twist_from_sol(self, node_idx=1):
         # provided in world frame
