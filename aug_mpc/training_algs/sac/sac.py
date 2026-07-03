@@ -1,4 +1,4 @@
-from aug_mpc.training_algs.sac.sactor_critic_algo import SActorCriticAlgoBase
+from aug_mpc.training_algs.sac.sactor_critic_algo import SoftActorCriticBase
 
 import torch 
 import torch.nn as nn
@@ -8,7 +8,7 @@ import os
 
 import time
 
-class SAC(SActorCriticAlgoBase):
+class SAC(SoftActorCriticBase):
 
     def __init__(self,
             env, 

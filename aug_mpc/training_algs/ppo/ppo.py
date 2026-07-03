@@ -1,4 +1,4 @@
-from aug_mpc.training_algs.ppo.actor_critic_algo import ActorCriticAlgoBase
+from aug_mpc.training_algs.ppo.actor_critic_algo import ActorCriticBase
 
 import torch 
 import torch.nn as nn
@@ -7,7 +7,7 @@ import os
 
 import time
 
-class PPO(ActorCriticAlgoBase):
+class PPO(ActorCriticBase):
      
     def __init__(self,
             env, 

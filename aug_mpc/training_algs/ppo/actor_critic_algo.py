@@ -8,10 +8,7 @@ from aug_mpc.utils.hdf5 import create_dataset as hdf5_create_dataset
 
 import torch 
 import torch.optim as optim
-import torch.nn as nn
 
-import random
-import math
 from typing import Dict
 
 import os
@@ -21,7 +18,6 @@ import time
 
 import wandb
 import h5py
-import numpy as np
 
 from EigenIPC.PyEigenIPC import LogType
 from EigenIPC.PyEigenIPC import Journal
@@ -29,7 +25,7 @@ from EigenIPC.PyEigenIPC import VLevel
 
 from abc import ABC, abstractmethod
 
-class ActorCriticAlgoBase(ABC):
+class ActorCriticBase(ABC):
 
     # base class for actor-critic RL algorithms
      

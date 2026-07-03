@@ -9,9 +9,7 @@ from aug_mpc.utils.nn.rnd import RNDFull
 
 import torch 
 import torch.optim as optim
-import torch.nn as nn
 
-import random
 import math
 from typing import Dict
 
@@ -30,7 +28,7 @@ from EigenIPC.PyEigenIPC import VLevel
 
 from abc import ABC, abstractmethod
 
-class SActorCriticAlgoBase(ABC):
+class SoftActorCriticBase(ABC):
 
     # base class for actor-critic RL algorithms
      
@@ -556,27 +554,27 @@ class SActorCriticAlgoBase(ABC):
             tot_tsteps: int,
             custom_args: Dict = {}):
     
-        self._collection_freq=1
-        self._update_freq=4
+        self._collection_freq=int(custom_args.get("collection_freq", 1))
+        self._update_freq=int(custom_args.get("update_freq", 4))
 
-        self._replay_buffer_size_vec=10*self._task_rand_timeout_ub # cover at least a number of eps            
+        # replay buffer sized as a number of episodes worth of (vectorized) transitions
+        self._replay_buffer_n_eps=int(custom_args.get("replay_buffer_n_eps", 10))
+        self._replay_buffer_size_vec=self._replay_buffer_n_eps*self._task_rand_timeout_ub # cover at least a number of eps
         self._replay_buffer_size = self._replay_buffer_size_vec*self._num_envs
         if self._replay_buffer_size_vec < 0: # in case env did not properly define _task_rand_timeout_ub
             self._replay_buffer_size = int(1e6)
             self._replay_buffer_size_vec = self._replay_buffer_size//self._num_envs
             self._replay_buffer_size=self._replay_buffer_size_vec*self._num_envs
 
-        self._batch_size = 16394
+        self._batch_size = int(custom_args.get("batch_size", 16394))
 
         new_transitions_per_batch=self._collection_freq*self._num_envs/self._replay_buffer_size # assumes uniform sampling
         self._utd_ratio=self._update_freq/(new_transitions_per_batch*self._batch_size)
 
-        self._lr_policy = 1e-3
-        self._lr_q = 5e-4 
+        self._lr_policy = float(custom_args.get("lr_policy", 1e-3))
+        self._lr_q = float(custom_args.get("lr_q", 5e-4))
 
-        self._discount_factor = 0.99
-        if "discount_factor" in custom_args:
-            self._discount_factor=custom_args["discount_factor"]
+        self._discount_factor = float(custom_args.get("discount_factor", 0.99))
 
         self._smoothing_coeff = 0.01
 
@@ -596,14 +594,14 @@ class SActorCriticAlgoBase(ABC):
         # self._entropy_cont_start = -0.05
         # self._entropy_cont_end = -2.0
 
-        self._entropy_disc_start = -0.2
-        self._entropy_disc_end = -0.2
+        self._entropy_disc_start = float(custom_args.get("entropy_disc_start", -0.2))
+        self._entropy_disc_end = float(custom_args.get("entropy_disc_end", -0.2))
 
-        self._entropy_cont_start = -0.5
-        self._entropy_cont_end = -0.5
+        self._entropy_cont_start = float(custom_args.get("entropy_cont_start", -0.5))
+        self._entropy_cont_end = float(custom_args.get("entropy_cont_end", -0.5))
 
-        # enable/disable entropy annealing (default: enabled)
-        self._anneal_entropy = False
+        # enable/disable entropy annealing
+        self._anneal_entropy = bool(custom_args.get("anneal_entropy", False))
         
         self._trgt_avrg_entropy_per_action_disc = self._entropy_disc_start
         self._trgt_avrg_entropy_per_action_cont = self._entropy_cont_start
