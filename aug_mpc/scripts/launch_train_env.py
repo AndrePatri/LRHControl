@@ -144,6 +144,22 @@ if __name__ == "__main__":
     parser.add_argument('--entropy_disc_end', type=float, help='SAC: discrete-action target entropy (end)', default=-0.2)
     parser.add_argument('--entropy_cont_start', type=float, help='SAC: continuous-action target entropy (start)', default=-0.5)
     parser.add_argument('--entropy_cont_end', type=float, help='SAC: continuous-action target entropy (end)', default=-0.5)
+    # Hybrid SAC hyperparameters (exposed through common/algorithms/hybrid_sac_*.yaml).
+    # NOTE the entropy targets here are POSITIVE and expressed as a fraction of the attainable
+    # maximum (N*log2 nats) for BOTH branches, unlike the legacy --entropy_* args above, which are
+    # negative target log-probabilities. Do not mix the two.
+    parser.add_argument('--gumbel_tau', type=float, help='HYBRID SAC: straight-through Gumbel-Sigmoid temperature (backward pass only)', default=0.7)
+    parser.add_argument('--disc_grad_mode', type=str, help="HYBRID SAC: 'st_gumbel' or 'exact' (marginalize over the 2^n_binary flag combinations)", default='st_gumbel')
+    parser.add_argument('--alpha_cont_init', type=float, help='HYBRID SAC: initial continuous temperature', default=0.2)
+    parser.add_argument('--alpha_disc_init', type=float, help='HYBRID SAC: initial discrete temperature', default=1.0)
+    parser.add_argument('--lr_alpha', type=float, help='HYBRID SAC: temperature learning rate', default=3e-3)
+    parser.add_argument('--target_H_cont_frac', type=float, help='HYBRID SAC: continuous entropy target, as a SIGNED fraction of n_cont*log2. NEGATIVE for a peaked policy; -0.72 matches the legacy -0.5 nats/dim. Max attainable is +0.986', default=-0.72)
+    parser.add_argument('--target_H_disc_frac', type=float, help='HYBRID SAC: discrete entropy target, as a fraction of n_binary*log2', default=0.7)
+    parser.add_argument('--disc_expl_flip_prob', type=float, help='HYBRID SAC: probability of flipping a binary action on the exploration envs', default=0.25)
+    parser.add_argument('--actor_init_std', type=str, help="HYBRID SAC: initial policy std, or 'auto' to derive it from target_H_cont_frac so the continuous branch starts at its entropy target", default='auto')
+    parser.add_argument('--use_log_alpha_loss', action='store_true', help='HYBRID SAC: use log_alpha (rather than exp(log_alpha)) as the multiplier in the alpha loss')
+    parser.add_argument('--alpha_min', type=str, help="SAC: lower bound on the temperature (anti-windup). 'none' to disable. Legacy default: none", default='none')
+    parser.add_argument('--alpha_max', type=str, help="SAC: upper bound on the temperature (anti-windup). Without it, an unreachable entropy target makes alpha diverge exponentially and swamp the Q term. 'none' to disable. Legacy default: none", default='none')
     parser.add_argument('--obs_norm',action='store_true', help='Whether to enable the use of running normalizer in agent')
     parser.add_argument('--obs_rescale',action='store_true', help='Whether to rescale observation depending on their expected range')
     parser.add_argument('--add_weight_norm',action='store_true', help='Whether to add weight normalization to agent interal llayers')
@@ -154,6 +170,7 @@ if __name__ == "__main__":
     parser.add_argument('--use_period_resets',action='store_true', help='')
 
     parser.add_argument('--sac',action='store_true', help='Use SAC, otherwise PPO, unless dummy is set')
+    parser.add_argument('--hybrid_sac',action='store_true', help='Use hybrid SAC (tanh-Gaussian on the continuous action dims, Bernoulli on the binary ones). Takes precedence over --sac')
     parser.add_argument('--dummy',action='store_true', help='Use dummy agent (useful for testing and debugging environments)')
 
     parser.add_argument('--dump_checkpoints',action='store_true', help='Whether to dump model checkpoints during training')
@@ -303,11 +320,18 @@ if __name__ == "__main__":
     
     algo=None
     if not args.dummy:
-        if args.sac:
+        if args.hybrid_sac:
+            from aug_mpc.training_algs.sac.hybrid_sac import HybridSAC
+
+            algo = HybridSAC(env=env,
+                debug=args.db,
+                remote_db=args.rmdb,
+                seed=args.seed)
+        elif args.sac:
             from aug_mpc.training_algs.sac.sac import SAC
 
-            algo = SAC(env=env, 
-                debug=args.db, 
+            algo = SAC(env=env,
+                debug=args.db,
                 remote_db=args.rmdb,
                 seed=args.seed)
         else:

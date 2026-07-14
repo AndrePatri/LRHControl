@@ -206,6 +206,42 @@ class SoftActorCriticBase(ABC):
         self._overfit_idx=self._overfit_idx_alpha*overfit_now+\
             (1-self._overfit_idx_alpha)*self._overfit_idx
 
+    def _create_agent(self, **kwargs):
+        # overridable factory: kwargs are exactly SACAgent's constructor arguments, resolved in
+        # setup(). Derived algorithms (e.g. HybridSAC) swap the agent class here without
+        # duplicating the resolution logic.
+        # actor_init_std defaults to None -> the legacy log_std bias, i.e. an effective std of
+        # 0.0273 (see the Actor init_std comment). Pass a float to opt in to the corrected init.
+        init_std = self._hyperparameters.get("actor_init_std", None)
+        if init_std in ("", "auto", "legacy"):
+            init_std = None
+        return SACAgent(init_std=None if init_std is None else float(init_std), **kwargs)
+
+    def _policy_entropy_total(self, log_info):
+        # total policy entropy [B, 1] from the actor's log-info, whose layout is owned by the
+        # actor. The legacy Actor returns (log_prob_sum, log_prob_vec), whose entropy estimate is
+        # -log_prob_sum; HybridSAC overrides this
+        return -log_info[0]
+
+    # --- optional db series for derived algorithms. No-ops here; HybridSAC implements all three.
+
+    def _init_custom_dbdata(self):
+        # called at the end of _init_dbdata(): allocate any extra [_db_data_size, 1] series
+        pass
+
+    def _update_custom_dbdata(self, log_info, obs=None):
+        # called from the policy update, under _debug, with the last log_info of the iteration and
+        # the observation batch it was computed on
+        pass
+
+    def _dump_custom_dbdata(self, hf, _ds):
+        # called from _dump_dbinfo_to_file(); `_ds(name, tensor)` writes one series
+        pass
+
+    def _custom_db_info_str(self):
+        # extra lines for the periodic console report
+        return ""
+
     def setup(self,
             run_name: str,
             ns: str,
@@ -320,7 +356,7 @@ class SoftActorCriticBase(ABC):
         if "act_rescale_critic" in self._hyperparameters:
             act_rescale_critic=self._hyperparameters["act_rescale_critic"]
         if not self._override_agent_actions:
-            self._agent = SACAgent(obs_dim=self._env.obs_dim(),
+            self._agent = self._create_agent(obs_dim=self._env.obs_dim(),
                         obs_ub=self._env.get_obs_ub().flatten().tolist(),
                         obs_lb=self._env.get_obs_lb().flatten().tolist(),
                         actions_dim=self._env.actions_dim(),
@@ -417,7 +453,7 @@ class SoftActorCriticBase(ABC):
             with torch.no_grad():
                 init_obs = self._env.get_obs(clone=True)
                 _, init_log_pi, _ = self._agent.get_action(init_obs)
-                init_policy_entropy = (-init_log_pi[0]).mean().item()
+                init_policy_entropy = self._policy_entropy_total(init_log_pi).mean().item()
                 init_policy_entropy_per_action = init_policy_entropy / float(self._actions_dim)
             Journal.log(self.__class__.__name__,
                 "setup",
@@ -616,8 +652,38 @@ class SoftActorCriticBase(ABC):
         self._hyperparameters["anneal_entropy"] = self._anneal_entropy
 
         self._autotune = True
-        self._alpha_disc = 0.2 # initial values
-        self._alpha_cont = 0.2
+        # alpha learning rate. Historically the alpha optimizers reused lr_q; keep that as the
+        # default so existing runs are bit-identical, but allow overriding it (HybridSAC uses 3e-3).
+        self._lr_alpha = float(custom_args.get("lr_alpha", self._lr_q))
+        # multiplier in the alpha loss: exp(log_alpha) (legacy) vs log_alpha. The legacy form scales
+        # the alpha gradient by alpha itself, which lets alpha stall near zero. Default preserves it.
+        self._use_log_alpha_loss = bool(custom_args.get("use_log_alpha_loss", False))
+        # ANTI-WINDUP on the temperature.
+        #
+        # The alpha update is a pure integrator of the entropy error: dL/d log_alpha = +-(H - target),
+        # with no term that restores alpha itself. If the target is not reachable -- because the Q
+        # term pulls the policy away from it -- the error keeps its sign, and Adam (which normalizes
+        # the step, so a tiny error still moves log_alpha by ~lr) drives log_alpha linearly and
+        # therefore alpha EXPONENTIALLY. Once alpha is large the entropy term swamps -min_q in the
+        # actor loss and the policy stops optimizing reward altogether.
+        #
+        # Observed on Talos/hybrid: alpha_disc 0.94 -> 132.6 and alpha_cont 0.19 -> 15.0 over 11k
+        # updates, with the entropies sitting AT their targets, reward flat and tracking error
+        # degrading. Bounding log_alpha fixes it.
+        #
+        # Default None/None = unbounded = the historical behavior, so legacy runs are unchanged.
+        # The hazard exists there too; it is merely masked by easily-satisfied targets and a 6x
+        # slower alpha lr. HybridSAC turns the bounds on by default.
+        alpha_min = custom_args.get("alpha_min", None)
+        alpha_max = custom_args.get("alpha_max", None)
+        self._alpha_min = None if alpha_min in (None, "", "none") else float(alpha_min)
+        self._alpha_max = None if alpha_max in (None, "", "none") else float(alpha_max)
+        self._hyperparameters["lr_alpha"] = self._lr_alpha
+        self._hyperparameters["use_log_alpha_loss"] = self._use_log_alpha_loss
+        self._hyperparameters["alpha_min"] = self._alpha_min
+        self._hyperparameters["alpha_max"] = self._alpha_max
+        self._alpha_disc = float(custom_args.get("alpha_disc_init", 0.2)) # initial values
+        self._alpha_cont = float(custom_args.get("alpha_cont_init", 0.2))
         self._alpha = 0.5*(self._alpha_disc + self._alpha_cont)
         self._log_alpha_disc = math.log(self._alpha_disc)
         self._log_alpha_cont = math.log(self._alpha_cont)
@@ -1163,8 +1229,10 @@ class SoftActorCriticBase(ABC):
                     dtype=torch.float32, fill_value=torch.nan, device="cpu")
         self._policy_entropy_cont_max=torch.full((self._db_data_size, 1), 
                     dtype=torch.float32, fill_value=torch.nan, device="cpu")
-        self._policy_entropy_cont_min=torch.full((self._db_data_size, 1), 
+        self._policy_entropy_cont_min=torch.full((self._db_data_size, 1),
                     dtype=torch.float32, fill_value=torch.nan, device="cpu")
+
+        self._init_custom_dbdata() # derived algorithms may add their own db series
 
         self._running_mean_obs=None
         self._running_std_obs=None
@@ -1215,14 +1283,24 @@ class SoftActorCriticBase(ABC):
         self._actor_optimizer = optim.Adam(list(self._agent.actor.parameters()), 
                                 lr=self._lr_policy)
 
+    def _clamp_log_alphas(self):
+        """Bound log_alpha in place, after the temperature optimizer step. See _init_params."""
+        if self._alpha_min is None and self._alpha_max is None:
+            return
+        lo = math.log(self._alpha_min) if self._alpha_min is not None else -float("inf")
+        hi = math.log(self._alpha_max) if self._alpha_max is not None else float("inf")
+        with torch.no_grad():
+            self._log_alpha_disc.clamp_(lo, hi)
+            self._log_alpha_cont.clamp_(lo, hi)
+
     def _init_alpha_autotuning(self):
         self._log_alpha_disc = torch.full((1,), fill_value=math.log(self._alpha_disc), requires_grad=True, device=self._torch_device)
         self._log_alpha_cont = torch.full((1,), fill_value=math.log(self._alpha_cont), requires_grad=True, device=self._torch_device)
         self._alpha_disc = self._log_alpha_disc.exp().item()
         self._alpha_cont = self._log_alpha_cont.exp().item()
         self._alpha = 0.5*(self._alpha_disc + self._alpha_cont)
-        self._a_optimizer_disc = optim.Adam([self._log_alpha_disc], lr=self._lr_q)
-        self._a_optimizer_cont = optim.Adam([self._log_alpha_cont], lr=self._lr_q)
+        self._a_optimizer_disc = optim.Adam([self._log_alpha_disc], lr=self._lr_alpha)
+        self._a_optimizer_cont = optim.Adam([self._log_alpha_cont], lr=self._lr_alpha)
 
     def _init_replay_buffers(self):
         
@@ -1568,6 +1646,8 @@ class SoftActorCriticBase(ABC):
             hdf5_create_dataset(hf, 'target_entropy', data=self._target_entropy)
             hdf5_create_dataset(hf, 'target_entropy_disc', data=self._target_entropy_disc)
             hdf5_create_dataset(hf, 'target_entropy_cont', data=self._target_entropy_cont)
+
+            self._dump_custom_dbdata(hf, _ds) # derived algorithms may add their own db series
 
             if self._use_rnd:
                 _ds('n_rnd_updates', self._n_rnd_updates)
@@ -2134,6 +2214,7 @@ class SoftActorCriticBase(ABC):
                 f"Performance metric now: {self._demo_perf_metric[self._log_it_counter].item()}\n" + \
                 f"Entropy (disc): current {float(self._policy_entropy_disc_mean[self._log_it_counter, 0]):.4f}/{self._target_entropy_disc:.4f}\n" + \
                 f"Entropy (cont): current {float(self._policy_entropy_cont_mean[self._log_it_counter, 0]):.4f}/{self._target_entropy_cont:.4f}\n"
+            info = info + self._custom_db_info_str() # derived algorithms may add their own lines
             if self._use_rnd:
                 info = info + f"N. rnd updates performed: {self._n_rnd_updates[self._log_it_counter].item()}\n"
             

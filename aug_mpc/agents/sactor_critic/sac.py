@@ -37,9 +37,12 @@ class SACAgent(nn.Module):
             torch_compile: bool = False,
             add_weight_norm: bool = False,
             add_layer_norm: bool = False,
-            add_batch_norm: bool = False):
+            add_batch_norm: bool = False,
+            init_std: float = None):
 
         super().__init__()
+
+        self._init_std=init_std
 
         self._use_torch_compile=torch_compile
 
@@ -149,6 +152,23 @@ class SACAgent(nn.Module):
                                         debug=self._debug)
             self.obs_running_norm.type(self._torch_dtype) # ensuring correct dtype for whole module
 
+    def _create_actor(self):
+        # overridable factory: derived agents (e.g. HybridSACAgent) swap the actor without
+        # duplicating the critic construction below
+        return Actor(obs_dim=self._obs_dim,
+                    actions_dim=self._actions_dim,
+                    actions_ub=self._actions_ub,
+                    actions_lb=self._actions_lb,
+                    device=self._torch_device,
+                    dtype=self._torch_dtype,
+                    layer_width=self._layer_width_actor,
+                    n_hidden_layers=self._n_hidden_layers_actor,
+                    add_weight_norm=self._add_weight_norm,
+                    add_layer_norm=self._add_layer_norm,
+                    add_batch_norm=self._add_batch_norm,
+                    init_std=self._init_std,
+                    )
+
     def _build_nets(self):
 
         if self._add_weight_norm:
@@ -162,19 +182,8 @@ class SACAgent(nn.Module):
         self.qf2=None
         self.qf1_target=None
         self.qf2_target=None
-        
-        self.actor = Actor(obs_dim=self._obs_dim,
-                    actions_dim=self._actions_dim,
-                    actions_ub=self._actions_ub,
-                    actions_lb=self._actions_lb,
-                    device=self._torch_device,
-                    dtype=self._torch_dtype,
-                    layer_width=self._layer_width_actor,
-                    n_hidden_layers=self._n_hidden_layers_actor,
-                    add_weight_norm=self._add_weight_norm,
-                    add_layer_norm=self._add_layer_norm,
-                    add_batch_norm=self._add_batch_norm,
-                    )
+
+        self.actor = self._create_actor()
 
         if (not self._is_eval) or self._load_qf: # just needed for training or during eval
             # for debug, if enabled
@@ -460,18 +469,20 @@ class Actor(nn.Module):
         n_hidden_layers: int = 2,
         add_weight_norm: bool = False,
         add_layer_norm: bool = False,
-        add_batch_norm: bool = False):
-    
+        add_batch_norm: bool = False,
+        init_std: float = None):
+
         super().__init__()
 
         self._lrelu_slope=0.01
-        
+        self._init_std=init_std
+
         self._torch_device = device
         self._torch_dtype = dtype
 
         self._obs_dim = obs_dim
         self._actions_dim = actions_dim
-        
+
         self._first_hidden_layer_width=self._obs_dim # fist layer fully connected and of same dim
     
         # Action scale and bias
@@ -516,8 +527,35 @@ class Actor(nn.Module):
         self.LOG_STD_MAX = 2
         self.LOG_STD_MIN = -5
 
+        # bias of the log_std head.
+        #
+        # LEGACY DEFAULT (init_std=None): bias = log(0.5). This evidently intends std = 0.5, but
+        # forward() then squashes the raw head output:
+        #     log_std = MIN + 0.5*(MAX-MIN)*(tanh(raw)+1)
+        # so tanh(log 0.5) = -0.6 -> log_std = -3.6 -> the actor actually emits std = 0.0273, a
+        # near-deterministic policy (H_cont = -2.18 nats/dim against a target of +0.5). The default
+        # is kept as-is so existing runs and checkpoints reproduce exactly; pass init_std to opt in
+        # to the corrected behavior, which inverts the squash:
+        #     raw = atanh( 2*(log(init_std) - MIN)/(MAX - MIN) - 1 )
+        # Empirically the init washes out within ~40 policy updates (with an untrained critic the
+        # entropy term dominates and the policy runs to max entropy regardless), so this mostly
+        # matters for the early transient and for A/B parity against the hybrid actor.
+        if self._init_std is None:
+            self._logstd_bias = math.log(0.5)
+        else:
+            target_log_std = math.log(self._init_std)
+            if not (self.LOG_STD_MIN < target_log_std < self.LOG_STD_MAX):
+                Journal.log(self.__class__.__name__,
+                    "__init__",
+                    f"init_std={self._init_std} implies log_std={target_log_std:.3f}, outside the "
+                    f"squash range ({self.LOG_STD_MIN}, {self.LOG_STD_MAX})",
+                    LogType.EXCEP,
+                    throw_when_excep = True)
+            t = 2.0*(target_log_std-self.LOG_STD_MIN)/(self.LOG_STD_MAX-self.LOG_STD_MIN) - 1.0
+            self._logstd_bias = math.atanh(t)
+
         # Input layer followed by hidden layers
-        layers=llayer_init(nn.Linear(self._obs_dim, self._first_hidden_layer_width), 
+        layers=llayer_init(nn.Linear(self._obs_dim, self._first_hidden_layer_width),
                     init_type="kaiming_uniform",
                     nonlinearity="leaky_relu",
                     a_leaky_relu=self._lrelu_slope,
@@ -580,10 +618,10 @@ class Actor(nn.Module):
                         add_batch_norm=False
                         )
         self.fc_mean = nn.Sequential(*out_fc_mean)
-        out_fc_logstd= llayer_init(nn.Linear(layer_width, self._actions_dim), 
+        out_fc_logstd= llayer_init(nn.Linear(layer_width, self._actions_dim),
                         init_type="uniform",
                         uniform_biases=False,
-                        bias_const=math.log(0.5),
+                        bias_const=self._logstd_bias, # see the init_std comment above
                         scale_weight=1e-3, # scaling (output layer)
                         scale_bias=1.0,
                         device=self._torch_device, 
@@ -630,10 +668,44 @@ class Actor(nn.Module):
         mean = torch.tanh(mean) * self.action_scale + self.action_bias
         return action, (log_prob_sum, log_prob_vec), mean
     
+    def effective_binary_stats(self, x, binary_idxs):
+        """Bernoulli statistics that this all-Gaussian actor *induces* on the thresholded flag dims.
+
+        The environment turns a flag dim into a contact command by thresholding at step_thresh = 0:
+
+            flag_i = 1[a_i > 0],   a_i = tanh(x_i),   x_i ~ N(mu_i, sigma_i)
+
+        `tanh` is strictly monotone with tanh(0) = 0, so `a_i > 0` iff `x_i > 0` and therefore
+
+            p_i = P(flag_i = 1 | s) = P(x_i > 0) = Phi(mu_i / sigma_i)
+
+        i.e. the policy this actor induces over the MDP action is ALREADY Bernoulli -- it is just
+        parametrized through (mu, sigma) instead of a logit. This method recovers that Bernoulli so
+        the legacy agent can report the same `H_disc` / `binary_prob` / on-rate series as the hybrid
+        one, in the same units (nats, bounded by n_binary * log 2), on the same axis.
+
+        Without this, the legacy "discrete entropy" is the differential entropy of a continuous
+        relaxation and is simply not comparable to anything -- which is a large part of why the
+        defect this refactor addresses was hard to see in the first place.
+
+        Returns (p, entropy_vec), both [B, n_binary], or (None, None) if there are no binary dims.
+        """
+        if binary_idxs is None or binary_idxs.numel() == 0:
+            return None, None
+        with torch.no_grad():
+            mean, log_std = self(x)
+            idxs = binary_idxs.to(mean.device)
+            z = mean.index_select(1, idxs)/log_std.index_select(1, idxs).exp()
+            # Phi(z), the standard normal CDF
+            p = 0.5*(1.0+torch.erf(z/math.sqrt(2.0)))
+            p = p.clamp(1e-6, 1.0-1e-6) # keep the entropy finite at saturation
+            entropy_vec = -(p*p.log() + (1.0-p)*(1.0-p).log())
+        return p, entropy_vec
+
     def remove_scaling(self, a):
         return (a - self.action_bias)/self.action_scale
 
-if __name__ == "__main__":  
+if __name__ == "__main__":
     device = "cpu"  # or "cpu"
     import time
     obs_dim = 273
