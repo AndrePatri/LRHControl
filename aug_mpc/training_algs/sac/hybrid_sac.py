@@ -107,15 +107,23 @@ class HybridSAC(SAC):
         self._use_log_alpha_loss = bool(custom_args.get("use_log_alpha_loss", True))
         self._lr_alpha = float(custom_args.get("lr_alpha", 3e-3))
         self._disc_expl_flip_prob = float(custom_args.get("disc_expl_flip_prob", 0.25))
-        # anti-windup ON by default here (the base leaves it off to preserve legacy behavior).
-        # Without it, an unreachable entropy target makes alpha diverge exponentially and the
-        # entropy term swamps the Q term in the actor loss -- observed, see _clamp_log_alphas.
+        # alpha bounds (anti-windup), applied by _clamp_log_alphas after each temperature step.
+        #
+        # FLOOR: on by default (1e-4). Harmless; keeps alpha from collapsing to 0.
+        #
+        # CEILING: OFF by default (alpha_max stays None unless the config sets a number). It was
+        # originally added to contain the alpha divergence caused by the (since-fixed) UNREACHABLE
+        # positive continuous entropy target. With the target signs correct the entropy target is
+        # reachable, and alpha must be free to grow to the equilibrium that enforces it. Because the
+        # actor-loss Q term scales like 1/(1-gamma) (~100 at gamma=0.99) while the entropy term is
+        # O(alpha), that equilibrium is well above 1 -- a fixed ceiling of 1.0 silently starves the
+        # entropy target (observed: alpha_disc pinned at 1.0, H_disc stuck ~0.30 below target).
+        # Re-impose a ceiling only by setting alpha_max explicitly.
         if self._alpha_min is None:
-            self._alpha_min = float(custom_args.get("alpha_min", 1e-4) or 1e-4)
-        if self._alpha_max is None:
-            self._alpha_max = float(custom_args.get("alpha_max", 1.0) or 1.0)
+            am = custom_args.get("alpha_min", 1e-4)
+            self._alpha_min = 1e-4 if am in (None, "", "none") else float(am)
         self._hyperparameters["alpha_min"] = self._alpha_min
-        self._hyperparameters["alpha_max"] = self._alpha_max
+        self._hyperparameters["alpha_max"] = self._alpha_max  # None => no ceiling
 
         if self._disc_grad_mode not in ("st_gumbel", "exact"):
             Journal.log(self.__class__.__name__,
