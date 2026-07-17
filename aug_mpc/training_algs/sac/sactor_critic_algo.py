@@ -682,6 +682,31 @@ class SoftActorCriticBase(ABC):
         self._hyperparameters["use_log_alpha_loss"] = self._use_log_alpha_loss
         self._hyperparameters["alpha_min"] = self._alpha_min
         self._hyperparameters["alpha_max"] = self._alpha_max
+
+        # Q-NORMALIZATION for the actor loss. Decouples the entropy-vs-Q balance from the Q scale
+        # (which itself scales with reward magnitude and 1/(1-gamma)). Without it, the temperature
+        # alpha must scale with Q for the entropy term to matter, so alpha's equilibrium is a
+        # function of gamma/reward-scale -- and if an entropy target is only reachable at large
+        # alpha, the entropy bonus alpha*H feeds back into Q and both diverge (observed on the
+        # hybrid runs). With 'actor_rms' the actor-loss Q term is divided by a running RMS of Q, so
+        # a moderate O(1) alpha suffices and stays bounded.
+        #
+        #   none      : no normalization (default; legacy behavior, bit-identical).
+        #   actor_rms : divide min_q in the ACTOR loss (only) by an EMA of sqrt(mean(min_q^2)).
+        #               The critic keeps learning true Q; bounding alpha via the normalized actor
+        #               loss is what keeps the target-Q entropy bonus -- and hence Q -- bounded.
+        #   [future] popart : normalize the critic's targets themselves (running mean/std + output
+        #               layer rescale). Fully consistent but touches CriticQ; not implemented.
+        self._q_norm_mode = str(custom_args.get("q_norm_mode", "none"))
+        if self._q_norm_mode not in ("none", "actor_rms"):
+            Journal.log(self.__class__.__name__, "_init_params",
+                f"Unknown q_norm_mode '{self._q_norm_mode}'. Expected 'none' or 'actor_rms'.",
+                LogType.EXCEP, throw_when_excep=True)
+        self._q_norm_beta = float(custom_args.get("q_norm_beta", 5e-3))   # EMA rate of the scale
+        self._q_scale = 1.0            # running RMS of min_q (updated only during real policy steps)
+        self._q_scale_floor = 1e-3     # guard against divide-by-tiny early on
+        self._hyperparameters["q_norm_mode"] = self._q_norm_mode
+        self._hyperparameters["q_norm_beta"] = self._q_norm_beta
         self._alpha_disc = float(custom_args.get("alpha_disc_init", 0.2)) # initial values
         self._alpha_cont = float(custom_args.get("alpha_cont_init", 0.2))
         self._alpha = 0.5*(self._alpha_disc + self._alpha_cont)

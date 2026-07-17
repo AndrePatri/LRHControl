@@ -104,6 +104,22 @@ class HybridSAC(SAC):
 
         # gumbel_tau and actor_init_std were already resolved in _create_agent(), which runs first
         self._disc_grad_mode = str(custom_args.get("disc_grad_mode", "exact"))
+        # DISCRETE-BRANCH ENTROPY handling. The flag GATES the continuous swing params -- if a flag
+        # is not triggered its continuous dims have no effect on the transition -- so the flags are
+        # the exploration bottleneck, and coupling their entropy to alpha_disc drove the divergence
+        # seen on the hybrid runs (an unreachable Bernoulli target winds alpha_disc up, its entropy
+        # bonus inflates soft-Q, Q and alpha co-diverge).
+        #   off   : alpha_disc == 0. No discrete entropy in the objective; the discrete target is
+        #           effectively deterministic (MAP flags). Exploration on the flags comes ONLY from
+        #           the extrinsic flip envs (EXPL_ENVS_PERC / disc_expl_flip_prob), which is decoupled
+        #           from the actor's decisiveness. Default.
+        #   auto  : autotune alpha_disc toward target_H_disc_frac (max-entropy SAC on the flags).
+        #   fixed : hold alpha_disc at alpha_disc_init (constant weight, no autotuning).
+        self._disc_entropy_mode = str(custom_args.get("disc_entropy_mode", "off"))
+        if self._disc_entropy_mode not in ("off", "auto", "fixed"):
+            Journal.log(self.__class__.__name__, "_init_params",
+                f"Unknown disc_entropy_mode '{self._disc_entropy_mode}'. Expected 'off', 'auto' or 'fixed'.",
+                LogType.EXCEP, throw_when_excep=True)
         self._use_log_alpha_loss = bool(custom_args.get("use_log_alpha_loss", True))
         self._lr_alpha = float(custom_args.get("lr_alpha", 3e-3))
         self._disc_expl_flip_prob = float(custom_args.get("disc_expl_flip_prob", 0.25))
@@ -166,6 +182,8 @@ class HybridSAC(SAC):
 
         self._alpha_cont = float(custom_args.get("alpha_cont_init", 0.2))
         self._alpha_disc = float(custom_args.get("alpha_disc_init", 1.0))
+        if self._disc_entropy_mode == "off":
+            self._alpha_disc = 0.0   # the discrete entropy term is out of the objective entirely
         self._alpha = 0.5*(self._alpha_disc+self._alpha_cont)
 
         self._refresh_entropy_targets()
@@ -183,6 +201,7 @@ class HybridSAC(SAC):
 
         self._hyperparameters["gumbel_tau"] = self._gumbel_tau
         self._hyperparameters["disc_grad_mode"] = self._disc_grad_mode
+        self._hyperparameters["disc_entropy_mode"] = self._disc_entropy_mode
         self._hyperparameters["use_log_alpha_loss"] = self._use_log_alpha_loss
         self._hyperparameters["lr_alpha"] = self._lr_alpha
         self._hyperparameters["disc_expl_flip_prob"] = self._disc_expl_flip_prob
@@ -265,8 +284,27 @@ class HybridSAC(SAC):
         logp_cont = log_info["logp_cont"]
         entropy_disc = log_info["entropy_disc"]
         alpha_cont = self._alpha_tensor("cont", logp_cont)
-        alpha_disc = self._alpha_tensor("disc", logp_cont)
+        alpha_disc = self._alpha_disc_value(logp_cont)
         return alpha_cont*logp_cont - alpha_disc*entropy_disc
+
+    def _alpha_disc_value(self, ref_tensor):
+        """Effective discrete temperature used in the objective, per disc_entropy_mode.
+
+            off   -> 0            (discrete entropy term drops out of actor loss AND critic target)
+            fixed -> alpha_disc   (constant alpha_disc_init)
+            auto  -> exp(log_alpha_disc), detached (autotuned; falls back to the scalar if autotune
+                     is globally off)
+
+        Returned as a tensor on ref_tensor's device/dtype so it broadcasts against entropy_disc.
+        """
+        if self._disc_entropy_mode == "off":
+            return ref_tensor.new_zeros(())
+        if self._disc_entropy_mode == "fixed":
+            return ref_tensor.new_tensor(self._alpha_disc)
+        # auto
+        if self._autotune:
+            return self._log_alpha_disc.exp().detach()
+        return ref_tensor.new_tensor(self._alpha_disc)
 
     def _alpha_losses(self, log_info):
         """(alpha_loss_disc, alpha_loss_cont). Overrides `SAC._alpha_losses`.
@@ -288,16 +326,30 @@ class HybridSAC(SAC):
         if not self._autotune:
             return None, None
         h_cont = (-log_info["logp_cont"]).detach()
-        h_disc = log_info["entropy_disc"].detach()
-        if self._use_log_alpha_loss:
-            mult_disc = self._log_alpha_disc
-            mult_cont = self._log_alpha_cont
-        else:
-            mult_disc = self._log_alpha_disc.exp()
-            mult_cont = self._log_alpha_cont.exp()
-        alpha_loss_disc = (mult_disc*(h_disc-self._target_H_disc)).mean()
+        mult_cont = self._log_alpha_cont if self._use_log_alpha_loss else self._log_alpha_cont.exp()
         alpha_loss_cont = (mult_cont*(h_cont-self._target_H_cont)).mean()
+        # alpha_disc is autotuned only in 'auto' mode; 'off'/'fixed' leave log_alpha_disc frozen
+        # (the base update loop skips the disc optimizer step when this is None).
+        if self._disc_entropy_mode == "auto":
+            h_disc = log_info["entropy_disc"].detach()
+            mult_disc = self._log_alpha_disc if self._use_log_alpha_loss else self._log_alpha_disc.exp()
+            alpha_loss_disc = (mult_disc*(h_disc-self._target_H_disc)).mean()
+        else:
+            alpha_loss_disc = None
         return alpha_loss_disc, alpha_loss_cont
+
+    def _sync_alpha_scalars(self):
+        """Overrides `SAC._sync_alpha_scalars` to report alpha_disc per disc_entropy_mode:
+        0 when 'off', the frozen constant when 'fixed', exp(log_alpha_disc) when 'auto'. alpha_cont
+        always tracks its log-temperature. Keeps telemetry consistent with the effective objective.
+        """
+        self._alpha_cont = self._log_alpha_cont.exp().item()
+        if self._disc_entropy_mode == "off":
+            self._alpha_disc = 0.0
+        elif self._disc_entropy_mode == "auto":
+            self._alpha_disc = self._log_alpha_disc.exp().item()
+        # 'fixed': leave self._alpha_disc at its init value
+        self._alpha = 0.5*(self._alpha_disc + self._alpha_cont)
 
     def _policy_entropies(self, log_info):
         """(H_total, H_disc, H_cont), each [B, 1]. Overrides `SAC._policy_entropies`.

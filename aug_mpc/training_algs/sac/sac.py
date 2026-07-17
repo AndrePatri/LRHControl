@@ -58,6 +58,17 @@ class SAC(SoftActorCriticBase):
         value = self._alpha_disc if which == "disc" else self._alpha_cont
         return ref_tensor.new_tensor(value)
 
+    def _sync_alpha_scalars(self):
+        """Refresh the scalar temperatures from the log-temperatures after an autotune step.
+
+        Extracted so subclasses can honour a per-branch policy: HybridSAC overrides this to report
+        alpha_disc as 0 (disc_entropy_mode='off') or a frozen constant ('fixed') instead of
+        exp(log_alpha_disc). The scalars feed telemetry and the non-autotune path of _alpha_tensor.
+        """
+        self._alpha_disc = self._log_alpha_disc.exp().item()
+        self._alpha_cont = self._log_alpha_cont.exp().item()
+        self._alpha = 0.5*(self._alpha_disc + self._alpha_cont)
+
     # --- hooks consumed by the soft policy iteration below. Derived algorithms (HybridSAC)
     # --- override these three and inherit the update logic unchanged.
 
@@ -117,6 +128,29 @@ class SAC(SoftActorCriticBase):
         """min(Q1_target, Q2_target) at the sampled next action, [B, 1]."""
         return torch.min(self._agent.get_qf1t_val(next_obs, next_action),
                         self._agent.get_qf2t_val(next_obs, next_action))
+
+    def _q_normalize(self, min_q, update: bool):
+        """Optionally rescale the actor-loss Q term by a running RMS of Q (mode 'actor_rms').
+
+        Returns min_q unchanged when q_norm_mode == 'none'. Otherwise divides by self._q_scale, an
+        EMA of sqrt(mean(min_q^2)):
+
+            q_scale <- (1 - beta) * q_scale + beta * rms(min_q.detach())        (only if update)
+            min_q   <- min_q / max(q_scale, floor)
+
+        Applied ONLY to the actor loss, and only min_q is detached for the EMA so the gradient into
+        the policy is 1/q_scale * dQ/da (a constant rescale, no gradient through the statistic). The
+        CRITIC target (_min_q_target) is deliberately NOT normalized: the critic must keep learning
+        the true-scale Q; it is the actor/alpha balance that we want scale-free. update=False on the
+        validation pass so evaluation never moves the statistic.
+        """
+        if self._q_norm_mode == "none":
+            return min_q
+        # 'actor_rms'
+        if update:
+            rms = torch.sqrt(torch.mean(min_q.detach() ** 2)).item()
+            self._q_scale = (1.0 - self._q_norm_beta) * self._q_scale + self._q_norm_beta * rms
+        return min_q / max(self._q_scale, self._q_scale_floor)
 
     # --- effective-Bernoulli telemetry ------------------------------------------------------
     # The flag dims of this all-Gaussian actor induce a Bernoulli policy over the MDP action:
@@ -386,7 +420,7 @@ class SAC(SoftActorCriticBase):
                 alpha_loss_cont_val = None
                 for i in range(self._policy_freq): # compensate for the delay by doing 'actor_update_interval' instead of 1
                     pi, log_info, _ = self._agent.get_action(obs)
-                    min_qf_pi = self._min_q_actor(obs, pi, log_info)
+                    min_qf_pi = self._q_normalize(self._min_q_actor(obs, pi, log_info), update=True)
                     actor_loss = (self._entropy_penalty(log_info) - min_qf_pi).mean()
                     self._actor_optimizer.zero_grad()
                     actor_loss.backward()
@@ -395,18 +429,20 @@ class SAC(SoftActorCriticBase):
                         with torch.no_grad(): # resample after the actor step, as the legacy code does
                             _, log_info, _ = self._agent.get_action(obs)
                         alpha_loss_disc, alpha_loss_cont = self._alpha_losses(log_info)
-                        self._a_optimizer_disc.zero_grad()
-                        alpha_loss_disc.backward()
-                        self._a_optimizer_disc.step()
-                        self._a_optimizer_cont.zero_grad()
-                        alpha_loss_cont.backward()
-                        self._a_optimizer_cont.step()
+                        # Either branch may be None: a subclass can freeze one temperature (e.g.
+                        # HybridSAC's disc_entropy_mode in {off, fixed} does not autotune alpha_disc).
+                        if alpha_loss_disc is not None:
+                            self._a_optimizer_disc.zero_grad()
+                            alpha_loss_disc.backward()
+                            self._a_optimizer_disc.step()
+                        if alpha_loss_cont is not None:
+                            self._a_optimizer_cont.zero_grad()
+                            alpha_loss_cont.backward()
+                            self._a_optimizer_cont.step()
                         self._clamp_log_alphas() # anti-windup; no-op unless alpha_min/max are set
-                        alpha_loss_disc_val = alpha_loss_disc.item()
-                        alpha_loss_cont_val = alpha_loss_cont.item()
-                        self._alpha_disc = self._log_alpha_disc.exp().item()
-                        self._alpha_cont = self._log_alpha_cont.exp().item()
-                        self._alpha = 0.5*(self._alpha_disc + self._alpha_cont)
+                        alpha_loss_disc_val = None if alpha_loss_disc is None else alpha_loss_disc.item()
+                        alpha_loss_cont_val = None if alpha_loss_cont is None else alpha_loss_cont.item()
+                        self._sync_alpha_scalars()
                     self._n_policy_updates[self._log_it_counter]+=1
                 
                 if self._debug:
@@ -503,7 +539,7 @@ class SAC(SoftActorCriticBase):
 
                 # actor loss
                 pi, log_info, _ = self._agent.get_action(obs)
-                min_qf_pi = self._min_q_actor(obs, pi, log_info)
+                min_qf_pi = self._q_normalize(self._min_q_actor(obs, pi, log_info), update=False)
                 actor_loss_eval = (self._entropy_penalty(log_info) - min_qf_pi).mean()
 
                 # write db data
@@ -512,9 +548,14 @@ class SAC(SoftActorCriticBase):
                 self._actor_loss_validation[self._log_it_counter, 0] = actor_loss_eval.item()
                 if self._autotune: # also compute alpha loss
                     alpha_loss_disc_eval, alpha_loss_cont_eval = self._alpha_losses(log_info)
-                    self._alpha_loss_validation[self._log_it_counter, 0] = 0.5*(alpha_loss_disc_eval.item()+alpha_loss_cont_eval.item())
-                    self._alpha_loss_disc_validation[self._log_it_counter, 0] = alpha_loss_disc_eval.item()
-                    self._alpha_loss_cont_validation[self._log_it_counter, 0] = alpha_loss_cont_eval.item()
+                    # either branch may be None if a subclass freezes that temperature
+                    d_eval = None if alpha_loss_disc_eval is None else alpha_loss_disc_eval.item()
+                    c_eval = None if alpha_loss_cont_eval is None else alpha_loss_cont_eval.item()
+                    self._alpha_loss_validation[self._log_it_counter, 0] = 0.5*((d_eval or 0.0)+(c_eval or 0.0))
+                    if d_eval is not None:
+                        self._alpha_loss_disc_validation[self._log_it_counter, 0] = d_eval
+                    if c_eval is not None:
+                        self._alpha_loss_cont_validation[self._log_it_counter, 0] = c_eval
                 
                 # compute an index of overfit to training data
                 self._update_overfit_idx(loss=(self._qf1_loss[self._log_it_counter, 0]+self._qf2_loss[self._log_it_counter, 0])/2.0, 
