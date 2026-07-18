@@ -181,9 +181,11 @@ class HybridSAC(SAC):
                                                 self._target_H_disc_frac))
 
         self._alpha_cont = float(custom_args.get("alpha_cont_init", 0.2))
+        # Keep a POSITIVE init even in 'off' mode: _init_alpha_autotuning seeds log_alpha_disc =
+        # log(alpha_disc), so 0.0 here would be log(0). The 'off' semantics (effective alpha_disc==0)
+        # are enforced by _alpha_disc_value (objective) and _sync_alpha_scalars (reported scalar);
+        # _init_alpha_autotuning zeroes the reported scalar once the log-temperature is seeded.
         self._alpha_disc = float(custom_args.get("alpha_disc_init", 1.0))
-        if self._disc_entropy_mode == "off":
-            self._alpha_disc = 0.0   # the discrete entropy term is out of the objective entirely
         self._alpha = 0.5*(self._alpha_disc+self._alpha_cont)
 
         self._refresh_entropy_targets()
@@ -337,6 +339,17 @@ class HybridSAC(SAC):
         else:
             alpha_loss_disc = None
         return alpha_loss_disc, alpha_loss_cont
+
+    def _init_alpha_autotuning(self):
+        """Seed the log-temperatures (base), then apply the disc_entropy_mode reporting convention.
+
+        The base seeds log_alpha_disc = log(alpha_disc) and sets self._alpha_disc =
+        exp(log_alpha_disc); we then overwrite the REPORTED scalar to 0 in 'off' mode so telemetry
+        is correct from the very first iteration (the log-temperature itself stays seeded but is
+        never stepped, since _alpha_losses returns None for the disc branch here).
+        """
+        SAC._init_alpha_autotuning(self)
+        self._sync_alpha_scalars()
 
     def _sync_alpha_scalars(self):
         """Overrides `SAC._sync_alpha_scalars` to report alpha_disc per disc_entropy_mode:
